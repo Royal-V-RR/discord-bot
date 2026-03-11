@@ -22,4 +22,4 @@ jobs:
         run: npm install
 
       - name: Start bot
-        run: node index.js
+        run: node index.cjs
