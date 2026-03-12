@@ -161,7 +161,7 @@ client.on("interactionCreate", async interaction => {
     }
     else if (commandName === "sus") {
       const target = interaction.options.getUser("user");
-      await interaction.reply(<@${target.id}> is **${random(0,100)}% sus**);
+      await interaction.reply(`<@${target.id}> is **${random(0,100)}% sus**`);
     }
     else if (commandName === "ship") {
       const u1 = interaction.options.getUser("user1");
