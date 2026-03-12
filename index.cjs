@@ -71,10 +71,12 @@ function buildCommands() {
       options: [
         { name: "user", description: "User", type: 6, required: true },
         { name: "message", description: "Message", type: 3, required: true }
-      ] },
+      ]
+    },
 
     { name: "leaveserver", description: "Owner leave server",
-      options: [{ name: "server", description: "Server", type: 3, required: true, choices: getServerChoices() }] },
+      options: [{ name: "server", description: "Server", type: 3, required: true, choices: getServerChoices() }]
+    },
 
     { name: "restart", description: "Owner restart bot" },
     { name: "botstats", description: "Owner bot stats" },
@@ -84,8 +86,8 @@ function buildCommands() {
         { name: "text", description: "Status text", type: 3, required: true },
         { name: "type", description: "Status type", type: 3, required: false,
           choices: [
-            { name: "Playing", value: "PLAYING" },
-            { name: "Watching", value: "WATCHING" },
+            { name: "Playing",   value: "PLAYING"   },
+            { name: "Watching",  value: "WATCHING"  },
             { name: "Listening", value: "LISTENING" },
             { name: "Competing", value: "COMPETING" }
           ]
@@ -140,7 +142,9 @@ client.on("interactionCreate", async interaction => {
 
   try {
 
-    if (cmd === "ping") return interaction.reply("Pong");
+    if (cmd === "ping") {
+      return interaction.reply("Pong");
+    }
 
     if (cmd === "avatar") {
       const u = interaction.options.getUser("user");
@@ -153,12 +157,35 @@ client.on("interactionCreate", async interaction => {
       return interaction.channel.send(message);
     }
 
-    if (cmd === "punch") return interaction.reply(`<@${interaction.user.id}> punched <@${interaction.options.getUser("user").id}>`);
-    if (cmd === "hug")   return interaction.reply(`<@${interaction.user.id}> hugged <@${interaction.options.getUser("user").id}>`);
-    if (cmd === "kiss")  return interaction.reply(`<@${interaction.user.id}> kissed <@${interaction.options.getUser("user").id}>`);
-    if (cmd === "slap")  return interaction.reply(`<@${interaction.user.id}> slapped <@${interaction.options.getUser("user").id}>`);
-    if (cmd === "diddle") return interaction.reply(`<@${interaction.options.getUser("user").id}> was diddled`);
-    if (cmd === "oil")   return interaction.reply(`<@${interaction.user.id}> oiled up <@${interaction.options.getUser("user").id}>`);
+    if (cmd === "punch") {
+      const u = interaction.options.getUser("user");
+      return interaction.reply(`<@${interaction.user.id}> punched <@${u.id}>`);
+    }
+
+    if (cmd === "hug") {
+      const u = interaction.options.getUser("user");
+      return interaction.reply(`<@${interaction.user.id}> hugged <@${u.id}>`);
+    }
+
+    if (cmd === "kiss") {
+      const u = interaction.options.getUser("user");
+      return interaction.reply(`<@${interaction.user.id}> kissed <@${u.id}>`);
+    }
+
+    if (cmd === "slap") {
+      const u = interaction.options.getUser("user");
+      return interaction.reply(`<@${interaction.user.id}> slapped <@${u.id}>`);
+    }
+
+    if (cmd === "diddle") {
+      const u = interaction.options.getUser("user");
+      return interaction.reply(`<@${u.id}> was diddled`);
+    }
+
+    if (cmd === "oil") {
+      const u = interaction.options.getUser("user");
+      return interaction.reply(`<@${interaction.user.id}> oiled up <@${u.id}>`);
+    }
 
     if (cmd === "ppsize") {
       const u = interaction.options.getUser("user");
@@ -186,6 +213,9 @@ client.on("interactionCreate", async interaction => {
     }
 
     if (cmd === "servers") {
+      // Defer immediately so Discord doesn't time out while we fetch invites
+      await interaction.deferReply({ ephemeral: true });
+
       let text = "";
       for (const g of client.guilds.cache.values()) {
         try {
@@ -202,12 +232,17 @@ client.on("interactionCreate", async interaction => {
         } catch {
           text += `${g.name} — error\n`;
         }
-        if (text.length > 1800) break;
+        if (text.length > 1800) {
+          text += `…and more`;
+          break;
+        }
       }
-      return interaction.reply({ content: text || "No servers", ephemeral: true });
+      return interaction.editReply({ content: text || "No servers" });
     }
 
     if (cmd === "botstats") {
+      await interaction.deferReply({ ephemeral: true });
+
       let totalUsers = 0;
       let serverList = "";
       for (const g of client.guilds.cache.values()) {
@@ -218,16 +253,18 @@ client.on("interactionCreate", async interaction => {
           break;
         }
       }
+
       const stats =
         `**Bot Stats**\n` +
         `Servers: ${client.guilds.cache.size.toLocaleString()}\n` +
         `Total Users: ${totalUsers.toLocaleString()}\n\n` +
         `**Server List:**\n${serverList}`;
-      return interaction.reply({ content: stats, ephemeral: true });
+
+      return interaction.editReply({ content: stats });
     }
 
     if (cmd === "dmuser") {
-      const user = interaction.options.getUser("user");
+      const user    = interaction.options.getUser("user");
       const message = interaction.options.getString("message");
       try {
         await user.send(message);
@@ -239,14 +276,15 @@ client.on("interactionCreate", async interaction => {
 
     if (cmd === "leaveserver") {
       const serverId = interaction.options.getString("server");
-      const guild = client.guilds.cache.get(serverId);
+      const guild    = client.guilds.cache.get(serverId);
       if (!guild) return interaction.reply({ content: "Server not found", ephemeral: true });
+      const name = guild.name;
       await guild.leave();
-      return interaction.reply({ content: `Left ${guild.name}`, ephemeral: true });
+      return interaction.reply({ content: `Left ${name}`, ephemeral: true });
     }
 
     if (cmd === "restart") {
-      await interaction.reply("Restarting");
+      await interaction.reply({ content: "Restarting", ephemeral: true });
       process.exit(0);
     }
 
@@ -254,13 +292,21 @@ client.on("interactionCreate", async interaction => {
       const text = interaction.options.getString("text");
       const type = interaction.options.getString("type") || "PLAYING";
       client.user.setActivity(text, { type });
-      return interaction.reply({ content: `Status set to ${type} ${text}`, ephemeral: true });
+      return interaction.reply({ content: `Status set to ${type}: ${text}`, ephemeral: true });
     }
 
   } catch (err) {
     console.error(err);
-    if (!interaction.replied)
-      interaction.reply({ content: "Error running command", ephemeral: true });
+    try {
+      // Use editReply if we already deferred, otherwise reply
+      if (interaction.deferred) {
+        await interaction.editReply({ content: "Error running command" });
+      } else if (!interaction.replied) {
+        await interaction.reply({ content: "Error running command", ephemeral: true });
+      }
+    } catch {
+      // Interaction already expired, nothing we can do
+    }
   }
 });
 
