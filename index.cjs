@@ -143,7 +143,7 @@ client.on("interactionCreate", async interaction => {
     }
     else if (commandName === "slap") {
       const target = interaction.options.getUser("user");
-      await interaction.reply(🖐️ <@${user.id}> slapped <@${target.id}>);
+      await interaction.reply(`🖐️ <@${user.id}> slapped <@${target.id}>`);
     }
     else if (commandName === "ppsize") {
       const target = interaction.options.getUser("user");
