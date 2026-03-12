@@ -128,7 +128,7 @@ client.on("interactionCreate", async interaction => {
     if (commandName === "ping") await interaction.reply("Pong");
     else if (commandName === "echo") await interaction.reply(interaction.options.getString("message"));
     else if (commandName === "coinflip") await interaction.reply(Math.random()<0.5?"Heads":"Tails");
-    else if (commandName === "roll") await interaction.reply(Rolled **${random(1,100)}**);
+    else if (commandName === "roll") await interaction.reply(`Rolled **${random(1,100)}**`);
     else if (commandName === "punch") {
       const target = interaction.options.getUser("user");
       await interaction.reply(👊 <@${user.id}> punched <@${target.id}>);
