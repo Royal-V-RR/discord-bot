@@ -139,7 +139,7 @@ client.on("interactionCreate", async interaction => {
     }
     else if (commandName === "hug") {
       const target = interaction.options.getUser("user");
-      await interaction.reply(🤗 <@${user.id}> hugged <@${target.id}>);
+      await interaction.reply(`🤗 <@${user.id}> hugged <@${target.id}>`);
     }
     else if (commandName === "slap") {
       const target = interaction.options.getUser("user");
