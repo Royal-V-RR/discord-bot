@@ -52,7 +52,7 @@ function registerCommands() {
     path: `/api/v10/applications/${CLIENT_ID}/commands`,
     method: 'PUT',
     headers: {
-      'Authorization': Bot ${TOKEN},
+      'Authorization': `Bot ${TOKEN}`,
       'Content-Type': 'application/json',
       'Content-Length': Buffer.byteLength(data)
     }
