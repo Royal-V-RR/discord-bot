@@ -173,7 +173,7 @@ client.on("interactionCreate", async interaction => {
       await interaction.reply(`🎱 Question: ${question}\nAnswer: **${eightBall[random(0,eightBall.length-1)]}**`);
     }
     else if (commandName === "invite") {
-      await interaction.reply(https://discord.com/oauth2/authorize?client_id=${CLIENT_ID}&permissions=8&scope=bot);
+      await interaction.reply(`https://discord.com/oauth2/authorize?client_id=${CLIENT_ID}&permissions=8&scope=bot`);
     }
 
     // Owner-only commands
