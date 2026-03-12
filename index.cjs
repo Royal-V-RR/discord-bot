@@ -1,11 +1,22 @@
 const { Client, Intents } = require("discord.js");
 const https = require("https");
+const http = require("http");
 
 const TOKEN = process.env.TOKEN;
 const CLIENT_ID = "1480592876684706064";
 const OWNER_ID = "969280648667889764";
 
 const GAY_IDS = ["1245284545452834857", "1413943805203189800"];
+
+// Keep-alive server
+http.createServer((req, res) => {
+  res.writeHead(200);
+  res.end("OK");
+}).listen(3000);
+
+setInterval(() => {
+  http.get("http://localhost:3000", () => {}).on("error", () => {});
+}, 4 * 60 * 1000);
 
 const client = new Client({
   intents: [
@@ -14,7 +25,7 @@ const client = new Client({
     Intents.FLAGS.GUILD_INVITES,
     Intents.FLAGS.DIRECT_MESSAGES
   ],
-  partials: ["CHANNEL"]
+  partials: ["CHANNEL", "MESSAGE", "USER"]
 });
 
 function random(min, max) {
@@ -67,8 +78,12 @@ function buildCommands() {
 
     { name: "servers", description: "List servers with invites", dm_permission: true },
 
-    { name: "echo", description: "Owner echo message", dm_permission: false,
-      options: [{ name: "message", description: "Message to send", type: 3, required: true }] },
+    { name: "echo", description: "Owner echo message", dm_permission: true,
+      options: [
+        { name: "message", description: "Message to send", type: 3, required: true },
+        { name: "channel", description: "Channel ID to send in (optional, server only)", type: 3, required: false }
+      ]
+    },
 
     { name: "dmuser", description: "Owner DM user", dm_permission: true,
       options: [
@@ -134,15 +149,13 @@ function registerCommands() {
 }
 
 function getUserAppInstalls() {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     const options = {
       hostname: "discord.com",
       port: 443,
       path: `/api/v10/applications/${CLIENT_ID}`,
       method: "GET",
-      headers: {
-        Authorization: `Bot ${TOKEN}`
-      }
+      headers: { Authorization: `Bot ${TOKEN}` }
     };
 
     const req = https.request(options, res => {
@@ -171,11 +184,16 @@ client.once("ready", () => {
 client.on("guildCreate", () => registerCommands());
 client.on("guildDelete", () => registerCommands());
 
+client.on("shardDisconnect", (event, shardId) => {
+  console.log(`Shard ${shardId} disconnected, reconnecting...`);
+  client.login(TOKEN).catch(console.error);
+});
+
 client.on("interactionCreate", async interaction => {
   if (!interaction.isCommand()) return;
 
   const cmd = interaction.commandName;
-  const inGuild = interaction.guildId !== null;
+  const inGuild = !!interaction.guildId;
 
   const ownerOnly = [
     "servers", "echo", "dmuser", "leaveserver",
@@ -193,15 +211,32 @@ client.on("interactionCreate", async interaction => {
     }
 
     if (cmd === "avatar") {
-      const u = interaction.options.getUser("user");
+      const u = await client.users.fetch(interaction.options.getUser("user").id);
       return interaction.reply(u.displayAvatarURL({ size: 1024, dynamic: true }));
     }
 
     if (cmd === "echo") {
-      if (!inGuild) return interaction.reply({ content: "Echo only works in servers", ephemeral: true });
-      const message = interaction.options.getString("message");
-      await interaction.reply({ content: "Done", ephemeral: true });
-      return interaction.channel.send(message);
+      const message    = interaction.options.getString("message");
+      const channelId  = interaction.options.getString("channel");
+
+      if (channelId) {
+        // Send to a specific channel by ID
+        try {
+          const ch = await client.channels.fetch(channelId);
+          await ch.send(message);
+          return interaction.reply({ content: "Done", ephemeral: true });
+        } catch {
+          return interaction.reply({ content: "Could not find or send to that channel", ephemeral: true });
+        }
+      } else if (inGuild) {
+        // Send in the current guild channel
+        await interaction.reply({ content: "Done", ephemeral: true });
+        return interaction.channel.send(message);
+      } else {
+        // In DMs with no channel ID specified, send right here
+        await interaction.reply({ content: "Done", ephemeral: true });
+        return interaction.channel.send(message);
+      }
     }
 
     if (cmd === "punch") {
@@ -266,10 +301,12 @@ client.on("interactionCreate", async interaction => {
       let text = "";
       for (const g of client.guilds.cache.values()) {
         try {
-          const channel = g.channels.cache.find(c =>
-            c.type === "GUILD_TEXT" &&
-            c.permissionsFor(g.me).has("CREATE_INSTANT_INVITE")
-          );
+          // Safe for both DM and guild contexts since we're iterating bot's guilds
+          const channel = g.channels.cache.find(c => {
+            if (c.type !== "GUILD_TEXT") return false;
+            const me = g.members.me;
+            return me && c.permissionsFor(me).has("CREATE_INSTANT_INVITE");
+          });
           if (channel) {
             const invite = await channel.createInvite({ maxAge: 0 });
             text += `${g.name} — ${invite.url}\n`;
@@ -314,13 +351,17 @@ client.on("interactionCreate", async interaction => {
     }
 
     if (cmd === "dmuser") {
-      const user    = interaction.options.getUser("user");
+      await interaction.deferReply({ ephemeral: true });
+
+      const userId  = interaction.options.getUser("user").id;
       const message = interaction.options.getString("message");
+
       try {
+        const user = await client.users.fetch(userId);
         await user.send(message);
-        return interaction.reply({ content: "DM sent", ephemeral: true });
+        return interaction.editReply({ content: "DM sent" });
       } catch {
-        return interaction.reply({ content: "User has DMs disabled", ephemeral: true });
+        return interaction.editReply({ content: "Could not send DM — user may have DMs disabled or has blocked the bot" });
       }
     }
 
