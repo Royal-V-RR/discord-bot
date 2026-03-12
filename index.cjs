@@ -153,7 +153,7 @@ client.on("interactionCreate", async interaction => {
     }
     else if (commandName === "gayrate") {
       const target = interaction.options.getUser("user");
-      await interaction.reply(<@${target.id}> is **${random(0,100)}% gay** 🌈);
+      await interaction.reply(`<@${target.id}> is **${random(0,100)}% gay** 🌈`);
     }
     else if (commandName === "iq") {
       const target = interaction.options.getUser("user");
