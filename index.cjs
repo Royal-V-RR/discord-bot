@@ -149,7 +149,7 @@ client.on("interactionCreate", async interaction => {
       const target = interaction.options.getUser("user");
       const size = random(3,30);
       let pp = "8" + "=".repeat(size) + "D";
-      await interaction.reply(<@${target.id}> size:\n${pp});
+      await interaction.reply(`<@${target.id}> size:\n${pp}`);
     }
     else if (commandName === "gayrate") {
       const target = interaction.options.getUser("user");
