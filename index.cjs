@@ -86,16 +86,16 @@ async function registerCommands(){
 
 const data = JSON.stringify(commands);
 
-const options={
-hostname:'discord.com',
-port:443,
-path:/api/v10/applications/${CLIENT_ID}/commands,
-method:'PUT',
-headers:{
-'Authorization':Bot ${TOKEN},
-'Content-Type':'application/json',
-'Content-Length':Buffer.byteLength(data)
-}
+const options = {
+  hostname: 'discord.com',
+  port: 443,
+  path: /api/v10/applications/${CLIENT_ID}/commands,
+  method: 'PUT',
+  headers: {
+    'Authorization': Bot ${TOKEN},
+    'Content-Type': 'application/json',
+    'Content-Length': Buffer.byteLength(data)
+  }
 };
 
 const req=https.request(options,res=>{
