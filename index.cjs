@@ -166,7 +166,7 @@ client.on("interactionCreate", async interaction => {
     else if (commandName === "ship") {
       const u1 = interaction.options.getUser("user1");
       const u2 = interaction.options.getUser("user2");
-      await interaction.reply(❤️ **${u1.username} + ${u2.username}** Compatibility: **${random(0,100)}%**);
+      await interaction.reply(`❤️ **${u1.username} + ${u2.username}** Compatibility: **${random(0,100)}%**`);
     }
     else if (commandName === "8ball") {
       const question = interaction.options.getString("question");
