@@ -75,7 +75,10 @@ path:`/api/v10/applications/${CLIENT_ID}/commands`,
 method:`PUT`,
 headers:{
 Authorization:`Bot ${TOKEN}`,
-`Content-Type`:`application/json`,
+headers: {
+  "Content-Type": "application/json",
+  "Authorization": `Bot ${TOKEN}`
+}
 `Content-Length`:Buffer.byteLength(data)
 }
 };
