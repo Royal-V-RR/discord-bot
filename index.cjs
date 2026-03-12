@@ -178,7 +178,7 @@ client.on("interactionCreate", async interaction => {
 
     // Owner-only commands
     else if (commandName === "servers") {
-      const list = client.guilds.cache.map(g => ${g.name} (${g.memberCount})).join("\n") || "No servers.";
+      const list = client.guilds.cache.map(g => `${g.name} (${g.memberCount})`).join("\n") || "No servers.";
       await interaction.reply({ content: list, ephemeral: true });
     }
     else if (commandName === "leaveall") {
