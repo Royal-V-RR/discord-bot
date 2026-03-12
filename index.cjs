@@ -254,11 +254,6 @@ client.on("interactionCreate", async interaction => {
     }
 
     if (commandName === "debugserver") {
-      if (user.id !== OWNER_ID) {
-        await interaction.reply({ content: "You cannot use this command.", ephemeral: true });
-        return;
-      }
-
       const guildId = interaction.options.getString("server");
       const guild = client.guilds.cache.get(guildId);
 
