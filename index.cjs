@@ -157,7 +157,7 @@ client.on("interactionCreate", async interaction => {
     }
     else if (commandName === "iq") {
       const target = interaction.options.getUser("user");
-      await interaction.reply(<@${target.id}> IQ: **${random(60,180)}**);
+      await interaction.reply(`<@${target.id}> IQ: **${random(60,180)}**`);
     }
     else if (commandName === "sus") {
       const target = interaction.options.getUser("user");
