@@ -5,6 +5,8 @@ const TOKEN = process.env.TOKEN;
 const CLIENT_ID = "1480592876684706064";
 const OWNER_ID = "969280648667889764";
 
+const GAY_IDS = ["1245284545452834857", "1413943805203189800"];
+
 const client = new Client({
   intents: [
     Intents.FLAGS.GUILDS,
@@ -131,6 +133,36 @@ function registerCommands() {
   req.end();
 }
 
+function getUserAppInstalls() {
+  return new Promise((resolve, reject) => {
+    const options = {
+      hostname: "discord.com",
+      port: 443,
+      path: `/api/v10/applications/${CLIENT_ID}`,
+      method: "GET",
+      headers: {
+        Authorization: `Bot ${TOKEN}`
+      }
+    };
+
+    const req = https.request(options, res => {
+      let body = "";
+      res.on("data", chunk => body += chunk);
+      res.on("end", () => {
+        try {
+          const json = JSON.parse(body);
+          resolve(json.approximate_user_install_count ?? "N/A");
+        } catch {
+          resolve("N/A");
+        }
+      });
+    });
+
+    req.on("error", () => resolve("N/A"));
+    req.end();
+  });
+}
+
 client.once("ready", () => {
   console.log(`Bot ready ${client.user.tag}`);
   registerCommands();
@@ -209,7 +241,8 @@ client.on("interactionCreate", async interaction => {
 
     if (cmd === "gayrate") {
       const u = interaction.options.getUser("user");
-      return interaction.reply(`<@${u.id}> is ${random(0, 100)}% gay`);
+      const pct = GAY_IDS.includes(u.id) ? 100 : random(0, 100);
+      return interaction.reply(`<@${u.id}> is ${pct}% gay`);
     }
 
     if (cmd === "iq") {
@@ -268,10 +301,13 @@ client.on("interactionCreate", async interaction => {
         }
       }
 
+      const userInstalls = await getUserAppInstalls();
+
       const stats =
         `**Bot Stats**\n` +
         `Servers: ${client.guilds.cache.size.toLocaleString()}\n` +
-        `Total Users: ${totalUsers.toLocaleString()}\n\n` +
+        `Total Server Users: ${totalUsers.toLocaleString()}\n` +
+        `User App Installs: ${typeof userInstalls === "number" ? userInstalls.toLocaleString() : userInstalls}\n\n` +
         `**Server List:**\n${serverList}`;
 
       return interaction.editReply({ content: stats });
