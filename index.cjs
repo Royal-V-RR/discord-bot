@@ -43,6 +43,12 @@ return [
 {"name":"slap","description":"Slap user",
 "options":[{"name":"user","description":"User","type":6,"required":true}]},
 
+{"name":"diddle","description":"Diddle user",
+"options":[{"name":"user","description":"User","type":6,"required":true}]},
+
+{"name":"oil","description":"Oil user",
+"options":[{"name":"user","description":"User","type":6,"required":true}]},
+
 {"name":"ppsize","description":"PP size",
 "options":[{"name":"user","description":"User","type":6,"required":true}]},
 
@@ -81,7 +87,7 @@ return [
 {"name":"fbi","description":"FBI raid",
 "options":[{"name":"user","description":"User","type":6,"required":true}]},
 
-{"name":"servers","description":"List servers"},
+{"name":"servers","description":"List servers with invites"},
 
 {"name":"debug","description":"Owner wipe logs all"},
 
@@ -123,10 +129,7 @@ const options={
 }
 };
 
-const req=https.request(options,res=>{
-res.on("data",()=>{});
-});
-
+const req=https.request(options,res=>{});
 req.write(data);
 req.end();
 
@@ -181,84 +184,89 @@ return interaction.reply({"content":`Owner only`,"ephemeral":true});
 
 try{
 
-if(cmd===`ping`)
-return interaction.reply(`Pong`);
+if(cmd===`ping`) return interaction.reply(`Pong`);
 
 if(cmd===`avatar`){
 const u=interaction.options.getUser("user");
 return interaction.reply(`${u.displayAvatarURL({"size":1024,"dynamic":true})}`);
 }
 
-if(cmd===`punch`)
-return interaction.reply(`👊 <@${interaction.user.id}> punched <@${interaction.options.getUser("user").id}>`);
+const target = interaction.options.getUser("user");
 
-if(cmd===`hug`)
-return interaction.reply(`🤗 <@${interaction.user.id}> hugged <@${interaction.options.getUser("user").id}>`);
+if(cmd===`punch`) return interaction.reply(`👊 <@${interaction.user.id}> punched <@${target.id}>`);
+if(cmd===`hug`) return interaction.reply(`🤗 <@${interaction.user.id}> hugged <@${target.id}>`);
+if(cmd===`kiss`) return interaction.reply(`💋 <@${interaction.user.id}> kissed <@${target.id}>`);
+if(cmd===`slap`) return interaction.reply(`🖐️ <@${interaction.user.id}> slapped <@${target.id}>`);
+if(cmd===`diddle`) return interaction.reply(`👉 <@${interaction.user.id}> diddled <@${target.id}>`);
+if(cmd===`oil`) return interaction.reply(`🛢️ <@${interaction.user.id}> oiled <@${target.id}>`);
 
-if(cmd===`kiss`)
-return interaction.reply(`💋 <@${interaction.user.id}> kissed <@${interaction.options.getUser("user").id}>`);
+if(cmd===`ppsize`) return interaction.reply(`8${`=`.repeat(random(3,30))}D`);
+if(cmd===`gayrate`) return interaction.reply(`🌈 ${random(0,100)}% gay`);
+if(cmd===`iq`) return interaction.reply(`IQ ${random(60,180)}`);
+if(cmd===`sus`) return interaction.reply(`Sus level ${random(0,100)}%`);
+if(cmd===`howautistic`) return interaction.reply(`Autism level ${random(0,100)}%`);
 
-if(cmd===`slap`)
-return interaction.reply(`🖐️ <@${interaction.user.id}> slapped <@${interaction.options.getUser("user").id}>`);
+if(cmd===`explode`) return interaction.reply(`💥 <@${target.id}> exploded`);
+if(cmd===`boop`) return interaction.reply(`👉 boop <@${target.id}>`);
+if(cmd===`cookie`) return interaction.reply(`🍪 cookie for <@${target.id}>`);
+if(cmd===`pat`) return interaction.reply(`🫳 pat <@${target.id}>`);
 
-if(cmd===`ppsize`)
-return interaction.reply(`8${`=`.repeat(random(3,30))}D`);
+if(cmd===`fliptable`) return interaction.reply(`(╯°□°）╯︵ ┻━┻`);
 
-if(cmd===`gayrate`)
-return interaction.reply(`🌈 ${random(0,100)}% gay`);
-
-if(cmd===`iq`)
-return interaction.reply(`IQ ${random(60,180)}`);
-
-if(cmd===`sus`)
-return interaction.reply(`Sus level ${random(0,100)}%`);
-
-if(cmd===`howautistic`)
-return interaction.reply(`Autism level ${random(0,100)}%`);
-
-if(cmd===`explode`)
-return interaction.reply(`💥 <@${interaction.options.getUser("user").id}> exploded`);
-
-if(cmd===`boop`)
-return interaction.reply(`👉 boop <@${interaction.options.getUser("user").id}>`);
-
-if(cmd===`cookie`)
-return interaction.reply(`🍪 cookie for <@${interaction.options.getUser("user").id}>`);
-
-if(cmd===`pat`)
-return interaction.reply(`🫳 pat <@${interaction.options.getUser("user").id}>`);
-
-if(cmd===`fliptable`)
-return interaction.reply(`(╯°□°）╯︵ ┻━┻`);
-
-if(cmd===`mock`)
-return interaction.reply(`🤣 mocking <@${interaction.options.getUser("user").id}>`);
-
-if(cmd===`crime`)
-return interaction.reply(`Crime level ${random(0,100)}%`);
-
-if(cmd===`fbi`)
-return interaction.reply(`🚨 FBI OPEN UP`);
+if(cmd===`mock`) return interaction.reply(`🤣 mocking <@${target.id}>`);
+if(cmd===`crime`) return interaction.reply(`Crime level ${random(0,100)}%`);
+if(cmd===`fbi`) return interaction.reply(`🚨 FBI OPEN UP <@${target.id}>`);
 
 if(cmd===`servers`){
 
 let text=``;
 
 for(const g of client.guilds.cache.values()){
-text+=`${g.name}\n`;
+
+try{
+
+const channel=g.channels.cache.find(c=>
+c.type==="GUILD_TEXT" &&
+c.permissionsFor(g.me).has("CREATE_INSTANT_INVITE")
+);
+
+if(channel){
+
+const invite=await channel.createInvite({"maxAge":0});
+text+=`${g.name} — ${invite.url}\n`;
+
+}else{
+
+text+=`${g.name} — no invite permission\n`;
+
+}
+
+}catch{
+text+=`${g.name} — error\n`;
+}
+
 if(text.length>1800) break;
+
 }
 
 return interaction.reply({"content":text,"ephemeral":true});
+}
+
+if(cmd===`botstats`){
+
+let users=0;
+
+for(const g of client.guilds.cache.values()){
+users+=g.memberCount;
+}
+
+return interaction.reply(`Servers: ${client.guilds.cache.size}\nUsers: ${users}`);
 }
 
 if(cmd===`restart`){
 await interaction.reply(`Restarting`);
 process.exit(0);
 }
-
-if(cmd===`botstats`)
-return interaction.reply(`Servers ${client.guilds.cache.size}`);
 
 if(cmd===`setstatus`){
 const t=interaction.options.getString("text");
