@@ -6,12 +6,12 @@ const CLIENT_ID = "1480592876684706064";
 const OWNER_ID = "969280648667889764";
 
 const client = new Client({
-  "intents":[
-    Intents.FLAGS.GUILDS,
-    Intents.FLAGS.GUILD_MEMBERS,
-    Intents.FLAGS.GUILD_INVITES,
-    Intents.FLAGS.DIRECT_MESSAGES
-  ]
+"intents":[
+Intents.FLAGS.GUILDS,
+Intents.FLAGS.GUILD_MEMBERS,
+Intents.FLAGS.GUILD_INVITES,
+Intents.FLAGS.DIRECT_MESSAGES
+]
 });
 
 function random(min,max){
@@ -62,29 +62,6 @@ return [
 "options":[{"name":"user","description":"User","type":6,"required":true}]},
 
 {"name":"howautistic","description":"Autism meter",
-"options":[{"name":"user","description":"User","type":6,"required":true}]},
-
-{"name":"explode","description":"Explode user",
-"options":[{"name":"user","description":"User","type":6,"required":true}]},
-
-{"name":"boop","description":"Boop user",
-"options":[{"name":"user","description":"User","type":6,"required":true}]},
-
-{"name":"cookie","description":"Give cookie",
-"options":[{"name":"user","description":"User","type":6,"required":true}]},
-
-{"name":"pat","description":"Pat user",
-"options":[{"name":"user","description":"User","type":6,"required":true}]},
-
-{"name":"fliptable","description":"Flip table"},
-
-{"name":"mock","description":"Mock user",
-"options":[{"name":"user","description":"User","type":6,"required":true}]},
-
-{"name":"crime","description":"Crime level",
-"options":[{"name":"user","description":"User","type":6,"required":true}]},
-
-{"name":"fbi","description":"FBI raid",
 "options":[{"name":"user","description":"User","type":6,"required":true}]},
 
 {"name":"servers","description":"List servers with invites"},
@@ -140,30 +117,7 @@ console.log(`Bot ready ${client.user.tag}`);
 registerCommands();
 });
 
-client.on("guildCreate",async guild=>{
-
-registerCommands();
-
-try{
-
-const owner=await client.users.fetch(OWNER_ID);
-
-const channel=guild.channels.cache.find(c=>
-c.type==="GUILD_TEXT" &&
-c.permissionsFor(guild.me).has("CREATE_INSTANT_INVITE")
-);
-
-if(channel){
-
-const invite=await channel.createInvite({"maxAge":0});
-await owner.send(`Joined ${guild.name}\n${invite.url}`);
-
-}
-
-}catch{}
-
-});
-
+client.on("guildCreate",()=>registerCommands());
 client.on("guildDelete",()=>registerCommands());
 
 client.on("interactionCreate",async interaction=>{
@@ -193,29 +147,20 @@ return interaction.reply(`${u.displayAvatarURL({"size":1024,"dynamic":true})}`);
 
 const target = interaction.options.getUser("user");
 
-if(cmd===`punch`) return interaction.reply(`👊 <@${interaction.user.id}> punched <@${target.id}>`);
-if(cmd===`hug`) return interaction.reply(`🤗 <@${interaction.user.id}> hugged <@${target.id}>`);
-if(cmd===`kiss`) return interaction.reply(`💋 <@${interaction.user.id}> kissed <@${target.id}>`);
-if(cmd===`slap`) return interaction.reply(`🖐️ <@${interaction.user.id}> slapped <@${target.id}>`);
-if(cmd===`diddle`) return interaction.reply(`👉 <@${interaction.user.id}> diddled <@${target.id}>`);
-if(cmd===`oil`) return interaction.reply(`🛢️ <@${interaction.user.id}> oiled <@${target.id}>`);
+if(cmd===`punch`) return interaction.reply(`<@${interaction.user.id}> punched <@${target.id}>`);
+if(cmd===`hug`) return interaction.reply(`<@${interaction.user.id}> hugged <@${target.id}>`);
+if(cmd===`kiss`) return interaction.reply(`<@${interaction.user.id}> kissed <@${target.id}>`);
+if(cmd===`slap`) return interaction.reply(`<@${interaction.user.id}> slapped <@${target.id}>`);
+
+if(cmd===`diddle`) return interaction.reply(`<@${target.id}> was diddled`);
+
+if(cmd===`oil`) return interaction.reply(`<@${interaction.user.id}> oiled up <@${target.id}>`);
 
 if(cmd===`ppsize`) return interaction.reply(`8${`=`.repeat(random(3,30))}D`);
-if(cmd===`gayrate`) return interaction.reply(`🌈 ${random(0,100)}% gay`);
+if(cmd===`gayrate`) return interaction.reply(`${random(0,100)}% gay`);
 if(cmd===`iq`) return interaction.reply(`IQ ${random(60,180)}`);
 if(cmd===`sus`) return interaction.reply(`Sus level ${random(0,100)}%`);
 if(cmd===`howautistic`) return interaction.reply(`Autism level ${random(0,100)}%`);
-
-if(cmd===`explode`) return interaction.reply(`💥 <@${target.id}> exploded`);
-if(cmd===`boop`) return interaction.reply(`👉 boop <@${target.id}>`);
-if(cmd===`cookie`) return interaction.reply(`🍪 cookie for <@${target.id}>`);
-if(cmd===`pat`) return interaction.reply(`🫳 pat <@${target.id}>`);
-
-if(cmd===`fliptable`) return interaction.reply(`(╯°□°）╯︵ ┻━┻`);
-
-if(cmd===`mock`) return interaction.reply(`🤣 mocking <@${target.id}>`);
-if(cmd===`crime`) return interaction.reply(`Crime level ${random(0,100)}%`);
-if(cmd===`fbi`) return interaction.reply(`🚨 FBI OPEN UP <@${target.id}>`);
 
 if(cmd===`servers`){
 
@@ -261,6 +206,24 @@ users+=g.memberCount;
 }
 
 return interaction.reply(`Servers: ${client.guilds.cache.size}\nUsers: ${users}`);
+}
+
+if(cmd===`dmuser`){
+
+const user=interaction.options.getUser("user");
+const message=interaction.options.getString("message");
+
+try{
+
+await user.send(`${message}`);
+return interaction.reply({"content":`DM sent`,"ephemeral":true});
+
+}catch{
+
+return interaction.reply({"content":`User has DMs disabled`,"ephemeral":true});
+
+}
+
 }
 
 if(cmd===`restart`){
