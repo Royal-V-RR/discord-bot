@@ -108,7 +108,7 @@ async function wipeServers(owner) {
 }
 
 client.once("ready", () => {
-  console.log(Logged in as ${client.user.tag});
+  console.log(`Logged in as ${client.user.tag}`);
   registerCommands();
 });
 
