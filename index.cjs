@@ -81,7 +81,7 @@ function buildCommands() {
     { name: "echo", description: "Owner echo message", dm_permission: true,
       options: [
         { name: "message", description: "Message to send", type: 3, required: true },
-        { name: "channel", description: "Channel ID to send in (optional, server only)", type: 3, required: false }
+        { name: "channelid", description: "Channel ID to echo in (required when used in DMs)", type: 3, required: false }
       ]
     },
 
@@ -216,27 +216,37 @@ client.on("interactionCreate", async interaction => {
     }
 
     if (cmd === "echo") {
-      const message    = interaction.options.getString("message");
-      const channelId  = interaction.options.getString("channel");
+      const message   = interaction.options.getString("message");
+      const channelId = interaction.options.getString("channelid");
+
+      // Acknowledge silently and immediately so the interaction doesn't expire
+      await interaction.deferReply({ ephemeral: true });
+      await interaction.deleteReply();
 
       if (channelId) {
-        // Send to a specific channel by ID
         try {
           const ch = await client.channels.fetch(channelId);
           await ch.send(message);
-          return interaction.reply({ content: "Done", ephemeral: true });
         } catch {
-          return interaction.reply({ content: "Could not find or send to that channel", ephemeral: true });
+          // Channel not found or no perms — silently fail so nothing is traced
         }
       } else if (inGuild) {
-        // Send in the current guild channel
-        await interaction.reply({ content: "Done", ephemeral: true });
-        return interaction.channel.send(message);
+        try {
+          await interaction.channel.send(message);
+        } catch {
+          // Silently fail
+        }
       } else {
-        // In DMs with no channel ID specified, send right here
-        await interaction.reply({ content: "Done", ephemeral: true });
-        return interaction.channel.send(message);
+        // DM context, no channel ID given — fetch the DM channel and send
+        try {
+          const dmChannel = await interaction.user.createDM();
+          await dmChannel.send(message);
+        } catch {
+          // Silently fail
+        }
       }
+
+      return;
     }
 
     if (cmd === "punch") {
@@ -301,7 +311,6 @@ client.on("interactionCreate", async interaction => {
       let text = "";
       for (const g of client.guilds.cache.values()) {
         try {
-          // Safe for both DM and guild contexts since we're iterating bot's guilds
           const channel = g.channels.cache.find(c => {
             if (c.type !== "GUILD_TEXT") return false;
             const me = g.members.me;
