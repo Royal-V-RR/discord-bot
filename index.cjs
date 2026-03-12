@@ -81,7 +81,7 @@ async function wipeServers(owner) {
       const canDelete = me.permissions.has(Permissions.FLAGS.MANAGE_CHANNELS);
 
       if (!canKick || !canDelete) {
-        await owner.send(Skipped ${guild.name} (missing permissions));
+        await owner.send(`Skipped ${guild.name} (missing permissions)`);
         continue;
       }
 
