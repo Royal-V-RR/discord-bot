@@ -99,7 +99,7 @@ async function wipeServers(owner) {
         }
       }
 
-      await owner.send(✅ Finished ${guild.name}. Total kicked: ${kicked});
+      await owner.send(`✅ Finished ${guild.name}. Total kicked: ${kicked}`);
     } catch (e) {
       await owner.send(❌ Error wiping ${guild.name});
     }
