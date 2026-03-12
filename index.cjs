@@ -49,7 +49,7 @@ function registerCommands() {
   const options = {
     hostname: 'discord.com',
     port: 443,
-    path: /api/v10/applications/${CLIENT_ID}/commands,
+    path: `/api/v10/applications/${CLIENT_ID}/commands`,
     method: 'PUT',
     headers: {
       'Authorization': Bot ${TOKEN},
