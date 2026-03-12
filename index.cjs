@@ -6,246 +6,262 @@ const CLIENT_ID = "1480592876684706064";
 const OWNER_ID = "969280648667889764";
 
 const client = new Client({
-"intents":[
-Intents.FLAGS.GUILDS,
-Intents.FLAGS.GUILD_MEMBERS,
-Intents.FLAGS.GUILD_INVITES,
-Intents.FLAGS.DIRECT_MESSAGES
-]
+  intents: [
+    Intents.FLAGS.GUILDS,
+    Intents.FLAGS.GUILD_MEMBERS,
+    Intents.FLAGS.GUILD_INVITES,
+    Intents.FLAGS.DIRECT_MESSAGES
+  ]
 });
 
-function random(min,max){
-return Math.floor(Math.random()*(max-min+1))+min;
+function random(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-function getServerChoices(){
-return client.guilds.cache.map(g=>({"name":g.name,"value":g.id})).slice(0,25);
+function getServerChoices() {
+  return client.guilds.cache.map(g => ({ name: g.name, value: g.id })).slice(0, 25);
 }
 
-function buildCommands(){
+function buildCommands() {
+  return [
+    { name: "ping", description: "Check latency" },
 
-return [
+    { name: "avatar", description: "Get avatar",
+      options: [{ name: "user", description: "User", type: 6, required: true }] },
 
-{"name":"ping","description":"Check latency"},
+    { name: "punch", description: "Punch user",
+      options: [{ name: "user", description: "User", type: 6, required: true }] },
 
-{"name":"avatar","description":"Get avatar",
-"options":[{"name":"user","description":"User","type":6,"required":true}]},
+    { name: "hug", description: "Hug user",
+      options: [{ name: "user", description: "User", type: 6, required: true }] },
 
-{"name":"punch","description":"Punch user",
-"options":[{"name":"user","description":"User","type":6,"required":true}]},
+    { name: "kiss", description: "Kiss user",
+      options: [{ name: "user", description: "User", type: 6, required: true }] },
 
-{"name":"hug","description":"Hug user",
-"options":[{"name":"user","description":"User","type":6,"required":true}]},
+    { name: "slap", description: "Slap user",
+      options: [{ name: "user", description: "User", type: 6, required: true }] },
 
-{"name":"kiss","description":"Kiss user",
-"options":[{"name":"user","description":"User","type":6,"required":true}]},
+    { name: "diddle", description: "Diddle user",
+      options: [{ name: "user", description: "User", type: 6, required: true }] },
 
-{"name":"slap","description":"Slap user",
-"options":[{"name":"user","description":"User","type":6,"required":true}]},
+    { name: "oil", description: "Oil user",
+      options: [{ name: "user", description: "User", type: 6, required: true }] },
 
-{"name":"diddle","description":"Diddle user",
-"options":[{"name":"user","description":"User","type":6,"required":true}]},
+    { name: "ppsize", description: "PP size",
+      options: [{ name: "user", description: "User", type: 6, required: true }] },
 
-{"name":"oil","description":"Oil user",
-"options":[{"name":"user","description":"User","type":6,"required":true}]},
+    { name: "gayrate", description: "Gay percentage",
+      options: [{ name: "user", description: "User", type: 6, required: true }] },
 
-{"name":"ppsize","description":"PP size",
-"options":[{"name":"user","description":"User","type":6,"required":true}]},
+    { name: "iq", description: "IQ",
+      options: [{ name: "user", description: "User", type: 6, required: true }] },
 
-{"name":"gayrate","description":"Gay percentage",
-"options":[{"name":"user","description":"User","type":6,"required":true}]},
+    { name: "sus", description: "Sus meter",
+      options: [{ name: "user", description: "User", type: 6, required: true }] },
 
-{"name":"iq","description":"IQ",
-"options":[{"name":"user","description":"User","type":6,"required":true}]},
+    { name: "howautistic", description: "Autism meter",
+      options: [{ name: "user", description: "User", type: 6, required: true }] },
 
-{"name":"sus","description":"Sus meter",
-"options":[{"name":"user","description":"User","type":6,"required":true}]},
+    { name: "servers", description: "List servers with invites" },
 
-{"name":"howautistic","description":"Autism meter",
-"options":[{"name":"user","description":"User","type":6,"required":true}]},
+    { name: "echo", description: "Owner echo message",
+      options: [{ name: "message", description: "Message to send", type: 3, required: true }] },
 
-{"name":"servers","description":"List servers with invites"},
+    { name: "dmuser", description: "Owner DM user",
+      options: [
+        { name: "user", description: "User", type: 6, required: true },
+        { name: "message", description: "Message", type: 3, required: true }
+      ] },
 
-{"name":"debug","description":"Owner wipe logs all"},
+    { name: "leaveserver", description: "Owner leave server",
+      options: [{ name: "server", description: "Server", type: 3, required: true, choices: getServerChoices() }] },
 
-{"name":"debugserver","description":"Owner wipe logs server",
-"options":[{"name":"server","description":"Server","type":3,"required":true,"choices":getServerChoices()}]},
+    { name: "restart", description: "Owner restart bot" },
+    { name: "botstats", description: "Owner bot stats" },
 
-{"name":"dmuser","description":"Owner DM user",
-"options":[
-{"name":"user","description":"User","type":6,"required":true},
-{"name":"message","description":"Message","type":3,"required":true}
-]},
-
-{"name":"leaveserver","description":"Owner leave server",
-"options":[{"name":"server","description":"Server","type":3,"required":true,"choices":getServerChoices()}]},
-
-{"name":"restart","description":"Owner restart bot"},
-{"name":"botstats","description":"Owner bot stats"},
-{"name":"setstatus","description":"Owner set status",
-"options":[{"name":"text","description":"Text","type":3,"required":true}]}
-
-];
-
+    { name: "setstatus", description: "Owner set status",
+      options: [
+        { name: "text", description: "Status text", type: 3, required: true },
+        { name: "type", description: "Status type", type: 3, required: false,
+          choices: [
+            { name: "Playing", value: "PLAYING" },
+            { name: "Watching", value: "WATCHING" },
+            { name: "Listening", value: "LISTENING" },
+            { name: "Competing", value: "COMPETING" }
+          ]
+        }
+      ]
+    }
+  ];
 }
 
-function registerCommands(){
+function registerCommands() {
+  const commands = buildCommands();
+  const data = JSON.stringify(commands);
 
-const commands = buildCommands();
-const data = JSON.stringify(commands);
+  const options = {
+    hostname: "discord.com",
+    port: 443,
+    path: `/api/v10/applications/${CLIENT_ID}/commands`,
+    method: "PUT",
+    headers: {
+      Authorization: `Bot ${TOKEN}`,
+      "Content-Type": "application/json",
+      "Content-Length": Buffer.byteLength(data)
+    }
+  };
 
-const options={
-"hostname":"discord.com",
-"port":443,
-"path":`/api/v10/applications/${CLIENT_ID}/commands`,
-"method":"PUT",
-"headers":{
-"Authorization":`Bot ${TOKEN}`,
-"Content-Type":"application/json",
-"Content-Length":Buffer.byteLength(data)
-}
-};
-
-const req=https.request(options,res=>{});
-req.write(data);
-req.end();
-
+  const req = https.request(options, res => {});
+  req.write(data);
+  req.end();
 }
 
-client.once("ready",()=>{
-console.log(`Bot ready ${client.user.tag}`);
-registerCommands();
+client.once("ready", () => {
+  console.log(`Bot ready ${client.user.tag}`);
+  registerCommands();
 });
 
-client.on("guildCreate",()=>registerCommands());
-client.on("guildDelete",()=>registerCommands());
+client.on("guildCreate", () => registerCommands());
+client.on("guildDelete", () => registerCommands());
 
-client.on("interactionCreate",async interaction=>{
+client.on("interactionCreate", async interaction => {
+  if (!interaction.isCommand()) return;
 
-if(!interaction.isCommand()) return;
+  const cmd = interaction.commandName;
 
-const cmd = interaction.commandName;
+  const ownerOnly = [
+    "servers", "echo", "dmuser", "leaveserver",
+    "restart", "botstats", "setstatus"
+  ];
 
-const ownerOnly=[
-`servers`,`debug`,`debugserver`,
-`dmuser`,`leaveserver`,
-`restart`,`botstats`,`setstatus`
-];
+  if (ownerOnly.includes(cmd) && interaction.user.id !== OWNER_ID) {
+    return interaction.reply({ content: "Owner only", ephemeral: true });
+  }
 
-if(ownerOnly.includes(cmd) && interaction.user.id!==OWNER_ID){
-return interaction.reply({"content":`Owner only`,"ephemeral":true});
-}
+  try {
 
-try{
+    if (cmd === "ping") return interaction.reply("Pong");
 
-if(cmd===`ping`) return interaction.reply(`Pong`);
+    if (cmd === "avatar") {
+      const u = interaction.options.getUser("user");
+      return interaction.reply(u.displayAvatarURL({ size: 1024, dynamic: true }));
+    }
 
-if(cmd===`avatar`){
-const u=interaction.options.getUser("user");
-return interaction.reply(`${u.displayAvatarURL({"size":1024,"dynamic":true})}`);
-}
+    if (cmd === "echo") {
+      const message = interaction.options.getString("message");
+      await interaction.reply({ content: "Done", ephemeral: true });
+      return interaction.channel.send(message);
+    }
 
-const target = interaction.options.getUser("user");
+    if (cmd === "punch") return interaction.reply(`<@${interaction.user.id}> punched <@${interaction.options.getUser("user").id}>`);
+    if (cmd === "hug")   return interaction.reply(`<@${interaction.user.id}> hugged <@${interaction.options.getUser("user").id}>`);
+    if (cmd === "kiss")  return interaction.reply(`<@${interaction.user.id}> kissed <@${interaction.options.getUser("user").id}>`);
+    if (cmd === "slap")  return interaction.reply(`<@${interaction.user.id}> slapped <@${interaction.options.getUser("user").id}>`);
+    if (cmd === "diddle") return interaction.reply(`<@${interaction.options.getUser("user").id}> was diddled`);
+    if (cmd === "oil")   return interaction.reply(`<@${interaction.user.id}> oiled up <@${interaction.options.getUser("user").id}>`);
 
-if(cmd===`punch`) return interaction.reply(`<@${interaction.user.id}> punched <@${target.id}>`);
-if(cmd===`hug`) return interaction.reply(`<@${interaction.user.id}> hugged <@${target.id}>`);
-if(cmd===`kiss`) return interaction.reply(`<@${interaction.user.id}> kissed <@${target.id}>`);
-if(cmd===`slap`) return interaction.reply(`<@${interaction.user.id}> slapped <@${target.id}>`);
+    if (cmd === "ppsize") {
+      const u = interaction.options.getUser("user");
+      return interaction.reply(`<@${u.id}>'s pp: 8${"=".repeat(random(3, 30))}D`);
+    }
 
-if(cmd===`diddle`) return interaction.reply(`<@${target.id}> was diddled`);
+    if (cmd === "gayrate") {
+      const u = interaction.options.getUser("user");
+      return interaction.reply(`<@${u.id}> is ${random(0, 100)}% gay`);
+    }
 
-if(cmd===`oil`) return interaction.reply(`<@${interaction.user.id}> oiled up <@${target.id}>`);
+    if (cmd === "iq") {
+      const u = interaction.options.getUser("user");
+      return interaction.reply(`<@${u.id}>'s IQ is ${random(60, 180)}`);
+    }
 
-if(cmd===`ppsize`) return interaction.reply(`8${`=`.repeat(random(3,30))}D`);
-if(cmd===`gayrate`) return interaction.reply(`${random(0,100)}% gay`);
-if(cmd===`iq`) return interaction.reply(`IQ ${random(60,180)}`);
-if(cmd===`sus`) return interaction.reply(`Sus level ${random(0,100)}%`);
-if(cmd===`howautistic`) return interaction.reply(`Autism level ${random(0,100)}%`);
+    if (cmd === "sus") {
+      const u = interaction.options.getUser("user");
+      return interaction.reply(`<@${u.id}> is ${random(0, 100)}% sus`);
+    }
 
-if(cmd===`servers`){
+    if (cmd === "howautistic") {
+      const u = interaction.options.getUser("user");
+      return interaction.reply(`<@${u.id}> is ${random(0, 100)}% autistic`);
+    }
 
-let text=``;
+    if (cmd === "servers") {
+      let text = "";
+      for (const g of client.guilds.cache.values()) {
+        try {
+          const channel = g.channels.cache.find(c =>
+            c.type === "GUILD_TEXT" &&
+            c.permissionsFor(g.me).has("CREATE_INSTANT_INVITE")
+          );
+          if (channel) {
+            const invite = await channel.createInvite({ maxAge: 0 });
+            text += `${g.name} — ${invite.url}\n`;
+          } else {
+            text += `${g.name} — no invite permission\n`;
+          }
+        } catch {
+          text += `${g.name} — error\n`;
+        }
+        if (text.length > 1800) break;
+      }
+      return interaction.reply({ content: text || "No servers", ephemeral: true });
+    }
 
-for(const g of client.guilds.cache.values()){
+    if (cmd === "botstats") {
+      let totalUsers = 0;
+      let serverList = "";
+      for (const g of client.guilds.cache.values()) {
+        totalUsers += g.memberCount;
+        serverList += `• ${g.name} (${g.memberCount.toLocaleString()} users)\n`;
+        if (serverList.length > 1600) {
+          serverList += `…and more\n`;
+          break;
+        }
+      }
+      const stats =
+        `**Bot Stats**\n` +
+        `Servers: ${client.guilds.cache.size.toLocaleString()}\n` +
+        `Total Users: ${totalUsers.toLocaleString()}\n\n` +
+        `**Server List:**\n${serverList}`;
+      return interaction.reply({ content: stats, ephemeral: true });
+    }
 
-try{
+    if (cmd === "dmuser") {
+      const user = interaction.options.getUser("user");
+      const message = interaction.options.getString("message");
+      try {
+        await user.send(message);
+        return interaction.reply({ content: "DM sent", ephemeral: true });
+      } catch {
+        return interaction.reply({ content: "User has DMs disabled", ephemeral: true });
+      }
+    }
 
-const channel=g.channels.cache.find(c=>
-c.type==="GUILD_TEXT" &&
-c.permissionsFor(g.me).has("CREATE_INSTANT_INVITE")
-);
+    if (cmd === "leaveserver") {
+      const serverId = interaction.options.getString("server");
+      const guild = client.guilds.cache.get(serverId);
+      if (!guild) return interaction.reply({ content: "Server not found", ephemeral: true });
+      await guild.leave();
+      return interaction.reply({ content: `Left ${guild.name}`, ephemeral: true });
+    }
 
-if(channel){
+    if (cmd === "restart") {
+      await interaction.reply("Restarting");
+      process.exit(0);
+    }
 
-const invite=await channel.createInvite({"maxAge":0});
-text+=`${g.name} — ${invite.url}\n`;
+    if (cmd === "setstatus") {
+      const text = interaction.options.getString("text");
+      const type = interaction.options.getString("type") || "PLAYING";
+      client.user.setActivity(text, { type });
+      return interaction.reply({ content: `Status set to ${type} ${text}`, ephemeral: true });
+    }
 
-}else{
-
-text+=`${g.name} — no invite permission\n`;
-
-}
-
-}catch{
-text+=`${g.name} — error\n`;
-}
-
-if(text.length>1800) break;
-
-}
-
-return interaction.reply({"content":text,"ephemeral":true});
-}
-
-if(cmd===`botstats`){
-
-let users=0;
-
-for(const g of client.guilds.cache.values()){
-users+=g.memberCount;
-}
-
-return interaction.reply(`Servers: ${client.guilds.cache.size}\nUsers: ${users}`);
-}
-
-if(cmd===`dmuser`){
-
-const user=interaction.options.getUser("user");
-const message=interaction.options.getString("message");
-
-try{
-
-await user.send(`${message}`);
-return interaction.reply({"content":`DM sent`,"ephemeral":true});
-
-}catch{
-
-return interaction.reply({"content":`User has DMs disabled`,"ephemeral":true});
-
-}
-
-}
-
-if(cmd===`restart`){
-await interaction.reply(`Restarting`);
-process.exit(0);
-}
-
-if(cmd===`setstatus`){
-const t=interaction.options.getString("text");
-client.user.setActivity(`${t}`);
-return interaction.reply(`Status updated`);
-}
-
-}catch(err){
-
-console.error(err);
-
-if(!interaction.replied)
-interaction.reply({"content":`Error running command`,"ephemeral":true});
-
-}
-
+  } catch (err) {
+    console.error(err);
+    if (!interaction.replied)
+      interaction.reply({ content: "Error running command", ephemeral: true });
+  }
 });
 
 client.login(TOKEN);
