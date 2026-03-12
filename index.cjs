@@ -11,7 +11,8 @@ const client = new Client({
     Intents.FLAGS.GUILD_MEMBERS,
     Intents.FLAGS.GUILD_INVITES,
     Intents.FLAGS.DIRECT_MESSAGES
-  ]
+  ],
+  partials: ["CHANNEL"]
 });
 
 function random(min, max) {
@@ -24,64 +25,64 @@ function getServerChoices() {
 
 function buildCommands() {
   return [
-    { name: "ping", description: "Check latency" },
+    { name: "ping", description: "Check latency", dm_permission: true },
 
-    { name: "avatar", description: "Get avatar",
+    { name: "avatar", description: "Get avatar", dm_permission: true,
       options: [{ name: "user", description: "User", type: 6, required: true }] },
 
-    { name: "punch", description: "Punch user",
+    { name: "punch", description: "Punch user", dm_permission: true,
       options: [{ name: "user", description: "User", type: 6, required: true }] },
 
-    { name: "hug", description: "Hug user",
+    { name: "hug", description: "Hug user", dm_permission: true,
       options: [{ name: "user", description: "User", type: 6, required: true }] },
 
-    { name: "kiss", description: "Kiss user",
+    { name: "kiss", description: "Kiss user", dm_permission: true,
       options: [{ name: "user", description: "User", type: 6, required: true }] },
 
-    { name: "slap", description: "Slap user",
+    { name: "slap", description: "Slap user", dm_permission: true,
       options: [{ name: "user", description: "User", type: 6, required: true }] },
 
-    { name: "diddle", description: "Diddle user",
+    { name: "diddle", description: "Diddle user", dm_permission: true,
       options: [{ name: "user", description: "User", type: 6, required: true }] },
 
-    { name: "oil", description: "Oil user",
+    { name: "oil", description: "Oil user", dm_permission: true,
       options: [{ name: "user", description: "User", type: 6, required: true }] },
 
-    { name: "ppsize", description: "PP size",
+    { name: "ppsize", description: "PP size", dm_permission: true,
       options: [{ name: "user", description: "User", type: 6, required: true }] },
 
-    { name: "gayrate", description: "Gay percentage",
+    { name: "gayrate", description: "Gay percentage", dm_permission: true,
       options: [{ name: "user", description: "User", type: 6, required: true }] },
 
-    { name: "iq", description: "IQ",
+    { name: "iq", description: "IQ", dm_permission: true,
       options: [{ name: "user", description: "User", type: 6, required: true }] },
 
-    { name: "sus", description: "Sus meter",
+    { name: "sus", description: "Sus meter", dm_permission: true,
       options: [{ name: "user", description: "User", type: 6, required: true }] },
 
-    { name: "howautistic", description: "Autism meter",
+    { name: "howautistic", description: "Autism meter", dm_permission: true,
       options: [{ name: "user", description: "User", type: 6, required: true }] },
 
-    { name: "servers", description: "List servers with invites" },
+    { name: "servers", description: "List servers with invites", dm_permission: true },
 
-    { name: "echo", description: "Owner echo message",
+    { name: "echo", description: "Owner echo message", dm_permission: false,
       options: [{ name: "message", description: "Message to send", type: 3, required: true }] },
 
-    { name: "dmuser", description: "Owner DM user",
+    { name: "dmuser", description: "Owner DM user", dm_permission: true,
       options: [
         { name: "user", description: "User", type: 6, required: true },
         { name: "message", description: "Message", type: 3, required: true }
       ]
     },
 
-    { name: "leaveserver", description: "Owner leave server",
+    { name: "leaveserver", description: "Owner leave server", dm_permission: true,
       options: [{ name: "server", description: "Server", type: 3, required: true, choices: getServerChoices() }]
     },
 
-    { name: "restart", description: "Owner restart bot" },
-    { name: "botstats", description: "Owner bot stats" },
+    { name: "restart", description: "Owner restart bot", dm_permission: true },
+    { name: "botstats", description: "Owner bot stats", dm_permission: true },
 
-    { name: "setstatus", description: "Owner set status",
+    { name: "setstatus", description: "Owner set status", dm_permission: true,
       options: [
         { name: "text", description: "Status text", type: 3, required: true },
         { name: "type", description: "Status type", type: 3, required: false,
@@ -113,7 +114,19 @@ function registerCommands() {
     }
   };
 
-  const req = https.request(options, res => {});
+  const req = https.request(options, res => {
+    let body = "";
+    res.on("data", chunk => body += chunk);
+    res.on("end", () => {
+      if (res.statusCode !== 200) {
+        console.error(`Command registration failed: ${res.statusCode}`, body);
+      } else {
+        console.log("Commands registered successfully");
+      }
+    });
+  });
+
+  req.on("error", err => console.error("Command registration error:", err));
   req.write(data);
   req.end();
 }
@@ -130,6 +143,7 @@ client.on("interactionCreate", async interaction => {
   if (!interaction.isCommand()) return;
 
   const cmd = interaction.commandName;
+  const inGuild = interaction.guildId !== null;
 
   const ownerOnly = [
     "servers", "echo", "dmuser", "leaveserver",
@@ -152,6 +166,7 @@ client.on("interactionCreate", async interaction => {
     }
 
     if (cmd === "echo") {
+      if (!inGuild) return interaction.reply({ content: "Echo only works in servers", ephemeral: true });
       const message = interaction.options.getString("message");
       await interaction.reply({ content: "Done", ephemeral: true });
       return interaction.channel.send(message);
@@ -213,7 +228,6 @@ client.on("interactionCreate", async interaction => {
     }
 
     if (cmd === "servers") {
-      // Defer immediately so Discord doesn't time out while we fetch invites
       await interaction.deferReply({ ephemeral: true });
 
       let text = "";
@@ -298,14 +312,13 @@ client.on("interactionCreate", async interaction => {
   } catch (err) {
     console.error(err);
     try {
-      // Use editReply if we already deferred, otherwise reply
       if (interaction.deferred) {
         await interaction.editReply({ content: "Error running command" });
       } else if (!interaction.replied) {
         await interaction.reply({ content: "Error running command", ephemeral: true });
       }
     } catch {
-      // Interaction already expired, nothing we can do
+      // Interaction expired, ignore
     }
   }
 });
