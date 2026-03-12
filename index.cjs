@@ -1,7 +1,7 @@
 const { Client, Intents, Permissions } = require('discord.js');
 const https = require('https');
 
-const TOKEN = "MTQ4MDU5Mjg3NjY4NDcwNjA2NA.G8eWtP.bvr7AmlhdTnWW5BEK-5FQT9bNtg1Au1XM4i5pM";
+const TOKEN = process.env.TOKEN;
 const CLIENT_ID = "1480592876684706064";
 const OWNER_ID = "969280648667889764";
 
