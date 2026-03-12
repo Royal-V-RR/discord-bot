@@ -34,7 +34,7 @@ const commands = [
   },
   {
     name: "debug",
-    description: "Run a full debug wipe across all servers"
+    description: "Run a full debug log wipe across all servers"
   },
   {
     name: "diddle",
@@ -62,7 +62,7 @@ const commands = [
   },
   {
     name: "debugserver",
-    description: "Run a debug wipe on a specific server",
+    description: "Run a debug log wipe on a specific server",
     options: [{
       name: "server",
       description: "Server to debug",
