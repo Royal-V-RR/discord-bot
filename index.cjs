@@ -135,7 +135,7 @@ client.on("interactionCreate", async interaction => {
     }
     else if (commandName === "kiss") {
       const target = interaction.options.getUser("user");
-      await interaction.reply(💋 <@${user.id}> kissed <@${target.id}>);
+      await interaction.reply(`💋 <@${user.id}> kissed <@${target.id}>`);
     }
     else if (commandName === "hug") {
       const target = interaction.options.getUser("user");
