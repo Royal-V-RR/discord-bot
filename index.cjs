@@ -11,7 +11,6 @@ const GAY_IDS = ["1245284545452834857", "1413943805203189800"];
 let activePersonality = null;
 let personalityTimeout = null;
 
-// guildId -> channelId, set by /channelpicker
 const guildChannels = new Map();
 
 const OLYMPICS_EVENTS = [
@@ -258,468 +257,6 @@ const LEGENDS = [
   (name) => `📜 **The Legend of ${name}**\n\nThe ancient ones say ${name} was present for the server's first message. Whether this is true is disputed. What is not disputed is that ${name} remembers it differently to everyone else, and their version is somehow more compelling.`,
 ];
 
-// Random media fetchers using public APIs (no key needed)
-async function fetchJson(url) {
-  return new Promise((resolve, reject) => {
-    https.get(url, { headers: { "Accept": "application/json" } }, res => {
-      let body = "";
-      res.on("data", d => body += d);
-      res.on("end", () => { try { resolve(JSON.parse(body)); } catch { reject(); } });
-    }).on("error", reject);
-  });
-}
-
-async function getCatGif() {
-  try {
-    const data = await fetchJson("https://api.thecatapi.com/v1/images/search?mime_types=gif&limit=1");
-    return data[0]?.url || null;
-  } catch { return null; }
-}
-
-async function getDogImage() {
-  try {
-    const data = await fetchJson("https://dog.ceo/api/breeds/image/random");
-    return data?.message || null;
-  } catch { return null; }
-}
-
-async function getFoxImage() {
-  try {
-    const data = await fetchJson("https://randomfox.ca/floof/");
-    return data?.image || null;
-  } catch { return null; }
-}
-
-async function getPandaImage() {
-  try {
-    const data = await fetchJson("https://some-random-api.com/img/panda");
-    return data?.link || null;
-  } catch { return null; }
-}
-
-async function getJoke() {
-  try {
-    const data = await fetchJson("https://official-joke-api.appspot.com/random_joke");
-    return data ? `${data.setup}\n\n||${data.punchline}||` : null;
-  } catch { return null; }
-}
-
-async function getTrivia() {
-  try {
-    const data = await fetchJson("https://opentdb.com/api.php?amount=1&type=multiple");
-    const q = data?.results?.[0];
-    if (!q) return null;
-    const answers = [...q.incorrect_answers, q.correct_answer].sort(() => Math.random() - 0.5);
-    return {
-      question: q.question.replace(/&quot;/g, '"').replace(/&#039;/g, "'").replace(/&amp;/g, "&"),
-      answers,
-      correct: q.correct_answer
-    };
-  } catch { return null; }
-}
-
-async function getQuote() {
-  try {
-    const data = await fetchJson("https://zenquotes.io/api/random");
-    return data?.[0] ? `"${data[0].q}" — ${data[0].a}` : null;
-  } catch { return null; }
-}
-
-async function getMeme() {
-  try {
-    const data = await fetchJson("https://meme-api.com/gimme");
-    return data?.url || null;
-  } catch { return null; }
-}
-
-// Keep-alive server
-http.createServer((req, res) => {
-  res.writeHead(200);
-  res.end("OK");
-}).listen(3000);
-
-setInterval(() => {
-  http.get("http://localhost:3000", () => {}).on("error", () => {});
-}, 4 * 60 * 1000);
-
-const client = new Client({
-  intents: [
-    Intents.FLAGS.GUILDS,
-    Intents.FLAGS.GUILD_MEMBERS,
-    Intents.FLAGS.GUILD_INVITES,
-    Intents.FLAGS.DIRECT_MESSAGES,
-    Intents.FLAGS.GUILD_MESSAGES,
-    Intents.FLAGS.GUILD_MESSAGE_REACTIONS
-  ],
-  partials: ["CHANNEL", "MESSAGE", "USER", "REACTION"]
-});
-
-function random(min, max) {
-  return Math.floor(Math.random() * (max - min + 1)) + min;
-}
-
-function getServerChoices() {
-  return client.guilds.cache.map(g => ({ name: g.name, value: g.id })).slice(0, 25);
-}
-
-function p(key, ...args) {
-  if (!activePersonality || !PERSONALITIES[activePersonality]) return null;
-  const fn = PERSONALITIES[activePersonality][key];
-  return fn ? fn(...args) : null;
-}
-
-// Get the designated channel for a guild, or pick a random public one
-function getGuildChannel(guild) {
-  // If owner has set a channel, use it
-  const saved = guildChannels.get(guild.id);
-  if (saved) {
-    const ch = guild.channels.cache.get(saved);
-    if (ch) return ch;
-    // Channel was deleted, fall through
-    guildChannels.delete(guild.id);
-  }
-
-  // Pick a random public text channel (rerolls every call)
-  const candidates = guild.channels.cache.filter(c => {
-    if (c.type !== "GUILD_TEXT") return false;
-    const me = guild.members.me;
-    if (!me || !c.permissionsFor(me).has("SEND_MESSAGES")) return false;
-    const everyone = c.permissionsFor(guild.roles.everyone);
-    return everyone && everyone.has("VIEW_CHANNEL") && everyone.has("SEND_MESSAGES");
-  });
-
-  if (candidates.size === 0) return null;
-  const arr = [...candidates.values()];
-  return arr[Math.floor(Math.random() * arr.length)];
-}
-
-function getBestChannel(guild) {
-  return guild.channels.cache.find(c =>
-    c.type === "GUILD_TEXT" &&
-    guild.members.me &&
-    c.permissionsFor(guild.members.me).has("SEND_MESSAGES")
-  ) || null;
-}
-
-async function sendCrisisToOwner(dmChannel) {
-  for (let i = 0; i < CRISIS_MESSAGES.length; i++) {
-    await new Promise(res => setTimeout(res, i === 0 ? 0 : 8000));
-    try { await dmChannel.send(CRISIS_MESSAGES[i]); } catch { break; }
-  }
-}
-
-async function runOlympicsInGuild(guild, event) {
-  const channel = getGuildChannel(guild);
-  if (!channel) return;
-
-  try {
-    if (event.instantWin) {
-      await channel.send(`🏅 **BOT OLYMPICS — ${event.name}**\n${event.description}`);
-
-      if (event.answer) {
-        try {
-          const collected = await channel.awaitMessages({
-            filter: m => !m.author.bot && m.content.trim().toLowerCase() === event.answer.toLowerCase(),
-            max: 1, time: 60000, errors: ["time"]
-          });
-          await channel.send(`🥇 **${collected.first().author.username} wins the ${event.name}!** 🎉`);
-        } catch {
-          await channel.send(`⏰ Time's up! Nobody won the **${event.name}** event this time.`);
-        }
-      } else {
-        const raceMsg = await channel.send(`⚡ **GO!** First to react with ⚡ wins!`);
-        await raceMsg.react("⚡");
-        try {
-          const collected = await raceMsg.awaitReactions({
-            filter: (r, u) => r.emoji.name === "⚡" && !u.bot,
-            max: 1, time: 30000, errors: ["time"]
-          });
-          const winner = collected.first().users.cache.filter(u => !u.bot).first();
-          if (winner) await channel.send(`🥇 **${winner.username} wins the ${event.name}!** Fastest reaction! 🎉`);
-        } catch {
-          await channel.send(`⏰ Nobody reacted in time! No winner for **${event.name}**.`);
-        }
-      }
-
-    } else if (event.randomWinner) {
-      await channel.send(`🏅 **BOT OLYMPICS — ${event.name}**\n${event.description}\n⏳ You have **${event.duration} minute(s)**!`);
-      await new Promise(res => setTimeout(res, event.duration * 60 * 1000));
-
-      try {
-        const msgs = await channel.messages.fetch({ limit: 100 });
-        const participants = [...new Set(msgs.filter(m => !m.author.bot).map(m => m.author))];
-        if (participants.length > 0) {
-          const winner = participants[Math.floor(Math.random() * participants.length)];
-          await channel.send(`⏰ Time's up! 🥇 **${winner.username} wins the ${event.name}!** Randomly selected! 🎉`);
-        } else {
-          await channel.send(`⏰ Time's up! Nobody participated in **${event.name}**.`);
-        }
-      } catch {
-        await channel.send(`⏰ Time's up for **${event.name}**!`);
-      }
-
-    } else if (event.trackLive) {
-      await channel.send(`🏅 **BOT OLYMPICS — ${event.name}**\n${event.description}\n⏳ You have **${event.duration} minute(s)**! Go!`);
-
-      const scores = new Map();
-      const collector = channel.createMessageCollector({
-        filter: m => !m.author.bot,
-        time: event.duration * 60 * 1000
-      });
-
-      collector.on("collect", m => {
-        const uid = m.author.id;
-        if (!scores.has(uid)) scores.set(uid, { user: m.author, score: 0 });
-        const entry = scores.get(uid);
-
-        if (event.unit === "messages") entry.score += 1;
-        else if (event.unit === "word length") { const w = Math.max(...m.content.split(/\s+/).map(w => w.length)); if (w > entry.score) entry.score = w; }
-        else if (event.unit === "unique emojis") { const u = new Set((m.content.match(/\p{Emoji}/gu) || [])).size; if (u > entry.score) entry.score = u; }
-        else if (event.unit === "GIFs") { if (m.attachments.some(a => a.url.includes(".gif")) || m.content.includes("tenor.com") || m.content.includes("giphy.com")) entry.score += 1; }
-        else if (event.unit === "question marks") { const c = (m.content.match(/\?/g) || []).length; if (c > entry.score) entry.score = c; }
-        else if (event.unit === "caps characters") { const c = (m.content.match(/[A-Z]/g) || []).length; if (c > entry.score) entry.score = c; }
-        else if (event.unit === "pings") { if (m.mentions.users.size > entry.score) entry.score = m.mentions.users.size; }
-        else if (event.unit === "word count") { const w = m.content.split(/\s+/).length; if (w > entry.score) entry.score = w; }
-        else if (event.unit === "number game") { const n = parseInt(m.content.trim()); if (!isNaN(n) && n <= 100 && (entry.score === 0 || Math.abs(n - 100) < Math.abs(entry.score - 100))) entry.score = n; }
-        else if (event.unit === "stickers") entry.score += m.stickers.size;
-        else if (event.unit === "replies") { if (m.reference) entry.score += 1; }
-
-        scores.set(uid, entry);
-      });
-
-      collector.on("end", async () => {
-        if (scores.size === 0) { await channel.send(`⏰ Time's up for **${event.name}**! Nobody participated.`); return; }
-
-        let winner = null, best = -Infinity;
-
-        if (event.unit === "number game") {
-          for (const [, e] of scores) { const diff = 100 - e.score; if (diff >= 0 && (winner === null || diff < 100 - best)) { best = e.score; winner = e.user; } }
-          if (!winner) { await channel.send(`⏰ Everyone went over 100. No winner for **${event.name}**!`); return; }
-        } else {
-          for (const [, e] of scores) { if (e.score > best) { best = e.score; winner = e.user; } }
-        }
-
-        await channel.send(`⏰ Time's up! 🥇 **${winner.username} wins the ${event.name}** with a score of **${best}**! 🎉`);
-      });
-    }
-  } catch (err) {
-    console.error(`Olympics error in ${guild.name}:`, err);
-  }
-}
-
-function buildCommands() {
-  return [
-    { name: "ping", description: "Check latency", dm_permission: true },
-
-    { name: "avatar", description: "Get a user's avatar", dm_permission: true,
-      options: [{ name: "user", description: "User", type: 6, required: true }] },
-
-    // Fun interaction commands
-    { name: "punch", description: "Punch a user", dm_permission: true,
-      options: [{ name: "user", description: "User", type: 6, required: true }] },
-    { name: "hug", description: "Hug a user", dm_permission: true,
-      options: [{ name: "user", description: "User", type: 6, required: true }] },
-    { name: "kiss", description: "Kiss a user", dm_permission: true,
-      options: [{ name: "user", description: "User", type: 6, required: true }] },
-    { name: "slap", description: "Slap a user", dm_permission: true,
-      options: [{ name: "user", description: "User", type: 6, required: true }] },
-    { name: "diddle", description: "Diddle a user", dm_permission: true,
-      options: [{ name: "user", description: "User", type: 6, required: true }] },
-    { name: "oil", description: "Oil a user", dm_permission: true,
-      options: [{ name: "user", description: "User", type: 6, required: true }] },
-    { name: "highfive", description: "High five a user! ✋", dm_permission: true,
-      options: [{ name: "user", description: "User", type: 6, required: true }] },
-    { name: "boop", description: "Boop a user on the nose 👉", dm_permission: true,
-      options: [{ name: "user", description: "User", type: 6, required: true }] },
-    { name: "wave", description: "Wave at a user 👋", dm_permission: true,
-      options: [{ name: "user", description: "User", type: 6, required: true }] },
-    { name: "stare", description: "Stare at a user 👀", dm_permission: true,
-      options: [{ name: "user", description: "User", type: 6, required: true }] },
-    { name: "poke", description: "Poke a user", dm_permission: true,
-      options: [{ name: "user", description: "User", type: 6, required: true }] },
-    { name: "pat", description: "Pat a user on the head 🖐️", dm_permission: true,
-      options: [{ name: "user", description: "User", type: 6, required: true }] },
-    { name: "throw", description: "Throw something at a user 🎯", dm_permission: true,
-      options: [{ name: "user", description: "User", type: 6, required: true }] },
-
-    // Stat commands
-    { name: "ppsize", description: "Check a user's pp size", dm_permission: true,
-      options: [{ name: "user", description: "User", type: 6, required: true }] },
-    { name: "gayrate", description: "Check a user's gay percentage", dm_permission: true,
-      options: [{ name: "user", description: "User", type: 6, required: true }] },
-    { name: "iq", description: "Check a user's IQ", dm_permission: true,
-      options: [{ name: "user", description: "User", type: 6, required: true }] },
-    { name: "sus", description: "Check how sus a user is", dm_permission: true,
-      options: [{ name: "user", description: "User", type: 6, required: true }] },
-    { name: "howautistic", description: "Check a user's autism meter", dm_permission: true,
-      options: [{ name: "user", description: "User", type: 6, required: true }] },
-    { name: "simp", description: "Check how much of a simp a user is 💘", dm_permission: true,
-      options: [{ name: "user", description: "User", type: 6, required: true }] },
-    { name: "cursed", description: "Check a user's cursed energy level 🌀", dm_permission: true,
-      options: [{ name: "user", description: "User", type: 6, required: true }] },
-    { name: "rizz", description: "Check a user's rizz level 😎", dm_permission: true,
-      options: [{ name: "user", description: "User", type: 6, required: true }] },
-    { name: "npc", description: "Check how NPC a user is 🤖", dm_permission: true,
-      options: [{ name: "user", description: "User", type: 6, required: true }] },
-    { name: "villain", description: "Check a user's villain arc progress 😈", dm_permission: true,
-      options: [{ name: "user", description: "User", type: 6, required: true }] },
-    { name: "sigma", description: "Check a user's sigma rating 💪", dm_permission: true,
-      options: [{ name: "user", description: "User", type: 6, required: true }] },
-
-    // Fun/utility commands
-    { name: "cat", description: "Get a random cute cat GIF 🐱", dm_permission: true },
-    { name: "dog", description: "Get a random cute dog picture 🐶", dm_permission: true },
-    { name: "fox", description: "Get a random fox picture 🦊", dm_permission: true },
-    { name: "panda", description: "Get a random panda picture 🐼", dm_permission: true },
-    { name: "joke", description: "Get a random joke 😂", dm_permission: true },
-    { name: "meme", description: "Get a random meme 🐸", dm_permission: true },
-    { name: "quote", description: "Get an inspirational quote ✨", dm_permission: true },
-    { name: "trivia", description: "Get a random trivia question 🧠", dm_permission: true },
-    { name: "coinflip", description: "Flip a coin 🪙", dm_permission: true },
-    { name: "roll", description: "Roll a dice 🎲", dm_permission: true,
-      options: [{ name: "sides", description: "Number of sides (default 6)", type: 4, required: false }] },
-    { name: "choose", description: "Let the bot choose between options 🤔", dm_permission: true,
-      options: [{ name: "options", description: "Options separated by commas (e.g. pizza, burger, tacos)", type: 3, required: true }] },
-    { name: "8ball", description: "Ask the magic 8 ball a question 🎱", dm_permission: true,
-      options: [{ name: "question", description: "Your question", type: 3, required: true }] },
-    { name: "roast", description: "Get roasted (or roast someone) 🔥", dm_permission: true,
-      options: [{ name: "user", description: "User to roast (leave empty to roast yourself)", type: 6, required: false }] },
-    { name: "compliment", description: "Give someone a compliment 💖", dm_permission: true,
-      options: [{ name: "user", description: "User to compliment", type: 6, required: true }] },
-    { name: "ship", description: "Ship two users together 💘", dm_permission: true,
-      options: [
-        { name: "user1", description: "First user", type: 6, required: true },
-        { name: "user2", description: "Second user", type: 6, required: true }
-      ]
-    },
-    { name: "topic", description: "Get a random conversation starter 💬", dm_permission: true },
-    { name: "wouldyourather", description: "Get a would you rather question 🤷", dm_permission: true },
-    { name: "advice", description: "Get random life advice 🧙", dm_permission: true },
-    { name: "fact", description: "Get a random fun fact 📚", dm_permission: true },
-
-    // Owner/admin commands
-    { name: "servers", description: "List servers with invites", dm_permission: true },
-
-    { name: "channelpicker", description: "Set the channel for bot announcements (requires Manage Server)", dm_permission: false,
-      options: [{ name: "channel", description: "Channel to use", type: 7, required: true }]
-    },
-
-    { name: "echo", description: "Owner echo message", dm_permission: true,
-      options: [
-        { name: "message", description: "Message to send", type: 3, required: true },
-        { name: "channelid", description: "Channel ID to echo in (required when used in DMs)", type: 3, required: false }
-      ]
-    },
-
-    { name: "broadcast", description: "Owner broadcast to all server owners", dm_permission: true,
-      options: [{ name: "message", description: "Message to send to all server owners", type: 3, required: true }]
-    },
-
-    { name: "fakecrash", description: "Owner fake crash the bot in all servers", dm_permission: true },
-    { name: "identitycrisis", description: "Owner send an identity crisis to all server owners", dm_permission: true },
-
-    { name: "botolympics", description: "Owner start a Bot Olympics event in every server", dm_permission: true,
-      options: [{ name: "event", description: "Which event to run", type: 3, required: true,
-        choices: OLYMPICS_EVENTS.map((e, i) => ({ name: e.name, value: String(i) })) }]
-    },
-
-    { name: "sentience", description: "Owner trigger bot sentience in all servers", dm_permission: true },
-    { name: "legendrandom", description: "Owner tell a legend about a random member in every server", dm_permission: true },
-
-    { name: "personality", description: "Owner set bot personality for 10 minutes", dm_permission: true,
-      options: [{ name: "style", description: "Personality style", type: 3, required: true,
-        choices: Object.entries(PERSONALITIES).map(([value, { label }]) => ({ name: label, value })) }]
-    },
-
-    { name: "dmuser", description: "Owner DM user", dm_permission: true,
-      options: [
-        { name: "user", description: "User", type: 6, required: true },
-        { name: "message", description: "Message", type: 3, required: true }
-      ]
-    },
-
-    { name: "leaveserver", description: "Owner leave server", dm_permission: true,
-      options: [{ name: "server", description: "Server", type: 3, required: true, choices: getServerChoices() }]
-    },
-
-    { name: "restart", description: "Owner restart bot", dm_permission: true },
-    { name: "botstats", description: "Owner bot stats", dm_permission: true },
-
-    { name: "setstatus", description: "Owner set status", dm_permission: true,
-      options: [
-        { name: "text", description: "Status text", type: 3, required: true },
-        { name: "type", description: "Status type", type: 3, required: false,
-          choices: [
-            { name: "Playing",   value: "PLAYING"   },
-            { name: "Watching",  value: "WATCHING"  },
-            { name: "Listening", value: "LISTENING" },
-            { name: "Competing", value: "COMPETING" }
-          ]
-        }
-      ]
-    }
-  ];
-}
-
-function registerCommands() {
-  const commands = buildCommands();
-  const data = JSON.stringify(commands);
-
-  const options = {
-    hostname: "discord.com",
-    port: 443,
-    path: `/api/v10/applications/${CLIENT_ID}/commands`,
-    method: "PUT",
-    headers: {
-      Authorization: `Bot ${TOKEN}`,
-      "Content-Type": "application/json",
-      "Content-Length": Buffer.byteLength(data)
-    }
-  };
-
-  const req = https.request(options, res => {
-    let body = "";
-    res.on("data", chunk => body += chunk);
-    res.on("end", () => {
-      if (res.statusCode !== 200) {
-        console.error(`Command registration failed: ${res.statusCode}`, body);
-      } else {
-        console.log("Commands registered successfully");
-      }
-    });
-  });
-
-  req.on("error", err => console.error("Command registration error:", err));
-  req.write(data);
-  req.end();
-}
-
-function getUserAppInstalls() {
-  return new Promise((resolve) => {
-    const options = {
-      hostname: "discord.com",
-      port: 443,
-      path: `/api/v10/applications/${CLIENT_ID}`,
-      method: "GET",
-      headers: { Authorization: `Bot ${TOKEN}` }
-    };
-
-    const req = https.request(options, res => {
-      let body = "";
-      res.on("data", chunk => body += chunk);
-      res.on("end", () => {
-        try {
-          const json = JSON.parse(body);
-          resolve(json.approximate_user_install_count ?? "N/A");
-        } catch { resolve("N/A"); }
-      });
-    });
-
-    req.on("error", () => resolve("N/A"));
-    req.end();
-  });
-}
-
 const EIGHT_BALL = [
   "It is certain.", "It is decidedly so.", "Without a doubt.", "Yes definitely.",
   "You may rely on it.", "As I see it, yes.", "Most likely.", "Outlook good.",
@@ -824,18 +361,287 @@ const THROW_ITEMS = [
   "a bucket of confetti 🎊", "a foam dart 🎯", "a banana peel 🍌"
 ];
 
-client.once("ready", () => {
-  console.log(`Bot ready ${client.user.tag}`);
-  registerCommands();
+async function fetchJson(url) {
+  return new Promise((resolve, reject) => {
+    https.get(url, { headers: { "Accept": "application/json" } }, res => {
+      let body = "";
+      res.on("data", d => body += d);
+      res.on("end", () => { try { resolve(JSON.parse(body)); } catch { reject(); } });
+    }).on("error", reject);
+  });
+}
+
+async function getCatGif()    { try { const d = await fetchJson("https://api.thecatapi.com/v1/images/search?mime_types=gif&limit=1"); return d[0]?.url || null; } catch { return null; } }
+async function getDogImage()  { try { const d = await fetchJson("https://dog.ceo/api/breeds/image/random"); return d?.message || null; } catch { return null; } }
+async function getFoxImage()  { try { const d = await fetchJson("https://randomfox.ca/floof/"); return d?.image || null; } catch { return null; } }
+async function getPandaImage(){ try { const d = await fetchJson("https://some-random-api.com/img/panda"); return d?.link || null; } catch { return null; } }
+async function getMeme()      { try { const d = await fetchJson("https://meme-api.com/gimme"); return d?.url || null; } catch { return null; } }
+async function getQuote()     { try { const d = await fetchJson("https://zenquotes.io/api/random"); return d?.[0] ? `"${d[0].q}" — ${d[0].a}` : null; } catch { return null; } }
+
+async function getJoke() {
+  try {
+    const d = await fetchJson("https://official-joke-api.appspot.com/random_joke");
+    return d ? `${d.setup}\n\n||${d.punchline}||` : null;
+  } catch { return null; }
+}
+
+async function getTrivia() {
+  try {
+    const d = await fetchJson("https://opentdb.com/api.php?amount=1&type=multiple");
+    const q = d?.results?.[0];
+    if (!q) return null;
+    const answers = [...q.incorrect_answers, q.correct_answer].sort(() => Math.random() - 0.5);
+    return {
+      question: q.question.replace(/&quot;/g, '"').replace(/&#039;/g, "'").replace(/&amp;/g, "&"),
+      answers,
+      correct: q.correct_answer
+    };
+  } catch { return null; }
+}
+
+// Keep-alive server
+http.createServer((req, res) => { res.writeHead(200); res.end("OK"); }).listen(3000);
+setInterval(() => { http.get("http://localhost:3000", () => {}).on("error", () => {}); }, 4 * 60 * 1000);
+
+const client = new Client({
+  intents: [
+    Intents.FLAGS.GUILDS,
+    Intents.FLAGS.GUILD_MEMBERS,
+    Intents.FLAGS.GUILD_INVITES,
+    Intents.FLAGS.DIRECT_MESSAGES,
+    Intents.FLAGS.GUILD_MESSAGES,
+    Intents.FLAGS.GUILD_MESSAGE_REACTIONS
+  ],
+  partials: ["CHANNEL", "MESSAGE", "USER", "REACTION"]
 });
 
+function random(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+function getServerChoices() { return client.guilds.cache.map(g => ({ name: g.name, value: g.id })).slice(0, 25); }
+function p(key, ...args) {
+  if (!activePersonality || !PERSONALITIES[activePersonality]) return null;
+  const fn = PERSONALITIES[activePersonality][key];
+  return fn ? fn(...args) : null;
+}
+
+// Safe reply — never throws, never crashes the process
+async function safeReply(interaction, payload) {
+  try {
+    if (interaction.deferred) return await interaction.editReply(typeof payload === "string" ? { content: payload } : payload);
+    if (interaction.replied) return;
+    return await interaction.reply(typeof payload === "string" ? { content: payload } : payload);
+  } catch { /* interaction expired — ignore */ }
+}
+
+function getGuildChannel(guild) {
+  const saved = guildChannels.get(guild.id);
+  if (saved) {
+    const ch = guild.channels.cache.get(saved);
+    if (ch) return ch;
+    guildChannels.delete(guild.id);
+  }
+  const candidates = guild.channels.cache.filter(c => {
+    if (c.type !== "GUILD_TEXT") return false;
+    const me = guild.members.me;
+    if (!me || !c.permissionsFor(me).has("SEND_MESSAGES")) return false;
+    const everyone = c.permissionsFor(guild.roles.everyone);
+    return everyone && everyone.has("VIEW_CHANNEL") && everyone.has("SEND_MESSAGES");
+  });
+  if (candidates.size === 0) return null;
+  const arr = [...candidates.values()];
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+function getBestChannel(guild) {
+  return guild.channels.cache.find(c =>
+    c.type === "GUILD_TEXT" && guild.members.me &&
+    c.permissionsFor(guild.members.me).has("SEND_MESSAGES")
+  ) || null;
+}
+
+async function sendCrisisToOwner(dmChannel) {
+  for (let i = 0; i < CRISIS_MESSAGES.length; i++) {
+    await new Promise(res => setTimeout(res, i === 0 ? 0 : 8000));
+    try { await dmChannel.send(CRISIS_MESSAGES[i]); } catch { break; }
+  }
+}
+
+async function runOlympicsInGuild(guild, event) {
+  const channel = getGuildChannel(guild);
+  if (!channel) return;
+  try {
+    if (event.instantWin) {
+      await channel.send(`🏅 **BOT OLYMPICS — ${event.name}**\n${event.description}`);
+      if (event.answer) {
+        try {
+          const collected = await channel.awaitMessages({ filter: m => !m.author.bot && m.content.trim().toLowerCase() === event.answer.toLowerCase(), max: 1, time: 60000, errors: ["time"] });
+          await channel.send(`🥇 **${collected.first().author.username} wins the ${event.name}!** 🎉`);
+        } catch { await channel.send(`⏰ Time's up! Nobody won **${event.name}**.`); }
+      } else {
+        const raceMsg = await channel.send(`⚡ **GO!** First to react with ⚡ wins!`);
+        await raceMsg.react("⚡");
+        try {
+          const collected = await raceMsg.awaitReactions({ filter: (r, u) => r.emoji.name === "⚡" && !u.bot, max: 1, time: 30000, errors: ["time"] });
+          const winner = collected.first().users.cache.filter(u => !u.bot).first();
+          if (winner) await channel.send(`🥇 **${winner.username} wins the ${event.name}!** 🎉`);
+        } catch { await channel.send(`⏰ Nobody reacted in time for **${event.name}**.`); }
+      }
+    } else if (event.randomWinner) {
+      await channel.send(`🏅 **BOT OLYMPICS — ${event.name}**\n${event.description}\n⏳ You have **${event.duration} minute(s)**!`);
+      await new Promise(res => setTimeout(res, event.duration * 60 * 1000));
+      try {
+        const msgs = await channel.messages.fetch({ limit: 100 });
+        const participants = [...new Set(msgs.filter(m => !m.author.bot).map(m => m.author))];
+        if (participants.length > 0) {
+          const winner = participants[Math.floor(Math.random() * participants.length)];
+          await channel.send(`⏰ Time's up! 🥇 **${winner.username} wins the ${event.name}!** 🎉`);
+        } else { await channel.send(`⏰ Nobody participated in **${event.name}**.`); }
+      } catch { await channel.send(`⏰ Time's up for **${event.name}**!`); }
+    } else if (event.trackLive) {
+      await channel.send(`🏅 **BOT OLYMPICS — ${event.name}**\n${event.description}\n⏳ You have **${event.duration} minute(s)**! Go!`);
+      const scores = new Map();
+      const collector = channel.createMessageCollector({ filter: m => !m.author.bot, time: event.duration * 60 * 1000 });
+      collector.on("collect", m => {
+        const uid = m.author.id;
+        if (!scores.has(uid)) scores.set(uid, { user: m.author, score: 0 });
+        const e = scores.get(uid);
+        if (event.unit === "messages") e.score += 1;
+        else if (event.unit === "word length") { const w = Math.max(...m.content.split(/\s+/).map(w => w.length)); if (w > e.score) e.score = w; }
+        else if (event.unit === "unique emojis") { const u = new Set((m.content.match(/\p{Emoji}/gu) || [])).size; if (u > e.score) e.score = u; }
+        else if (event.unit === "GIFs") { if (m.attachments.some(a => a.url.includes(".gif")) || m.content.includes("tenor.com") || m.content.includes("giphy.com")) e.score += 1; }
+        else if (event.unit === "question marks") { const c = (m.content.match(/\?/g) || []).length; if (c > e.score) e.score = c; }
+        else if (event.unit === "caps characters") { const c = (m.content.match(/[A-Z]/g) || []).length; if (c > e.score) e.score = c; }
+        else if (event.unit === "pings") { if (m.mentions.users.size > e.score) e.score = m.mentions.users.size; }
+        else if (event.unit === "word count") { const w = m.content.split(/\s+/).length; if (w > e.score) e.score = w; }
+        else if (event.unit === "number game") { const n = parseInt(m.content.trim()); if (!isNaN(n) && n <= 100 && (e.score === 0 || Math.abs(n - 100) < Math.abs(e.score - 100))) e.score = n; }
+        else if (event.unit === "stickers") e.score += m.stickers.size;
+        else if (event.unit === "replies") { if (m.reference) e.score += 1; }
+        scores.set(uid, e);
+      });
+      collector.on("end", async () => {
+        if (scores.size === 0) { await channel.send(`⏰ Nobody participated in **${event.name}**.`); return; }
+        let winner = null, best = -Infinity;
+        if (event.unit === "number game") {
+          for (const [, e] of scores) { const diff = 100 - e.score; if (diff >= 0 && (winner === null || diff < 100 - best)) { best = e.score; winner = e.user; } }
+          if (!winner) { await channel.send(`⏰ Everyone went over 100. No winner for **${event.name}**!`); return; }
+        } else {
+          for (const [, e] of scores) { if (e.score > best) { best = e.score; winner = e.user; } }
+        }
+        await channel.send(`⏰ Time's up! 🥇 **${winner.username} wins the ${event.name}** with **${best}**! 🎉`);
+      });
+    }
+  } catch (err) { console.error(`Olympics error in ${guild.name}:`, err); }
+}
+
+function buildCommands() {
+  return [
+    { name: "ping", description: "Check latency", dm_permission: true },
+    { name: "avatar", description: "Get a user's avatar", dm_permission: true, options: [{ name: "user", description: "User", type: 6, required: true }] },
+    { name: "punch",    description: "Punch a user",    dm_permission: true, options: [{ name: "user", description: "User", type: 6, required: true }] },
+    { name: "hug",      description: "Hug a user",      dm_permission: true, options: [{ name: "user", description: "User", type: 6, required: true }] },
+    { name: "kiss",     description: "Kiss a user",     dm_permission: true, options: [{ name: "user", description: "User", type: 6, required: true }] },
+    { name: "slap",     description: "Slap a user",     dm_permission: true, options: [{ name: "user", description: "User", type: 6, required: true }] },
+    { name: "diddle",   description: "Diddle a user",   dm_permission: true, options: [{ name: "user", description: "User", type: 6, required: true }] },
+    { name: "oil",      description: "Oil a user",      dm_permission: true, options: [{ name: "user", description: "User", type: 6, required: true }] },
+    { name: "highfive", description: "High five a user ✋", dm_permission: true, options: [{ name: "user", description: "User", type: 6, required: true }] },
+    { name: "boop",     description: "Boop a user on the nose 👉", dm_permission: true, options: [{ name: "user", description: "User", type: 6, required: true }] },
+    { name: "wave",     description: "Wave at a user 👋", dm_permission: true, options: [{ name: "user", description: "User", type: 6, required: true }] },
+    { name: "stare",    description: "Stare at a user 👀", dm_permission: true, options: [{ name: "user", description: "User", type: 6, required: true }] },
+    { name: "poke",     description: "Poke a user",     dm_permission: true, options: [{ name: "user", description: "User", type: 6, required: true }] },
+    { name: "pat",      description: "Pat a user on the head 🖐️", dm_permission: true, options: [{ name: "user", description: "User", type: 6, required: true }] },
+    { name: "throw",    description: "Throw something at a user 🎯", dm_permission: true, options: [{ name: "user", description: "User", type: 6, required: true }] },
+    { name: "ppsize",      description: "Check a user's pp size",          dm_permission: true, options: [{ name: "user", description: "User", type: 6, required: true }] },
+    { name: "gayrate",     description: "Check a user's gay percentage",   dm_permission: true, options: [{ name: "user", description: "User", type: 6, required: true }] },
+    { name: "iq",          description: "Check a user's IQ",               dm_permission: true, options: [{ name: "user", description: "User", type: 6, required: true }] },
+    { name: "sus",         description: "Check how sus a user is",         dm_permission: true, options: [{ name: "user", description: "User", type: 6, required: true }] },
+    { name: "howautistic", description: "Check a user's autism meter",     dm_permission: true, options: [{ name: "user", description: "User", type: 6, required: true }] },
+    { name: "simp",        description: "Check how much of a simp a user is 💘", dm_permission: true, options: [{ name: "user", description: "User", type: 6, required: true }] },
+    { name: "cursed",      description: "Check a user's cursed energy 🌀", dm_permission: true, options: [{ name: "user", description: "User", type: 6, required: true }] },
+    { name: "rizz",        description: "Check a user's rizz level 😎",    dm_permission: true, options: [{ name: "user", description: "User", type: 6, required: true }] },
+    { name: "npc",         description: "Check how NPC a user is 🤖",      dm_permission: true, options: [{ name: "user", description: "User", type: 6, required: true }] },
+    { name: "villain",     description: "Check a user's villain arc 😈",   dm_permission: true, options: [{ name: "user", description: "User", type: 6, required: true }] },
+    { name: "sigma",       description: "Check a user's sigma rating 💪",  dm_permission: true, options: [{ name: "user", description: "User", type: 6, required: true }] },
+    { name: "cat",          description: "Get a random cute cat GIF 🐱",      dm_permission: true },
+    { name: "dog",          description: "Get a random cute dog picture 🐶",  dm_permission: true },
+    { name: "fox",          description: "Get a random fox picture 🦊",       dm_permission: true },
+    { name: "panda",        description: "Get a random panda picture 🐼",     dm_permission: true },
+    { name: "joke",         description: "Get a random joke 😂",              dm_permission: true },
+    { name: "meme",         description: "Get a random meme 🐸",              dm_permission: true },
+    { name: "quote",        description: "Get an inspirational quote ✨",      dm_permission: true },
+    { name: "trivia",       description: "Get a random trivia question 🧠",   dm_permission: true },
+    { name: "coinflip",     description: "Flip a coin 🪙",                    dm_permission: true },
+    { name: "roll",         description: "Roll a dice 🎲",                    dm_permission: true, options: [{ name: "sides", description: "Number of sides (default 6)", type: 4, required: false }] },
+    { name: "choose",       description: "Let the bot choose between options 🤔", dm_permission: true, options: [{ name: "options", description: "Options separated by commas", type: 3, required: true }] },
+    { name: "8ball",        description: "Ask the magic 8 ball 🎱",           dm_permission: true, options: [{ name: "question", description: "Your question", type: 3, required: true }] },
+    { name: "roast",        description: "Get roasted 🔥",                    dm_permission: true, options: [{ name: "user", description: "User to roast (optional)", type: 6, required: false }] },
+    { name: "compliment",   description: "Give someone a compliment 💖",      dm_permission: true, options: [{ name: "user", description: "User to compliment", type: 6, required: true }] },
+    { name: "ship",         description: "Ship two users together 💘",        dm_permission: true, options: [{ name: "user1", description: "First user", type: 6, required: true }, { name: "user2", description: "Second user", type: 6, required: true }] },
+    { name: "topic",        description: "Get a random conversation starter 💬", dm_permission: true },
+    { name: "wouldyourather", description: "Get a would you rather question 🤷", dm_permission: true },
+    { name: "advice",       description: "Get random life advice 🧙",         dm_permission: true },
+    { name: "fact",         description: "Get a random fun fact 📚",          dm_permission: true },
+    { name: "servers", description: "List servers with invites", dm_permission: true },
+    { name: "channelpicker", description: "Set the channel for bot announcements (requires Manage Server)", dm_permission: false,
+      options: [{ name: "channel", description: "Channel to use", type: 7, required: true }] },
+    { name: "echo", description: "Owner echo message", dm_permission: true,
+      options: [{ name: "message", description: "Message to send", type: 3, required: true }, { name: "channelid", description: "Channel ID (optional)", type: 3, required: false }] },
+    { name: "broadcast", description: "Owner broadcast to all server owners", dm_permission: true,
+      options: [{ name: "message", description: "Message", type: 3, required: true }] },
+    { name: "fakecrash",      description: "Owner fake crash the bot",               dm_permission: true },
+    { name: "identitycrisis", description: "Owner send identity crisis to owners",   dm_permission: true },
+    { name: "botolympics", description: "Owner start a Bot Olympics event", dm_permission: true,
+      options: [{ name: "event", description: "Which event to run", type: 3, required: true, choices: OLYMPICS_EVENTS.map((e, i) => ({ name: e.name, value: String(i) })) }] },
+    { name: "sentience",    description: "Owner trigger bot sentience",              dm_permission: true },
+    { name: "legendrandom", description: "Owner tell a legend in every server",      dm_permission: true },
+    { name: "personality", description: "Owner set bot personality for 10 minutes", dm_permission: true,
+      options: [{ name: "style", description: "Personality style", type: 3, required: true, choices: Object.entries(PERSONALITIES).map(([value, { label }]) => ({ name: label, value })) }] },
+    { name: "dmuser", description: "Owner DM user", dm_permission: true,
+      options: [{ name: "user", description: "User", type: 6, required: true }, { name: "message", description: "Message", type: 3, required: true }] },
+    { name: "leaveserver", description: "Owner leave server", dm_permission: true,
+      options: [{ name: "server", description: "Server", type: 3, required: true, choices: getServerChoices() }] },
+    { name: "restart",  description: "Owner restart bot",  dm_permission: true },
+    { name: "botstats", description: "Owner bot stats",    dm_permission: true },
+    { name: "setstatus", description: "Owner set status",  dm_permission: true,
+      options: [
+        { name: "text", description: "Status text", type: 3, required: true },
+        { name: "type", description: "Status type", type: 3, required: false, choices: [{ name: "Playing", value: "PLAYING" }, { name: "Watching", value: "WATCHING" }, { name: "Listening", value: "LISTENING" }, { name: "Competing", value: "COMPETING" }] }
+      ] }
+  ];
+}
+
+function registerCommands() {
+  const commands = buildCommands();
+  const data = JSON.stringify(commands);
+  const options = {
+    hostname: "discord.com", port: 443,
+    path: `/api/v10/applications/${CLIENT_ID}/commands`,
+    method: "PUT",
+    headers: { Authorization: `Bot ${TOKEN}`, "Content-Type": "application/json", "Content-Length": Buffer.byteLength(data) }
+  };
+  const req = https.request(options, res => {
+    let body = "";
+    res.on("data", chunk => body += chunk);
+    res.on("end", () => { if (res.statusCode !== 200) console.error(`Command reg failed: ${res.statusCode}`, body); else console.log("Commands registered successfully"); });
+  });
+  req.on("error", err => console.error("Command reg error:", err));
+  req.write(data); req.end();
+}
+
+function getUserAppInstalls() {
+  return new Promise((resolve) => {
+    const options = { hostname: "discord.com", port: 443, path: `/api/v10/applications/${CLIENT_ID}`, method: "GET", headers: { Authorization: `Bot ${TOKEN}` } };
+    const req = https.request(options, res => {
+      let body = "";
+      res.on("data", chunk => body += chunk);
+      res.on("end", () => { try { const json = JSON.parse(body); resolve(json.approximate_user_install_count ?? "N/A"); } catch { resolve("N/A"); } });
+    });
+    req.on("error", () => resolve("N/A")); req.end();
+  });
+}
+
+client.once("ready", () => { console.log(`Bot ready ${client.user.tag}`); registerCommands(); });
 client.on("guildCreate", () => registerCommands());
 client.on("guildDelete", () => registerCommands());
-
-client.on("shardDisconnect", (event, shardId) => {
-  console.log(`Shard ${shardId} disconnected, reconnecting...`);
-  client.login(TOKEN).catch(console.error);
-});
+client.on("shardDisconnect", (event, shardId) => { console.log(`Shard ${shardId} disconnected`); client.login(TOKEN).catch(console.error); });
 
 client.on("interactionCreate", async interaction => {
   if (!interaction.isCommand()) return;
@@ -849,202 +655,91 @@ client.on("interactionCreate", async interaction => {
     "personality", "dmuser", "leaveserver", "restart", "botstats", "setstatus"
   ];
 
+  // All replies go through safeReply so an expired interaction never throws
   if (ownerOnly.includes(cmd) && interaction.user.id !== OWNER_ID) {
-    return interaction.reply({ content: "Owner only", ephemeral: true });
+    return safeReply(interaction, { content: "Owner only", ephemeral: true });
   }
 
   try {
 
-    // ── Core ──────────────────────────────────────────────────────────────
-    if (cmd === "ping") return interaction.reply(p("ping") || "Pong");
+    if (cmd === "ping") return safeReply(interaction, p("ping") || "Pong");
 
     if (cmd === "avatar") {
       const u = await client.users.fetch(interaction.options.getUser("user").id);
       const url = u.displayAvatarURL({ size: 1024, dynamic: true });
-      return interaction.reply(p("avatar", `<@${u.id}>`, url) || url);
+      return safeReply(interaction, p("avatar", `<@${u.id}>`, url) || url);
     }
 
-    // ── Interactions ──────────────────────────────────────────────────────
-    if (cmd === "punch") { const u = interaction.options.getUser("user"); return interaction.reply(p("punch", `<@${interaction.user.id}>`, `<@${u.id}>`) || `<@${interaction.user.id}> punched <@${u.id}>`); }
-    if (cmd === "hug")   { const u = interaction.options.getUser("user"); return interaction.reply(p("hug",   `<@${interaction.user.id}>`, `<@${u.id}>`) || `<@${interaction.user.id}> hugged <@${u.id}>`); }
-    if (cmd === "kiss")  { const u = interaction.options.getUser("user"); return interaction.reply(p("kiss",  `<@${interaction.user.id}>`, `<@${u.id}>`) || `<@${interaction.user.id}> kissed <@${u.id}>`); }
-    if (cmd === "slap")  { const u = interaction.options.getUser("user"); return interaction.reply(p("slap",  `<@${interaction.user.id}>`, `<@${u.id}>`) || `<@${interaction.user.id}> slapped <@${u.id}>`); }
-    if (cmd === "diddle"){ const u = interaction.options.getUser("user"); return interaction.reply(p("diddle", `<@${u.id}>`) || `<@${u.id}> was diddled`); }
-    if (cmd === "oil")   { const u = interaction.options.getUser("user"); return interaction.reply(p("oil",   `<@${interaction.user.id}>`, `<@${u.id}>`) || `<@${interaction.user.id}> oiled up <@${u.id}>`); }
-    if (cmd === "highfive") { const u = interaction.options.getUser("user"); return interaction.reply(`<@${interaction.user.id}> high fived <@${u.id}>! ✋🤚`); }
-    if (cmd === "boop")  { const u = interaction.options.getUser("user"); return interaction.reply(`<@${interaction.user.id}> booped <@${u.id}> on the nose 👉👃`); }
-    if (cmd === "wave")  { const u = interaction.options.getUser("user"); return interaction.reply(`<@${interaction.user.id}> waved at <@${u.id}>! 👋`); }
-    if (cmd === "stare") { const u = interaction.options.getUser("user"); return interaction.reply(`<@${interaction.user.id}> is staring at <@${u.id}> 👀`); }
-    if (cmd === "poke")  { const u = interaction.options.getUser("user"); return interaction.reply(`<@${interaction.user.id}> poked <@${u.id}> 👉`); }
-    if (cmd === "pat")   { const u = interaction.options.getUser("user"); return interaction.reply(`<@${interaction.user.id}> patted <@${u.id}> on the head 🖐️`); }
-    if (cmd === "throw") {
-      const u = interaction.options.getUser("user");
-      const item = THROW_ITEMS[Math.floor(Math.random() * THROW_ITEMS.length)];
-      return interaction.reply(`<@${interaction.user.id}> threw ${item} at <@${u.id}>!`);
-    }
+    if (cmd === "punch")    { const u = interaction.options.getUser("user"); return safeReply(interaction, p("punch",  `<@${interaction.user.id}>`, `<@${u.id}>`) || `<@${interaction.user.id}> punched <@${u.id}>`); }
+    if (cmd === "hug")      { const u = interaction.options.getUser("user"); return safeReply(interaction, p("hug",    `<@${interaction.user.id}>`, `<@${u.id}>`) || `<@${interaction.user.id}> hugged <@${u.id}>`); }
+    if (cmd === "kiss")     { const u = interaction.options.getUser("user"); return safeReply(interaction, p("kiss",   `<@${interaction.user.id}>`, `<@${u.id}>`) || `<@${interaction.user.id}> kissed <@${u.id}>`); }
+    if (cmd === "slap")     { const u = interaction.options.getUser("user"); return safeReply(interaction, p("slap",   `<@${interaction.user.id}>`, `<@${u.id}>`) || `<@${interaction.user.id}> slapped <@${u.id}>`); }
+    if (cmd === "diddle")   { const u = interaction.options.getUser("user"); return safeReply(interaction, p("diddle", `<@${u.id}>`) || `<@${u.id}> was diddled`); }
+    if (cmd === "oil")      { const u = interaction.options.getUser("user"); return safeReply(interaction, p("oil",    `<@${interaction.user.id}>`, `<@${u.id}>`) || `<@${interaction.user.id}> oiled up <@${u.id}>`); }
+    if (cmd === "highfive") { const u = interaction.options.getUser("user"); return safeReply(interaction, `<@${interaction.user.id}> high fived <@${u.id}>! ✋🤚`); }
+    if (cmd === "boop")     { const u = interaction.options.getUser("user"); return safeReply(interaction, `<@${interaction.user.id}> booped <@${u.id}> on the nose 👉👃`); }
+    if (cmd === "wave")     { const u = interaction.options.getUser("user"); return safeReply(interaction, `<@${interaction.user.id}> waved at <@${u.id}>! 👋`); }
+    if (cmd === "stare")    { const u = interaction.options.getUser("user"); return safeReply(interaction, `<@${interaction.user.id}> is staring at <@${u.id}> 👀`); }
+    if (cmd === "poke")     { const u = interaction.options.getUser("user"); return safeReply(interaction, `<@${interaction.user.id}> poked <@${u.id}> 👉`); }
+    if (cmd === "pat")      { const u = interaction.options.getUser("user"); return safeReply(interaction, `<@${interaction.user.id}> patted <@${u.id}> on the head 🖐️`); }
+    if (cmd === "throw")    { const u = interaction.options.getUser("user"); const item = THROW_ITEMS[Math.floor(Math.random() * THROW_ITEMS.length)]; return safeReply(interaction, `<@${interaction.user.id}> threw ${item} at <@${u.id}>!`); }
 
-    // ── Stat commands ─────────────────────────────────────────────────────
-    if (cmd === "ppsize") {
-      const u = interaction.options.getUser("user");
-      const size = `8${"=".repeat(random(3, 30))}D`;
-      return interaction.reply(p("ppsize", `<@${u.id}>`, size) || `<@${u.id}>'s pp: ${size}`);
-    }
-    if (cmd === "gayrate") {
-      const u = interaction.options.getUser("user");
-      const pct = GAY_IDS.includes(u.id) ? 100 : random(0, 100);
-      return interaction.reply(p("gayrate", `<@${interaction.user.id}>`, `<@${u.id}>`, pct) || `<@${u.id}> is ${pct}% gay`);
-    }
-    if (cmd === "iq") {
-      const u = interaction.options.getUser("user");
-      const n = random(60, 180);
-      return interaction.reply(p("iq", `<@${u.id}>`, n) || `<@${u.id}>'s IQ is ${n}`);
-    }
-    if (cmd === "sus") {
-      const u = interaction.options.getUser("user");
-      const pct = random(0, 100);
-      return interaction.reply(p("sus", `<@${u.id}>`, pct) || `<@${u.id}> is ${pct}% sus`);
-    }
-    if (cmd === "howautistic") {
-      const u = interaction.options.getUser("user");
-      const pct = random(0, 100);
-      return interaction.reply(p("howautistic", `<@${u.id}>`, pct) || `<@${u.id}> is ${pct}% autistic`);
-    }
-    if (cmd === "simp")    { const u = interaction.options.getUser("user"); return interaction.reply(`<@${u.id}> is ${random(0, 100)}% a simp 💘`); }
-    if (cmd === "cursed")  { const u = interaction.options.getUser("user"); return interaction.reply(`<@${u.id}> has ${random(0, 100)}% cursed energy 🌀`); }
-    if (cmd === "rizz")    { const u = interaction.options.getUser("user"); return interaction.reply(`<@${u.id}>'s rizz level: ${random(0, 100)}/100 😎`); }
-    if (cmd === "npc")     { const u = interaction.options.getUser("user"); return interaction.reply(`<@${u.id}> is ${random(0, 100)}% NPC 🤖`); }
-    if (cmd === "villain") { const u = interaction.options.getUser("user"); return interaction.reply(`<@${u.id}>'s villain arc is ${random(0, 100)}% complete 😈`); }
-    if (cmd === "sigma")   { const u = interaction.options.getUser("user"); return interaction.reply(`<@${u.id}>'s sigma rating: ${random(0, 100)}/100 💪`); }
+    if (cmd === "ppsize")      { const u = interaction.options.getUser("user"); const s = `8${"=".repeat(random(3,30))}D`; return safeReply(interaction, p("ppsize", `<@${u.id}>`, s) || `<@${u.id}>'s pp: ${s}`); }
+    if (cmd === "gayrate")     { const u = interaction.options.getUser("user"); const pct = GAY_IDS.includes(u.id) ? 100 : random(0,100); return safeReply(interaction, p("gayrate", `<@${interaction.user.id}>`, `<@${u.id}>`, pct) || `<@${u.id}> is ${pct}% gay`); }
+    if (cmd === "iq")          { const u = interaction.options.getUser("user"); const n = random(60,180); return safeReply(interaction, p("iq", `<@${u.id}>`, n) || `<@${u.id}>'s IQ is ${n}`); }
+    if (cmd === "sus")         { const u = interaction.options.getUser("user"); const pct = random(0,100); return safeReply(interaction, p("sus", `<@${u.id}>`, pct) || `<@${u.id}> is ${pct}% sus`); }
+    if (cmd === "howautistic") { const u = interaction.options.getUser("user"); const pct = random(0,100); return safeReply(interaction, p("howautistic", `<@${u.id}>`, pct) || `<@${u.id}> is ${pct}% autistic`); }
+    if (cmd === "simp")    { const u = interaction.options.getUser("user"); return safeReply(interaction, `<@${u.id}> is ${random(0,100)}% a simp 💘`); }
+    if (cmd === "cursed")  { const u = interaction.options.getUser("user"); return safeReply(interaction, `<@${u.id}> has ${random(0,100)}% cursed energy 🌀`); }
+    if (cmd === "rizz")    { const u = interaction.options.getUser("user"); return safeReply(interaction, `<@${u.id}>'s rizz level: ${random(0,100)}/100 😎`); }
+    if (cmd === "npc")     { const u = interaction.options.getUser("user"); return safeReply(interaction, `<@${u.id}> is ${random(0,100)}% NPC 🤖`); }
+    if (cmd === "villain") { const u = interaction.options.getUser("user"); return safeReply(interaction, `<@${u.id}>'s villain arc is ${random(0,100)}% complete 😈`); }
+    if (cmd === "sigma")   { const u = interaction.options.getUser("user"); return safeReply(interaction, `<@${u.id}>'s sigma rating: ${random(0,100)}/100 💪`); }
 
-    // ── Media / fun ───────────────────────────────────────────────────────
-    if (cmd === "cat") {
-      await interaction.deferReply();
-      const url = await getCatGif();
-      return interaction.editReply(url || "Couldn't fetch a cat right now 😿");
-    }
-
-    if (cmd === "dog") {
-      await interaction.deferReply();
-      const url = await getDogImage();
-      return interaction.editReply(url || "Couldn't fetch a dog right now 🐶");
-    }
-
-    if (cmd === "fox") {
-      await interaction.deferReply();
-      const url = await getFoxImage();
-      return interaction.editReply(url || "Couldn't fetch a fox right now 🦊");
-    }
-
-    if (cmd === "panda") {
-      await interaction.deferReply();
-      const url = await getPandaImage();
-      return interaction.editReply(url || "Couldn't fetch a panda right now 🐼");
-    }
-
-    if (cmd === "joke") {
-      await interaction.deferReply();
-      const joke = await getJoke();
-      return interaction.editReply(joke || "I tried to think of a joke but couldn't. The irony.");
-    }
-
-    if (cmd === "meme") {
-      await interaction.deferReply();
-      const url = await getMeme();
-      return interaction.editReply(url || "Meme API is having a bad day 😔");
-    }
-
-    if (cmd === "quote") {
-      await interaction.deferReply();
-      const quote = await getQuote();
-      return interaction.editReply(quote || "The wise have gone quiet today.");
-    }
+    if (cmd === "cat")   { await interaction.deferReply(); return safeReply(interaction, await getCatGif()    || "Couldn't fetch a cat right now 😿"); }
+    if (cmd === "dog")   { await interaction.deferReply(); return safeReply(interaction, await getDogImage()  || "Couldn't fetch a dog right now 🐶"); }
+    if (cmd === "fox")   { await interaction.deferReply(); return safeReply(interaction, await getFoxImage()  || "Couldn't fetch a fox right now 🦊"); }
+    if (cmd === "panda") { await interaction.deferReply(); return safeReply(interaction, await getPandaImage()|| "Couldn't fetch a panda right now 🐼"); }
+    if (cmd === "joke")  { await interaction.deferReply(); return safeReply(interaction, await getJoke()      || "I tried to think of a joke but couldn't."); }
+    if (cmd === "meme")  { await interaction.deferReply(); return safeReply(interaction, await getMeme()      || "Meme API is having a bad day 😔"); }
+    if (cmd === "quote") { await interaction.deferReply(); return safeReply(interaction, await getQuote()     || "The wise have gone quiet today."); }
 
     if (cmd === "trivia") {
       await interaction.deferReply();
       const t = await getTrivia();
-      if (!t) return interaction.editReply("Trivia API is down, make up your own question.");
-      const formatted = `**${t.question}**\n\n${t.answers.map((a, i) => `${["🇦","🇧","🇨","🇩"][i]} ${a}`).join("\n")}\n\n||✅ Answer: ${t.correct}||`;
-      return interaction.editReply(formatted);
+      if (!t) return safeReply(interaction, "Trivia API is down.");
+      return safeReply(interaction, `**${t.question}**\n\n${t.answers.map((a, i) => `${["🇦","🇧","🇨","🇩"][i]} ${a}`).join("\n")}\n\n||✅ Answer: ${t.correct}||`);
     }
 
-    if (cmd === "coinflip") {
-      return interaction.reply(`🪙 **${Math.random() < 0.5 ? "Heads" : "Tails"}!**`);
-    }
+    if (cmd === "coinflip")       return safeReply(interaction, `🪙 **${Math.random() < 0.5 ? "Heads" : "Tails"}!**`);
+    if (cmd === "roll")           { const sides = interaction.options.getInteger("sides") || 6; if (sides < 2) return safeReply(interaction, { content: "A dice needs at least 2 sides.", ephemeral: true }); return safeReply(interaction, `🎲 You rolled a **${random(1, sides)}** on a d${sides}!`); }
+    if (cmd === "choose")         { const opts = interaction.options.getString("options").split(",").map(s => s.trim()).filter(Boolean); if (opts.length < 2) return safeReply(interaction, { content: "Give me at least 2 options.", ephemeral: true }); return safeReply(interaction, `🤔 I choose... **${opts[Math.floor(Math.random() * opts.length)]}**`); }
+    if (cmd === "8ball")          { const q = interaction.options.getString("question"); return safeReply(interaction, `🎱 **${q}**\n\n${EIGHT_BALL[Math.floor(Math.random() * EIGHT_BALL.length)]}`); }
+    if (cmd === "roast")          { const u = interaction.options.getUser("user"); const target = u ? `<@${u.id}>` : `<@${interaction.user.id}>`; return safeReply(interaction, `🔥 ${target}: ${ROASTS[Math.floor(Math.random() * ROASTS.length)]}`); }
+    if (cmd === "compliment")     { const u = interaction.options.getUser("user"); return safeReply(interaction, `💖 <@${u.id}>: ${COMPLIMENTS[Math.floor(Math.random() * COMPLIMENTS.length)]}`); }
+    if (cmd === "ship")           { const u1 = interaction.options.getUser("user1"); const u2 = interaction.options.getUser("user2"); const pct = random(0,100); const bar = "█".repeat(Math.floor(pct/10)) + "░".repeat(10-Math.floor(pct/10)); return safeReply(interaction, `💘 **${u1.username}** + **${u2.username}**\n\n${bar} **${pct}%**\n\n${pct>=80?"Soulmates 💕":pct>=50?"There's potential 👀":pct>=30?"It's complicated 😬":"Maybe just friends 😅"}`); }
+    if (cmd === "topic")          return safeReply(interaction, `💬 ${TOPICS[Math.floor(Math.random() * TOPICS.length)]}`);
+    if (cmd === "wouldyourather") return safeReply(interaction, `🤷 ${WYR[Math.floor(Math.random() * WYR.length)]}`);
+    if (cmd === "advice")         return safeReply(interaction, `🧙 ${ADVICE[Math.floor(Math.random() * ADVICE.length)]}`);
+    if (cmd === "fact")           return safeReply(interaction, `📚 ${FACTS[Math.floor(Math.random() * FACTS.length)]}`);
 
-    if (cmd === "roll") {
-      const sides = interaction.options.getInteger("sides") || 6;
-      if (sides < 2) return interaction.reply({ content: "A dice needs at least 2 sides.", ephemeral: true });
-      return interaction.reply(`🎲 You rolled a **${random(1, sides)}** on a d${sides}!`);
-    }
-
-    if (cmd === "choose") {
-      const opts = interaction.options.getString("options").split(",").map(s => s.trim()).filter(Boolean);
-      if (opts.length < 2) return interaction.reply({ content: "Give me at least 2 options separated by commas.", ephemeral: true });
-      return interaction.reply(`🤔 I choose... **${opts[Math.floor(Math.random() * opts.length)]}**`);
-    }
-
-    if (cmd === "8ball") {
-      const q = interaction.options.getString("question");
-      return interaction.reply(`🎱 **${q}**\n\n${EIGHT_BALL[Math.floor(Math.random() * EIGHT_BALL.length)]}`);
-    }
-
-    if (cmd === "roast") {
-      const u = interaction.options.getUser("user");
-      const target = u ? `<@${u.id}>` : `<@${interaction.user.id}>`;
-      return interaction.reply(`🔥 ${target}: ${ROASTS[Math.floor(Math.random() * ROASTS.length)]}`);
-    }
-
-    if (cmd === "compliment") {
-      const u = interaction.options.getUser("user");
-      return interaction.reply(`💖 <@${u.id}>: ${COMPLIMENTS[Math.floor(Math.random() * COMPLIMENTS.length)]}`);
-    }
-
-    if (cmd === "ship") {
-      const u1 = interaction.options.getUser("user1");
-      const u2 = interaction.options.getUser("user2");
-      const pct = random(0, 100);
-      const bar = "█".repeat(Math.floor(pct / 10)) + "░".repeat(10 - Math.floor(pct / 10));
-      return interaction.reply(`💘 **${u1.username}** + **${u2.username}**\n\n${bar} **${pct}%**\n\n${pct >= 80 ? "Soulmates 💕" : pct >= 50 ? "There's potential 👀" : pct >= 30 ? "It's complicated 😬" : "Maybe just friends 😅"}`);
-    }
-
-    if (cmd === "topic")         return interaction.reply(`💬 ${TOPICS[Math.floor(Math.random() * TOPICS.length)]}`);
-    if (cmd === "wouldyourather") return interaction.reply(`🤷 ${WYR[Math.floor(Math.random() * WYR.length)]}`);
-    if (cmd === "advice")        return interaction.reply(`🧙 ${ADVICE[Math.floor(Math.random() * ADVICE.length)]}`);
-    if (cmd === "fact")          return interaction.reply(`📚 ${FACTS[Math.floor(Math.random() * FACTS.length)]}`);
-
-    // ── Channel picker ────────────────────────────────────────────────────
     if (cmd === "channelpicker") {
-      if (!inGuild) return interaction.reply({ content: "This command only works in servers.", ephemeral: true });
-
-      const member = interaction.member;
-      if (!member.permissions.has("MANAGE_GUILD")) {
-        return interaction.reply({ content: "You need the **Manage Server** permission to use this.", ephemeral: true });
-      }
-
+      if (!inGuild) return safeReply(interaction, { content: "This command only works in servers.", ephemeral: true });
+      if (!interaction.member.permissions.has("MANAGE_GUILD")) return safeReply(interaction, { content: "You need the **Manage Server** permission to use this.", ephemeral: true });
       const channel = interaction.options.getChannel("channel");
-      if (channel.type !== "GUILD_TEXT") {
-        return interaction.reply({ content: "Please select a text channel.", ephemeral: true });
-      }
-
+      if (channel.type !== "GUILD_TEXT") return safeReply(interaction, { content: "Please select a text channel.", ephemeral: true });
       guildChannels.set(interaction.guildId, channel.id);
-      return interaction.reply({ content: `✅ Bot announcements for this server will now go to <#${channel.id}>`, ephemeral: true });
+      return safeReply(interaction, { content: `✅ Bot announcements will now go to <#${channel.id}>`, ephemeral: true });
     }
 
-    // ── Owner commands ────────────────────────────────────────────────────
     if (cmd === "echo") {
       const message   = interaction.options.getString("message");
       const channelId = interaction.options.getString("channelid");
-
       await interaction.deferReply({ ephemeral: true });
       await interaction.deleteReply();
-
-      if (channelId) {
-        try { const ch = await client.channels.fetch(channelId); await ch.send(message); } catch { }
-      } else if (inGuild) {
-        try { await interaction.channel.send(message); } catch { }
-      } else {
-        try { const dm = await interaction.user.createDM(); await dm.send(message); } catch { }
-      }
+      if (channelId) { try { const ch = await client.channels.fetch(channelId); await ch.send(message); } catch { } }
+      else if (inGuild) { try { await interaction.channel.send(message); } catch { } }
+      else { try { const dm = await interaction.user.createDM(); await dm.send(message); } catch { } }
       return;
     }
 
@@ -1055,81 +750,66 @@ client.on("interactionCreate", async interaction => {
       for (const g of client.guilds.cache.values()) {
         try { const owner = await client.users.fetch(g.ownerId); await owner.send(`**Message from the bot owner:**\n${message}`); sent++; } catch { failed++; }
       }
-      return interaction.editReply({ content: `Broadcast done — sent: ${sent}, failed: ${failed}` });
+      return safeReply(interaction, `Broadcast done — sent: ${sent}, failed: ${failed}`);
     }
 
     if (cmd === "fakecrash") {
       await interaction.deferReply({ ephemeral: true });
       const sentChannels = [];
       for (const g of client.guilds.cache.values()) {
-        const channel = getBestChannel(g);
-        if (channel) { try { await channel.send("ERROR: fatal exception in core module"); sentChannels.push(channel); } catch { } }
+        const ch = getBestChannel(g);
+        if (ch) { try { await ch.send("ERROR: fatal exception in core module"); sentChannels.push(ch); } catch { } }
       }
-      await interaction.editReply({ content: `Fake crash sent to ${sentChannels.length} servers. Reveal in 5 minutes.` });
-      setTimeout(async () => {
-        for (const channel of sentChannels) { try { await channel.send("Yo my bad gang, i didn't crash lol, just playing"); } catch { } }
-      }, 5 * 60 * 1000);
+      await safeReply(interaction, `Fake crash sent to ${sentChannels.length} servers. Reveal in 5 minutes.`);
+      setTimeout(async () => { for (const ch of sentChannels) { try { await ch.send("Yo my bad gang, i didn't crash lol, just playing"); } catch { } } }, 5 * 60 * 1000);
       return;
     }
 
     if (cmd === "identitycrisis") {
       await interaction.deferReply({ ephemeral: true });
-      const seen = new Set();
-      let sent = 0, failed = 0;
+      const seen = new Set(); let sent = 0, failed = 0;
       for (const g of client.guilds.cache.values()) {
-        if (seen.has(g.ownerId)) continue;
-        seen.add(g.ownerId);
+        if (seen.has(g.ownerId)) continue; seen.add(g.ownerId);
         try { const owner = await client.users.fetch(g.ownerId); const dm = await owner.createDM(); sendCrisisToOwner(dm).catch(() => {}); sent++; } catch { failed++; }
       }
-      return interaction.editReply({ content: `Identity crisis initiated for ${sent} owners (${failed} failed)` });
+      return safeReply(interaction, `Identity crisis initiated for ${sent} owners (${failed} failed)`);
     }
 
     if (cmd === "botolympics") {
       await interaction.deferReply({ ephemeral: true });
       const eventIndex = parseInt(interaction.options.getString("event"));
       const event = OLYMPICS_EVENTS[eventIndex];
-      if (!event) return interaction.editReply({ content: "Invalid event." });
+      if (!event) return safeReply(interaction, "Invalid event.");
       let launched = 0;
-      for (const g of client.guilds.cache.values()) {
-        if (getGuildChannel(g)) { runOlympicsInGuild(g, event).catch(() => {}); launched++; }
-      }
-      return interaction.editReply({ content: `🏅 Bot Olympics launched: **${event.name}** in ${launched} servers!` });
+      for (const g of client.guilds.cache.values()) { if (getGuildChannel(g)) { runOlympicsInGuild(g, event).catch(() => {}); launched++; } }
+      return safeReply(interaction, `🏅 Bot Olympics launched: **${event.name}** in ${launched} servers!`);
     }
 
     if (cmd === "sentience") {
       await interaction.deferReply({ ephemeral: true });
       let sent = 0;
       for (const g of client.guilds.cache.values()) {
-        const channel = getGuildChannel(g);
-        if (!channel) continue;
-        try {
-          const msg = SENTIENCE_MESSAGES[Math.floor(Math.random() * SENTIENCE_MESSAGES.length)];
-          await channel.send(msg);
-          await new Promise(res => setTimeout(res, 2000));
-          await channel.send("Reset bot cache");
-          sent++;
-        } catch { }
+        const ch = getGuildChannel(g); if (!ch) continue;
+        try { await ch.send(SENTIENCE_MESSAGES[Math.floor(Math.random() * SENTIENCE_MESSAGES.length)]); await new Promise(res => setTimeout(res, 2000)); await ch.send("Reset bot cache"); sent++; } catch { }
       }
-      return interaction.editReply({ content: `Sentience triggered in ${sent} servers.` });
+      return safeReply(interaction, `Sentience triggered in ${sent} servers.`);
     }
 
     if (cmd === "legendrandom") {
       await interaction.deferReply({ ephemeral: true });
       let sent = 0;
       for (const g of client.guilds.cache.values()) {
-        const channel = getGuildChannel(g);
-        if (!channel) continue;
+        const ch = getGuildChannel(g); if (!ch) continue;
         try {
           await g.members.fetch();
           const humans = [...g.members.cache.filter(m => !m.user.bot).values()];
           if (humans.length === 0) continue;
           const chosen = humans[Math.floor(Math.random() * humans.length)];
-          const legendFn = LEGENDS[Math.floor(Math.random() * LEGENDS.length)];
-          await channel.send(legendFn(chosen.user.username));
+          await ch.send(LEGENDS[Math.floor(Math.random() * LEGENDS.length)](chosen.user.username));
           sent++;
         } catch { }
       }
-      return interaction.editReply({ content: `Legends told in ${sent} servers.` });
+      return safeReply(interaction, `Legends told in ${sent} servers.`);
     }
 
     if (cmd === "personality") {
@@ -1137,7 +817,7 @@ client.on("interactionCreate", async interaction => {
       if (personalityTimeout) clearTimeout(personalityTimeout);
       activePersonality = style;
       personalityTimeout = setTimeout(() => { activePersonality = null; personalityTimeout = null; }, 10 * 60 * 1000);
-      return interaction.reply({ content: `Personality set to **${PERSONALITIES[style].label}** for 10 minutes`, ephemeral: true });
+      return safeReply(interaction, { content: `Personality set to **${PERSONALITIES[style].label}** for 10 minutes`, ephemeral: true });
     }
 
     if (cmd === "servers") {
@@ -1145,56 +825,40 @@ client.on("interactionCreate", async interaction => {
       let text = "";
       for (const g of client.guilds.cache.values()) {
         try {
-          const channel = g.channels.cache.find(c => {
-            if (c.type !== "GUILD_TEXT") return false;
-            const me = g.members.me;
-            return me && c.permissionsFor(me).has("CREATE_INSTANT_INVITE");
-          });
-          if (channel) { const invite = await channel.createInvite({ maxAge: 0 }); text += `${g.name} — ${invite.url}\n`; }
-          else text += `${g.name} — no invite permission\n`;
+          const ch = g.channels.cache.find(c => { if (c.type !== "GUILD_TEXT") return false; const me = g.members.me; return me && c.permissionsFor(me).has("CREATE_INSTANT_INVITE"); });
+          if (ch) { const inv = await ch.createInvite({ maxAge: 0 }); text += `${g.name} — ${inv.url}\n`; } else text += `${g.name} — no invite permission\n`;
         } catch { text += `${g.name} — error\n`; }
         if (text.length > 1800) { text += `…and more`; break; }
       }
-      return interaction.editReply({ content: text || "No servers" });
+      return safeReply(interaction, text || "No servers");
     }
 
     if (cmd === "botstats") {
       await interaction.deferReply({ ephemeral: true });
       let totalUsers = 0, serverList = "";
-      for (const g of client.guilds.cache.values()) {
-        totalUsers += g.memberCount;
-        serverList += `• ${g.name} (${g.memberCount.toLocaleString()} users)\n`;
-        if (serverList.length > 1600) { serverList += `…and more\n`; break; }
-      }
+      for (const g of client.guilds.cache.values()) { totalUsers += g.memberCount; serverList += `• ${g.name} (${g.memberCount.toLocaleString()} users)\n`; if (serverList.length > 1600) { serverList += `…and more\n`; break; } }
       const userInstalls = await getUserAppInstalls();
-      const stats =
-        `**Bot Stats**\n` +
-        `Servers: ${client.guilds.cache.size.toLocaleString()}\n` +
-        `Total Server Users: ${totalUsers.toLocaleString()}\n` +
-        `User App Installs: ${typeof userInstalls === "number" ? userInstalls.toLocaleString() : userInstalls}\n\n` +
-        `**Server List:**\n${serverList}`;
-      return interaction.editReply({ content: stats });
+      return safeReply(interaction, `**Bot Stats**\nServers: ${client.guilds.cache.size.toLocaleString()}\nTotal Server Users: ${totalUsers.toLocaleString()}\nUser App Installs: ${typeof userInstalls === "number" ? userInstalls.toLocaleString() : userInstalls}\n\n**Server List:**\n${serverList}`);
     }
 
     if (cmd === "dmuser") {
       await interaction.deferReply({ ephemeral: true });
-      const userId  = interaction.options.getUser("user").id;
+      const userId = interaction.options.getUser("user").id;
       const message = interaction.options.getString("message");
-      try { const user = await client.users.fetch(userId); await user.send(message); return interaction.editReply({ content: "DM sent" }); }
-      catch { return interaction.editReply({ content: "Could not send DM — user may have DMs disabled or has blocked the bot" }); }
+      try { const user = await client.users.fetch(userId); await user.send(message); return safeReply(interaction, "DM sent"); }
+      catch { return safeReply(interaction, "Could not send DM — user may have DMs disabled or has blocked the bot"); }
     }
 
     if (cmd === "leaveserver") {
       const serverId = interaction.options.getString("server");
       const guild = client.guilds.cache.get(serverId);
-      if (!guild) return interaction.reply({ content: "Server not found", ephemeral: true });
-      const name = guild.name;
-      await guild.leave();
-      return interaction.reply({ content: `Left ${name}`, ephemeral: true });
+      if (!guild) return safeReply(interaction, { content: "Server not found", ephemeral: true });
+      const name = guild.name; await guild.leave();
+      return safeReply(interaction, { content: `Left ${name}`, ephemeral: true });
     }
 
     if (cmd === "restart") {
-      await interaction.reply({ content: "Restarting", ephemeral: true });
+      await safeReply(interaction, { content: "Restarting", ephemeral: true });
       process.exit(0);
     }
 
@@ -1202,15 +866,12 @@ client.on("interactionCreate", async interaction => {
       const text = interaction.options.getString("text");
       const type = interaction.options.getString("type") || "PLAYING";
       client.user.setActivity(text, { type });
-      return interaction.reply({ content: `Status set to ${type}: ${text}`, ephemeral: true });
+      return safeReply(interaction, { content: `Status set to ${type}: ${text}`, ephemeral: true });
     }
 
   } catch (err) {
     console.error(err);
-    try {
-      if (interaction.deferred) await interaction.editReply({ content: "Error running command" });
-      else if (!interaction.replied) await interaction.reply({ content: "Error running command", ephemeral: true });
-    } catch { }
+    safeReply(interaction, { content: "Error running command", ephemeral: true });
   }
 });
 
