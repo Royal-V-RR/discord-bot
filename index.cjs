@@ -50,6 +50,7 @@ const inviteCache      = new Map(); // guildId -> Map<code,uses>
 const ticketConfigs    = new Map(); // guildId -> { categoryId, supportRoleIds, logChannelId, transcriptChannelId, panelChannelId, panelMessageId, panelMessage, nextId }
 const openTickets      = new Map(); // channelId -> { guildId, userId, ticketId, subject }
 const disabledLevelUp  = new Set(); // guildIds where level-up notifications are off
+const userInstalls     = new Set(); // userIds who have interacted outside of servers (app installs)
 
 // ── Persistence ──────────────────────────────────────────────────────────────
 const DATA_FILE = "./botdata.json";
@@ -58,6 +59,7 @@ function saveData() {
   try {
     const data = {
       ticketConfigs:    [...ticketConfigs.entries()],
+      openTickets:      [...openTickets.entries()],
       guildChannels:    [...guildChannels.entries()],
       welcomeChannels:  [...welcomeChannels.entries()],
       leaveChannels:    [...leaveChannels.entries()],
@@ -66,6 +68,7 @@ function saveData() {
       reactionRoles:    [...reactionRoles.entries()],
       disabledOwnerMsg: [...disabledOwnerMsg],
       disabledLevelUp:  [...disabledLevelUp],
+      userInstalls:     [...userInstalls],
       scores:           [...scores.entries()],
     };
     fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
@@ -77,6 +80,7 @@ function loadData() {
     if (!fs.existsSync(DATA_FILE)) { console.log("No data file found, starting fresh."); return; }
     const data = JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
     if (data.ticketConfigs)    data.ticketConfigs   .forEach(([k,v]) => ticketConfigs.set(k, v));
+    if (data.openTickets)      data.openTickets     .forEach(([k,v]) => openTickets.set(k, v));
     if (data.guildChannels)    data.guildChannels   .forEach(([k,v]) => guildChannels.set(k, v));
     if (data.welcomeChannels)  data.welcomeChannels .forEach(([k,v]) => welcomeChannels.set(k, v));
     if (data.leaveChannels)    data.leaveChannels   .forEach(([k,v]) => leaveChannels.set(k, v));
@@ -85,6 +89,7 @@ function loadData() {
     if (data.reactionRoles)    data.reactionRoles   .forEach(([k,v]) => reactionRoles.set(k, v));
     if (data.disabledOwnerMsg) data.disabledOwnerMsg.forEach(v => disabledOwnerMsg.add(v));
     if (data.disabledLevelUp)  data.disabledLevelUp .forEach(v => disabledLevelUp.add(v));
+    if (data.userInstalls)     data.userInstalls    .forEach(v => userInstalls.add(v));
     if (data.scores)           data.scores          .forEach(([k,v]) => scores.set(k, v));
     console.log(`Data loaded: ${ticketConfigs.size} ticket configs, ${reactionRoles.size} reaction roles, ${scores.size} scores, ${guildChannels.size} channels`);
   } catch(e) { console.error("loadData error:", e.message); }
@@ -1039,6 +1044,14 @@ client.on("messageCreate",async msg=>{
 client.on("interactionCreate",async interaction=>{
   if(!instanceLocked)return;
 
+  // Track users who interact outside guilds — these are app-install / DM users
+  if(!interaction.guildId && interaction.user && !interaction.user.bot){
+    if(!userInstalls.has(interaction.user.id)){
+      userInstalls.add(interaction.user.id);
+      saveData();
+    }
+  }
+
   // ── BUTTONS ──────────────────────────────────────────────────────────────────
   if(interaction.isButton()||interaction.isSelectMenu()){
     const uid=interaction.user.id;
@@ -1446,7 +1459,7 @@ client.on("interactionCreate",async interaction=>{
           ],
           topic:`Ticket #${ticketId} | Opened by ${member.user.tag}`
         });
-        openTickets.set(channel.id,{guildId,userId:uid,ticketId,channelId:channel.id,subject:"",openedAt:Date.now()});
+        openTickets.set(channel.id,{guildId,userId:uid,ticketId,channelId:channel.id,subject:"",openedAt:Date.now()}); saveData();
         // Send welcome message in ticket
         const closeBtn=new MessageActionRow().addComponents(
           new MessageButton().setCustomId("ticket_close").setLabel("Close Ticket 🔒").setStyle("DANGER"),
@@ -1475,10 +1488,11 @@ client.on("interactionCreate",async interaction=>{
       // Only ticket owner or support role can close
       const member=interaction.member;
       const canClose=ticket.userId===uid||
-        (cfg?.supportRoleId&&member.roles.cache.has(cfg.supportRoleId))||
+        OWNER_IDS.includes(uid)||
+        (cfg?.supportRoleIds||[cfg?.supportRoleId]).filter(Boolean).some(rid=>member.roles.cache.has(rid))||
         member.permissions.has("MANAGE_CHANNELS");
       if(!canClose){try{await interaction.followUp({content:"You don't have permission to close this ticket.",ephemeral:true});}catch{}return;}
-      openTickets.delete(interaction.channelId);
+      openTickets.delete(interaction.channelId); saveData();
       // Log
       if(cfg?.logChannelId){const logCh=interaction.guild.channels.cache.get(cfg.logChannelId);if(logCh)await safeSend(logCh,`🔒 **Ticket #${ticket.ticketId} closed** by <@${uid}>`);}
       try{
@@ -1497,7 +1511,7 @@ client.on("interactionCreate",async interaction=>{
       if(!ticket){try{await interaction.followUp({content:"This doesn't look like a ticket channel.",ephemeral:true});}catch{}return;}
       const cfg=ticketConfigs.get(ticket.guildId);
       const member=interaction.member;
-      const canClaim=(cfg?.supportRoleId&&member.roles.cache.has(cfg.supportRoleId))||member.permissions.has("MANAGE_CHANNELS");
+      const canClaim=OWNER_IDS.includes(uid)||(cfg?.supportRoleIds||[cfg?.supportRoleId]).filter(Boolean).some(rid=>member.roles.cache.has(rid))||member.permissions.has("MANAGE_CHANNELS");
       if(!canClaim){try{await interaction.followUp({content:"Only support staff can claim tickets.",ephemeral:true});}catch{}return;}
       ticket.claimedBy=uid;
       try{
@@ -1505,6 +1519,41 @@ client.on("interactionCreate",async interaction=>{
 🙋 **Claimed by <@${uid}>**`,components:[new MessageActionRow().addComponents(new MessageButton().setCustomId("ticket_close").setLabel("Close Ticket 🔒").setStyle("DANGER"))]});
         await safeSend(interaction.channel,`✅ <@${uid}> has claimed this ticket and will be assisting you.`);
       }catch{}
+      return;
+    }
+
+    // ── /botstats app users page ─────────────────────────────────────────────────
+    if(cid==="botstats_users"||cid.startsWith("botstats_page_")){
+      // Owner-only
+      if(!OWNER_IDS.includes(uid)){await btnEphemeral(interaction,"Owner only.");return;}
+      if(!await btnAck(interaction))return;
+
+      const PAGE_SIZE=30;
+      const page=cid.startsWith("botstats_page_")?parseInt(cid.slice(14)):0;
+
+      // Fetch usernames for this page — fetch from Discord API in batches
+      const ids=[...userInstalls];
+      const totalPages=Math.max(1,Math.ceil(ids.length/PAGE_SIZE));
+      const pageIds=ids.slice(page*PAGE_SIZE,(page+1)*PAGE_SIZE);
+
+      const userLines=[];
+      for(const id of pageIds){
+        try{
+          const u=await client.users.fetch(id).catch(()=>null);
+          if(u) userLines.push(`${u.username}${u.discriminator!=="0"?`#${u.discriminator}`:""}  \`${id}\``);
+          else   userLines.push(`(unknown)  \`${id}\``);
+        }catch{ userLines.push(`(error)  \`${id}\``); }
+      }
+
+      const header=`👤 **App Users — Page ${page+1}/${totalPages}** (${ids.length} total tracked)\n\`\`\`\n${userLines.join("\n")||"None"}\n\`\`\``;
+
+      // Pagination buttons
+      const navRow=new MessageActionRow().addComponents(
+        new MessageButton().setCustomId(`botstats_page_${page-1}`).setLabel("← Prev").setStyle("SECONDARY").setDisabled(page===0),
+        new MessageButton().setCustomId("botstats_users").setLabel("Back to Stats").setStyle("SECONDARY"),
+        new MessageButton().setCustomId(`botstats_page_${page+1}`).setLabel("Next →").setStyle("SECONDARY").setDisabled(page>=totalPages-1),
+      );
+      try{await interaction.editReply({content:header,components:[navRow]});}catch(e){console.error("botstats_users:",e?.message);}
       return;
     }
 
@@ -2059,10 +2108,26 @@ Click any cell to reveal it. Avoid the mines!`,
       return safeReply(interaction,text||"No servers");
     }
     if(cmd==="botstats"){
-      await interaction.deferReply({ephemeral:true});let totalUsers=0,serverList="";
-      for(const g of client.guilds.cache.values()){totalUsers+=g.memberCount;serverList+=`• ${g.name} (${g.memberCount.toLocaleString()})\n`;if(serverList.length>1600){serverList+="…and more\n";break;}}
+      await interaction.deferReply({ephemeral:true});
+      let totalUsers=0, serverList="";
+      for(const g of client.guilds.cache.values()){
+        totalUsers+=g.memberCount;
+        serverList+=`• ${g.name} (${g.memberCount.toLocaleString()})\n`;
+        if(serverList.length>1500){serverList+="…and more\n";break;}
+      }
       const ui=await getUserAppInstalls();
-      return safeReply(interaction,`**Bot Stats**\nServers: ${client.guilds.cache.size.toLocaleString()}\nUsers: ${totalUsers.toLocaleString()}\nApp installs: ${typeof ui==="number"?ui.toLocaleString():ui}\n\n${serverList}`);
+      const appUserCount=userInstalls.size;
+      const content=`**Bot Stats**
+Servers: **${client.guilds.cache.size.toLocaleString()}**
+Total users (across servers): **${totalUsers.toLocaleString()}**
+App installs (Discord estimate): **${typeof ui==="number"?ui.toLocaleString():ui}**
+Tracked app users (interacted outside servers): **${appUserCount}**
+
+${serverList}`;
+      const btn=new MessageActionRow().addComponents(
+        new MessageButton().setCustomId("botstats_users").setLabel(`View App Users (${appUserCount})`).setStyle("SECONDARY").setDisabled(appUserCount===0)
+      );
+      return safeReply(interaction,{content,components:[btn]});
     }
     if(cmd==="dmuser"){
       await interaction.deferReply({ephemeral:true});
@@ -2301,10 +2366,11 @@ Click any cell to reveal it. Avoid the mines!`,
       if(!ticket)return safeReply(interaction,{content:"This is not a ticket channel.",ephemeral:true});
       const cfg=ticketConfigs.get(ticket.guildId);
       const canClose=ticket.userId===interaction.user.id||
-        (cfg?.supportRoleId&&interaction.member.roles.cache.has(cfg.supportRoleId))||
+        OWNER_IDS.includes(interaction.user.id)||
+        (cfg?.supportRoleIds||[cfg?.supportRoleId]).filter(Boolean).some(rid=>interaction.member.roles.cache.has(rid))||
         interaction.member.permissions.has("MANAGE_CHANNELS");
       if(!canClose)return safeReply(interaction,{content:"You don't have permission to close this ticket.",ephemeral:true});
-      openTickets.delete(interaction.channelId);
+      openTickets.delete(interaction.channelId); saveData();
       if(cfg?.logChannelId){const logCh=interaction.guild.channels.cache.get(cfg.logChannelId);if(logCh)await safeSend(logCh,`🔒 **Ticket #${ticket.ticketId} closed** by <@${interaction.user.id}>`);}
       await safeReply(interaction,`🔒 **Ticket closed** by <@${interaction.user.id}>. Saving transcript then deleting in 5 seconds.`);
       await sendTicketTranscript(interaction.channel, ticket, cfg, `@${interaction.user.username}`);
@@ -2316,7 +2382,7 @@ Click any cell to reveal it. Avoid the mines!`,
       const ticket=openTickets.get(interaction.channelId);
       if(!ticket)return safeReply(interaction,{content:"This is not a ticket channel.",ephemeral:true});
       const cfg=ticketConfigs.get(ticket.guildId);
-      const canManage=(cfg?.supportRoleId&&interaction.member.roles.cache.has(cfg.supportRoleId))||interaction.member.permissions.has("MANAGE_CHANNELS");
+      const canManage=OWNER_IDS.includes(interaction.user.id)||(cfg?.supportRoleIds||[cfg?.supportRoleId]).filter(Boolean).some(rid=>interaction.member.roles.cache.has(rid))||interaction.member.permissions.has("MANAGE_CHANNELS");
       if(!canManage)return safeReply(interaction,{content:"Only support staff can add users to tickets.",ephemeral:true});
       const target=interaction.options.getUser("user");
       try{
@@ -2329,7 +2395,7 @@ Click any cell to reveal it. Avoid the mines!`,
       const ticket=openTickets.get(interaction.channelId);
       if(!ticket)return safeReply(interaction,{content:"This is not a ticket channel.",ephemeral:true});
       const cfg=ticketConfigs.get(ticket.guildId);
-      const canManage=(cfg?.supportRoleId&&interaction.member.roles.cache.has(cfg.supportRoleId))||interaction.member.permissions.has("MANAGE_CHANNELS");
+      const canManage=OWNER_IDS.includes(interaction.user.id)||(cfg?.supportRoleIds||[cfg?.supportRoleId]).filter(Boolean).some(rid=>interaction.member.roles.cache.has(rid))||interaction.member.permissions.has("MANAGE_CHANNELS");
       if(!canManage)return safeReply(interaction,{content:"Only support staff can remove users from tickets.",ephemeral:true});
       const target=interaction.options.getUser("user");
       if(target.id===ticket.userId)return safeReply(interaction,{content:"You can't remove the ticket owner.",ephemeral:true});
