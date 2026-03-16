@@ -18,7 +18,12 @@
     ]
   ],
   "openTickets": [],
-  "guildChannels": [],
+  "guildChannels": [
+    [
+      "1048053656035020911",
+      "1048055007712387162"
+    ]
+  ],
   "welcomeChannels": [],
   "leaveChannels": [],
   "boostChannels": [],
@@ -43,12 +48,12 @@
       {
         "username": "krzq.",
         "wins": 1,
-        "gamesPlayed": 1,
-        "coins": 13535353234,
+        "gamesPlayed": 2,
+        "coins": 13535353244,
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 69,
+        "xp": 82,
         "level": 3,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -201,6 +206,26 @@
         "lastRobTime": 0,
         "inventory": [],
         "marriedTo": "969280648667889764"
+      }
+    ],
+    [
+      "1099756603667910696",
+      {
+        "username": "iamas.quare",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 9,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null
       }
     ]
   ]
