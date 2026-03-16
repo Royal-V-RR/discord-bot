@@ -34,18 +34,38 @@
         "username": "royalvmusic",
         "wins": 0,
         "gamesPlayed": 0,
+        "coins": 29,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 22,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 1773659895438,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": "1082452773787942922"
+      }
+    ],
+    [
+      "1082452773787942922",
+      {
+        "username": "hawkshadow74",
+        "wins": 0,
+        "gamesPlayed": 0,
         "coins": 0,
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 12,
+        "xp": 0,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
         "lastCrimeTime": 0,
         "lastRobTime": 0,
         "inventory": [],
-        "marriedTo": null
+        "marriedTo": "969280648667889764"
       }
     ]
   ]
