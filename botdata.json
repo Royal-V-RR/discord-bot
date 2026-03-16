@@ -26,7 +26,16 @@
   "reactionRoles": [],
   "disabledOwnerMsg": [],
   "disabledLevelUp": [],
-  "levelUpConfig": [],
+  "levelUpConfig": [
+    [
+      "1048053656035020911",
+      {
+        "enabled": true,
+        "ping": false,
+        "channelId": null
+      }
+    ]
+  ],
   "userInstalls": [],
   "scores": [
     [
