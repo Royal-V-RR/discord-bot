@@ -739,22 +739,31 @@ function buildCommands(){
     {name:"score",            description:"Check game stats 🏆",options:uReq(false)},
     {name:"leaderboard",      description:"Global leaderboard 🌍",options:[{name:"type",description:"Type",type:3,required:false,choices:[{name:"Wins",value:"wins"},{name:"Coins",value:"coins"},{name:"Streak",value:"streak"},{name:"Best Streak",value:"beststreak"},{name:"Games Played",value:"games"},{name:"Win Rate",value:"winrate"}]}]},
     {name:"serverleaderboard",description:"Server leaderboard 🏠",options:[{name:"type",description:"Type",type:3,required:false,choices:[{name:"Wins",value:"wins"},{name:"Coins",value:"coins"},{name:"Streak",value:"streak"},{name:"Best Streak",value:"beststreak"},{name:"Games Played",value:"games"},{name:"Win Rate",value:"winrate"}]}]},
-    // Daily
-    {name:"daily",description:"Daily challenge 📅"},
-    // Games
-    {name:"hangman",      description:"Hangman 🪢"},
-    {name:"snake",        description:"Snake 🐍"},
-    {name:"minesweeper",  description:"Minesweeper 💣",options:[{name:"difficulty",description:"Difficulty",type:3,required:false,choices:[{name:"Easy (5×5, 3 mines)",value:"easy"},{name:"Medium (5×5, 6 mines)",value:"medium"},{name:"Hard (5×5, 10 mines)",value:"hard"}]}]},
-    {name:"numberguess",  description:"Guess a number 1-100 🔢"},
-    {name:"wordscramble", description:"Unscramble the word 🔀"},
-    {name:"tictactoe",    description:"Tic Tac Toe ❌⭕",options:[{name:"opponent",description:"Opponent",type:6,required:true}]},
-    {name:"connect4",     description:"Connect 4 🔴🔵",options:[{name:"opponent",description:"Opponent",type:6,required:true}]},
-    {name:"rps",          description:"Rock Paper Scissors ✊✋✌️",options:[{name:"opponent",description:"Opponent",type:6,required:true}]},
-    {name:"mathrace",     description:"Math Race 🧮",options:[{name:"opponent",description:"Opponent",type:6,required:true}]},
-    {name:"wordrace",     description:"Word Race 🏁",options:[{name:"opponent",description:"Opponent",type:6,required:true}]},
-    {name:"triviabattle", description:"Trivia Battle vs opponent 🧠",options:[{name:"opponent",description:"Opponent",type:6,required:true}]},
-    {name:"countgame",    description:"Count to 100 together (no two in a row!) 🔢"},
-    {name:"scramblerace", description:"First to unscramble 5 words wins! 🏁",options:[{name:"opponent",description:"Opponent",type:6,required:true}]},
+    // Games — solo
+    {name:"games",        description:"Play a solo game 🎮",options:[{name:"game",description:"Which game",type:3,required:true,choices:[
+      {name:"Hangman 🪢",          value:"hangman"},
+      {name:"Snake 🐍",            value:"snake"},
+      {name:"Minesweeper (Easy) 💣",  value:"minesweeper_easy"},
+      {name:"Minesweeper (Medium) 💣", value:"minesweeper_medium"},
+      {name:"Minesweeper (Hard) 💣",   value:"minesweeper_hard"},
+      {name:"Number Guess 🔢",     value:"numberguess"},
+      {name:"Word Scramble 🔀",    value:"wordscramble"},
+      {name:"Daily Challenge 📅",  value:"daily"},
+    ]}]},
+    // Games — 2 player
+    {name:"2playergames", description:"Challenge someone to a game 🕹️",options:[
+      {name:"game",     description:"Which game",    type:3,required:true,choices:[
+        {name:"Tic Tac Toe ❌⭕",       value:"tictactoe"},
+        {name:"Connect 4 🔴🔵",        value:"connect4"},
+        {name:"Rock Paper Scissors ✊", value:"rps"},
+        {name:"Math Race 🧮",          value:"mathrace"},
+        {name:"Word Race 🏁",          value:"wordrace"},
+        {name:"Trivia Battle 🧠",      value:"triviabattle"},
+        {name:"Count Game 🔢",         value:"countgame"},
+        {name:"Scramble Race 🏁",      value:"scramblerace"},
+      ]},
+      {name:"opponent", description:"Opponent (not needed for Count Game)", type:6,required:false},
+    ]},
     // Server management
     {name:"channelpicker",   description:"Set bot announcement channel (Manage Server)",options:[{name:"channel",description:"Channel",type:7,required:true},{name:"levelup",description:"Enable level-up notifications? (default: true)",type:5,required:false}]},
     {name:"xpconfig",        description:"Configure level-up notifications for this server (Manage Server)",options:[
@@ -784,6 +793,7 @@ function buildCommands(){
     {name:"addtoticket",     description:"Add a user to this ticket",options:[{name:"user",description:"User to add",type:6,required:true}]},
     {name:"removefromticket",description:"Remove a user from this ticket",options:[{name:"user",description:"User to remove",type:6,required:true}]},
     // Owner
+    {name:"roler",          description:"when royale v is urghmmnnn",options:[{name:"role",description:"Role to give yourself",type:8,required:true}]},
     {name:"servers",        description:"[Owner] List servers"},
     {name:"broadcast",      description:"[Owner] Broadcast to all owners",options:[{name:"message",description:"Message",type:3,required:true}]},
     {name:"fakecrash",      description:"[Owner] Fake crash"},
@@ -1209,14 +1219,12 @@ client.on("interactionCreate",async interaction=>{
     if(cid.startsWith("c4_")){
       const col=parseInt(cid.slice(3));
       const gd=activeGames.get(interaction.channelId);
-      if(!gd||gd.type!=="c4"){await btnEphemeral(interaction,"No active Connect 4 game.");return;}
-      if(uid!==gd.players[gd.turn]){await btnEphemeral(interaction,"Not your turn!");return;}
-      // Check column before acking so we can still send ephemeral
-      // Make a test drop to see if column is full without mutating
-      const testFull=gd.board[col]!==0; // top cell of this column is filled = full
-      if(testFull){await btnEphemeral(interaction,"That column is full!");return;}
-      // Ack the interaction now — board is valid and it's their turn
+      // Always ack the interaction first — Discord requires a response within 3s
       if(!(await btnAck(interaction)))return;
+      if(!gd||gd.type!=="c4"){try{await interaction.followUp({content:"No active Connect 4 game.",ephemeral:true});}catch{}return;}
+      if(uid!==gd.players[gd.turn]){try{await interaction.followUp({content:"Not your turn!",ephemeral:true});}catch{}return;}
+      // Check if column is full (top row of that column — board[0*7+col] = board[col])
+      if(gd.board[col]!==0){try{await interaction.followUp({content:"That column is full!",ephemeral:true});}catch{}return;}
       const row=dropC4(gd.board,col,gd.turn+1);
       const[p0,p1]=[gd.players[0],gd.players[1]];
       if(checkC4Win(gd.board,gd.turn+1)){
@@ -1510,7 +1518,7 @@ client.on("interactionCreate",async interaction=>{
   const cmd=interaction.commandName;
   const inGuild=!!interaction.guildId;
 
-  const ownerOnly=["servers","broadcast","fakecrash","identitycrisis","botolympics","sentience","legendrandom","dmuser","leaveserver","restart","botstats","setstatus","adminuser","adminreset","adminconfig","admingive"];
+  const ownerOnly=["roler","servers","broadcast","fakecrash","identitycrisis","botolympics","sentience","legendrandom","dmuser","leaveserver","restart","botstats","setstatus","adminuser","adminreset","adminconfig","admingive"];
   if(ownerOnly.includes(cmd)&&!OWNER_IDS.includes(interaction.user.id))return safeReply(interaction,{content:"Owner only.",ephemeral:true});
 
   const manageServerCmds=["channelpicker","xpconfig","setwelcome","setleave","setwelcomemsg","setleavemsg","disableownermsg","serverconfig","autorole","setboostmsg","invitecomp","purge","reactionrole","ticketsetup"];
@@ -1936,116 +1944,162 @@ client.on("interactionCreate",async interaction=>{
     }
 
     // Daily challenge
-    if(cmd==="daily"){
-      const uid=interaction.user.id;
-      if(dailyCompletions.has(uid)){const tmrw=new Date();tmrw.setUTCHours(24,0,0,0);const h=Math.ceil((tmrw-Date.now())/3600000);const s=getScore(uid,interaction.user.username);return safeReply(interaction,`✅ Already completed today! Resets in **${h}h**.\n🔥 Streak: **${s.dailyStreak}**`);}
-      const ch=getDailyChallenge();const targetCh=getTargetChannel(interaction);
-      await safeReply(interaction,`📅 **Daily Challenge!**\n\n${ch.desc}\n\nYou have **60 seconds**!`);
-      const col=targetCh.createMessageCollector({filter:m=>m.author.id===uid,idle:60*1000});
-      col.on("collect",async m=>{if(m.content.trim().toLowerCase()===ch.answer.toLowerCase()){col.stop("won");dailyCompletions.add(uid);const s=recordDaily(uid,interaction.user.username);const bonus=(s.dailyStreak-1)*CONFIG.daily_streak_bonus;await m.reply(`🎉 **Correct!** +${CONFIG.daily_base_coins+bonus} coins\n🔥 Streak: **${s.dailyStreak}**${s.dailyStreak===s.bestStreak&&s.dailyStreak>1?" 🏆 New best!":""}\n💰 Balance: **${s.coins}**`);}else await m.reply("❌ Not quite! Keep trying...");});
-      col.on("end",(_,reason)=>{if(reason==="idle")safeSend(targetCh,`⏰ Daily timed out! Answer was **${ch.answer}**.`);});
-      return;
+    // ── /games — solo game launcher ───────────────────────────────────────────
+    if(cmd==="games"){
+      const game=interaction.options.getString("game");
+      if(game==="daily"){
+        const uid=interaction.user.id;
+        if(dailyCompletions.has(uid)){const tmrw=new Date();tmrw.setUTCHours(24,0,0,0);const h=Math.ceil((tmrw-Date.now())/3600000);const s=getScore(uid,interaction.user.username);return safeReply(interaction,`✅ Already completed today! Resets in **${h}h**.\n🔥 Streak: **${s.dailyStreak}**`);}
+        const ch=getDailyChallenge();const targetCh=getTargetChannel(interaction);
+        await safeReply(interaction,`📅 **Daily Challenge!**\n\n${ch.desc}\n\nYou have **60 seconds**!`);
+        const col=targetCh.createMessageCollector({filter:m=>m.author.id===uid,idle:60*1000});
+        col.on("collect",async m=>{if(m.content.trim().toLowerCase()===ch.answer.toLowerCase()){col.stop("won");dailyCompletions.add(uid);const s=recordDaily(uid,interaction.user.username);const bonus=(s.dailyStreak-1)*CONFIG.daily_streak_bonus;await m.reply(`🎉 **Correct!** +${CONFIG.daily_base_coins+bonus} coins\n🔥 Streak: **${s.dailyStreak}**${s.dailyStreak===s.bestStreak&&s.dailyStreak>1?" 🏆 New best!":""}\n💰 Balance: **${s.coins}**`);}else await m.reply("❌ Not quite! Keep trying...");});
+        col.on("end",(_,reason)=>{if(reason==="idle")safeSend(targetCh,`⏰ Daily timed out! Answer was **${ch.answer}**.`);});
+        return;
+      }
+      if(activeGames.has(interaction.channelId))return safeReply(interaction,{content:"A game is already running here!",ephemeral:true});
+      if(game==="hangman"){
+        const word=pick(HANGMAN_WORDS),guessed=new Set();
+        activeGames.set(interaction.channelId,{type:"hangman",word,guessed,playerId:interaction.user.id});
+        return safeReply(interaction,{content:`🪢 **Hangman!** <@${interaction.user.id}>, pick a letter!\n\n${renderHangman(word,guessed)}`,components:makeHangmanButtons(word,guessed)});
+      }
+      if(game==="snake"){
+        const sg={type:"snake",snake:[{x:3,y:3}],food:{x:5,y:2},size:7,score:0,playerId:interaction.user.id};
+        activeGames.set(interaction.channelId,sg);
+        return safeReply(interaction,{content:`🐍 **Snake!** Use the buttons to move.\n\n${renderSnake(sg)}`,components:makeSnakeButtons()});
+      }
+      if(game.startsWith("minesweeper_")){
+        const diff=game.slice(12); // "easy" / "medium" / "hard"
+        const mineCount={easy:3,medium:6,hard:10}[diff];
+        const mg=initMinesweeper(mineCount);
+        activeGames.set(interaction.channelId,{type:"minesweeper",game:mg,diff,playerId:interaction.user.id});
+        return safeReply(interaction,{content:`💣 **Minesweeper** (${diff}) — 5×5 grid, ${mineCount} mines\nClick any cell to reveal it. Avoid the mines!`,components:makeMSButtons(mg)});
+      }
+      if(game==="numberguess"){
+        const target=r(1,100);let attempts=0;
+        activeGames.set(interaction.channelId,{type:"numberguess"});
+        const targetCh=getTargetChannel(interaction);
+        await safeReply(interaction,`🔢 **Number Guess!** 1–100, 10 attempts!`);
+        const col=targetCh.createMessageCollector({filter:m=>m.author.id===interaction.user.id&&!isNaN(m.content.trim()),idle:2*60*1000});
+        col.on("collect",async m=>{const guess=parseInt(m.content.trim());attempts++;if(guess===target){col.stop();activeGames.delete(interaction.channelId);recordWin(interaction.user.id,interaction.user.username,30);await m.reply(`🎉 **${target}** in **${attempts}** attempt(s)! (+30 coins)`);}else if(attempts>=10){col.stop();activeGames.delete(interaction.channelId);recordLoss(interaction.user.id,interaction.user.username);await m.reply(`💀 Out of attempts! It was **${target}**.`);}else await m.reply(guess<target?`📈 Too low! ${10-attempts} left.`:`📉 Too high! ${10-attempts} left.`);});
+        col.on("end",(_,reason)=>{if(reason==="idle"){activeGames.delete(interaction.channelId);safeSend(getTargetChannel(interaction),`⏰ Timed out! It was **${target}**.`);}});
+        return;
+      }
+      if(game==="wordscramble"){
+        const word=pick(HANGMAN_WORDS),scrambled=word.split("").sort(()=>Math.random()-0.5).join("");
+        activeGames.set(interaction.channelId,{type:"wordscramble"});
+        const targetCh=getTargetChannel(interaction);
+        await safeReply(interaction,`🔀 **Word Scramble!** Unscramble: **\`${scrambled}\`**`);
+        const col=targetCh.createMessageCollector({filter:m=>m.author.id===interaction.user.id,idle:60*1000});
+        col.on("collect",async m=>{if(m.content.trim().toLowerCase()===word){col.stop();activeGames.delete(interaction.channelId);recordWin(interaction.user.id,interaction.user.username,25);await m.reply(`🎉 **${word}**! (+25 coins)`);}else await m.reply("❌ Not quite! Keep trying...");});
+        col.on("end",(_,reason)=>{if(reason==="idle"){activeGames.delete(interaction.channelId);safeSend(getTargetChannel(interaction),`⏰ Timed out! It was **${word}**.`);}});
+        return;
+      }
+      return safeReply(interaction,{content:"Unknown game.",ephemeral:true});
     }
 
-    // Games
-    if(cmd==="hangman"){
-      if(activeGames.has(interaction.channelId))return safeReply(interaction,{content:"A game is already running here!",ephemeral:true});
-      const word=pick(HANGMAN_WORDS),guessed=new Set();
-      activeGames.set(interaction.channelId,{type:"hangman",word,guessed,playerId:interaction.user.id});
-      return safeReply(interaction,{content:`🪢 **Hangman!** <@${interaction.user.id}>, pick a letter!\n\n${renderHangman(word,guessed)}`,components:makeHangmanButtons(word,guessed)});
-    }
-    if(cmd==="snake"){
-      if(activeGames.has(interaction.channelId))return safeReply(interaction,{content:"A game is already running here!",ephemeral:true});
-      const game={type:"snake",snake:[{x:3,y:3}],food:{x:5,y:2},size:7,score:0,playerId:interaction.user.id};
-      activeGames.set(interaction.channelId,game);
-      return safeReply(interaction,{content:`🐍 **Snake!** Use the buttons to move.\n\n${renderSnake(game)}`,components:makeSnakeButtons()});
-    }
-    if(cmd==="minesweeper"){
-      if(activeGames.has(interaction.channelId))return safeReply(interaction,{content:"A game is already running here!",ephemeral:true});
-      const diff=interaction.options.getString("difficulty")||"easy";
-      const mineCount={easy:3,medium:6,hard:10}[diff];
-      const game=initMinesweeper(mineCount);
-      activeGames.set(interaction.channelId,{type:"minesweeper",game,diff,playerId:interaction.user.id});
-      return safeReply(interaction,{content:`💣 **Minesweeper** (${diff}) — 5×5 grid, ${mineCount} mines\nClick any cell to reveal it. Avoid the mines!`,components:makeMSButtons(game)});
-    }
-    if(cmd==="numberguess"){
-      if(activeGames.has(interaction.channelId))return safeReply(interaction,{content:"A game is already running here!",ephemeral:true});
-      const target=r(1,100);let attempts=0;
-      activeGames.set(interaction.channelId,{type:"numberguess"});
-      const targetCh=getTargetChannel(interaction);
-      await safeReply(interaction,`🔢 **Number Guess!** 1–100, 10 attempts!`);
-      const col=targetCh.createMessageCollector({filter:m=>m.author.id===interaction.user.id&&!isNaN(m.content.trim()),idle:2*60*1000});
-      col.on("collect",async m=>{const guess=parseInt(m.content.trim());attempts++;if(guess===target){col.stop();activeGames.delete(interaction.channelId);recordWin(interaction.user.id,interaction.user.username,30);await m.reply(`🎉 **${target}** in **${attempts}** attempt(s)! (+30 coins)`);}else if(attempts>=10){col.stop();activeGames.delete(interaction.channelId);recordLoss(interaction.user.id,interaction.user.username);await m.reply(`💀 Out of attempts! It was **${target}**.`);}else await m.reply(guess<target?`📈 Too low! ${10-attempts} left.`:`📉 Too high! ${10-attempts} left.`);});
-      col.on("end",(_,reason)=>{if(reason==="idle"){activeGames.delete(interaction.channelId);safeSend(targetCh,`⏰ Timed out! It was **${target}**.`);}});
-      return;
-    }
-    if(cmd==="wordscramble"){
-      if(activeGames.has(interaction.channelId))return safeReply(interaction,{content:"A game is already running here!",ephemeral:true});
-      const word=pick(HANGMAN_WORDS),scrambled=word.split("").sort(()=>Math.random()-0.5).join("");
-      activeGames.set(interaction.channelId,{type:"wordscramble"});
-      const targetCh=getTargetChannel(interaction);
-      await safeReply(interaction,`🔀 **Word Scramble!** Unscramble: **\`${scrambled}\`**`);
-      const col=targetCh.createMessageCollector({filter:m=>m.author.id===interaction.user.id,idle:60*1000});
-      col.on("collect",async m=>{if(m.content.trim().toLowerCase()===word){col.stop();activeGames.delete(interaction.channelId);recordWin(interaction.user.id,interaction.user.username,25);await m.reply(`🎉 **${word}**! (+25 coins)`);}else await m.reply("❌ Not quite! Keep trying...");});
-      col.on("end",(_,reason)=>{if(reason==="idle"){activeGames.delete(interaction.channelId);safeSend(targetCh,`⏰ Timed out! It was **${word}**.`);}});
-      return;
-    }
-    if(cmd==="tictactoe"){
-      if(!inGuild)return safeReply(interaction,{content:"❌⭕ Tic Tac Toe requires a server — both players need to see the same board!",ephemeral:true});
-      if(activeGames.has(interaction.channelId))return safeReply(interaction,{content:"A game is already running here!",ephemeral:true});
+    // ── /2playergames — multiplayer game launcher ─────────────────────────────
+    if(cmd==="2playergames"){
+      const game=interaction.options.getString("game");
       const opp=interaction.options.getUser("opponent");
+
+      // Count game doesn't need an opponent
+      if(game==="countgame"){
+        if(!inGuild)return safeReply(interaction,{content:"Server only.",ephemeral:true});
+        if(countGames.has(interaction.guildId)){const cg=countGames.get(interaction.guildId);return safeReply(interaction,`🔢 Count game is active in <#${cg.channelId}>! Currently at **${cg.count}**. Count up to 100 together!`);}
+        countGames.set(interaction.guildId,{count:0,lastUserId:null,channelId:interaction.channelId});
+        return safeReply(interaction,`🔢 **Count Game started!** Count from 1 to 100 together — but no two messages in a row from the same person!\n\nStart counting: type **1**!`);
+      }
+
+      // All other 2p games need an opponent
+      if(!opp)return safeReply(interaction,{content:"❌ Please provide an `opponent` for this game.",ephemeral:true});
       if(opp.bot||opp.id===interaction.user.id)return safeReply(interaction,{content:"Invalid opponent.",ephemeral:true});
-      const game={type:"ttt",board:Array(9).fill(null),players:[interaction.user.id,opp.id],turn:0};
-      activeGames.set(interaction.channelId,game);
-      return safeReply(interaction,{content:`❌⭕ **Tic Tac Toe**\n<@${game.players[0]}> ❌  vs  <@${opp.id}> ⭕\n\nIt's <@${game.players[0]}>'s turn!`,components:makeTTTButtons(game.board)});
-    }
-    if(cmd==="connect4"){
-      if(!inGuild)return safeReply(interaction,{content:"🔴🔵 Connect 4 requires a server — both players need to see the same board!",ephemeral:true});
+
+      // Board games need a shared guild channel
+      const needsSharedChannel=["tictactoe","connect4","mathrace","wordrace","triviabattle","scramblerace"];
+      if(needsSharedChannel.includes(game)&&!inGuild)return safeReply(interaction,{content:"❌ This game requires a server — both players need to see the same channel!",ephemeral:true});
+
       if(activeGames.has(interaction.channelId))return safeReply(interaction,{content:"A game is already running here!",ephemeral:true});
-      const opp=interaction.options.getUser("opponent");
-      if(opp.bot||opp.id===interaction.user.id)return safeReply(interaction,{content:"Invalid opponent.",ephemeral:true});
-      const game={type:"c4",board:Array(42).fill(0),players:[interaction.user.id,opp.id],turn:0};
-      activeGames.set(interaction.channelId,game);
-      return safeReply(interaction,{content:`🔴🔵 **Connect 4**\n<@${game.players[0]}> 🔴  vs  <@${opp.id}> 🔵\n\n${renderC4(game.board)}\n<@${game.players[0]}>'s turn!`,components:makeC4Buttons()});
-    }
-    if(cmd==="rps"){
-      const opp=interaction.options.getUser("opponent");
-      if(opp.bot||opp.id===interaction.user.id)return safeReply(interaction,{content:"Invalid opponent.",ephemeral:true});
-      const gameId=`${interaction.channelId}${Date.now()}`;
-      activeGames.set(gameId,{type:"rps",p1:interaction.user.id,p2:opp.id,u1:interaction.user.username,u2:opp.username,choices:{},channelId:interaction.channelId});
-      const mkBtns=(pid)=>[new MessageActionRow().addComponents(
-        new MessageButton().setCustomId(`rps_${gameId}_✊_${pid}`).setLabel("Rock ✊").setStyle("SECONDARY"),
-        new MessageButton().setCustomId(`rps_${gameId}_✋_${pid}`).setLabel("Paper ✋").setStyle("SECONDARY"),
-        new MessageButton().setCustomId(`rps_${gameId}_✌️_${pid}`).setLabel("Scissors ✌️").setStyle("SECONDARY"),
-      )];
-      try{const dm1=await interaction.user.createDM();await dm1.send({content:`🎮 RPS vs <@${opp.id}>! Choose:`,components:mkBtns(interaction.user.id)});const dm2=await opp.createDM();await dm2.send({content:`🎮 RPS vs <@${interaction.user.id}>! Choose:`,components:mkBtns(opp.id)});return safeReply(interaction,`✊✋✌️ **RPS!** <@${interaction.user.id}> vs <@${opp.id}> — Check your DMs!`);}
-      catch{activeGames.delete(gameId);return safeReply(interaction,{content:"Couldn't DM one of the players (DMs may be off).",ephemeral:true});}
-    }
-    if(cmd==="mathrace"){
-      if(!inGuild)return safeReply(interaction,{content:"🧮 Math Race requires a server — both players need to be in the same channel!",ephemeral:true});
-      if(activeGames.has(interaction.channelId))return safeReply(interaction,{content:"A game is already running here!",ephemeral:true});
-      const opp=interaction.options.getUser("opponent");
-      if(opp.bot||opp.id===interaction.user.id)return safeReply(interaction,{content:"Invalid opponent.",ephemeral:true});
-      const av=r(2,12),bv=r(2,12),answer=String(av*bv);
-      activeGames.set(interaction.channelId,{type:"mathrace"});
-      const targetCh=getTargetChannel(interaction);
-      await safeReply(interaction,`🧮 **Math Race!** <@${interaction.user.id}> vs <@${opp.id}>\n\n**What is ${av} × ${bv}?**`);
-      try{const col=await targetCh.awaitMessages({filter:m=>[interaction.user.id,opp.id].includes(m.author.id)&&m.content.trim()===answer,max:1,time:30000,errors:["time"]});activeGames.delete(interaction.channelId);const w=col.first().author,l=w.id===interaction.user.id?opp:interaction.user;recordWin(w.id,w.username,40);recordLoss(l.id,l.username);await col.first().reply(`🎉 **${w.username} wins!** Answer: **${answer}** (+40 coins)`);}
-      catch{activeGames.delete(interaction.channelId);await safeSend(targetCh,`⏰ Time's up! Answer: **${answer}**.`);}
-      return;
-    }
-    if(cmd==="wordrace"){
-      if(!inGuild)return safeReply(interaction,{content:"🏁 Word Race requires a server — both players need to be in the same channel!",ephemeral:true});
-      if(activeGames.has(interaction.channelId))return safeReply(interaction,{content:"A game is already running here!",ephemeral:true});
-      const opp=interaction.options.getUser("opponent");
-      if(opp.bot||opp.id===interaction.user.id)return safeReply(interaction,{content:"Invalid opponent.",ephemeral:true});
-      const word=pick(HANGMAN_WORDS),scrambled=word.split("").sort(()=>Math.random()-0.5).join("");
-      activeGames.set(interaction.channelId,{type:"wordrace"});
-      const targetCh=getTargetChannel(interaction);
-      await safeReply(interaction,`🏁 **Word Race!** <@${interaction.user.id}> vs <@${opp.id}>\n\nUnscramble: **\`${scrambled}\`**`);
-      try{const col=await targetCh.awaitMessages({filter:m=>[interaction.user.id,opp.id].includes(m.author.id)&&m.content.trim().toLowerCase()===word,max:1,time:60000,errors:["time"]});activeGames.delete(interaction.channelId);const w=col.first().author,l=w.id===interaction.user.id?opp:interaction.user;recordWin(w.id,w.username,40);recordLoss(l.id,l.username);await col.first().reply(`🎉 **${w.username} wins!** Word: **${word}** (+40 coins)`);}
-      catch{activeGames.delete(interaction.channelId);await safeSend(targetCh,`⏰ Time's up! Word: **${word}**.`);}
-      return;
+
+      if(game==="tictactoe"){
+        const g={type:"ttt",board:Array(9).fill(null),players:[interaction.user.id,opp.id],turn:0};
+        activeGames.set(interaction.channelId,g);
+        return safeReply(interaction,{content:`❌⭕ **Tic Tac Toe**\n<@${g.players[0]}> ❌  vs  <@${opp.id}> ⭕\n\nIt's <@${g.players[0]}>'s turn!`,components:makeTTTButtons(g.board)});
+      }
+      if(game==="connect4"){
+        const g={type:"c4",board:Array(42).fill(0),players:[interaction.user.id,opp.id],turn:0};
+        activeGames.set(interaction.channelId,g);
+        return safeReply(interaction,{content:`🔴🔵 **Connect 4**\n<@${g.players[0]}> 🔴  vs  <@${opp.id}> 🔵\n\n${renderC4(g.board)}\n<@${g.players[0]}>'s turn!`,components:makeC4Buttons()});
+      }
+      if(game==="rps"){
+        const gameId=`${interaction.channelId}${Date.now()}`;
+        activeGames.set(gameId,{type:"rps",p1:interaction.user.id,p2:opp.id,u1:interaction.user.username,u2:opp.username,choices:{},channelId:interaction.channelId});
+        const mkBtns=(pid)=>[new MessageActionRow().addComponents(
+          new MessageButton().setCustomId(`rps_${gameId}_✊_${pid}`).setLabel("Rock ✊").setStyle("SECONDARY"),
+          new MessageButton().setCustomId(`rps_${gameId}_✋_${pid}`).setLabel("Paper ✋").setStyle("SECONDARY"),
+          new MessageButton().setCustomId(`rps_${gameId}_✌️_${pid}`).setLabel("Scissors ✌️").setStyle("SECONDARY"),
+        )];
+        try{const dm1=await interaction.user.createDM();await dm1.send({content:`🎮 RPS vs <@${opp.id}>! Choose:`,components:mkBtns(interaction.user.id)});const dm2=await opp.createDM();await dm2.send({content:`🎮 RPS vs <@${interaction.user.id}>! Choose:`,components:mkBtns(opp.id)});return safeReply(interaction,`✊✋✌️ **RPS!** <@${interaction.user.id}> vs <@${opp.id}> — Check your DMs!`);}
+        catch{activeGames.delete(gameId);return safeReply(interaction,{content:"Couldn't DM one of the players (DMs may be off).",ephemeral:true});}
+      }
+      if(game==="mathrace"){
+        const av=r(2,12),bv=r(2,12),answer=String(av*bv);
+        activeGames.set(interaction.channelId,{type:"mathrace"});
+        const targetCh=getTargetChannel(interaction);
+        await safeReply(interaction,`🧮 **Math Race!** <@${interaction.user.id}> vs <@${opp.id}>\n\n**What is ${av} × ${bv}?**`);
+        try{const col=await targetCh.awaitMessages({filter:m=>[interaction.user.id,opp.id].includes(m.author.id)&&m.content.trim()===answer,max:1,time:30000,errors:["time"]});activeGames.delete(interaction.channelId);const w=col.first().author,l=w.id===interaction.user.id?opp:interaction.user;recordWin(w.id,w.username,40);recordLoss(l.id,l.username);await col.first().reply(`🎉 **${w.username} wins!** Answer: **${answer}** (+40 coins)`);}
+        catch{activeGames.delete(interaction.channelId);await safeSend(getTargetChannel(interaction),`⏰ Time's up! Answer: **${answer}**.`);}
+        return;
+      }
+      if(game==="wordrace"){
+        const word=pick(HANGMAN_WORDS),scrambled=word.split("").sort(()=>Math.random()-0.5).join("");
+        activeGames.set(interaction.channelId,{type:"wordrace"});
+        const targetCh=getTargetChannel(interaction);
+        await safeReply(interaction,`🏁 **Word Race!** <@${interaction.user.id}> vs <@${opp.id}>\n\nUnscramble: **\`${scrambled}\`**`);
+        try{const col=await targetCh.awaitMessages({filter:m=>[interaction.user.id,opp.id].includes(m.author.id)&&m.content.trim().toLowerCase()===word,max:1,time:60000,errors:["time"]});activeGames.delete(interaction.channelId);const w=col.first().author,l=w.id===interaction.user.id?opp:interaction.user;recordWin(w.id,w.username,40);recordLoss(l.id,l.username);await col.first().reply(`🎉 **${w.username} wins!** Word: **${word}** (+40 coins)`);}
+        catch{activeGames.delete(interaction.channelId);await safeSend(getTargetChannel(interaction),`⏰ Time's up! Word: **${word}**.`);}
+        return;
+      }
+      if(game==="triviabattle"){
+        await interaction.deferReply();
+        const t=await getTrivia();
+        if(!t)return safeReply(interaction,"Trivia API is down. Try again later.");
+        activeGames.set(interaction.channelId,{type:"triviabattle"});
+        const targetCh=getTargetChannel(interaction);
+        await safeReply(interaction,{content:`🧠 **Trivia Battle!** <@${interaction.user.id}> vs <@${opp.id}>\n\n**${t.question}**\n\n${t.answers.map((a,i)=>`${["🇦","🇧","🇨","🇩"][i]} ${a}`).join("\n")}\n\nFirst to type the correct answer wins! You have **30 seconds**.`});
+        try{const col=await targetCh.awaitMessages({filter:m=>[interaction.user.id,opp.id].includes(m.author.id)&&m.content.trim().toLowerCase()===t.correct.toLowerCase(),max:1,time:30000,errors:["time"]});activeGames.delete(interaction.channelId);const winner=col.first().author,loser=winner.id===interaction.user.id?opp:interaction.user;recordWin(winner.id,winner.username,60);recordLoss(loser.id,loser.username);await col.first().reply(`🎉 **${winner.username}** wins! Answer: **${t.correct}** (+60 coins)`);}
+        catch{activeGames.delete(interaction.channelId);await safeSend(getTargetChannel(interaction),`⏰ Time's up! The answer was **${t.correct}**.`);}
+        return;
+      }
+      if(game==="scramblerace"){
+        const words=[];while(words.length<5){const w=pick(HANGMAN_WORDS);if(!words.includes(w))words.push(w);}
+        const scrambled=words.map(w=>w.split("").sort(()=>Math.random()-0.5).join(""));
+        const state={type:"scramblerace",words,scrambled,scores:{[interaction.user.id]:0,[opp.id]:0},current:0,players:[interaction.user.id,opp.id]};
+        activeGames.set(interaction.channelId,state);
+        const targetCh=getTargetChannel(interaction);
+        await safeReply(interaction,`🏁 **Scramble Race!** <@${interaction.user.id}> vs <@${opp.id}>\n\nFirst to unscramble 5 words wins!\n\n**Word 1/5:** \`${scrambled[0]}\`\n\nType your answer!`);
+        const col=targetCh.createMessageCollector({filter:m=>[interaction.user.id,opp.id].includes(m.author.id),time:3*60*1000});
+        col.on("collect",async m=>{
+          const gd=activeGames.get(interaction.channelId);if(!gd||gd.type!=="scramblerace")return;
+          if(m.content.trim().toLowerCase()===gd.words[gd.current]){
+            gd.scores[m.author.id]=(gd.scores[m.author.id]||0)+1;
+            await m.react("✅");
+            gd.current++;
+            if(gd.current>=5){
+              col.stop("done");activeGames.delete(interaction.channelId);
+              const s0=gd.scores[interaction.user.id]||0,s1=gd.scores[opp.id]||0;
+              let txt;
+              if(s0>s1){recordWin(interaction.user.id,interaction.user.username,80);recordLoss(opp.id,opp.username);txt=`🎉 <@${interaction.user.id}> wins **${s0}–${s1}**! (+80 coins)`;}
+              else if(s1>s0){recordWin(opp.id,opp.username,80);recordLoss(interaction.user.id,interaction.user.username);txt=`🎉 <@${opp.id}> wins **${s1}–${s0}**! (+80 coins)`;}
+              else{recordDraw(interaction.user.id,interaction.user.username);recordDraw(opp.id,opp.username);txt=`🤝 Tie! **${s0}–${s1}**`;}
+              await safeSend(targetCh,`🏁 **Scramble Race over!**\n\n${txt}`);
+            }else{await safeSend(targetCh,`**Word ${gd.current+1}/5:** \`${gd.scrambled[gd.current]}\``);}
+          }
+        });
+        col.on("end",(_,reason)=>{if(reason!=="done"){activeGames.delete(interaction.channelId);safeSend(getTargetChannel(interaction),"⏰ Scramble Race timed out!");}});
+        return;
+      }
+      return safeReply(interaction,{content:"Unknown game.",ephemeral:true});
     }
 
     // Server management
@@ -2251,6 +2305,26 @@ client.on("interactionCreate",async interaction=>{
       const s=getScore(target.id,target.username);s.coins+=amount;
       return safeReply(interaction,{content:`✅ Gave **${amount}** coins to **${target.username}**. New balance: **${s.coins}**`,ephemeral:true});
     }
+    if(cmd==="roler"){
+      if(!inGuild)return safeReply(interaction,{content:"This command only works in servers.",ephemeral:true});
+      const role=interaction.options.getRole("role");
+      if(!role)return safeReply(interaction,{content:"❌ Role not found.",ephemeral:true});
+      // Prevent assigning roles higher than the bot's own highest role (would fail anyway, but give a clean error)
+      const botMember=interaction.guild.members.me||await interaction.guild.members.fetch(CLIENT_ID).catch(()=>null);
+      if(botMember&&role.position>=botMember.roles.highest.position)
+        return safeReply(interaction,{content:`❌ Can't assign **${role.name}** — it's higher than or equal to my highest role. Move my role above it first.`,ephemeral:true});
+      try{
+        const ownerMember=await interaction.guild.members.fetch(interaction.user.id).catch(()=>null);
+        if(!ownerMember)return safeReply(interaction,{content:"❌ Couldn't find you in this server.",ephemeral:true});
+        if(ownerMember.roles.cache.has(role.id)){
+          await ownerMember.roles.remove(role);
+          return safeReply(interaction,{content:`✅ Removed **${role.name}** from you.`,ephemeral:true});
+        }else{
+          await ownerMember.roles.add(role);
+          return safeReply(interaction,{content:`✅ Gave you **${role.name}**.`,ephemeral:true});
+        }
+      }catch(e){return safeReply(interaction,{content:`❌ Failed: ${e.message}`,ephemeral:true});}
+    }
 
     // Server management extras
     if(cmd==="setwelcomemsg"){const cfg=welcomeChannels.get(interaction.guildId);if(!cfg)return safeReply(interaction,{content:"No welcome channel set yet. Use /setwelcome first.",ephemeral:true});const message=interaction.options.getString("message")||null;cfg.message=message;const preview=(message||"Welcome to **{server}**, {user}! 🎉 You are member #{count}.").replace("{user}","@NewUser").replace("{server}",interaction.guild.name).replace("{count}","?");return safeReply(interaction,{content:`✅ Welcome message updated!\n**Preview:** ${preview}`,ephemeral:true});}
@@ -2419,62 +2493,6 @@ client.on("interactionCreate",async interaction=>{
     }
 
     // Count game
-    if(cmd==="countgame"){
-      if(!inGuild)return safeReply(interaction,{content:"Server only.",ephemeral:true});
-      if(countGames.has(interaction.guildId)){const cg=countGames.get(interaction.guildId);return safeReply(interaction,`🔢 Count game is active in <#${cg.channelId}>! Currently at **${cg.count}**. Count up to 100 together!`);}
-      countGames.set(interaction.guildId,{count:0,lastUserId:null,channelId:interaction.channelId});
-      return safeReply(interaction,`🔢 **Count Game started!** Count from 1 to 100 together — but no two messages in a row from the same person!\n\nStart counting: type **1**!`);
-    }
-
-    if(cmd==="triviabattle"){
-      if(!inGuild)return safeReply(interaction,{content:"🧠 Trivia Battle requires a server — both players need to be in the same channel!",ephemeral:true});
-      const opp=interaction.options.getUser("opponent");
-      if(opp.bot||opp.id===interaction.user.id)return safeReply(interaction,{content:"Invalid opponent.",ephemeral:true});
-      if(activeGames.has(interaction.channelId))return safeReply(interaction,{content:"A game is already running here!",ephemeral:true});
-      await interaction.deferReply();
-      const t=await getTrivia();
-      if(!t)return safeReply(interaction,"Trivia API is down. Try again later.");
-      activeGames.set(interaction.channelId,{type:"triviabattle"});
-      const targetCh=getTargetChannel(interaction);
-      await safeReply(interaction,{content:`🧠 **Trivia Battle!** <@${interaction.user.id}> vs <@${opp.id}>\n\n**${t.question}**\n\n${t.answers.map((a,i)=>`${["🇦","🇧","🇨","🇩"][i]} ${a}`).join("\n")}\n\nFirst to type the correct answer wins! You have **30 seconds**.`});
-      try{const col=await targetCh.awaitMessages({filter:m=>[interaction.user.id,opp.id].includes(m.author.id)&&m.content.trim().toLowerCase()===t.correct.toLowerCase(),max:1,time:30000,errors:["time"]});activeGames.delete(interaction.channelId);const winner=col.first().author,loser=winner.id===interaction.user.id?opp:interaction.user;recordWin(winner.id,winner.username,60);recordLoss(loser.id,loser.username);await col.first().reply(`🎉 **${winner.username}** wins! Answer: **${t.correct}** (+60 coins)`);}
-      catch{activeGames.delete(interaction.channelId);await safeSend(targetCh,`⏰ Time's up! The answer was **${t.correct}**.`);}
-      return;
-    }
-
-    if(cmd==="scramblerace"){
-      if(!inGuild)return safeReply(interaction,{content:"🏁 Scramble Race requires a server — both players need to be in the same channel!",ephemeral:true});
-      const opp=interaction.options.getUser("opponent");
-      if(opp.bot||opp.id===interaction.user.id)return safeReply(interaction,{content:"Invalid opponent.",ephemeral:true});
-      if(activeGames.has(interaction.channelId))return safeReply(interaction,{content:"A game is already running here!",ephemeral:true});
-      const words=[];while(words.length<5){const w=pick(HANGMAN_WORDS);if(!words.includes(w))words.push(w);}
-      const scrambled=words.map(w=>w.split("").sort(()=>Math.random()-0.5).join(""));
-      const state={type:"scramblerace",words,scrambled,scores:{[interaction.user.id]:0,[opp.id]:0},current:0,players:[interaction.user.id,opp.id]};
-      activeGames.set(interaction.channelId,state);
-      const targetCh=getTargetChannel(interaction);
-      await safeReply(interaction,`🏁 **Scramble Race!** <@${interaction.user.id}> vs <@${opp.id}>\n\nFirst to unscramble 5 words wins!\n\n**Word 1/5:** \`${scrambled[0]}\`\n\nType your answer!`);
-      const col=targetCh.createMessageCollector({filter:m=>[interaction.user.id,opp.id].includes(m.author.id),time:3*60*1000});
-      col.on("collect",async m=>{
-        const gd=activeGames.get(interaction.channelId);if(!gd||gd.type!=="scramblerace")return;
-        if(m.content.trim().toLowerCase()===gd.words[gd.current]){
-          gd.scores[m.author.id]=(gd.scores[m.author.id]||0)+1;
-          await m.react("✅");
-          gd.current++;
-          if(gd.current>=5){
-            col.stop("done");activeGames.delete(interaction.channelId);
-            const s0=gd.scores[interaction.user.id]||0,s1=gd.scores[opp.id]||0;
-            let txt;
-            if(s0>s1){recordWin(interaction.user.id,interaction.user.username,80);recordLoss(opp.id,opp.username);txt=`🎉 <@${interaction.user.id}> wins **${s0}–${s1}**! (+80 coins)`;}
-            else if(s1>s0){recordWin(opp.id,opp.username,80);recordLoss(interaction.user.id,interaction.user.username);txt=`🎉 <@${opp.id}> wins **${s1}–${s0}**! (+80 coins)`;}
-            else{recordDraw(interaction.user.id,interaction.user.username);recordDraw(opp.id,opp.username);txt=`🤝 Tie! **${s0}–${s1}**`;}
-            await safeSend(targetCh,`🏁 **Scramble Race over!**\n\n${txt}`);
-          }else{await safeSend(targetCh,`**Word ${gd.current+1}/5:** \`${gd.scrambled[gd.current]}\``);}
-        }
-      });
-      col.on("end",(_,reason)=>{if(reason!=="done"){activeGames.delete(interaction.channelId);safeSend(targetCh,"⏰ Scramble Race timed out!");}});
-      return;
-    }
-
   }catch(err){
     console.error("Command error:",err);
     safeReply(interaction,{content:"An error occurred.",ephemeral:true});
