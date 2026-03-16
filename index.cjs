@@ -47,37 +47,116 @@ const countGames       = new Map(); // guildId -> { count, lastUserId }
 const inviteComps      = new Map(); // guildId -> { endsAt, baseline, channelId }
 const inviteCache      = new Map(); // guildId -> Map<code,uses>
 // Ticketing system
-const ticketConfigs    = new Map(); // guildId -> { categoryId, supportRoleIds, logChannelId, transcriptChannelId, panelChannelId, panelMessageId, panelMessage, nextId }
-const openTickets      = new Map(); // channelId -> { guildId, userId, ticketId, subject }
 const disabledLevelUp  = new Set(); // guildIds where level-up notifications are off
 const userInstalls     = new Set(); // userIds who have interacted outside of servers (app installs)
 
 // ── Persistence ──────────────────────────────────────────────────────────────
 const DATA_FILE = "./botdata.json";
 
+// GitHub API commit — writes botdata.json back to the repo so data survives
+// across GitHub Actions runs (each run gets a fresh checkout otherwise).
+// Requires GITHUB_TOKEN (auto-provided by Actions) and GITHUB_REPOSITORY env vars.
+// Debounced: rapid saveData() calls are collapsed into one commit 10s later.
+const GH_TOKEN = process.env.GITHUB_TOKEN;
+const GH_REPO  = process.env.GITHUB_REPOSITORY; // "owner/repo"
+let   _commitTimer = null;
+
+async function commitDataToGitHub(jsonString) {
+  if (!GH_TOKEN || !GH_REPO) return; // not running in GitHub Actions, skip
+  try {
+    // 1. Get the current SHA of botdata.json (required for updates)
+    const getOpts = {
+      hostname: "api.github.com", port: 443,
+      path: `/repos/${GH_REPO}/contents/botdata.json`,
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${GH_TOKEN}`,
+        "User-Agent":  "discord-bot",
+        Accept:        "application/vnd.github+json",
+      }
+    };
+    const existing = await new Promise(resolve => {
+      const req = https.request(getOpts, res => {
+        let b = ""; res.on("data", c => b += c);
+        res.on("end", () => { try { resolve(JSON.parse(b)); } catch { resolve(null); } });
+      });
+      req.on("error", () => resolve(null));
+      req.end();
+    });
+    const sha = existing?.sha || null;
+
+    // 2. PUT new content (base64-encoded)
+    const encoded = Buffer.from(jsonString).toString("base64");
+    const body = JSON.stringify({
+      message: "chore: auto-save botdata",
+      content: encoded,
+      ...(sha ? { sha } : {}),
+    });
+    const putOpts = {
+      hostname: "api.github.com", port: 443,
+      path: `/repos/${GH_REPO}/contents/botdata.json`,
+      method: "PUT",
+      headers: {
+        Authorization:  `Bearer ${GH_TOKEN}`,
+        "User-Agent":   "discord-bot",
+        Accept:         "application/vnd.github+json",
+        "Content-Type": "application/json",
+        "Content-Length": Buffer.byteLength(body),
+      }
+    };
+    await new Promise((resolve, reject) => {
+      const req = https.request(putOpts, res => {
+        let b = ""; res.on("data", c => b += c);
+        res.on("end", () => {
+          if (res.statusCode === 200 || res.statusCode === 201) {
+            console.log("✅ botdata.json committed to GitHub");
+          } else {
+            console.warn(`⚠️  GitHub commit HTTP ${res.statusCode}: ${b.slice(0,200)}`);
+          }
+          resolve();
+        });
+      });
+      req.on("error", reject);
+      req.write(body); req.end();
+    });
+  } catch(e) { console.error("commitDataToGitHub error:", e.message); }
+}
+
+function buildDataObject() {
+  return {
+    ticketConfigs:    [...ticketConfigs.entries()],
+    openTickets:      [...openTickets.entries()],
+    guildChannels:    [...guildChannels.entries()],
+    welcomeChannels:  [...welcomeChannels.entries()],
+    leaveChannels:    [...leaveChannels.entries()],
+    boostChannels:    [...boostChannels.entries()],
+    autoRoles:        [...autoRoles.entries()],
+    reactionRoles:    [...reactionRoles.entries()],
+    disabledOwnerMsg: [...disabledOwnerMsg],
+    disabledLevelUp:  [...disabledLevelUp],
+    userInstalls:     [...userInstalls],
+    scores:           [...scores.entries()],
+  };
+}
+
 function saveData() {
   try {
-    const data = {
-      ticketConfigs:    [...ticketConfigs.entries()],
-      openTickets:      [...openTickets.entries()],
-      guildChannels:    [...guildChannels.entries()],
-      welcomeChannels:  [...welcomeChannels.entries()],
-      leaveChannels:    [...leaveChannels.entries()],
-      boostChannels:    [...boostChannels.entries()],
-      autoRoles:        [...autoRoles.entries()],
-      reactionRoles:    [...reactionRoles.entries()],
-      disabledOwnerMsg: [...disabledOwnerMsg],
-      disabledLevelUp:  [...disabledLevelUp],
-      userInstalls:     [...userInstalls],
-      scores:           [...scores.entries()],
-    };
-    fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+    const json = JSON.stringify(buildDataObject(), null, 2);
+    // Always write to disk immediately
+    fs.writeFileSync(DATA_FILE, json);
+    // Debounce the GitHub commit: if multiple saves fire quickly, only
+    // commit once 10 seconds after the last one
+    if (_commitTimer) clearTimeout(_commitTimer);
+    _commitTimer = setTimeout(() => {
+      _commitTimer = null;
+      commitDataToGitHub(json).catch(e => console.error("commit error:", e.message));
+    }, 10_000);
   } catch(e) { console.error("saveData error:", e.message); }
 }
 
 function loadData() {
   try {
-    if (!fs.existsSync(DATA_FILE)) { console.log("No data file found, starting fresh."); return; }
+    if (!fs.existsSync(DATA_FILE)) { console.log("No botdata.json found, starting fresh."); return; }
     const data = JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
     if (data.ticketConfigs)    data.ticketConfigs   .forEach(([k,v]) => ticketConfigs.set(k, v));
     if (data.openTickets)      data.openTickets     .forEach(([k,v]) => openTickets.set(k, v));
@@ -91,12 +170,21 @@ function loadData() {
     if (data.disabledLevelUp)  data.disabledLevelUp .forEach(v => disabledLevelUp.add(v));
     if (data.userInstalls)     data.userInstalls    .forEach(v => userInstalls.add(v));
     if (data.scores)           data.scores          .forEach(([k,v]) => scores.set(k, v));
-    console.log(`Data loaded: ${ticketConfigs.size} ticket configs, ${reactionRoles.size} reaction roles, ${scores.size} scores, ${guildChannels.size} channels`);
+    console.log(`✅ Data loaded — ${ticketConfigs.size} ticket configs, ${reactionRoles.size} reaction roles, ${scores.size} scores, ${guildChannels.size} channels`);
   } catch(e) { console.error("loadData error:", e.message); }
 }
 
-// Auto-save every 2 minutes
+// Load data immediately at startup
+loadData();
+
+// Auto-save + commit every 2 minutes as a safety net
+setInterval(() => saveData(), 2 * 60 * 1000);
 setInterval(saveData, 2 * 60 * 1000);
+
+// Save on graceful shutdown so GitHub Actions captures latest data before the run ends
+process.on("SIGTERM", () => { console.log("SIGTERM received — saving data"); saveData(); process.exit(0); });
+process.on("SIGINT",  () => { console.log("SIGINT received — saving data");  saveData(); process.exit(0); });
+process.on("exit",    () => { try { saveData(); } catch {} });
 
 // ── Scores ────────────────────────────────────────────────────────────────────
 const scores = new Map();
@@ -544,95 +632,6 @@ async function runOlympicsInGuild(guild,event){
 
 async function sendCrisisToOwner(dmChannel){for(let i=0;i<CRISIS_MESSAGES.length;i++){await new Promise(res=>setTimeout(res,i===0?0:8000));try{await dmChannel.send(CRISIS_MESSAGES[i]);}catch{break;}}}
 
-// ── Ticket transcript helper ─────────────────────────────────────────────────
-// Fetches all messages from a ticket channel, builds a readable transcript,
-// and posts it to the configured transcript channel.
-async function sendTicketTranscript(channel, ticket, cfg, closedBy) {
-  const transcriptChId = cfg?.transcriptChannelId;
-  if (!transcriptChId) return; // No transcript channel configured
-
-  const transcriptCh = channel.guild.channels.cache.get(transcriptChId);
-  if (!transcriptCh) return;
-
-  try {
-    // Fetch up to 500 messages (Discord API max per fetch is 100, loop)
-    let allMessages = [];
-    let before = null;
-    for (let i = 0; i < 5; i++) {
-      const opts = { limit: 100 };
-      if (before) opts.before = before;
-      const batch = await channel.messages.fetch(opts);
-      if (!batch.size) break;
-      allMessages = allMessages.concat([...batch.values()]);
-      before = batch.last().id;
-      if (batch.size < 100) break;
-    }
-    // Sort oldest first
-    allMessages.sort((a, b) => a.createdTimestamp - b.createdTimestamp);
-
-    // Build text transcript
-    const lines = [
-      `═══════════════════════════════════════`,
-      `  TICKET #${ticket.ticketId} TRANSCRIPT`,
-      `═══════════════════════════════════════`,
-      `Opened by  : ${allMessages.find(m=>!m.author.bot)?.author.tag || "Unknown"}`,
-      `Opened at  : ${new Date(ticket.openedAt||Date.now()).toUTCString()}`,
-      `Closed by  : ${closedBy}`,
-      `Closed at  : ${new Date().toUTCString()}`,
-      `Messages   : ${allMessages.length}`,
-      `═══════════════════════════════════════`,
-      "",
-    ];
-
-    for (const m of allMessages) {
-      const ts = new Date(m.createdTimestamp).toISOString().replace("T"," ").slice(0,19);
-      const tag = `${m.author.username}#${m.author.discriminator}`;
-      if (m.content) lines.push(`[${ts}] ${tag}: ${m.content}`);
-      if (m.attachments.size) {
-        for (const att of m.attachments.values()) {
-          lines.push(`[${ts}] ${tag}: [Attachment: ${att.name} — ${att.url}]`);
-        }
-      }
-      if (m.stickers.size) {
-        for (const s of m.stickers.values()) {
-          lines.push(`[${ts}] ${tag}: [Sticker: ${s.name}]`);
-        }
-      }
-    }
-
-    lines.push("", "═══════════════════════════════════════", "  END OF TRANSCRIPT", "═══════════════════════════════════════");
-
-    const transcript = lines.join("\n");
-
-    // Post to transcript channel — as a file attachment if large, inline if small
-    if (transcript.length <= 1900) {
-      await safeSend(transcriptCh, {
-        content:
-          `📜 **Ticket #${ticket.ticketId} Transcript**
-` +
-          `Opened by <@${ticket.userId}> • Closed by ${closedBy}
-` +
-          `\`\`\`
-${transcript.slice(0,1800)}
-\`\`\``
-      });
-    } else {
-      // Send as a .txt file
-      const { Readable } = require("stream");
-      const buf = Buffer.from(transcript, "utf-8");
-      const stream = Readable.from(buf);
-      await transcriptCh.send({
-        content:
-          `📜 **Ticket #${ticket.ticketId} Transcript**
-` +
-          `Opened by <@${ticket.userId}> • Closed by ${closedBy} • ${allMessages.length} messages`,
-        files: [{ attachment: buf, name: `ticket-${ticket.ticketId}-transcript.txt` }]
-      });
-    }
-  } catch(e) {
-    console.error("Transcript error:", e.message);
-  }
-}
 
 // ── Discord client ─────────────────────────────────────────────────────────────
 const client=new Client({
@@ -744,10 +743,6 @@ function buildCommands(){
     {name:"invitecomp",      description:"Start an invite competition (Manage Server)",options:[{name:"hours",description:"Duration in hours (1-720)",type:4,required:true}]},
     {name:"purge",           description:"Delete messages in bulk (Manage Messages)",options:[{name:"amount",description:"Number to delete (1-100)",type:4,required:true}]},
     // Tickets
-    {name:"ticketsetup",     description:"Open the ticket system setup dashboard (Manage Server)"},
-    {name:"closeticket",     description:"Close this ticket"},
-    {name:"addtoticket",     description:"Add a user to this ticket",options:[{name:"user",description:"User to add",type:6,required:true}]},
-    {name:"removefromticket",description:"Remove a user from this ticket",options:[{name:"user",description:"User to remove",type:6,required:true}]},
     // Owner
     {name:"servers",        description:"[Owner] List servers"},
     {name:"broadcast",      description:"[Owner] Broadcast to all owners",options:[{name:"message",description:"Message",type:3,required:true}]},
@@ -820,9 +815,6 @@ async function registerGuildCommands(guildId) {
 // ── Bot events ────────────────────────────────────────────────────────────────
 client.once("ready", async () => {
   console.log(`Bot ready: ${client.user.tag} [${INSTANCE_ID}] in ${client.guilds.cache.size} servers`);
-
-  // Load persisted data first so all configs survive restarts
-  loadData();
 
   // Instance lock
   try { const owner = await client.users.fetch(OWNER_ID); await acquireInstanceLock(owner); }
@@ -1223,312 +1215,6 @@ client.on("interactionCreate",async interaction=>{
     }
 
 
-    // ── Ticket setup dashboard — step-by-step wizard ──────────────────────────
-    // Steps: 1=category  2=roles  3=log channel  4=transcript  5=review/post
-    if(cid.startsWith("ts_")){
-      if(!interaction.guildId){await btnEphemeral(interaction,"Server only.");return;}
-      const isOwner=OWNER_IDS.includes(uid);
-      const isAdmin=interaction.member?.permissions.has("MANAGE_GUILD");
-      if(!isOwner&&!isAdmin){await btnEphemeral(interaction,"You need Manage Server permission.");return;}
-
-      const guildId=interaction.guildId;
-      const guild=interaction.guild;
-
-      // Determine which step we should show based on what's been saved
-      // Step logic:
-      // 1=category  2=roles  3=log  4=transcript  5=panel channel  6=review+post
-      function getStep(cfg){
-        if(!cfg.categoryId)                      return 1;
-        if(!cfg.supportRoleIds?.length)          return 2;
-        if(cfg.logChannelId===undefined)         return 3;
-        if(cfg.transcriptChannelId===undefined)  return 4;
-        if(cfg.panelChannelId===undefined)       return 5;
-        return 6;
-      }
-
-      function buildStep(stepOverride){
-        const cfg=ticketConfigs.get(guildId)||{};
-        const step=stepOverride??getStep(cfg);
-
-        const catCh    = cfg.categoryId         ? guild.channels.cache.get(cfg.categoryId)          : null;
-        const roleList = (cfg.supportRoleIds||[]).map(id=>`<@&${id}>`).join(", ")||null;
-        const logStr   = cfg.logChannelId        ? `<#${cfg.logChannelId}>`         : cfg.logChannelId===null        ?"None":"—";
-        const txStr    = cfg.transcriptChannelId ? `<#${cfg.transcriptChannelId}>` : cfg.transcriptChannelId===null ?"None":"—";
-        const panelStr = cfg.panelChannelId      ? `<#${cfg.panelChannelId}>`       : cfg.panelChannelId===null      ?"—":"—";
-
-        const TICK="✅",CURR="▶️",EMPTY="⬜";
-        const prog=[1,2,3,4,5,6].map(s=>s<step?TICK:s===step?CURR:EMPTY);
-        const bar=`${prog[0]} Category  ${prog[1]} Roles  ${prog[2]} Log  ${prog[3]} Transcript  ${prog[4]} Panel Channel  ${prog[5]} Done`;
-
-        const categories  =[...guild.channels.cache.filter(c=>c.type==="GUILD_CATEGORY").values()].slice(0,25);
-        // All text channels — no cap, Discord select allows up to 25 options max
-        const allTextChs  =[...guild.channels.cache.filter(c=>c.type==="GUILD_TEXT").values()];
-        const textChannels=allTextChs.slice(0,24); // leave room for skip option
-        const roles       =[...guild.roles.cache.filter(r=>!r.managed&&r.id!==guild.id).values()].slice(0,25);
-        const skipOpt     =[{label:"Skip / None",value:"__none__",description:"Leave this setting disabled"}];
-
-        const done=[];
-        if(step>1) done.push(`📁 **Category:** ${catCh?`\`${catCh.name}\``:"—"}`);
-        if(step>2) done.push(`🛡️ **Roles:** ${roleList||"—"}`);
-        if(step>3) done.push(`📋 **Log:** ${logStr}`);
-        if(step>4) done.push(`📜 **Transcript:** ${txStr}`);
-        if(step>5) done.push(`📢 **Panel channel:** ${panelStr}`);
-        const summary=done.length?done.join("  •  "):"";
-
-        let header,components;
-
-        if(step===1){
-          header=["## 🎫 Ticket Setup — Step 1 of 5: Category","Which **category** should new ticket channels be created inside?",`\`${bar}\``].join("\n");
-          const opts=categories.map(c=>({label:c.name,value:c.id,emoji:{name:"📁"}}));
-          components=[new MessageActionRow().addComponents(new MessageSelectMenu().setCustomId("ts_sel_channel").setPlaceholder("Select a category…").setOptions(opts.length?opts:[{label:"No categories found — create one first",value:"none"}]).setDisabled(!opts.length))];
-        }
-        else if(step===2){
-          header=["## 🎫 Ticket Setup — Step 2 of 5: Support Roles",summary,"","Which **roles** can view and manage all tickets? Select up to 5.",`\`${bar}\``].filter(Boolean).join("\n");
-          const opts=roles.map(r=>({label:r.name.slice(0,25),value:r.id,emoji:{name:"🛡️"},default:(cfg.supportRoleIds||[]).includes(r.id)}));
-          components=[
-            new MessageActionRow().addComponents(new MessageSelectMenu().setCustomId("ts_sel_roles").setPlaceholder("Select support role(s)…").setMinValues(1).setMaxValues(Math.min(5,Math.max(1,opts.length))).setOptions(opts.length?opts:[{label:"No roles found",value:"none"}]).setDisabled(!opts.length)),
-            new MessageActionRow().addComponents(new MessageButton().setCustomId("ts_back").setLabel("← Back").setStyle("SECONDARY")),
-          ];
-        }
-        else if(step===3){
-          header=["## 🎫 Ticket Setup — Step 3 of 5: Log Channel",summary,"","Which channel should ticket **open/close events** be logged to? *(optional)*",`\`${bar}\``].filter(Boolean).join("\n");
-          const opts=skipOpt.concat(textChannels.map(c=>({label:`#${c.name}`,value:c.id,emoji:{name:"📋"}})));
-          components=[
-            new MessageActionRow().addComponents(new MessageSelectMenu().setCustomId("ts_sel_log").setPlaceholder("Select a log channel… (or skip)").setOptions(opts.slice(0,25))),
-            new MessageActionRow().addComponents(new MessageButton().setCustomId("ts_back").setLabel("← Back").setStyle("SECONDARY")),
-          ];
-        }
-        else if(step===4){
-          header=["## 🎫 Ticket Setup — Step 4 of 5: Transcript Channel",summary,"","Which channel should **full ticket transcripts** be posted to when a ticket closes? *(optional)*",`\`${bar}\``].filter(Boolean).join("\n");
-          const opts=skipOpt.concat(textChannels.map(c=>({label:`#${c.name}`,value:c.id,emoji:{name:"📜"}})));
-          components=[
-            new MessageActionRow().addComponents(new MessageSelectMenu().setCustomId("ts_sel_transcript").setPlaceholder("Select a transcript channel… (or skip)").setOptions(opts.slice(0,25))),
-            new MessageActionRow().addComponents(new MessageButton().setCustomId("ts_back").setLabel("← Back").setStyle("SECONDARY")),
-          ];
-        }
-        else if(step===5){
-          header=["## 🎫 Ticket Setup — Step 5 of 5: Panel Channel",summary,"","Which channel should the **ticket open button** be posted in? This is where users click to open a ticket.",`\`${bar}\``].filter(Boolean).join("\n");
-          // Show ALL text channels — no skip option here, a panel channel is required
-          const opts=allTextChs.map(c=>({label:`#${c.name}`,value:c.id,emoji:{name:"📢"}})).slice(0,25);
-          components=[
-            new MessageActionRow().addComponents(new MessageSelectMenu().setCustomId("ts_sel_panel_ch").setPlaceholder("Select where to post the ticket panel…").setOptions(opts.length?opts:[{label:"No text channels found",value:"none"}]).setDisabled(!opts.length)),
-            new MessageActionRow().addComponents(new MessageButton().setCustomId("ts_back").setLabel("← Back").setStyle("SECONDARY")),
-          ];
-        }
-        else{ // step 6 — review + post
-          const pv=cfg.panelMessage||"🎫 **Support Tickets** — Click below to open a ticket.";
-          header=[
-            "## 🎫 Ticket Setup — All Done!",
-            `\`${bar}\``,
-            "",
-            "**Configuration summary:**",
-            `📁 Category:       ${catCh?`\`${catCh.name}\``:"—"}`,
-            `🛡️ Roles:          ${roleList||"—"}`,
-            `📋 Log channel:    ${logStr}`,
-            `📜 Transcript:     ${txStr}`,
-            `📢 Panel channel:  ${panelStr}`,
-            `✉️  Panel message:  ${cfg.panelMessage?`\`${pv.slice(0,80)}${pv.length>80?"…":""}\``:"*(default)*"}`,
-            `🎫 Panel status:   ${cfg.panelMessageId?`✅ Live in <#${cfg.panelChannelId}>`:"❌ Not posted yet"}`,
-            "",
-            "Click **Post Panel** to publish the open-ticket button in the selected channel.",
-          ].join("\n");
-          components=[new MessageActionRow().addComponents(
-            new MessageButton().setCustomId("ts_post_panel").setLabel("Post Ticket Panel 🎫").setStyle("PRIMARY"),
-            new MessageButton().setCustomId("ts_set_msg")   .setLabel("Customize Message ✏️").setStyle("SECONDARY"),
-            new MessageButton().setCustomId("ts_back")      .setLabel("← Edit Settings")     .setStyle("SECONDARY"),
-            new MessageButton().setCustomId("ts_reset")     .setLabel("Start Over 🗑️")        .setStyle("DANGER"),
-          )];
-        }
-
-        return{content:header,components};
-      }
-
-      // Ack first
-      if(!await btnAck(interaction))return;
-      const cfg=ticketConfigs.get(guildId)||{nextId:0};
-
-      if(cid==="ts_sel_channel"){
-        const val=interaction.values[0];
-        if(val!=="none") cfg.categoryId=val;
-        ticketConfigs.set(guildId,cfg); saveData();
-        try{await interaction.editReply(buildStep(2));}catch(e){console.error("ts_sel_channel:",e?.message);}
-        return;
-      }
-      if(cid==="ts_sel_roles"){
-        cfg.supportRoleIds=interaction.values.filter(v=>v!=="none");
-        cfg.supportRoleId=cfg.supportRoleIds[0]||null;
-        ticketConfigs.set(guildId,cfg); saveData();
-        try{await interaction.editReply(buildStep(3));}catch(e){console.error("ts_sel_roles:",e?.message);}
-        return;
-      }
-      if(cid==="ts_sel_log"){
-        cfg.logChannelId=interaction.values[0]==="__none__"?null:interaction.values[0];
-        ticketConfigs.set(guildId,cfg); saveData();
-        try{await interaction.editReply(buildStep(4));}catch(e){console.error("ts_sel_log:",e?.message);}
-        return;
-      }
-      if(cid==="ts_sel_transcript"){
-        cfg.transcriptChannelId=interaction.values[0]==="__none__"?null:interaction.values[0];
-        ticketConfigs.set(guildId,cfg); saveData();
-        try{await interaction.editReply(buildStep(5));}catch(e){console.error("ts_sel_transcript:",e?.message);}
-        return;
-      }
-      if(cid==="ts_sel_panel_ch"){
-        const val=interaction.values[0];
-        if(val!=="none") cfg.panelChannelId=val;
-        ticketConfigs.set(guildId,cfg); saveData();
-        try{await interaction.editReply(buildStep(6));}catch(e){console.error("ts_sel_panel_ch:",e?.message);}
-        return;
-      }
-      if(cid==="ts_back"){
-        const s=getStep(cfg);
-        if(s>=6)      { delete cfg.panelChannelId; }
-        else if(s===5){ delete cfg.transcriptChannelId; }
-        else if(s===4){ delete cfg.logChannelId; }
-        else if(s===3){ cfg.supportRoleIds=[]; cfg.supportRoleId=null; }
-        else if(s===2){ delete cfg.categoryId; }
-        ticketConfigs.set(guildId,cfg); saveData();
-        try{await interaction.editReply(buildStep());}catch(e){console.error("ts_back:",e?.message);}
-        return;
-      }
-      if(cid==="ts_reset"){
-        ticketConfigs.set(guildId,{nextId:cfg.nextId||0}); saveData();
-        try{await interaction.editReply(buildStep(1));}catch(e){console.error("ts_reset:",e?.message);}
-        return;
-      }
-      if(cid==="ts_set_msg"){
-        try{await interaction.followUp({content:`✏️ **Customize panel message** — type it in chat now (2 min).\nCurrent: ${cfg.panelMessage?`\`${cfg.panelMessage}\``:"*(default)*"}`,ephemeral:true});}catch{}
-        const col=interaction.channel.createMessageCollector({filter:m=>m.author.id===uid,max:1,time:120000});
-        col.on("collect",async m=>{
-          try{await m.delete();}catch{}
-          cfg.panelMessage=m.content.trim();
-          ticketConfigs.set(guildId,cfg); saveData();
-          try{await interaction.editReply(buildStep(6));await interaction.followUp({content:"✅ Panel message saved!",ephemeral:true});}catch{}
-        });
-        col.on("end",(_,r)=>{if(r==="time")interaction.followUp({content:"⏰ Timed out.",ephemeral:true}).catch(()=>{});});
-        return;
-      }
-      if(cid==="ts_post_panel"){
-        if(!cfg.categoryId||!cfg.supportRoleIds?.length||!cfg.panelChannelId){
-          try{await interaction.followUp({content:"⚠️ Complete all steps first.",ephemeral:true});}catch{}
-          return;
-        }
-        if(cfg.panelMessageId&&cfg.panelChannelId){
-          const oldCh=guild.channels.cache.get(cfg.panelChannelId);
-          if(oldCh){const old=await oldCh.messages.fetch(cfg.panelMessageId).catch(()=>null);if(old)await old.delete().catch(()=>{});}
-        }
-        const targetCh=guild.channels.cache.get(cfg.panelChannelId)||interaction.channel;
-        const panelContent=cfg.panelMessage||"🎫 **Support Tickets**\n\nNeed help? Click the button below to open a private support ticket with our team.";
-        try{
-          const msg=await safeSend(targetCh,{content:panelContent,components:[new MessageActionRow().addComponents(new MessageButton().setCustomId("ticket_open").setLabel("Open a Ticket 🎫").setStyle("PRIMARY"))]});
-          if(msg){cfg.panelMessageId=msg.id;cfg.panelChannelId=targetCh.id;}
-          ticketConfigs.set(guildId,cfg); saveData();
-          try{await interaction.editReply(buildStep(6));}catch{}
-          try{await interaction.followUp({content:`✅ Ticket panel posted in <#${targetCh.id}>!`,ephemeral:true});}catch{}
-        }catch(e){
-          try{await interaction.followUp({content:`❌ Failed: ${e.message}`,ephemeral:true});}catch{}
-        }
-        return;
-      }
-      // Fallback
-      try{await interaction.editReply(buildStep());}catch{}
-      return;
-    }
-
-    // ── Ticket open button ───────────────────────────────────────────────────────
-    if(cid==="ticket_open"){
-      if(!await btnAck(interaction))return;
-      const guildId=interaction.guildId;
-      const cfg=ticketConfigs.get(guildId);
-      if(!cfg){try{await interaction.followUp({content:"⚠️ Ticket system is not configured. Ask an admin to use `/ticketsetup`.",ephemeral:true});}catch{}return;}
-      // Check if user already has an open ticket
-      const existing=[...openTickets.values()].find(t=>t.guildId===guildId&&t.userId===uid);
-      if(existing){
-        const ch=interaction.guild.channels.cache.get(existing.channelId);
-        try{await interaction.followUp({content:`You already have an open ticket: ${ch?`<#${ch.id}>`:"(channel deleted)"}`,ephemeral:true});}catch{}
-        return;
-      }
-      // Create ticket channel
-      const cfg2=ticketConfigs.get(guildId);
-      cfg2.nextId=(cfg2.nextId||0)+1; saveData();
-      const ticketId=String(cfg2.nextId).padStart(4,"0");
-      try{
-        const guild=interaction.guild;
-        const member=interaction.member;
-        const channel=await guild.channels.create(`ticket-${ticketId}`,{
-          type:"GUILD_TEXT",
-          parent:cfg2.categoryId||undefined,
-          permissionOverwrites:[
-            {id:guild.roles.everyone,deny:["VIEW_CHANNEL"]},
-            {id:uid,allow:["VIEW_CHANNEL","SEND_MESSAGES","READ_MESSAGE_HISTORY"]},
-            {id:client.user.id,allow:["VIEW_CHANNEL","SEND_MESSAGES","READ_MESSAGE_HISTORY","MANAGE_CHANNELS"]},
-            ...(cfg2.supportRoleIds||[]).map(rid=>({id:rid,allow:["VIEW_CHANNEL","SEND_MESSAGES","READ_MESSAGE_HISTORY"]})),
-          ],
-          topic:`Ticket #${ticketId} | Opened by ${member.user.tag}`
-        });
-        openTickets.set(channel.id,{guildId,userId:uid,ticketId,channelId:channel.id,subject:"",openedAt:Date.now()}); saveData();
-        // Send welcome message in ticket
-        const closeBtn=new MessageActionRow().addComponents(
-          new MessageButton().setCustomId("ticket_close").setLabel("Close Ticket 🔒").setStyle("DANGER"),
-          new MessageButton().setCustomId("ticket_claim").setLabel("Claim 🙋").setStyle("SUCCESS"),
-        );
-        await channel.send({
-          content:`🎫 **Ticket #${ticketId}** — <@${uid}>\n\nHello <@${uid}>! Support will be with you shortly.${(cfg2.supportRoleIds||[]).map(r=>`<@&${r}>`).join(" ")?`\n${(cfg2.supportRoleIds||[]).map(r=>`<@&${r}>`).join(" ")}`:""}` ,
-          components:[closeBtn]
-        });
-        // Log ticket open
-        if(cfg2.logChannelId){const logCh=guild.channels.cache.get(cfg2.logChannelId);if(logCh)await safeSend(logCh,`📂 **Ticket #${ticketId} opened** by <@${uid}> — <#${channel.id}>`);}
-        try{await interaction.followUp({content:`✅ Your ticket has been created: <#${channel.id}>`,ephemeral:true});}catch{}
-      }catch(e){
-        console.error("ticket_open error:",e);
-        try{await interaction.followUp({content:`❌ Failed to create ticket: ${e.message}`,ephemeral:true});}catch{}
-      }
-      return;
-    }
-
-    // ── Ticket close button ───────────────────────────────────────────────────
-    if(cid==="ticket_close"){
-      if(!await btnAck(interaction))return;
-      const ticket=openTickets.get(interaction.channelId);
-      if(!ticket){try{await interaction.followUp({content:"This doesn't look like a ticket channel.",ephemeral:true});}catch{}return;}
-      const cfg=ticketConfigs.get(ticket.guildId);
-      // Only ticket owner or support role can close
-      const member=interaction.member;
-      const canClose=ticket.userId===uid||
-        OWNER_IDS.includes(uid)||
-        (cfg?.supportRoleIds||[cfg?.supportRoleId]).filter(Boolean).some(rid=>member.roles.cache.has(rid))||
-        member.permissions.has("MANAGE_CHANNELS");
-      if(!canClose){try{await interaction.followUp({content:"You don't have permission to close this ticket.",ephemeral:true});}catch{}return;}
-      openTickets.delete(interaction.channelId); saveData();
-      // Log
-      if(cfg?.logChannelId){const logCh=interaction.guild.channels.cache.get(cfg.logChannelId);if(logCh)await safeSend(logCh,`🔒 **Ticket #${ticket.ticketId} closed** by <@${uid}>`);}
-      try{
-        await interaction.editReply({content:`🔒 **Ticket closed** by <@${uid}>. Saving transcript then deleting in 5 seconds.`,components:[]});
-        // Generate and post transcript before deleting
-        await sendTicketTranscript(interaction.channel, ticket, cfg, `@${interaction.user.username}`);
-        setTimeout(()=>interaction.channel.delete().catch(()=>{}),5000);
-      }catch{interaction.channel.delete().catch(()=>{});}
-      return;
-    }
-
-    // ── Ticket claim button ───────────────────────────────────────────────────
-    if(cid==="ticket_claim"){
-      if(!await btnAck(interaction))return;
-      const ticket=openTickets.get(interaction.channelId);
-      if(!ticket){try{await interaction.followUp({content:"This doesn't look like a ticket channel.",ephemeral:true});}catch{}return;}
-      const cfg=ticketConfigs.get(ticket.guildId);
-      const member=interaction.member;
-      const canClaim=OWNER_IDS.includes(uid)||(cfg?.supportRoleIds||[cfg?.supportRoleId]).filter(Boolean).some(rid=>member.roles.cache.has(rid))||member.permissions.has("MANAGE_CHANNELS");
-      if(!canClaim){try{await interaction.followUp({content:"Only support staff can claim tickets.",ephemeral:true});}catch{}return;}
-      ticket.claimedBy=uid;
-      try{
-        await interaction.editReply({content:`🎫 **Ticket #${ticket.ticketId}** — <@${ticket.userId}>
-🙋 **Claimed by <@${uid}>**`,components:[new MessageActionRow().addComponents(new MessageButton().setCustomId("ticket_close").setLabel("Close Ticket 🔒").setStyle("DANGER"))]});
-        await safeSend(interaction.channel,`✅ <@${uid}> has claimed this ticket and will be assisting you.`);
-      }catch{}
-      return;
-    }
-
     // ── /botstats app users page ─────────────────────────────────────────────────
     if(cid==="botstats_users"||cid.startsWith("botstats_page_")){
       // Owner-only
@@ -1576,7 +1262,7 @@ client.on("interactionCreate",async interaction=>{
   const ownerOnly=["servers","broadcast","fakecrash","identitycrisis","botolympics","sentience","legendrandom","dmuser","leaveserver","restart","botstats","setstatus","adminuser","adminreset","adminconfig","admingive"];
   if(ownerOnly.includes(cmd)&&!OWNER_IDS.includes(interaction.user.id))return safeReply(interaction,{content:"Owner only.",ephemeral:true});
 
-  const manageServerCmds=["channelpicker","setwelcome","setleave","setwelcomemsg","setleavemsg","disableownermsg","serverconfig","autorole","setboostmsg","invitecomp","purge","ticketsetup","reactionrole"];
+  const manageServerCmds=["channelpicker","setwelcome","setleave","setwelcomemsg","setleavemsg","disableownermsg","serverconfig","autorole","setboostmsg","invitecomp","purge","reactionrole"];
   if(manageServerCmds.includes(cmd)){
     if(!inGuild)return safeReply(interaction,{content:"Server only.",ephemeral:true});
     // OWNER_IDS bypass Manage Server requirement
@@ -2259,7 +1945,6 @@ ${serverList}`;
       const ownerMuted=disabledOwnerMsg.has(interaction.guildId);
       const hasComp=inviteComps.has(interaction.guildId);
       const lvlOff=disabledLevelUp.has(interaction.guildId);
-      const tCfg=ticketConfigs.get(interaction.guildId);
       const lines=[
         `⚙️ **Server Config — ${interaction.guild.name}**`,
         ``,
@@ -2271,9 +1956,6 @@ ${serverList}`;
         `🎭 Auto-role: ${arId?`<@&${arId}>`:"Not set"}`,
         `📣 Owner broadcasts: ${ownerMuted?"Disabled":"Enabled"}`,
         `📨 Invite comp: ${hasComp?"Running":"Not active"}`,
-        `🎫 Tickets: ${tCfg
-          ?`✅ Configured\n  └ Log: ${tCfg.logChannelId?`<#${tCfg.logChannelId}>`:"none"} | Transcripts: ${tCfg.transcriptChannelId?`<#${tCfg.transcriptChannelId}>`:"none"}`
-          :"Not configured"}`,
       ];
       return safeReply(interaction,{content:lines.join("\n"),ephemeral:true});
     }
@@ -2351,120 +2033,7 @@ ${serverList}`;
       }catch(e){return safeReply(interaction,`Failed to delete messages: ${e.message}`);}
     }
     // ── /ticketsetup — interactive select-menu dashboard ─────────────────────────
-    if(cmd==="ticketsetup"){
-      if(!inGuild)return safeReply(interaction,{content:"Server only.",ephemeral:true});
-      // Kick off the step-by-step wizard at the first incomplete step
-      const guildId=interaction.guildId;
-      const guild=interaction.guild;
-      const cfg=ticketConfigs.get(guildId)||{nextId:0};
-
-      function getStep(c){
-        if(!c.categoryId)                     return 1;
-        if(!c.supportRoleIds?.length)          return 2;
-        if(c.logChannelId===undefined)         return 3;
-        if(c.transcriptChannelId===undefined)  return 4;
-        if(c.panelChannelId===undefined)       return 5;
-        return 6;
-      }
-      function buildStep(stepOverride){
-        const c=ticketConfigs.get(guildId)||{};
-        const step=stepOverride??getStep(c);
-        const catCh    =c.categoryId         ?guild.channels.cache.get(c.categoryId):null;
-        const roleList =(c.supportRoleIds||[]).map(id=>`<@&${id}>`).join(", ")||null;
-        const logStr   =c.logChannelId        ?`<#${c.logChannelId}>`:c.logChannelId===null?"None":"—";
-        const txStr    =c.transcriptChannelId ?`<#${c.transcriptChannelId}>`:c.transcriptChannelId===null?"None":"—";
-        const panelStr =c.panelChannelId      ?`<#${c.panelChannelId}>`:"—";
-        const TICK="✅",CURR="▶️",EMPTY="⬜";
-        const prog=[1,2,3,4,5,6].map(s=>s<step?TICK:s===step?CURR:EMPTY);
-        const bar=`${prog[0]} Category  ${prog[1]} Roles  ${prog[2]} Log  ${prog[3]} Transcript  ${prog[4]} Panel  ${prog[5]} Done`;
-        const cats=[...guild.channels.cache.filter(ch=>ch.type==="GUILD_CATEGORY").values()].slice(0,25);
-        const allTxts=[...guild.channels.cache.filter(ch=>ch.type==="GUILD_TEXT").values()];
-        const txts=allTxts.slice(0,24);
-        const rls=[...guild.roles.cache.filter(r=>!r.managed&&r.id!==guild.id).values()].slice(0,25);
-        const skip=[{label:"Skip / None",value:"__none__",description:"Leave this setting disabled"}];
-        const done=[];
-        if(step>1)done.push(`📁 **Category:** ${catCh?`\`${catCh.name}\``:"—"}`);
-        if(step>2)done.push(`🛡️ **Roles:** ${roleList||"—"}`);
-        if(step>3)done.push(`📋 **Log:** ${logStr}`);
-        if(step>4)done.push(`📜 **Transcript:** ${txStr}`);
-        if(step>5)done.push(`📢 **Panel:** ${panelStr}`);
-        const summary=done.join("  •  ");
-        let header,components;
-        if(step===1){
-          header=`## 🎫 Ticket Setup — Step 1 of 5: Category\nWhich **category** should new ticket channels be created inside?\n\`${bar}\``;
-          const opts=cats.map(ch=>({label:ch.name,value:ch.id,emoji:{name:"📁"}}));
-          components=[new MessageActionRow().addComponents(new MessageSelectMenu().setCustomId("ts_sel_channel").setPlaceholder("Select a category…").setOptions(opts.length?opts:[{label:"No categories found — create one first",value:"none"}]).setDisabled(!opts.length))];
-        }else if(step===2){
-          header=`## 🎫 Ticket Setup — Step 2 of 5: Support Roles\n${summary}\n\nWhich **roles** can view and manage all tickets? (up to 5)\n\`${bar}\``;
-          const opts=rls.map(r=>({label:r.name.slice(0,25),value:r.id,emoji:{name:"🛡️"},default:(c.supportRoleIds||[]).includes(r.id)}));
-          components=[new MessageActionRow().addComponents(new MessageSelectMenu().setCustomId("ts_sel_roles").setPlaceholder("Select support role(s)…").setMinValues(1).setMaxValues(Math.min(5,Math.max(1,opts.length))).setOptions(opts.length?opts:[{label:"No roles found",value:"none"}]).setDisabled(!opts.length)),new MessageActionRow().addComponents(new MessageButton().setCustomId("ts_back").setLabel("← Back").setStyle("SECONDARY"))];
-        }else if(step===3){
-          header=`## 🎫 Ticket Setup — Step 3 of 5: Log Channel\n${summary}\n\nWhich channel should ticket open/close events be **logged** to? *(optional)*\n\`${bar}\``;
-          const opts=skip.concat(txts.map(ch=>({label:`#${ch.name}`,value:ch.id,emoji:{name:"📋"}})));
-          components=[new MessageActionRow().addComponents(new MessageSelectMenu().setCustomId("ts_sel_log").setPlaceholder("Select a log channel… (or skip)").setOptions(opts.slice(0,25))),new MessageActionRow().addComponents(new MessageButton().setCustomId("ts_back").setLabel("← Back").setStyle("SECONDARY"))];
-        }else if(step===4){
-          header=`## 🎫 Ticket Setup — Step 4 of 5: Transcript Channel\n${summary}\n\nWhich channel should **full ticket transcripts** be posted to when a ticket closes? *(optional)*\n\`${bar}\``;
-          const opts=skip.concat(txts.map(ch=>({label:`#${ch.name}`,value:ch.id,emoji:{name:"📜"}})));
-          components=[new MessageActionRow().addComponents(new MessageSelectMenu().setCustomId("ts_sel_transcript").setPlaceholder("Select a transcript channel… (or skip)").setOptions(opts.slice(0,25))),new MessageActionRow().addComponents(new MessageButton().setCustomId("ts_back").setLabel("← Back").setStyle("SECONDARY"))];
-        }else if(step===5){
-          header=`## 🎫 Ticket Setup — Step 5 of 5: Panel Channel\n${summary}\n\nWhich channel should the **ticket open button** be posted in?\n\`${bar}\``;
-          const opts=allTxts.map(ch=>({label:`#${ch.name}`,value:ch.id,emoji:{name:"📢"}})).slice(0,25);
-          components=[new MessageActionRow().addComponents(new MessageSelectMenu().setCustomId("ts_sel_panel_ch").setPlaceholder("Select where to post the panel…").setOptions(opts.length?opts:[{label:"No text channels found",value:"none"}]).setDisabled(!opts.length)),new MessageActionRow().addComponents(new MessageButton().setCustomId("ts_back").setLabel("← Back").setStyle("SECONDARY"))];
-        }else{
-          const pv=c.panelMessage||"🎫 **Support Tickets** — Click below to open a ticket.";
-          header=[`## 🎫 Ticket Setup — Complete!`,`\`${bar}\``,``,`**Configuration:**`,`📁 Category: ${catCh?`\`${catCh.name}\``:"—"}`,`🛡️ Roles: ${roleList||"—"}`,`📋 Log: ${logStr}`,`📜 Transcript: ${txStr}`,`📢 Panel channel: ${panelStr}`,`✉️ Message: ${c.panelMessage?`\`${pv.slice(0,80)}${pv.length>80?"…":""}\``:"*(default)*"}`,`🎫 Status: ${c.panelMessageId?`✅ Live in <#${c.panelChannelId}>`:"❌ Not posted yet"}`,``,`Click **Post Panel** to publish.`].join("\\n");
-          components=[new MessageActionRow().addComponents(new MessageButton().setCustomId("ts_post_panel").setLabel("Post Ticket Panel 🎫").setStyle("PRIMARY"),new MessageButton().setCustomId("ts_set_msg").setLabel("Customize Message ✏️").setStyle("SECONDARY"),new MessageButton().setCustomId("ts_back").setLabel("← Edit Settings").setStyle("SECONDARY"),new MessageButton().setCustomId("ts_reset").setLabel("Start Over 🗑️").setStyle("DANGER"))];
-        }
-        return{content:header,components};
-      }
-      // Show wizard at the first incomplete step
-      return safeReply(interaction,buildStep());
-    }
-    if(cmd==="closeticket"){
-      if(!inGuild)return safeReply(interaction,{content:"Server only.",ephemeral:true});
-      const ticket=openTickets.get(interaction.channelId);
-      if(!ticket)return safeReply(interaction,{content:"This is not a ticket channel.",ephemeral:true});
-      const cfg=ticketConfigs.get(ticket.guildId);
-      const canClose=ticket.userId===interaction.user.id||
-        OWNER_IDS.includes(interaction.user.id)||
-        (cfg?.supportRoleIds||[cfg?.supportRoleId]).filter(Boolean).some(rid=>interaction.member.roles.cache.has(rid))||
-        interaction.member.permissions.has("MANAGE_CHANNELS");
-      if(!canClose)return safeReply(interaction,{content:"You don't have permission to close this ticket.",ephemeral:true});
-      openTickets.delete(interaction.channelId); saveData();
-      if(cfg?.logChannelId){const logCh=interaction.guild.channels.cache.get(cfg.logChannelId);if(logCh)await safeSend(logCh,`🔒 **Ticket #${ticket.ticketId} closed** by <@${interaction.user.id}>`);}
-      await safeReply(interaction,`🔒 **Ticket closed** by <@${interaction.user.id}>. Saving transcript then deleting in 5 seconds.`);
-      await sendTicketTranscript(interaction.channel, ticket, cfg, `@${interaction.user.username}`);
-      setTimeout(()=>interaction.channel.delete().catch(()=>{}),5000);
-      return;
-    }
-    if(cmd==="addtoticket"){
-      if(!inGuild)return safeReply(interaction,{content:"Server only.",ephemeral:true});
-      const ticket=openTickets.get(interaction.channelId);
-      if(!ticket)return safeReply(interaction,{content:"This is not a ticket channel.",ephemeral:true});
-      const cfg=ticketConfigs.get(ticket.guildId);
-      const canManage=OWNER_IDS.includes(interaction.user.id)||(cfg?.supportRoleIds||[cfg?.supportRoleId]).filter(Boolean).some(rid=>interaction.member.roles.cache.has(rid))||interaction.member.permissions.has("MANAGE_CHANNELS");
-      if(!canManage)return safeReply(interaction,{content:"Only support staff can add users to tickets.",ephemeral:true});
-      const target=interaction.options.getUser("user");
-      try{
-        await interaction.channel.permissionOverwrites.edit(target.id,{VIEW_CHANNEL:true,SEND_MESSAGES:true,READ_MESSAGE_HISTORY:true});
-        return safeReply(interaction,`✅ <@${target.id}> has been added to this ticket.`);
-      }catch(e){return safeReply(interaction,{content:`Failed to add user: ${e.message}`,ephemeral:true});}
-    }
-    if(cmd==="removefromticket"){
-      if(!inGuild)return safeReply(interaction,{content:"Server only.",ephemeral:true});
-      const ticket=openTickets.get(interaction.channelId);
-      if(!ticket)return safeReply(interaction,{content:"This is not a ticket channel.",ephemeral:true});
-      const cfg=ticketConfigs.get(ticket.guildId);
-      const canManage=OWNER_IDS.includes(interaction.user.id)||(cfg?.supportRoleIds||[cfg?.supportRoleId]).filter(Boolean).some(rid=>interaction.member.roles.cache.has(rid))||interaction.member.permissions.has("MANAGE_CHANNELS");
-      if(!canManage)return safeReply(interaction,{content:"Only support staff can remove users from tickets.",ephemeral:true});
-      const target=interaction.options.getUser("user");
-      if(target.id===ticket.userId)return safeReply(interaction,{content:"You can't remove the ticket owner.",ephemeral:true});
-      try{
-        await interaction.channel.permissionOverwrites.edit(target.id,{VIEW_CHANNEL:false});
-        return safeReply(interaction,`✅ <@${target.id}> has been removed from this ticket.`);
-      }catch(e){return safeReply(interaction,{content:`Failed to remove user: ${e.message}`,ephemeral:true});}
-    }
-        if(cmd==="invitecomp"){
+    if(cmd==="invitecomp"){
       if(inviteComps.has(interaction.guildId))
         return safeReply(interaction,{content:"⚠️ An invite competition is already running!",ephemeral:true});
       const hours=interaction.options.getInteger("hours");
