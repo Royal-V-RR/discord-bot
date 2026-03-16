@@ -3,7 +3,7 @@
     [
       "1408975996715139084",
       {
-        "nextId": 0,
+        "nextId": 1,
         "categoryId": "1413221494078705867",
         "supportRoleIds": [
           "1424856346318344325",
@@ -11,11 +11,25 @@
         ],
         "supportRoleId": "1424856346318344325",
         "logChannelId": "1482833312165662800",
-        "transcriptChannelId": "1482833357757747373"
+        "transcriptChannelId": "1482833357757747373",
+        "panelChannelId": "1413172499700777171",
+        "panelMessageId": "1483049662012326081"
       }
     ]
   ],
-  "openTickets": [],
+  "openTickets": [
+    [
+      "1483049684510703780",
+      {
+        "guildId": "1408975996715139084",
+        "userId": "969280648667889764",
+        "ticketId": "0001",
+        "channelId": "1483049684510703780",
+        "subject": "",
+        "openedAt": 1773656998768
+      }
+    ]
+  ],
   "guildChannels": [],
   "welcomeChannels": [],
   "leaveChannels": [],
