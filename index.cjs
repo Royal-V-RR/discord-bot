@@ -48,8 +48,14 @@ const inviteComps      = new Map();
 const inviteCache      = new Map();
 const ticketConfigs    = new Map();
 const openTickets      = new Map();
-const disabledLevelUp  = new Set();
+const disabledLevelUp  = new Set(); // legacy — now superseded by levelUpConfig.enabled
 const userInstalls     = new Set();
+// Per-guild XP level-up notification config
+// { enabled: bool, ping: bool, channelId: string|null }
+// enabled: whether to post at all (default true)
+// ping:    whether to @mention the user (default true)
+// channelId: override channel — null means use guildChannels fallback then same-channel
+const levelUpConfig    = new Map(); // guildId -> { enabled, ping, channelId }
 
 // ── Scores ────────────────────────────────────────────────────────────────────
 // FIX: scores MUST be declared before loadData() so loadData can populate it
@@ -187,6 +193,7 @@ function buildDataObject() {
     reactionRoles:    [...reactionRoles.entries()],
     disabledOwnerMsg: [...disabledOwnerMsg],
     disabledLevelUp:  [...disabledLevelUp],
+    levelUpConfig:    [...levelUpConfig.entries()],
     userInstalls:     [...userInstalls],
     scores:           [...scores.entries()],
   };
@@ -230,6 +237,7 @@ function loadData() {
     if (data.reactionRoles)    data.reactionRoles   .forEach(([k,v]) => reactionRoles.set(k, v));
     if (data.disabledOwnerMsg) data.disabledOwnerMsg.forEach(v => disabledOwnerMsg.add(v));
     if (data.disabledLevelUp)  data.disabledLevelUp .forEach(v => disabledLevelUp.add(v));
+    if (data.levelUpConfig)    data.levelUpConfig    .forEach(([k,v]) => levelUpConfig.set(k, v));
     if (data.userInstalls)     data.userInstalls    .forEach(v => userInstalls.add(v));
     if (data.scores)           data.scores          .forEach(([k,v]) => scores.set(k, v));
     console.log(`✅ Data loaded — ${ticketConfigs.size} ticket configs, ${reactionRoles.size} reaction roles, ${scores.size} scores, ${guildChannels.size} channels`);
@@ -691,7 +699,6 @@ function buildCommands(){
     {name:"coinflip",       description:"Flip a coin 🪙"},
     {name:"roll",           description:"Roll a dice 🎲",options:[{name:"sides",description:"Sides (default 6)",type:4,required:false}]},
     {name:"choose",         description:"Choose between options 🤔",options:[{name:"options",description:"Comma-separated options",type:3,required:true}]},
-    {name:"8ball",          description:"Magic 8-ball 🎱",options:[{name:"question",description:"Your question",type:3,required:true}]},
     {name:"roast",          description:"Roast someone 🔥",options:uReq(false)},
     {name:"compliment",     description:"Compliment someone 💖",options:uReq()},
     {name:"ship",           description:"Ship two users 💘",options:[{name:"user1",description:"User 1",type:6,required:true},{name:"user2",description:"User 2",type:6,required:true}]},
@@ -710,7 +717,7 @@ function buildCommands(){
     {name:"poll",           description:"Create a quick yes/no poll 📊",options:[{name:"question",description:"Poll question",type:3,required:true}]},
     {name:"remind",         description:"Set a reminder ⏰",options:[{name:"time",description:"Time in minutes",type:4,required:true},{name:"message",description:"Reminder message",type:3,required:true}]},
     {name:"serverinfo",     description:"Server information 🏠"},
-    {name:"userinfo",       description:"User information 👤",options:uReq(false)},
+    {name:"userprofile",    description:"Full profile card — stats, economy, XP, inventory & more 📋",options:uReq(false)},
     {name:"botinfo",        description:"Bot information 🤖"},
     // Economy
     {name:"coins",    description:"Check coin balance 💰",options:uReq(false)},
@@ -750,6 +757,18 @@ function buildCommands(){
     {name:"scramblerace", description:"First to unscramble 5 words wins! 🏁",options:[{name:"opponent",description:"Opponent",type:6,required:true}]},
     // Server management
     {name:"channelpicker",   description:"Set bot announcement channel (Manage Server)",options:[{name:"channel",description:"Channel",type:7,required:true},{name:"levelup",description:"Enable level-up notifications? (default: true)",type:5,required:false}]},
+    {name:"xpconfig",        description:"Configure level-up notifications for this server (Manage Server)",options:[
+      {name:"setting",description:"What to configure",type:3,required:true,choices:[
+        {name:"View current config",              value:"show"},
+        {name:"Enable level-up messages",         value:"enable"},
+        {name:"Disable level-up messages",        value:"disable"},
+        {name:"Enable @mention ping on level-up", value:"ping_on"},
+        {name:"Disable @mention ping on level-up",value:"ping_off"},
+        {name:"Set level-up message channel",     value:"set_channel"},
+        {name:"Reset to default channel",         value:"reset_channel"},
+      ]},
+      {name:"channel",description:"Channel to send level-up messages to (only used with set_channel)",type:7,required:false},
+    ]},
     {name:"setwelcome",      description:"Set welcome message (Manage Server)",options:[{name:"channel",description:"Channel",type:7,required:true},{name:"message",description:"Use {user} {server} {count}",type:3,required:false}]},
     {name:"setleave",        description:"Set leave message (Manage Server)",options:[{name:"channel",description:"Channel",type:7,required:true},{name:"message",description:"Use {user} {server}",type:3,required:false}]},
     {name:"disableownermsg", description:"Toggle bot owner broadcasts in this server (Manage Server)",options:[{name:"enabled",description:"Enable?",type:5,required:true}]},
@@ -964,10 +983,25 @@ client.on("messageCreate", async msg => {
 client.on("messageCreate",async msg=>{
   if(msg.author.bot||!msg.guild)return;
   const newLevel=tryAwardXP(msg.author.id,msg.author.username);
-  if(newLevel&&!disabledLevelUp.has(msg.guild.id)){
-    const chId=guildChannels.get(msg.guild.id);
-    const ch=chId?msg.guild.channels.cache.get(chId):msg.channel;
-    if(ch)await safeSend(ch,`🎉 <@${msg.author.id}> levelled up to **Level ${newLevel}**! 🏆`);
+  if(newLevel){
+    // Get per-guild config, falling back to legacy disabledLevelUp set
+    const luc = levelUpConfig.get(msg.guild.id);
+    const enabled = luc ? luc.enabled : !disabledLevelUp.has(msg.guild.id);
+    if(enabled){
+      // Resolve target channel: explicit override > guildChannels default > same channel
+      let ch = null;
+      if(luc?.channelId) {
+        ch = msg.guild.channels.cache.get(luc.channelId) || null;
+      }
+      if(!ch) {
+        const chId = guildChannels.get(msg.guild.id);
+        ch = chId ? msg.guild.channels.cache.get(chId) : null;
+      }
+      if(!ch) ch = msg.channel;
+      const ping = luc ? luc.ping : true;
+      const mention = ping ? `<@${msg.author.id}>` : `**${msg.author.username}**`;
+      if(ch) await safeSend(ch, `🎉 ${mention} levelled up to **Level ${newLevel}**! 🏆`);
+    }
   }
   const cg=countGames.get(msg.guild.id);
   if(cg&&msg.channelId===cg.channelId){
@@ -1445,7 +1479,7 @@ client.on("interactionCreate",async interaction=>{
   const ownerOnly=["servers","broadcast","fakecrash","identitycrisis","botolympics","sentience","legendrandom","dmuser","leaveserver","restart","botstats","setstatus","adminuser","adminreset","adminconfig","admingive"];
   if(ownerOnly.includes(cmd)&&!OWNER_IDS.includes(interaction.user.id))return safeReply(interaction,{content:"Owner only.",ephemeral:true});
 
-  const manageServerCmds=["channelpicker","setwelcome","setleave","setwelcomemsg","setleavemsg","disableownermsg","serverconfig","autorole","setboostmsg","invitecomp","purge","reactionrole","ticketsetup"];
+  const manageServerCmds=["channelpicker","xpconfig","setwelcome","setleave","setwelcomemsg","setleavemsg","disableownermsg","serverconfig","autorole","setboostmsg","invitecomp","purge","reactionrole","ticketsetup"];
   if(manageServerCmds.includes(cmd)){
     if(!inGuild)return safeReply(interaction,{content:"Server only.",ephemeral:true});
     if(!OWNER_IDS.includes(interaction.user.id)&&!interaction.member.permissions.has("MANAGE_GUILD"))
@@ -1586,7 +1620,6 @@ client.on("interactionCreate",async interaction=>{
     if(cmd==="coinflip")      return safeReply(interaction,`🪙 **${Math.random()<0.5?"Heads":"Tails"}!**`);
     if(cmd==="roll")          {const sides=interaction.options.getInteger("sides")||6;if(sides<2)return safeReply(interaction,{content:"Need at least 2 sides.",ephemeral:true});return safeReply(interaction,`🎲 You rolled **${r(1,sides)}** on a d${sides}!`);}
     if(cmd==="choose")        {const opts=interaction.options.getString("options").split(",").map(s=>s.trim()).filter(Boolean);if(opts.length<2)return safeReply(interaction,{content:"Give at least 2 options.",ephemeral:true});return safeReply(interaction,`🤔 I choose... **${pick(opts)}**`);}
-    if(cmd==="8ball")         return safeReply(interaction,`🎱 **${interaction.options.getString("question")}**\n\n${pick(EIGHT_BALL)}`);
     if(cmd==="roast")         {const u=interaction.options.getUser("user");return safeReply(interaction,`🔥 ${u?`<@${u.id}>`:au()}: ${pick(ROASTS)}`);}
     if(cmd==="compliment")    return safeReply(interaction,`💖 ${bu()}: ${pick(COMPLIMENTS)}`);
     if(cmd==="ship")          {const u1=interaction.options.getUser("user1"),u2=interaction.options.getUser("user2"),pct=r(0,100),bar="█".repeat(Math.floor(pct/10))+"░".repeat(10-Math.floor(pct/10));return safeReply(interaction,`💘 **${u1.username}** + **${u2.username}**\n\n${bar} **${pct}%**\n\n${pct>=80?"Soulmates 💕":pct>=50?"There's potential 👀":pct>=30?"It's complicated 😬":"Maybe just friends 😅"}`);}
@@ -1656,15 +1689,70 @@ client.on("interactionCreate",async interaction=>{
       return safeReply(interaction,`🏠 **${g.name}**\n👑 Owner: <@${g.ownerId}>\n👥 Members: **${g.memberCount}** (${g.memberCount-bots} humans, ${bots} bots)\n📅 Created: <t:${Math.floor(g.createdTimestamp/1000)}:R>\n💬 Channels: **${g.channels.cache.filter(c=>c.type==="GUILD_TEXT").size}** text, **${g.channels.cache.filter(c=>c.type==="GUILD_VOICE").size}** voice\n🎭 Roles: **${g.roles.cache.size}**`);
     }
 
-    if(cmd==="userinfo"){
-      const u=interaction.options.getUser("user")||interaction.user;
-      const member=inGuild?interaction.guild.members.cache.get(u.id):null;
-      const s=getScore(u.id,u.username);
-      const{level}=xpInfo(s);
-      let info=`👤 **${u.username}**\n🆔 ID: \`${u.id}\`\n📅 Account created: <t:${Math.floor(u.createdTimestamp/1000)}:R>\n💰 Coins: **${s.coins}** | 📈 Level: **${level}**`;
-      if(member)info+=`\n📥 Joined server: <t:${Math.floor(member.joinedTimestamp/1000)}:R>\n🎭 Top role: ${member.roles.highest}`;
-      if(s.marriedTo)info+=`\n💑 Married to: <@${s.marriedTo}>`;
-      return safeReply(interaction,info);
+    if(cmd==="userprofile"){
+      const u = interaction.options.getUser("user") || interaction.user;
+      const s = getScore(u.id, u.username);
+      const { level, xp, needed } = xpInfo(s);
+      const member = inGuild ? interaction.guild.members.cache.get(u.id) : null;
+      const createdTs = Math.floor(u.createdTimestamp / 1000);
+      const joinedTs  = member ? Math.floor(member.joinedTimestamp / 1000) : null;
+      const barFilled = Math.floor((xp / needed) * 20);
+      const xpBar = "█".repeat(barFilled) + "░".repeat(20 - barFilled);
+      const winRate = s.gamesPlayed > 0 ? Math.round(s.wins / s.gamesPlayed * 100) : 0;
+      const now2 = Date.now();
+      const cdStr = (last, cd) => {
+        const rem = cd - (now2 - (last||0));
+        if (rem <= 0) return "✅ Ready";
+        const m = Math.ceil(rem / 60000);
+        return m >= 60 ? `⏳ ${Math.floor(m/60)}h ${m%60}m` : `⏳ ${m}m`;
+      };
+      const ITEM_NAMES = { lucky_charm:"Lucky Charm 🍀", xp_boost:"XP Boost ⚡", shield:"Shield 🛡️" };
+      let inventoryText = "Empty";
+      if (s.inventory && s.inventory.length > 0) {
+        const counts = {};
+        s.inventory.forEach(i => counts[i] = (counts[i] || 0) + 1);
+        inventoryText = Object.entries(counts).map(([id, qty]) => `${ITEM_NAMES[id]||id} ×${qty}`).join(", ");
+      }
+      const marriageText = s.marriedTo ? `💍 Married to <@${s.marriedTo}>` : "💔 Single";
+      const today2 = new Date().toISOString().slice(0, 10);
+      const streakStatus = s.lastDailyDate === today2 ? "✅ Done today" : "❌ Not done today";
+      const avatarUrl = u.displayAvatarURL({ size: 256, dynamic: true });
+      const lines = [
+        `**🪪 Account**`,
+        `> 🆔 \`${u.id}\``,
+        `> 📅 Created <t:${createdTs}:R>`,
+        joinedTs ? `> 📥 Joined server <t:${joinedTs}:R>` : null,
+        member   ? `> 🎭 Top role: ${member.roles.highest}` : null,
+        `> ${marriageText}`,
+        ``,
+        `**📈 Level & XP**`,
+        `> 🏅 Level **${level}**  ·  ✨ ${xp.toLocaleString()} / ${needed.toLocaleString()} XP`,
+        `> \`[${xpBar}]\``,
+        ``,
+        `**💰 Economy**`,
+        `> 🪙 Coins: **${s.coins.toLocaleString()}**`,
+        `> 🎒 Inventory: ${inventoryText}`,
+        ``,
+        `**🎮 Game Stats**`,
+        `> 🕹️ Played: **${s.gamesPlayed}**  ·  🏆 Wins: **${s.wins}**  ·  📊 Win rate: **${winRate}%**`,
+        ``,
+        `**🔥 Daily Streak**`,
+        `> ${streakStatus}  ·  Current: **${s.dailyStreak}** day${s.dailyStreak!==1?"s":""}  ·  Best: **${s.bestStreak}**`,
+        ``,
+        `**⏱️ Cooldowns**`,
+        `> 💼 Work: ${cdStr(s.lastWorkTime, CONFIG.work_cooldown_ms)}  ·  🙏 Beg: ${cdStr(s.lastBegTime, CONFIG.beg_cooldown_ms)}`,
+        `> 🦹 Crime: ${cdStr(s.lastCrimeTime, CONFIG.crime_cooldown_ms)}  ·  🔫 Rob: ${cdStr(s.lastRobTime, CONFIG.rob_cooldown_ms)}`,
+      ].filter(l => l !== null).join("\n");
+      return safeReply(interaction, {
+        embeds: [{
+          author: { name: `${u.username}'s Profile`, icon_url: avatarUrl },
+          description: lines,
+          color: 0x5865F2,
+          thumbnail: { url: avatarUrl },
+          footer: { text: `ID: ${u.id}` },
+          timestamp: new Date().toISOString(),
+        }]
+      });
     }
 
     if(cmd==="botinfo"){
@@ -1929,6 +2017,83 @@ client.on("interactionCreate",async interaction=>{
       const levelupOpt=interaction.options.getBoolean("levelup");
       if(levelupOpt===false){disabledLevelUp.add(interaction.guildId);saveData();return safeReply(interaction,{content:`✅ Bot channel → <#${ch.id}>\n🔇 Level-up notifications **disabled**.`,ephemeral:true});}
       else{disabledLevelUp.delete(interaction.guildId);saveData();return safeReply(interaction,{content:`✅ Bot channel → <#${ch.id}>\n🔔 Level-up notifications **enabled**.`,ephemeral:true});}
+    }
+
+    if(cmd==="xpconfig"){
+      if(!inGuild)return safeReply(interaction,{content:"Server only.",ephemeral:true});
+      const setting=interaction.options.getString("setting");
+      const guildId=interaction.guildId;
+
+      // Get or create per-guild level-up config, seeding from legacy disabledLevelUp
+      function getLUC(){
+        if(!levelUpConfig.has(guildId)){
+          levelUpConfig.set(guildId,{
+            enabled: !disabledLevelUp.has(guildId),
+            ping:    true,
+            channelId: null,
+          });
+        }
+        return levelUpConfig.get(guildId);
+      }
+
+      if(setting==="show"){
+        const c=getLUC();
+        const chStr=c.channelId
+          ?`<#${c.channelId}>`
+          :guildChannels.get(guildId)
+            ?`<#${guildChannels.get(guildId)}> *(bot channel fallback)*`
+            :"*(same channel as the levelled-up message)*";
+        return safeReply(interaction,{
+          embeds:[{
+            title:"⚙️ Level-up Notification Config",
+            description:[
+              `**Messages enabled:** ${c.enabled?"✅ Yes":"❌ No"}`,
+              `**@Mention ping:**    ${c.ping?"✅ Yes":"❌ No — shows username only"}`,
+              `**Channel:**          ${chStr}`,
+              ``,
+              "Use `/xpconfig setting:<option>` to change any setting.",
+            ].join("\n"),
+            color:0x5865F2,
+          }],
+          ephemeral:true,
+        });
+      }
+      if(setting==="enable"){
+        const c=getLUC();c.enabled=true;
+        disabledLevelUp.delete(guildId);saveData();
+        return safeReply(interaction,{content:"✅ Level-up messages **enabled**.",ephemeral:true});
+      }
+      if(setting==="disable"){
+        const c=getLUC();c.enabled=false;
+        disabledLevelUp.add(guildId);saveData();
+        return safeReply(interaction,{content:"🔇 Level-up messages **disabled**.",ephemeral:true});
+      }
+      if(setting==="ping_on"){
+        const c=getLUC();c.ping=true;saveData();
+        return safeReply(interaction,{content:"✅ Level-up messages will now **@mention** the user.",ephemeral:true});
+      }
+      if(setting==="ping_off"){
+        const c=getLUC();c.ping=false;saveData();
+        return safeReply(interaction,{content:"✅ Level-up messages will now show the **username without pinging**.",ephemeral:true});
+      }
+      if(setting==="set_channel"){
+        const ch=interaction.options.getChannel("channel");
+        if(!ch)return safeReply(interaction,{content:"❌ Please also select a `channel`.",ephemeral:true});
+        if(ch.type!=="GUILD_TEXT")return safeReply(interaction,{content:"❌ Must be a text channel.",ephemeral:true});
+        const c=getLUC();c.channelId=ch.id;saveData();
+        return safeReply(interaction,{content:`✅ Level-up messages will be sent to <#${ch.id}>.`,ephemeral:true});
+      }
+      if(setting==="reset_channel"){
+        const c=getLUC();c.channelId=null;saveData();
+        const fallback=guildChannels.get(guildId);
+        return safeReply(interaction,{
+          content:fallback
+            ?`✅ Channel reset — will fall back to <#${fallback}> (bot channel).`
+            :"✅ Channel reset — messages will be sent in the same channel as the levelled-up message.",
+          ephemeral:true,
+        });
+      }
+      return safeReply(interaction,{content:"Unknown setting.",ephemeral:true});
     }
     if(cmd==="setwelcome"){
       const ch=interaction.options.getChannel("channel");
