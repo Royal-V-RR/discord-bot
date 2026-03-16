@@ -28,7 +28,12 @@
   "leaveChannels": [],
   "boostChannels": [],
   "autoRoles": [],
-  "reactionRoles": [],
+  "reactionRoles": [
+    [
+      "1408975996715139084:1483218332005175427:🤖",
+      "1483218024650510496"
+    ]
+  ],
   "disabledOwnerMsg": [],
   "disabledLevelUp": [],
   "levelUpConfig": [
@@ -123,7 +128,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 47,
+        "xp": 52,
         "level": 5,
         "lastWorkTime": 1773683815115,
         "lastBegTime": 1773683812832,
