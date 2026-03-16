@@ -719,6 +719,7 @@ function buildCommands(){
     {name:"serverinfo",     description:"Server information 🏠"},
     {name:"userprofile",    description:"Full profile card — stats, economy, XP, inventory & more 📋",options:uReq(false)},
     {name:"botinfo",        description:"Bot information 🤖"},
+    {name:"help",           description:"Show all commands and how to use the bot 📖"},
     // Economy
     {name:"coins",    description:"Check coin balance 💰",options:uReq(false)},
     {name:"slots",    description:"Slot machine 🎰",options:[{name:"bet",description:"Coins to bet (default 10)",type:4,required:false}]},
@@ -1153,7 +1154,7 @@ client.on("interactionCreate",async interaction=>{
       if(gd.playerId!==uid){try{await interaction.reply({content:"Not your game!",ephemeral:true});}catch{}return;}
       if(!(await btnAck(interaction)))return;
       const result=moveSnake(gd,dir);
-      if(result!=="ok"){activeGames.delete(interaction.channelId);const coins=gd.score*5;if(coins>0)getScore(uid,interaction.user.username).coins+=coins;recordLoss(uid,interaction.user.username);try{await interaction.editReply({content:`💀 **Game Over!** Score: **${gd.score}**${coins>0?` (+${coins} coins)`:""}\n\n${renderSnake(gd)}`,components:makeSnakeButtons(true)});}catch{}}
+      if(result!=="ok"){activeGames.delete(interaction.channelId);const coins=gd.score*5;if(coins>0)getScore(uid,interaction.user.username).coins+=coins;recordLoss(uid,interaction.user.username);saveData();try{await interaction.editReply({content:`💀 **Game Over!** Score: **${gd.score}**${coins>0?` (+${coins} coins)`:""}\n\n${renderSnake(gd)}`,components:makeSnakeButtons(true)});}catch{}}
       else{try{await interaction.editReply({content:`🐍 **Snake** | Score: ${gd.score}\n\n${renderSnake(gd)}`,components:makeSnakeButtons()});}catch{}}
       return;
     }
@@ -1173,6 +1174,7 @@ client.on("interactionCreate",async interaction=>{
           g.revealed.fill(true);
           activeGames.delete(interaction.channelId);
           recordLoss(uid,interaction.user.username);
+          saveData();
           await interaction.editReply({
             content:`💥 **BOOM!** You hit a mine! Game over.\n💣 **Minesweeper** (${gd.diff||"easy"}) — ${mineCount} mines`,
             components:makeMSButtons(g,true)
@@ -1183,6 +1185,7 @@ client.on("interactionCreate",async interaction=>{
           if(allDone){
             activeGames.delete(interaction.channelId);
             recordWin(uid,interaction.user.username,reward);
+            saveData();
             await interaction.editReply({
               content:`🎉 **Board cleared!** +${reward} coins\n💣 **Minesweeper** (${gd.diff||"easy"}) — ${mineCount} mines`,
               components:makeMSButtons(g,true)
@@ -1210,7 +1213,7 @@ client.on("interactionCreate",async interaction=>{
       gd.board[idx]=gd.turn===0?"X":"O";
       const result=checkTTTWin(gd.board);
       const[p0,p1]=[gd.players[0],gd.players[1]];
-      if(result){activeGames.delete(interaction.channelId);let txt;if(result==="draw"){recordDraw(p0,null);recordDraw(p1,null);txt="🤝 **Draw!**";}else{recordWin(gd.players[gd.turn],interaction.user.username,50);recordLoss(gd.players[1-gd.turn],null);txt=`🎉 <@${gd.players[gd.turn]}> wins! (+50 coins)`;}try{await interaction.editReply({content:`❌⭕ **Tic Tac Toe**\n<@${p0}> ❌  vs  <@${p1}> ⭕\n\n${renderTTT(gd.board)}\n\n${txt}`,components:makeTTTButtons(gd.board,true)});}catch{}}
+      if(result){activeGames.delete(interaction.channelId);let txt;if(result==="draw"){recordDraw(p0,null);recordDraw(p1,null);txt="🤝 **Draw!**";}else{recordWin(gd.players[gd.turn],interaction.user.username,50);recordLoss(gd.players[1-gd.turn],null);txt=`🎉 <@${gd.players[gd.turn]}> wins! (+50 coins)`;}saveData();try{await interaction.editReply({content:`❌⭕ **Tic Tac Toe**\n<@${p0}> ❌  vs  <@${p1}> ⭕\n\n${renderTTT(gd.board)}\n\n${txt}`,components:makeTTTButtons(gd.board,true)});}catch{}}
       else{gd.turn=1-gd.turn;try{await interaction.editReply({content:`❌⭕ **Tic Tac Toe**\n<@${p0}> ❌  vs  <@${p1}> ⭕\n\n${renderTTT(gd.board)}\n\nIt's <@${gd.players[gd.turn]}>'s turn!`,components:makeTTTButtons(gd.board)});}catch{}}
       return;
     }
@@ -1231,10 +1234,12 @@ client.on("interactionCreate",async interaction=>{
         activeGames.delete(interaction.channelId);
         recordWin(gd.players[gd.turn],interaction.user.username,50);
         recordLoss(gd.players[1-gd.turn],null);
+        saveData();
         try{await interaction.editReply({content:`🔴🔵 **Connect 4**\n<@${p0}> 🔴  vs  <@${p1}> 🔵\n\n${renderC4(gd.board)}\n🎉 <@${gd.players[gd.turn]}> wins! (+50 coins)`,components:makeC4Buttons(true)});}catch{}
       } else if(!gd.board.includes(0)){
         activeGames.delete(interaction.channelId);
         recordDraw(p0,null);recordDraw(p1,null);
+        saveData();
         try{await interaction.editReply({content:`🔴🔵 **Connect 4**\n<@${p0}> 🔴  vs  <@${p1}> 🔵\n\n${renderC4(gd.board)}\n🤝 **Draw!**`,components:makeC4Buttons(true)});}catch{}
       } else {
         gd.turn=1-gd.turn;
@@ -1254,11 +1259,11 @@ client.on("interactionCreate",async interaction=>{
       const showBoard=(hide=true)=>`🃏 **Blackjack** (bet: ${bet} coins)\n\n**Your hand:** ${renderHand(playerHand)} — **${handVal(playerHand)}**\n**Dealer:** ${renderHand(dealerHand,hide)}${hide?"":" — **"+handVal(dealerHand)+"**"}`;
       if(action==="hit"){
         playerHand.push(deck.pop());const pv=handVal(playerHand);
-        if(pv>21){activeGames.delete(interaction.channelId);playerScore.coins-=bet;recordLoss(uid,interaction.user.username);try{await interaction.editReply({content:`${showBoard(false)}\n\n💥 **Bust!** Lost **${bet}** coins.\n💰 Balance: **${playerScore.coins}**`,components:makeBJButtons(true)});}catch{}}
-        else if(pv===21){while(handVal(dealerHand)<17)dealerHand.push(deck.pop());const dv=handVal(dealerHand);let msg;if(dv>21||pv>dv){playerScore.coins+=bet;recordWin(uid,interaction.user.username,0);msg=`✅ You win **${bet}** coins!`;}else if(pv===dv){recordDraw(uid,interaction.user.username);msg=`🤝 Push!`;}else{playerScore.coins-=bet;recordLoss(uid,interaction.user.username);msg=`❌ Dealer wins. Lost **${bet}** coins.`;}activeGames.delete(interaction.channelId);try{await interaction.editReply({content:`${showBoard(false)}\n\n${msg}\n💰 Balance: **${playerScore.coins}**`,components:makeBJButtons(true)});}catch{}}
+        if(pv>21){activeGames.delete(interaction.channelId);playerScore.coins-=bet;recordLoss(uid,interaction.user.username);saveData();try{await interaction.editReply({content:`${showBoard(false)}\n\n💥 **Bust!** Lost **${bet}** coins.\n💰 Balance: **${playerScore.coins}**`,components:makeBJButtons(true)});}catch{}}
+        else if(pv===21){while(handVal(dealerHand)<17)dealerHand.push(deck.pop());const dv=handVal(dealerHand);let msg;if(dv>21||pv>dv){playerScore.coins+=bet;recordWin(uid,interaction.user.username,0);msg=`✅ You win **${bet}** coins!`;}else if(pv===dv){recordDraw(uid,interaction.user.username);msg=`🤝 Push!`;}else{playerScore.coins-=bet;recordLoss(uid,interaction.user.username);msg=`❌ Dealer wins. Lost **${bet}** coins.`;}activeGames.delete(interaction.channelId);saveData();try{await interaction.editReply({content:`${showBoard(false)}\n\n${msg}\n💰 Balance: **${playerScore.coins}**`,components:makeBJButtons(true)});}catch{}}
         else{try{await interaction.editReply({content:showBoard(true),components:makeBJButtons()});}catch{}}
       }else{
-        while(handVal(dealerHand)<17)dealerHand.push(deck.pop());const pv=handVal(playerHand),dv=handVal(dealerHand);let msg;if(dv>21||pv>dv){playerScore.coins+=bet;recordWin(uid,interaction.user.username,0);msg=`✅ You win **${bet}** coins!`;}else if(pv===dv){recordDraw(uid,interaction.user.username);msg=`🤝 Push!`;}else{playerScore.coins-=bet;recordLoss(uid,interaction.user.username);msg=`❌ Dealer wins. Lost **${bet}** coins.`;}activeGames.delete(interaction.channelId);try{await interaction.editReply({content:`${showBoard(false)}\n\n${msg}\n💰 Balance: **${playerScore.coins}**`,components:makeBJButtons(true)});}catch{}
+        while(handVal(dealerHand)<17)dealerHand.push(deck.pop());const pv=handVal(playerHand),dv=handVal(dealerHand);let msg;if(dv>21||pv>dv){playerScore.coins+=bet;recordWin(uid,interaction.user.username,0);msg=`✅ You win **${bet}** coins!`;}else if(pv===dv){recordDraw(uid,interaction.user.username);msg=`🤝 Push!`;}else{playerScore.coins-=bet;recordLoss(uid,interaction.user.username);msg=`❌ Dealer wins. Lost **${bet}** coins.`;}activeGames.delete(interaction.channelId);saveData();try{await interaction.editReply({content:`${showBoard(false)}\n\n${msg}\n💰 Balance: **${playerScore.coins}**`,components:makeBJButtons(true)});}catch{}
       }
       return;
     }
@@ -1285,9 +1290,33 @@ client.on("interactionCreate",async interaction=>{
         let txt;if(c1===c2){recordDraw(id1,null);recordDraw(id2,null);txt="🤝 **Draw!**";}
         else if(beats[c1]===c2){recordWin(id1,gd.u1,40);recordLoss(id2,null);txt=`🎉 <@${id1}> wins! ${names[c1]} beats ${names[c2]} (+40 coins)`;}
         else{recordWin(id2,gd.u2,40);recordLoss(id1,null);txt=`🎉 <@${id2}> wins! ${names[c2]} beats ${names[c1]} (+40 coins)`;}
+        saveData();
         const ch=client.channels.cache.get(gd.channelId);
         if(ch)await safeSend(ch,`✊✋✌️ **RPS Results!**\n<@${id1}>: ${names[c1]}\n<@${id2}>: ${names[c2]}\n\n${txt}`);
       }
+      return;
+    }
+
+    // Help pagination
+    if(cid.startsWith("help_page_")){
+      const page=parseInt(cid.slice(10));
+      const TOTAL=6;
+      if(page<0||page>=TOTAL){try{await interaction.deferUpdate();}catch{}return;}
+      if(!(await btnAck(interaction)))return;
+      const HELP_PAGES=[
+        {title:"🎉 Fun & Social  —  Page 1 / 6",description:["**Interactions**","`/action type:… user:…` — Hug, pat, poke, stare, wave, high five, boop, oil, diddle, or kill someone","`/punch` `/hug` `/kiss` `/slap` `/throw` — Quick social actions","`/rate type:… user:…` — Rate someone (gay, autistic, simp, cursed, npc, villain, sigma)","`/ppsize user:…` — Check pp size","`/ship user1:… user2:…` — Ship compatibility %","","**Romance**","`/marry user:…` — Propose 💍 (target must accept)","`/divorce` — End the marriage 💔","`/partner [user]` — See who someone is married to","","**Party Games**","`/party type:truth|dare|neverhavei` — Truth, Dare, or Never Have I Ever","","**Conversation**","`/topic` — Random conversation starter","`/wouldyourather` — Would you rather…","`/roast [user]` — Roast someone 🔥","`/compliment user:…` — Compliment someone 💖","`/advice` — Life advice 🧙","`/fact` — Random fun fact 📚","`/horoscope sign:…` — Your daily horoscope ✨","`/poll question:…` — Quick yes/no poll (server only)"].join("\n")},
+        {title:"📡 Media & Utility  —  Page 2 / 6",description:["**Media**","`/cat` `/dog` `/fox` `/panda` — Random animal images","`/joke` — Random joke 😂","`/meme` — Random meme 🐸","`/quote` — Inspirational quote ✨","`/trivia` — Trivia question with spoiler answer 🧠","`/avatar user:…` — Get someone's avatar","","**Utility**","`/ping` — Bot latency 🏓","`/coinflip` — Heads or tails 🪙","`/roll [sides]` — Roll a dice (default d6) 🎲","`/choose options:a,b,c` — Pick from comma-separated options","`/echo [message] [embed] [image] [title] [color] [replyto]` — Make the bot say something","`/remind time:… message:…` — Set a reminder (1 min – 1 week)","","**Info**","`/botinfo` — Bot stats","`/serverinfo` — Server member/channel/role info","`/userprofile [user]` — Full profile: level, XP, coins, items, cooldowns"].join("\n")},
+        {title:"💰 Economy  —  Page 3 / 6",description:["**Balance & Transfers**","`/coins [user]` — Check coin balance","`/givecoin user:… amount:…` — Transfer coins","","**Earning**","`/work` — Work a shift (1hr cooldown, 50–200 coins)","`/beg` — Beg for coins (5min cooldown, 0–50 coins)","`/crime` — Commit a crime (2hr cooldown, risky!)","`/rob user:…` — Rob someone (1hr cooldown, 45% success)","","**Gambling**","`/slots [bet]` — Slot machine 🎰","`/coinbet bet:… side:heads|tails` — Bet on a coin flip","`/blackjack bet:…` — Blackjack vs the dealer 🃏","","**Shop**","`/shop` — View items","`/buy item:…` — Buy an item","> 🍀 Lucky Charm (200) · ⚡ XP Boost (300) · 🛡️ Shield (150)","`/inventory [user]` — View items","","**Daily**","`/games game:Daily Challenge` — Daily puzzle for coins + streak 📅"].join("\n")},
+        {title:"📈 XP & Leaderboards  —  Page 4 / 6",description:["**XP**","You earn XP by sending messages (1 min cooldown). 5–15 XP per message.","Level formula: `floor(50 × level^1.5)` XP per level","","`/xp [user]` — Check XP, level, and progress bar","`/xpleaderboard [scope:global|server]` — Top 10 by XP","","**Stats & Leaderboards**","`/score [user]` — Wins, losses, win rate, streak","`/userprofile [user]` — Everything in one embed","`/leaderboard [type]` — Global top 10","`/serverleaderboard [type]` — Server top 10","> Types: `wins` `coins` `streak` `beststreak` `games` `winrate`"].join("\n")},
+        {title:"🎮 Games  —  Page 5 / 6",description:["**Solo** — `/games game:…`","> 🪢 Hangman · 🐍 Snake · 💣 Minesweeper (Easy/Med/Hard)","> 🔢 Number Guess · 🔀 Word Scramble · 📅 Daily Challenge","","**2-Player** — `/2playergames game:… [opponent:…]`","> ❌⭕ Tic Tac Toe *(server only)*","> 🔴🔵 Connect 4 *(server only)*","> ✊ Rock Paper Scissors *(choices sent via DM)*","> 🧮 Math Race · 🏁 Word Race · 🧠 Trivia Battle *(server only)*","> 🔢 Count Game — count to 100 together, no opponent needed *(server only)*","> 🏁 Scramble Race — 5-round word unscramble *(server only)*","","Wins award coins. Check `/score` or `/userprofile` for stats."].join("\n")},
+        {title:"⚙️ Server Config  —  Page 6 / 6",description:["All commands here require **Manage Server** permission.","","**Channels & Messages**","`/channelpicker channel:… [levelup]` — Set the bot's main channel","`/xpconfig setting:…` — Level-up messages (on/off, ping toggle, channel)","`/setwelcome channel:… [message]` — Welcome message (`{user}` `{server}` `{count}`)","`/setleave channel:… [message]` — Leave message","`/setboostmsg channel:… [message]` — Boost announcement","`/disableownermsg enabled:…` — Toggle bot owner broadcasts","`/purge amount:…` — Bulk delete (needs Manage Messages)","","**Roles**","`/autorole [role]` — Auto-assign role on join (blank to disable)","`/reactionrole action:add|remove|list …` — Emoji reaction roles","","**Competitions**","`/invitecomp hours:…` — Invite competition with coin rewards","","**Tickets**","`/ticketsetup` · `/closeticket` · `/addtoticket` · `/removefromticket`","","**Overview**","`/serverconfig` — View all current settings"].join("\n")},
+      ];
+      const p=HELP_PAGES[page];
+      const navRow=new MessageActionRow().addComponents(
+        new MessageButton().setCustomId(`help_page_${page-1}`).setLabel("◀ Prev").setStyle("SECONDARY").setDisabled(page===0),
+        new MessageButton().setCustomId(`help_page_${page+1}`).setLabel("Next ▶").setStyle("SECONDARY").setDisabled(page>=TOTAL-1),
+      );
+      try{await interaction.editReply({embeds:[{title:p.title,description:p.description,color:0x5865F2,footer:{text:`Page ${page+1} of ${TOTAL}`}}],components:[navRow]});}catch(e){console.error("help_page:",e?.message);}
       return;
     }
 
@@ -1804,6 +1833,193 @@ client.on("interactionCreate",async interaction=>{
       return safeReply(interaction,`🤖 **RoyalBot**\n📡 Servers: **${guilds}**\n👥 Total Users: **${totalUsers.toLocaleString()}**\n⏱️ Uptime: **${Math.floor(process.uptime()/3600)}h ${Math.floor((process.uptime()%3600)/60)}m**\n🏓 Ping: **${client.ws.ping}ms**\n📦 Node.js ${process.version}`);
     }
 
+    if(cmd==="help"){
+      const HELP_PAGES = [
+        {
+          title: "🎉 Fun & Social  —  Page 1 / 6",
+          description: [
+            "**Interactions**",
+            "`/action type:… user:…` — Hug, pat, poke, stare, wave, high five, boop, oil, diddle, or kill someone",
+            "`/punch` `/hug` `/kiss` `/slap` `/throw` — Quick social actions",
+            "`/rate type:… user:…` — Rate someone (gay, autistic, simp, cursed, npc, villain, sigma)",
+            "`/ppsize user:…` — Check pp size 🍆",
+            "`/ship user1:… user2:…` — Ship compatibility %",
+            "",
+            "**Romance**",
+            "`/marry user:…` — Propose 💍 (target must accept)",
+            "`/divorce` — End the marriage 💔",
+            "`/partner [user]` — See who someone is married to",
+            "",
+            "**Party Games**",
+            "`/party type:truth|dare|neverhavei` — Truth, Dare, or Never Have I Ever",
+            "",
+            "**Conversation**",
+            "`/topic` — Random conversation starter",
+            "`/wouldyourather` — Would you rather…",
+            "`/roast [user]` — Roast someone 🔥",
+            "`/compliment user:…` — Compliment someone 💖",
+            "`/advice` — Life advice 🧙",
+            "`/fact` — Random fun fact 📚",
+            "`/horoscope sign:…` — Your daily horoscope ✨",
+            "`/poll question:…` — Quick yes/no poll (server only)",
+          ].join("\n"),
+        },
+        {
+          title: "📡 Media & Utility  —  Page 2 / 6",
+          description: [
+            "**Media**",
+            "`/cat` — Random cat GIF 🐱",
+            "`/dog` — Random dog 🐶",
+            "`/fox` — Random fox 🦊",
+            "`/panda` — Random panda 🐼",
+            "`/joke` — Random joke 😂",
+            "`/meme` — Random meme 🐸",
+            "`/quote` — Inspirational quote ✨",
+            "`/trivia` — Trivia question with answer spoiler 🧠",
+            "`/avatar user:…` — Get someone's avatar",
+            "",
+            "**Utility**",
+            "`/ping` — Bot latency 🏓",
+            "`/coinflip` — Heads or tails 🪙",
+            "`/roll [sides]` — Roll a dice (default d6) 🎲",
+            "`/choose options:a,b,c` — Pick between comma-separated options",
+            "`/echo [message] [embed] [image] [title] [color] [replyto]` — Make the bot say something",
+            "`/remind time:… message:…` — Set a reminder (up to 1 week)",
+            "`/poll question:…` — Create a yes/no/shrug poll",
+            "",
+            "**Info**",
+            "`/botinfo` — Bot stats (servers, users, uptime, ping)",
+            "`/serverinfo` — Server member count, channels, roles",
+            "`/userprofile [user]` — Full profile: level, XP, coins, items, stats, cooldowns",
+          ].join("\n"),
+        },
+        {
+          title: "💰 Economy  —  Page 3 / 6",
+          description: [
+            "**Balance & Transfers**",
+            "`/coins [user]` — Check coin balance",
+            "`/givecoin user:… amount:…` — Transfer coins to someone",
+            "",
+            "**Earning**",
+            "`/work` — Work a shift (1hr cooldown, 50–200 coins)",
+            "`/beg` — Beg for coins (5min cooldown, 0–50 coins)",
+            "`/crime` — Commit a crime (2hr cooldown, risky!)",
+            "`/rob user:…` — Rob someone (1hr cooldown, 45% success)",
+            "",
+            "**Gambling**",
+            "`/slots [bet]` — Slot machine 🎰 (min 1 coin)",
+            "`/coinbet bet:… side:heads|tails` — Bet on a coin flip",
+            "`/blackjack bet:…` — Blackjack vs the dealer 🃏",
+            "",
+            "**Shop**",
+            "`/shop` — View available items",
+            "`/buy item:…` — Buy an item",
+            "> 🍀 Lucky Charm — 200 coins (+10% work bonus 1hr)",
+            "> ⚡ XP Boost — 300 coins (2× XP 1hr)",
+            "> 🛡️ Shield — 150 coins (blocks next rob)",
+            "`/inventory [user]` — View your (or someone's) items",
+            "",
+            "**Daily**",
+            "`/games game:Daily Challenge` — Daily challenge for coins + streak bonus 📅",
+          ].join("\n"),
+        },
+        {
+          title: "📈 XP & Leaderboards  —  Page 4 / 6",
+          description: [
+            "**XP System**",
+            "You earn XP automatically by sending messages (1 min cooldown between awards).",
+            "XP per message: **5–15 XP** | Level threshold: `floor(50 × level^1.5)` XP",
+            "",
+            "`/xp [user]` — Check XP, level, and progress bar",
+            "`/xpleaderboard [scope:global|server]` — Top 10 by XP",
+            "",
+            "**Game Stats**",
+            "`/score [user]` — Wins, losses, win rate, streak, level",
+            "`/userprofile [user]` — Everything in one embed",
+            "",
+            "**Leaderboards**",
+            "`/leaderboard [type]` — Global top 10",
+            "`/serverleaderboard [type]` — Server-only top 10",
+            "> Types: `wins` `coins` `streak` `beststreak` `games` `winrate`",
+          ].join("\n"),
+        },
+        {
+          title: "🎮 Games  —  Page 5 / 6",
+          description: [
+            "**Solo Games** — `/games game:…`",
+            "> 🪢 **Hangman** — Guess the word letter by letter",
+            "> 🐍 **Snake** — Navigate with buttons, eat apples",
+            "> 💣 **Minesweeper (Easy/Medium/Hard)** — Clear the 5×5 board",
+            "> 🔢 **Number Guess** — Guess 1–100 in 10 attempts",
+            "> 🔀 **Word Scramble** — Unscramble the word",
+            "> 📅 **Daily Challenge** — Math or word puzzle, coins + streak",
+            "",
+            "**2-Player Games** — `/2playergames game:… [opponent:…]`",
+            "> ❌⭕ **Tic Tac Toe** — Classic 3×3 board (server only)",
+            "> 🔴🔵 **Connect 4** — Drop pieces, get 4 in a row (server only)",
+            "> ✊ **Rock Paper Scissors** — Choices sent via DM privately",
+            "> 🧮 **Math Race** — First to answer the multiplication wins",
+            "> 🏁 **Word Race** — First to unscramble a word wins",
+            "> 🧠 **Trivia Battle** — First to type the correct answer wins",
+            "> 🔢 **Count Game** — Count to 100 together, no two in a row (no opponent needed)",
+            "> 🏁 **Scramble Race** — 5-round word unscramble, highest score wins",
+            "",
+            "Wins award coins. Check `/score` or `/userprofile` for your stats.",
+          ].join("\n"),
+        },
+        {
+          title: "⚙️ Server Config  —  Page 6 / 6",
+          description: [
+            "All commands here require **Manage Server** permission.",
+            "",
+            "**Channels & Messages**",
+            "`/channelpicker channel:… [levelup]` — Set the bot's main announcement channel",
+            "`/xpconfig setting:…` — Configure level-up messages (on/off, ping, channel)",
+            "`/setwelcome channel:… [message]` — Welcome message on member join (`{user}` `{server}` `{count}`)",
+            "`/setleave channel:… [message]` — Leave message on member leave",
+            "`/setboostmsg channel:… [message]` — Message when someone boosts",
+            "`/disableownermsg enabled:…` — Toggle bot owner broadcasts in this server",
+            "`/purge amount:…` — Bulk delete messages (needs Manage Messages)",
+            "",
+            "**Roles & Automation**",
+            "`/autorole [role]` — Auto-assign a role to new members (leave blank to disable)",
+            "`/reactionrole action:add|remove|list …` — Assign roles via emoji reactions",
+            "",
+            "**Competitions**",
+            "`/invitecomp hours:…` — Start an invite competition with coin rewards",
+            "",
+            "**Tickets**",
+            "`/ticketsetup` — Interactive setup wizard for the ticket system",
+            "`/closeticket` — Close the current ticket channel",
+            "`/addtoticket user:…` — Add a user to the ticket",
+            "`/removefromticket user:…` — Remove a user from the ticket",
+            "",
+            "**Overview**",
+            "`/serverconfig` — View all current settings for this server",
+          ].join("\n"),
+        },
+      ];
+
+      const TOTAL = HELP_PAGES.length;
+      function buildHelpEmbed(page) {
+        const p = HELP_PAGES[page];
+        return {
+          embeds: [{
+            title: p.title,
+            description: p.description,
+            color: 0x5865F2,
+            footer: { text: `Use the buttons below to navigate • Page ${page+1} of ${TOTAL}` },
+          }],
+          components: [new MessageActionRow().addComponents(
+            new MessageButton().setCustomId(`help_page_${page-1}`).setLabel("◀ Prev").setStyle("SECONDARY").setDisabled(page===0),
+            new MessageButton().setCustomId(`help_page_${page+1}`).setLabel("Next ▶").setStyle("SECONDARY").setDisabled(page>=TOTAL-1),
+          )],
+          ephemeral: true,
+        };
+      }
+      return safeReply(interaction, buildHelpEmbed(0));
+    }
+
     // ── Economy ────────────────────────────────────────────────────────────────
     if(cmd==="coins"){const u=interaction.options.getUser("user")||interaction.user;return safeReply(interaction,`💰 **${u.username}** has **${getScore(u.id,u.username).coins.toLocaleString()}** coins.`);}
     if(cmd==="givecoin"){
@@ -1813,6 +2029,7 @@ client.on("interactionCreate",async interaction=>{
       const giver=getScore(interaction.user.id,interaction.user.username);
       if(giver.coins<amount)return safeReply(interaction,{content:`You only have **${giver.coins}** coins.`,ephemeral:true});
       giver.coins-=amount;getScore(target.id,target.username).coins+=amount;
+      saveData();
       return safeReply(interaction,`💸 <@${interaction.user.id}> gave **${amount}** coins to <@${target.id}>!`);
     }
     if(cmd==="slots"){
@@ -1822,6 +2039,7 @@ client.on("interactionCreate",async interaction=>{
       if(s.coins<bet)return safeReply(interaction,{content:`You only have **${s.coins}** coins.`,ephemeral:true});
       const reels=spinSlots(),{mult,label}=slotPayout(reels),winnings=Math.floor(bet*mult);
       s.coins=s.coins-bet+winnings;
+      saveData();
       return safeReply(interaction,`🎰 | ${reels.join(" | ")} |\n\n**${label}**\n`+(mult>=1?`✅ Won **${winnings}** coins! (+${winnings-bet})`:`❌ Lost **${bet}** coins.`)+`\n💰 Balance: **${s.coins}**`);
     }
     if(cmd==="coinbet"){
@@ -1830,6 +2048,7 @@ client.on("interactionCreate",async interaction=>{
       const s=getScore(interaction.user.id,interaction.user.username);
       if(s.coins<bet)return safeReply(interaction,{content:`You only have **${s.coins}** coins.`,ephemeral:true});
       const result=Math.random()<0.5?"heads":"tails",won=result===side;s.coins+=won?bet:-bet;
+      saveData();
       return safeReply(interaction,`🪙 **${result.charAt(0).toUpperCase()+result.slice(1)}**\n`+(won?`✅ Won **${bet}** coins!`:`❌ Lost **${bet}** coins.`)+`\n💰 Balance: **${s.coins}**`);
     }
     if(cmd==="blackjack"){
@@ -1841,7 +2060,7 @@ client.on("interactionCreate",async interaction=>{
       if(ps.coins<bet)return safeReply(interaction,{content:`You only have **${ps.coins}** coins.`,ephemeral:true});
       const deck=newDeck(),ph=[deck.pop(),deck.pop()],dh=[deck.pop(),deck.pop()];
       const showBoard=(hide=true)=>`🃏 **Blackjack** (bet: ${bet})\n\n**Your hand:** ${renderHand(ph)} — **${handVal(ph)}**\n**Dealer:** ${renderHand(dh,hide)}${hide?"":" — **"+handVal(dh)+"**"}`;
-      if(handVal(ph)===21){const reward=Math.floor(bet*1.5);ps.coins+=reward;ps.wins++;ps.gamesPlayed++;return safeReply(interaction,{content:`${showBoard(false)}\n\n🎉 **Blackjack!** Won **${reward}** coins!\n💰 Balance: **${ps.coins}**`,components:makeBJButtons(true)});}
+      if(handVal(ph)===21){const reward=Math.floor(bet*1.5);ps.coins+=reward;ps.wins++;ps.gamesPlayed++;saveData();return safeReply(interaction,{content:`${showBoard(false)}\n\n🎉 **Blackjack!** Won **${reward}** coins!\n💰 Balance: **${ps.coins}**`,components:makeBJButtons(true)});}
       activeGames.set(cid,{type:"blackjack",deck,playerHand:ph,dealerHand:dh,bet,playerScore:ps,playerId:interaction.user.id});
       return safeReply(interaction,{content:showBoard(true),components:makeBJButtons()});
     }
@@ -1849,12 +2068,14 @@ client.on("interactionCreate",async interaction=>{
       const s=getScore(interaction.user.id,interaction.user.username),now=Date.now(),rem=CONFIG.work_cooldown_ms-(now-s.lastWorkTime);
       if(rem>0)return safeReply(interaction,{content:`⏰ Rest first. Back in **${Math.ceil(rem/60000)}m**.`,ephemeral:true});
       s.lastWorkTime=now;const resp=pick(WORK_RESPONSES),coins=r(resp.lo,resp.hi);s.coins+=coins;
+      saveData();
       return safeReply(interaction,resp.msg.replace("{c}",coins)+`\n💰 Balance: **${s.coins}**`);
     }
     if(cmd==="beg"){
       const s=getScore(interaction.user.id,interaction.user.username),now=Date.now(),rem=CONFIG.beg_cooldown_ms-(now-s.lastBegTime);
       if(rem>0)return safeReply(interaction,{content:`⏰ Wait **${Math.ceil(rem/1000)}s** before begging again.`,ephemeral:true});
       s.lastBegTime=now;const resp=pick(BEG_RESPONSES),coins=resp.give?r(resp.lo,resp.hi):0;s.coins+=coins;
+      saveData();
       return safeReply(interaction,resp.msg.replace("{c}",coins)+(coins>0?`\n💰 Balance: **${s.coins}**`:""));
     }
     if(cmd==="crime"){
@@ -1862,6 +2083,7 @@ client.on("interactionCreate",async interaction=>{
       if(rem>0)return safeReply(interaction,{content:`⏰ Lay low for **${Math.ceil(rem/60000)}m**.`,ephemeral:true});
       s.lastCrimeTime=now;const resp=pick(CRIME_RESPONSES),coins=r(resp.lo,resp.hi);
       if(resp.success)s.coins+=coins;else s.coins=Math.max(0,s.coins-coins);
+      saveData();
       return safeReply(interaction,resp.msg.replace("{c}",coins)+`\n💰 Balance: **${s.coins}**`);
     }
     if(cmd==="rob"){
@@ -1871,11 +2093,11 @@ client.on("interactionCreate",async interaction=>{
       if(rem>0)return safeReply(interaction,{content:`⏰ Lay low for **${Math.ceil(rem/60000)}m**.`,ephemeral:true});
       s.lastRobTime=now;
       const t=getScore(target.id,target.username);
-      if(t.inventory&&t.inventory.includes("shield")){t.inventory.splice(t.inventory.indexOf("shield"),1);return safeReply(interaction,`🛡️ <@${target.id}> had a **Shield**! Your robbery failed and the shield is now broken.`);}
+      if(t.inventory&&t.inventory.includes("shield")){t.inventory.splice(t.inventory.indexOf("shield"),1);saveData();return safeReply(interaction,`🛡️ <@${target.id}> had a **Shield**! Your robbery failed and the shield is now broken.`);}
       if(t.coins<10)return safeReply(interaction,`😅 <@${target.id}> is broke — not worth robbing.`);
       const success=Math.random()<0.45;
-      if(success){const stolen=Math.floor(t.coins*r(10,30)/100);t.coins-=stolen;s.coins+=stolen;return safeReply(interaction,`🔫 <@${interaction.user.id}> robbed <@${target.id}> and stole **${stolen}** coins!\n💰 Your balance: **${s.coins}**`);}
-      else{const fine=Math.floor(s.coins*r(5,15)/100);s.coins=Math.max(0,s.coins-fine);return safeReply(interaction,`🚔 You tried to rob <@${target.id}> but got caught! Lost **${fine}** coins.\n💰 Your balance: **${s.coins}**`);}
+      if(success){const stolen=Math.floor(t.coins*r(10,30)/100);t.coins-=stolen;s.coins+=stolen;saveData();return safeReply(interaction,`🔫 <@${interaction.user.id}> robbed <@${target.id}> and stole **${stolen}** coins!\n💰 Your balance: **${s.coins}**`);}
+      else{const fine=Math.floor(s.coins*r(5,15)/100);s.coins=Math.max(0,s.coins-fine);saveData();return safeReply(interaction,`🚔 You tried to rob <@${target.id}> but got caught! Lost **${fine}** coins.\n💰 Your balance: **${s.coins}**`);}
     }
 
     const SHOP_ITEMS={lucky_charm:{name:"Lucky Charm",price:200,desc:"+10% coin bonus on work for 1hr"},xp_boost:{name:"XP Boost",price:300,desc:"2× XP gain for 1hr"},shield:{name:"Shield",price:150,desc:"Blocks the next rob attempt"}};
@@ -1886,6 +2108,7 @@ client.on("interactionCreate",async interaction=>{
       const s=getScore(interaction.user.id,interaction.user.username);
       if(s.coins<item.price)return safeReply(interaction,{content:`You need **${item.price}** coins but only have **${s.coins}**.`,ephemeral:true});
       s.coins-=item.price;s.inventory.push(itemId);
+      saveData();
       return safeReply(interaction,`✅ Bought **${item.name}** for **${item.price}** coins!\n💰 Balance: **${s.coins}**`);
     }
     if(cmd==="inventory"){
