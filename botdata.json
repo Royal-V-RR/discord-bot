@@ -3,7 +3,7 @@
     [
       "1408975996715139084",
       {
-        "nextId": 3,
+        "nextId": 4,
         "categoryId": "1413221494078705867",
         "supportRoleIds": [
           "1424856346318344325",
@@ -17,7 +17,19 @@
       }
     ]
   ],
-  "openTickets": [],
+  "openTickets": [
+    [
+      "1483097017793380443",
+      {
+        "guildId": "1408975996715139084",
+        "userId": "1419803002771865722",
+        "ticketId": "0004",
+        "channelId": "1483097017793380443",
+        "subject": "",
+        "openedAt": 1773668283770
+      }
+    ]
+  ],
   "guildChannels": [],
   "welcomeChannels": [],
   "leaveChannels": [],
