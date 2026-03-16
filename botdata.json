@@ -17,19 +17,7 @@
       }
     ]
   ],
-  "openTickets": [
-    [
-      "1483061564075409491",
-      {
-        "guildId": "1408975996715139084",
-        "userId": "969280648667889764",
-        "ticketId": "0002",
-        "channelId": "1483061564075409491",
-        "subject": "",
-        "openedAt": 1773659831056
-      }
-    ]
-  ],
+  "openTickets": [],
   "guildChannels": [],
   "welcomeChannels": [],
   "leaveChannels": [],
@@ -50,7 +38,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 7,
+        "xp": 12,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
