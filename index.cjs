@@ -207,7 +207,7 @@ function saveData() {
     _commitTimer = setTimeout(() => {
       _commitTimer = null;
       commitDataToGitHub(json).catch(e => console.error("commit error:", e.message));
-    }, 10_000);
+    }, 3_000);
   } catch(e) { console.error("saveData error:", e.message); }
 }
 
@@ -844,33 +844,28 @@ async function clearGlobalCommands() {
   } catch(e) { console.warn("clearGlobalCommands error:", e.message); }
 }
 
-// Register commands globally so they work in DMs and server installs.
-// Global commands take up to 1 hour to propagate; guild commands are instant.
-// We do both: global for DM coverage, guild for instant refresh on each server.
 async function registerGlobalCommands() {
   try {
     const cmds = buildCommands();
     const r = await discordRequest("PUT", `/api/v10/applications/${CLIENT_ID}/commands`, cmds);
     if (r.status === 200) {
       const registered = JSON.parse(r.body);
-      console.log(`✅ Global: ${registered.length} commands registered (DMs enabled)`);
+      console.log(`✅ Global: ${registered.length} commands registered`);
     } else {
       console.error(`❌ Global commands HTTP ${r.status}: ${r.body.slice(0,300)}`);
     }
   } catch(e) { console.error("registerGlobalCommands error:", e.message); }
 }
 
-async function registerGuildCommands(guildId) {
+// Wipe all guild-level commands for a server (PUT empty array).
+// This removes any leftover guild commands from previous bot versions
+// that would otherwise cause every command to appear twice alongside global ones.
+async function clearGuildCommands(guildId) {
   try {
-    const cmds = buildCommands();
-    const r = await discordRequest("PUT", `/api/v10/applications/${CLIENT_ID}/guilds/${guildId}/commands`, cmds);
-    if (r.status === 200) {
-      const registered = JSON.parse(r.body);
-      console.log(`✅ [${guildId}] ${registered.length} commands`);
-    } else {
-      console.error(`❌ [${guildId}] HTTP ${r.status}: ${r.body.slice(0,300)}`);
-    }
-  } catch(e) { console.error(`registerGuildCommands [${guildId}]:`, e.message); }
+    const r = await discordRequest("PUT", `/api/v10/applications/${CLIENT_ID}/guilds/${guildId}/commands`, []);
+    if (r.status === 200) console.log(`✅ Guild commands cleared: ${guildId}`);
+    else console.warn(`⚠️ clearGuildCommands [${guildId}] HTTP ${r.status}`);
+  } catch(e) { console.warn(`clearGuildCommands [${guildId}]:`, e.message); }
 }
 
 // ── Bot events ────────────────────────────────────────────────────────────────
@@ -879,19 +874,26 @@ client.once("ready", async () => {
   try { const owner = await client.users.fetch(OWNER_ID); await acquireInstanceLock(owner); }
   catch(e) { console.error("Lock error:", e); instanceLocked = true; }
 
-  // Register globally — covers all servers AND DMs. No guild-level registration
-  // to avoid commands appearing twice (global + guild = duplicates in every server).
+  // Step 1: Register commands globally (covers all servers + DMs).
   await registerGlobalCommands();
 
-  // Snapshot invites for all guilds (for invite competitions)
-  for (const guild of client.guilds.cache.values()) {
+  // Step 2: Wipe any leftover guild-level commands that cause duplicates.
+  // Stagger by 300ms per guild to avoid rate limits.
+  const guilds = [...client.guilds.cache.values()];
+  guilds.forEach((g, i) => {
+    setTimeout(() => clearGuildCommands(g.id), i * 300);
+  });
+
+  // Snapshot invites for invite competitions
+  for (const guild of guilds) {
     snapshotInvites(guild).catch(() => {});
   }
 });
 
 client.on("guildCreate", async g => {
   console.log(`Joined: ${g.name} (${g.id})`);
-  // No guild command registration needed — global commands already cover new guilds
+  // Clear any guild commands in case this server had them before
+  await clearGuildCommands(g.id);
   snapshotInvites(g).catch(() => {});
 });
 
@@ -2529,6 +2531,7 @@ client.on("interactionCreate",async interaction=>{
       const target=interaction.options.getUser("user"),amount=interaction.options.getInteger("amount");
       if(amount<0)return safeReply(interaction,{content:"Amount must be ≥ 0.",ephemeral:true});
       const s=getScore(target.id,target.username);s.coins+=amount;
+      saveData();
       return safeReply(interaction,{content:`✅ Gave **${amount}** coins to **${target.username}**. New balance: **${s.coins}**`,ephemeral:true});
     }
     if(cmd==="roler"){
