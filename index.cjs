@@ -832,6 +832,22 @@ async function clearGlobalCommands() {
   } catch(e) { console.warn("clearGlobalCommands error:", e.message); }
 }
 
+// Register commands globally so they work in DMs and server installs.
+// Global commands take up to 1 hour to propagate; guild commands are instant.
+// We do both: global for DM coverage, guild for instant refresh on each server.
+async function registerGlobalCommands() {
+  try {
+    const cmds = buildCommands();
+    const r = await discordRequest("PUT", `/api/v10/applications/${CLIENT_ID}/commands`, cmds);
+    if (r.status === 200) {
+      const registered = JSON.parse(r.body);
+      console.log(`✅ Global: ${registered.length} commands registered (DMs enabled)`);
+    } else {
+      console.error(`❌ Global commands HTTP ${r.status}: ${r.body.slice(0,300)}`);
+    }
+  } catch(e) { console.error("registerGlobalCommands error:", e.message); }
+}
+
 async function registerGuildCommands(guildId) {
   try {
     const cmds = buildCommands();
@@ -850,7 +866,11 @@ client.once("ready", async () => {
   console.log(`Bot ready: ${client.user.tag} [${INSTANCE_ID}] in ${client.guilds.cache.size} servers`);
   try { const owner = await client.users.fetch(OWNER_ID); await acquireInstanceLock(owner); }
   catch(e) { console.error("Lock error:", e); instanceLocked = true; }
-  await clearGlobalCommands();
+
+  // Register globally first — this enables DM usage (propagates within ~1hr)
+  await registerGlobalCommands();
+
+  // Also register per-guild for instant command availability in each server
   const guilds = [...client.guilds.cache.values()];
   console.log(`Registering to ${guilds.length} guild(s)...`);
   for (let i = 0; i < guilds.length; i++) {
@@ -1189,15 +1209,29 @@ client.on("interactionCreate",async interaction=>{
     if(cid.startsWith("c4_")){
       const col=parseInt(cid.slice(3));
       const gd=activeGames.get(interaction.channelId);
-      if(!gd||gd.type!=="c4"){try{await interaction.reply({content:"No active Connect 4 game.",ephemeral:true});}catch{}return;}
-      if(uid!==gd.players[gd.turn]){try{await interaction.reply({content:"Not your turn!",ephemeral:true});}catch{}return;}
-      const row=dropC4(gd.board,col,gd.turn+1);
-      if(row===-1){try{await interaction.reply({content:"That column is full!",ephemeral:true});}catch{}return;}
+      if(!gd||gd.type!=="c4"){await btnEphemeral(interaction,"No active Connect 4 game.");return;}
+      if(uid!==gd.players[gd.turn]){await btnEphemeral(interaction,"Not your turn!");return;}
+      // Check column before acking so we can still send ephemeral
+      // Make a test drop to see if column is full without mutating
+      const testFull=gd.board[col]!==0; // top cell of this column is filled = full
+      if(testFull){await btnEphemeral(interaction,"That column is full!");return;}
+      // Ack the interaction now — board is valid and it's their turn
       if(!(await btnAck(interaction)))return;
+      const row=dropC4(gd.board,col,gd.turn+1);
       const[p0,p1]=[gd.players[0],gd.players[1]];
-      if(checkC4Win(gd.board,gd.turn+1)){activeGames.delete(interaction.channelId);recordWin(gd.players[gd.turn],interaction.user.username,50);recordLoss(gd.players[1-gd.turn],null);try{await interaction.editReply({content:`🔴🔵 **Connect 4**\n<@${p0}> 🔴  vs  <@${p1}> 🔵\n\n${renderC4(gd.board)}\n🎉 <@${gd.players[gd.turn]}> wins! (+50 coins)`,components:makeC4Buttons(true)});}catch{}}
-      else if(!gd.board.includes(0)){activeGames.delete(interaction.channelId);recordDraw(p0,null);recordDraw(p1,null);try{await interaction.editReply({content:`🔴🔵 **Connect 4**\n<@${p0}> 🔴  vs  <@${p1}> 🔵\n\n${renderC4(gd.board)}\n🤝 **Draw!**`,components:makeC4Buttons(true)});}catch{}}
-      else{gd.turn=1-gd.turn;try{await interaction.editReply({content:`🔴🔵 **Connect 4**\n<@${p0}> 🔴  vs  <@${p1}> 🔵\n\n${renderC4(gd.board)}\n<@${gd.players[gd.turn]}>'s turn!`,components:makeC4Buttons()});}catch{}}
+      if(checkC4Win(gd.board,gd.turn+1)){
+        activeGames.delete(interaction.channelId);
+        recordWin(gd.players[gd.turn],interaction.user.username,50);
+        recordLoss(gd.players[1-gd.turn],null);
+        try{await interaction.editReply({content:`🔴🔵 **Connect 4**\n<@${p0}> 🔴  vs  <@${p1}> 🔵\n\n${renderC4(gd.board)}\n🎉 <@${gd.players[gd.turn]}> wins! (+50 coins)`,components:makeC4Buttons(true)});}catch{}
+      } else if(!gd.board.includes(0)){
+        activeGames.delete(interaction.channelId);
+        recordDraw(p0,null);recordDraw(p1,null);
+        try{await interaction.editReply({content:`🔴🔵 **Connect 4**\n<@${p0}> 🔴  vs  <@${p1}> 🔵\n\n${renderC4(gd.board)}\n🤝 **Draw!**`,components:makeC4Buttons(true)});}catch{}
+      } else {
+        gd.turn=1-gd.turn;
+        try{await interaction.editReply({content:`🔴🔵 **Connect 4**\n<@${p0}> 🔴  vs  <@${p1}> 🔵\n\n${renderC4(gd.board)}\n<@${gd.players[gd.turn]}>'s turn!`,components:makeC4Buttons()});}catch{}
+      }
       return;
     }
 
@@ -1501,6 +1535,7 @@ client.on("interactionCreate",async interaction=>{
 
     // ── /marry — proposal with accept/decline buttons ─────────────────────────
     if(cmd==="marry"){
+      if(!inGuild)return safeReply(interaction,{content:"💍 Marriage proposals only work in servers — the other person needs to be able to see and accept!",ephemeral:true});
       const target=interaction.options.getUser("user");
       if(target.id===interaction.user.id)return safeReply(interaction,{content:"You can't marry yourself.",ephemeral:true});
       if(target.bot)return safeReply(interaction,{content:"You can't marry a bot.",ephemeral:true});
@@ -1956,6 +1991,7 @@ client.on("interactionCreate",async interaction=>{
       return;
     }
     if(cmd==="tictactoe"){
+      if(!inGuild)return safeReply(interaction,{content:"❌⭕ Tic Tac Toe requires a server — both players need to see the same board!",ephemeral:true});
       if(activeGames.has(interaction.channelId))return safeReply(interaction,{content:"A game is already running here!",ephemeral:true});
       const opp=interaction.options.getUser("opponent");
       if(opp.bot||opp.id===interaction.user.id)return safeReply(interaction,{content:"Invalid opponent.",ephemeral:true});
@@ -1964,6 +2000,7 @@ client.on("interactionCreate",async interaction=>{
       return safeReply(interaction,{content:`❌⭕ **Tic Tac Toe**\n<@${game.players[0]}> ❌  vs  <@${opp.id}> ⭕\n\nIt's <@${game.players[0]}>'s turn!`,components:makeTTTButtons(game.board)});
     }
     if(cmd==="connect4"){
+      if(!inGuild)return safeReply(interaction,{content:"🔴🔵 Connect 4 requires a server — both players need to see the same board!",ephemeral:true});
       if(activeGames.has(interaction.channelId))return safeReply(interaction,{content:"A game is already running here!",ephemeral:true});
       const opp=interaction.options.getUser("opponent");
       if(opp.bot||opp.id===interaction.user.id)return safeReply(interaction,{content:"Invalid opponent.",ephemeral:true});
@@ -1985,6 +2022,7 @@ client.on("interactionCreate",async interaction=>{
       catch{activeGames.delete(gameId);return safeReply(interaction,{content:"Couldn't DM one of the players (DMs may be off).",ephemeral:true});}
     }
     if(cmd==="mathrace"){
+      if(!inGuild)return safeReply(interaction,{content:"🧮 Math Race requires a server — both players need to be in the same channel!",ephemeral:true});
       if(activeGames.has(interaction.channelId))return safeReply(interaction,{content:"A game is already running here!",ephemeral:true});
       const opp=interaction.options.getUser("opponent");
       if(opp.bot||opp.id===interaction.user.id)return safeReply(interaction,{content:"Invalid opponent.",ephemeral:true});
@@ -1997,6 +2035,7 @@ client.on("interactionCreate",async interaction=>{
       return;
     }
     if(cmd==="wordrace"){
+      if(!inGuild)return safeReply(interaction,{content:"🏁 Word Race requires a server — both players need to be in the same channel!",ephemeral:true});
       if(activeGames.has(interaction.channelId))return safeReply(interaction,{content:"A game is already running here!",ephemeral:true});
       const opp=interaction.options.getUser("opponent");
       if(opp.bot||opp.id===interaction.user.id)return safeReply(interaction,{content:"Invalid opponent.",ephemeral:true});
@@ -2388,6 +2427,7 @@ client.on("interactionCreate",async interaction=>{
     }
 
     if(cmd==="triviabattle"){
+      if(!inGuild)return safeReply(interaction,{content:"🧠 Trivia Battle requires a server — both players need to be in the same channel!",ephemeral:true});
       const opp=interaction.options.getUser("opponent");
       if(opp.bot||opp.id===interaction.user.id)return safeReply(interaction,{content:"Invalid opponent.",ephemeral:true});
       if(activeGames.has(interaction.channelId))return safeReply(interaction,{content:"A game is already running here!",ephemeral:true});
@@ -2403,6 +2443,7 @@ client.on("interactionCreate",async interaction=>{
     }
 
     if(cmd==="scramblerace"){
+      if(!inGuild)return safeReply(interaction,{content:"🏁 Scramble Race requires a server — both players need to be in the same channel!",ephemeral:true});
       const opp=interaction.options.getUser("opponent");
       if(opp.bot||opp.id===interaction.user.id)return safeReply(interaction,{content:"Invalid opponent.",ephemeral:true});
       if(activeGames.has(interaction.channelId))return safeReply(interaction,{content:"A game is already running here!",ephemeral:true});
