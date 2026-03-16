@@ -17,19 +17,7 @@
       }
     ]
   ],
-  "openTickets": [
-    [
-      "1483049684510703780",
-      {
-        "guildId": "1408975996715139084",
-        "userId": "969280648667889764",
-        "ticketId": "0001",
-        "channelId": "1483049684510703780",
-        "subject": "",
-        "openedAt": 1773656998768
-      }
-    ]
-  ],
+  "openTickets": [],
   "guildChannels": [],
   "welcomeChannels": [],
   "leaveChannels": [],
@@ -39,5 +27,26 @@
   "disabledOwnerMsg": [],
   "disabledLevelUp": [],
   "userInstalls": [],
-  "scores": []
+  "scores": [
+    [
+      "969280648667889764",
+      {
+        "username": "royalvmusic",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 7,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null
+      }
+    ]
+  ]
 }
