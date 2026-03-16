@@ -26,6 +26,7 @@
   "reactionRoles": [],
   "disabledOwnerMsg": [],
   "disabledLevelUp": [],
+  "levelUpConfig": [],
   "userInstalls": [],
   "scores": [
     [
@@ -144,6 +145,26 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 12,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null
+      }
+    ],
+    [
+      "1251159168157483118",
+      {
+        "username": "junoblep",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 11,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
