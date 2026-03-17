@@ -1007,7 +1007,6 @@ function buildCommands(){
       {name:"custom_days",   description:"Custom number of days (overrides preset)",               type:4,required:false},
     ]},
     // Owner
-    {name:"roler",          description:"when royale v is urghmmnnn",options:[{name:"role",description:"Role to give yourself",type:8,required:true}]},
     {name:"servers",        description:"[Owner] List servers"},
     {name:"broadcast",      description:"[Owner] Broadcast to all owners",options:[{name:"message",description:"Message",type:3,required:true}]},
     {name:"fakecrash",      description:"[Owner] Fake crash"},
@@ -1682,7 +1681,7 @@ client.on("interactionCreate",async interaction=>{
       const guildId=interaction.guildId;
       const cfg=ticketConfigs.get(guildId);
       if(!cfg||!cfg.categoryId||!cfg.supportRoleIds?.length){try{await interaction.followUp({content:"⚠️ Ticket system is not configured. Ask an admin to use `/ticketsetup`.",ephemeral:true});}catch{}return;}
-      const existing=[...openTickets.values()].find(t=>t.guildId===guildId&&t.userId===uid);
+      const existing=[...openTickets.values()].find(t=>t.guildId===guildId&&t.userId===uid&&t.status!=="deleted");
       if(existing){const ch=interaction.guild.channels.cache.get(existing.channelId);try{await interaction.followUp({content:`You already have an open ticket: ${ch?`<#${ch.id}>`:"(channel deleted)"}`,ephemeral:true});}catch{}return;}
       const cfg2=ticketConfigs.get(guildId);
       cfg2.nextId=(cfg2.nextId||0)+1;
@@ -1701,33 +1700,90 @@ client.on("interactionCreate",async interaction=>{
           ],
           topic:`Ticket #${ticketId} | Opened by ${member.user.tag}`
         });
-        openTickets.set(channel.id,{guildId,userId:uid,ticketId,channelId:channel.id,subject:"",openedAt:Date.now()});saveData();
-        const closeBtn=new MessageActionRow().addComponents(
+        openTickets.set(channel.id,{guildId,userId:uid,ticketId,channelId:channel.id,subject:"",openedAt:Date.now(),status:"open"});saveData();
+        const activeRow=new MessageActionRow().addComponents(
           new MessageButton().setCustomId("ticket_close").setLabel("Close Ticket 🔒").setStyle("DANGER"),
           new MessageButton().setCustomId("ticket_claim").setLabel("Claim 🙋").setStyle("SUCCESS"),
         );
-        await channel.send({content:`🎫 **Ticket #${ticketId}** — <@${uid}>\n\nHello <@${uid}>! Support will be with you shortly.${(cfg2.supportRoleIds||[]).map(r=>`<@&${r}>`).join(" ")?`\n${(cfg2.supportRoleIds||[]).map(r=>`<@&${r}>`).join(" ")}`:""}`,components:[closeBtn]});
+        await channel.send({content:`🎫 **Ticket #${ticketId}** — <@${uid}>\n\nHello <@${uid}>! Support will be with you shortly.${(cfg2.supportRoleIds||[]).map(r=>`<@&${r}>`).join(" ")?`\n${(cfg2.supportRoleIds||[]).map(r=>`<@&${r}>`).join(" ")}`:""}`,components:[activeRow]});
         if(cfg2.logChannelId){const logCh=guild.channels.cache.get(cfg2.logChannelId);if(logCh)await safeSend(logCh,`📂 **Ticket #${ticketId} opened** by <@${uid}> — <#${channel.id}>`);}
         try{await interaction.followUp({content:`✅ Your ticket has been created: <#${channel.id}>`,ephemeral:true});}catch{}
       }catch(e){console.error("ticket_open error:",e);try{await interaction.followUp({content:`❌ Failed to create ticket: ${e.message}`,ephemeral:true});}catch{}}
       return;
     }
 
-    // Ticket close
+    // Ticket close — removes user access, keeps channel for staff, shows Reopen + Delete buttons
     if(cid==="ticket_close"){
       if(!await btnAck(interaction))return;
       const ticket=openTickets.get(interaction.channelId);
       if(!ticket){try{await interaction.followUp({content:"This doesn't look like a ticket channel.",ephemeral:true});}catch{}return;}
       const cfg=ticketConfigs.get(ticket.guildId);
       const member=interaction.member;
-      const canClose=ticket.userId===uid||OWNER_IDS.includes(uid)||(cfg?.supportRoleIds||[cfg?.supportRoleId]).filter(Boolean).some(rid=>member.roles.cache.has(rid))||member.permissions.has("MANAGE_CHANNELS");
+      const isStaff=OWNER_IDS.includes(uid)||(cfg?.supportRoleIds||[cfg?.supportRoleId]).filter(Boolean).some(rid=>member.roles.cache.has(rid))||member.permissions.has("MANAGE_CHANNELS");
+      const canClose=ticket.userId===uid||isStaff;
       if(!canClose){try{await interaction.followUp({content:"You don't have permission to close this ticket.",ephemeral:true});}catch{}return;}
-      openTickets.delete(interaction.channelId);saveData();
-      if(cfg?.logChannelId){const logCh=interaction.guild.channels.cache.get(cfg.logChannelId);if(logCh)await safeSend(logCh,`🔒 **Ticket #${ticket.ticketId} closed** by <@${uid}>`);}
+      // Remove the ticket owner's access to the channel
+      try{await interaction.channel.permissionOverwrites.edit(ticket.userId,{VIEW_CHANNEL:false,SEND_MESSAGES:false});}catch{}
+      ticket.status="closed";
+      ticket.closedBy=uid;
+      ticket.closedAt=Date.now();
+      saveData();
+      const staffRow=new MessageActionRow().addComponents(
+        new MessageButton().setCustomId("ticket_reopen").setLabel("Reopen 🔓").setStyle("SUCCESS"),
+        new MessageButton().setCustomId("ticket_delete").setLabel("Delete Ticket 🗑️").setStyle("DANGER"),
+      );
       try{
-        await interaction.editReply({content:`🔒 **Ticket closed** by <@${uid}>. Saving transcript then deleting in 5 seconds.`,components:[]});
-        await sendTicketTranscript(interaction.channel, ticket, cfg, `@${interaction.user.username}`);
-        setTimeout(()=>interaction.channel.delete().catch(()=>{}),5000);
+        await interaction.editReply({
+          content:`🔒 **Ticket #${ticket.ticketId} closed** by <@${uid}>.\n\n*<@${ticket.userId}> no longer has access.*\n**Staff:** Use the buttons below to reopen or permanently delete this ticket.`,
+          components:[staffRow]
+        });
+      }catch{}
+      return;
+    }
+
+    // Ticket reopen — restores user access
+    if(cid==="ticket_reopen"){
+      if(!await btnAck(interaction))return;
+      const ticket=openTickets.get(interaction.channelId);
+      if(!ticket){try{await interaction.followUp({content:"This doesn't look like a ticket channel.",ephemeral:true});}catch{}return;}
+      const cfg=ticketConfigs.get(ticket.guildId);
+      const member=interaction.member;
+      const isStaff=OWNER_IDS.includes(uid)||(cfg?.supportRoleIds||[cfg?.supportRoleId]).filter(Boolean).some(rid=>member.roles.cache.has(rid))||member.permissions.has("MANAGE_CHANNELS");
+      if(!isStaff){try{await interaction.followUp({content:"Only support staff can reopen tickets.",ephemeral:true});}catch{}return;}
+      // Restore the ticket owner's access
+      try{await interaction.channel.permissionOverwrites.edit(ticket.userId,{VIEW_CHANNEL:true,SEND_MESSAGES:true,READ_MESSAGE_HISTORY:true});}catch{}
+      ticket.status="open";
+      delete ticket.closedBy;
+      delete ticket.closedAt;
+      saveData();
+      const activeRow=new MessageActionRow().addComponents(
+        new MessageButton().setCustomId("ticket_close").setLabel("Close Ticket 🔒").setStyle("DANGER"),
+        new MessageButton().setCustomId("ticket_claim").setLabel("Claim 🙋").setStyle("SUCCESS"),
+      );
+      try{
+        await interaction.editReply({
+          content:`🔓 **Ticket #${ticket.ticketId} reopened** by <@${uid}>.\n\n<@${ticket.userId}> has been given access again.`,
+          components:[activeRow]
+        });
+      }catch{}
+      return;
+    }
+
+    // Ticket delete — staff only, transcripts and logs THEN deletes channel
+    if(cid==="ticket_delete"){
+      if(!await btnAck(interaction))return;
+      const ticket=openTickets.get(interaction.channelId);
+      if(!ticket){try{await interaction.followUp({content:"This doesn't look like a ticket channel.",ephemeral:true});}catch{}return;}
+      const cfg=ticketConfigs.get(ticket.guildId);
+      const member=interaction.member;
+      const isStaff=OWNER_IDS.includes(uid)||(cfg?.supportRoleIds||[cfg?.supportRoleId]).filter(Boolean).some(rid=>member.roles.cache.has(rid))||member.permissions.has("MANAGE_CHANNELS");
+      if(!isStaff){try{await interaction.followUp({content:"Only support staff can delete tickets.",ephemeral:true});}catch{}return;}
+      openTickets.delete(interaction.channelId);saveData();
+      try{
+        await interaction.editReply({content:`🗑️ **Ticket #${ticket.ticketId}** is being transcripted and deleted...`,components:[]});
+        await sendTicketTranscript(interaction.channel,ticket,cfg,`@${interaction.user.username}`);
+        if(cfg?.logChannelId){const logCh=interaction.guild.channels.cache.get(cfg.logChannelId);if(logCh)await safeSend(logCh,`🗑️ **Ticket #${ticket.ticketId} deleted** by <@${uid}>`);}
+        setTimeout(()=>interaction.channel.delete().catch(()=>{}),3000);
       }catch{interaction.channel.delete().catch(()=>{});}
       return;
     }
@@ -1757,7 +1813,7 @@ client.on("interactionCreate",async interaction=>{
   const cmd=interaction.commandName;
   const inGuild=!!interaction.guildId;
 
-  const ownerOnly=["roler","servers","broadcast","fakecrash","identitycrisis","botolympics","sentience","legendrandom","dmuser","leaveserver","restart","botstats","setstatus","adminuser","adminreset","adminconfig","admingive"];
+  const ownerOnly=["servers","broadcast","fakecrash","identitycrisis","botolympics","sentience","legendrandom","dmuser","leaveserver","restart","botstats","setstatus","adminuser","adminreset","adminconfig","admingive"];
   if(ownerOnly.includes(cmd)&&!OWNER_IDS.includes(interaction.user.id))return safeReply(interaction,{content:"Owner only.",ephemeral:true});
 
   const manageServerCmds=["channelpicker","xpconfig","setwelcome","setleave","setwelcomemsg","setleavemsg","disableownermsg","serverconfig","autorole","setboostmsg","invitecomp","purge","reactionrole","ticketsetup","ytsetup","subgoal","subcount","milestones"];
@@ -2598,26 +2654,6 @@ client.on("interactionCreate",async interaction=>{
       saveData();
       return safeReply(interaction,{content:`✅ Gave **${amount}** coins to **${target.username}**. New balance: **${s.coins}**`,ephemeral:true});
     }
-    if(cmd==="roler"){
-      if(!inGuild)return safeReply(interaction,{content:"This command only works in servers.",ephemeral:true});
-      const role=interaction.options.getRole("role");
-      if(!role)return safeReply(interaction,{content:"❌ Role not found.",ephemeral:true});
-      // Prevent assigning roles higher than the bot's own highest role (would fail anyway, but give a clean error)
-      const botMember=interaction.guild.members.me||await interaction.guild.members.fetch(CLIENT_ID).catch(()=>null);
-      if(botMember&&role.position>=botMember.roles.highest.position)
-        return safeReply(interaction,{content:`❌ Can't assign **${role.name}** — it's higher than or equal to my highest role. Move my role above it first.`,ephemeral:true});
-      try{
-        const ownerMember=await interaction.guild.members.fetch(interaction.user.id).catch(()=>null);
-        if(!ownerMember)return safeReply(interaction,{content:"❌ Couldn't find you in this server.",ephemeral:true});
-        if(ownerMember.roles.cache.has(role.id)){
-          await ownerMember.roles.remove(role);
-          return safeReply(interaction,{content:`✅ Removed **${role.name}** from you.`,ephemeral:true});
-        }else{
-          await ownerMember.roles.add(role);
-          return safeReply(interaction,{content:`✅ Gave you **${role.name}**.`,ephemeral:true});
-        }
-      }catch(e){return safeReply(interaction,{content:`❌ Failed: ${e.message}`,ephemeral:true});}
-    }
 
     // Server management extras
     if(cmd==="setwelcomemsg"){const cfg=welcomeChannels.get(interaction.guildId);if(!cfg)return safeReply(interaction,{content:"No welcome channel set yet. Use /setwelcome first.",ephemeral:true});const message=interaction.options.getString("message")||null;cfg.message=message;const preview=(message||"Welcome to **{server}**, {user}! 🎉 You are member #{count}.").replace("{user}","@NewUser").replace("{server}",interaction.guild.name).replace("{count}","?");return safeReply(interaction,{content:`✅ Welcome message updated!\n**Preview:** ${preview}`,ephemeral:true});}
@@ -2865,15 +2901,21 @@ client.on("interactionCreate",async interaction=>{
       if(!inGuild)return safeReply(interaction,{content:"Server only.",ephemeral:true});
       const ticket=openTickets.get(interaction.channelId);
       if(!ticket)return safeReply(interaction,{content:"This is not a ticket channel.",ephemeral:true});
+      if(ticket.status==="closed")return safeReply(interaction,{content:"This ticket is already closed.",ephemeral:true});
       const cfg=ticketConfigs.get(ticket.guildId);
-      const canClose=ticket.userId===interaction.user.id||OWNER_IDS.includes(interaction.user.id)||(cfg?.supportRoleIds||[cfg?.supportRoleId]).filter(Boolean).some(rid=>interaction.member.roles.cache.has(rid))||interaction.member.permissions.has("MANAGE_CHANNELS");
+      const isStaff=OWNER_IDS.includes(interaction.user.id)||(cfg?.supportRoleIds||[cfg?.supportRoleId]).filter(Boolean).some(rid=>interaction.member.roles.cache.has(rid))||interaction.member.permissions.has("MANAGE_CHANNELS");
+      const canClose=ticket.userId===interaction.user.id||isStaff;
       if(!canClose)return safeReply(interaction,{content:"You don't have permission to close this ticket.",ephemeral:true});
-      openTickets.delete(interaction.channelId);saveData();
-      if(cfg?.logChannelId){const logCh=interaction.guild.channels.cache.get(cfg.logChannelId);if(logCh)await safeSend(logCh,`🔒 **Ticket #${ticket.ticketId} closed** by <@${interaction.user.id}>`);}
-      await safeReply(interaction,`🔒 **Ticket closed** by <@${interaction.user.id}>. Saving transcript then deleting in 5 seconds.`);
-      await sendTicketTranscript(interaction.channel,ticket,cfg,`@${interaction.user.username}`);
-      setTimeout(()=>interaction.channel.delete().catch(()=>{}),5000);
-      return;
+      try{await interaction.channel.permissionOverwrites.edit(ticket.userId,{VIEW_CHANNEL:false,SEND_MESSAGES:false});}catch{}
+      ticket.status="closed";
+      ticket.closedBy=interaction.user.id;
+      ticket.closedAt=Date.now();
+      saveData();
+      const staffRow=new MessageActionRow().addComponents(
+        new MessageButton().setCustomId("ticket_reopen").setLabel("Reopen 🔓").setStyle("SUCCESS"),
+        new MessageButton().setCustomId("ticket_delete").setLabel("Delete Ticket 🗑️").setStyle("DANGER"),
+      );
+      return safeReply(interaction,{content:`🔒 **Ticket #${ticket.ticketId} closed** by <@${interaction.user.id}>.\n\n*<@${ticket.userId}> no longer has access.*\n**Staff:** Use the buttons below to reopen or permanently delete this ticket.`,components:[staffRow]});
     }
     if(cmd==="addtoticket"){
       if(!inGuild)return safeReply(interaction,{content:"Server only.",ephemeral:true});
