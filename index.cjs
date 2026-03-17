@@ -57,6 +57,18 @@ const userInstalls     = new Set();
 // channelId: override channel — null means use guildChannels fallback then same-channel
 const levelUpConfig    = new Map(); // guildId -> { enabled, ping, channelId }
 
+// ── YouTube tracking ─────────────────────────────────────────────────────────
+// ytConfig: per-guild YouTube settings persisted in botdata.json
+// { apiKey: string, ytChannelId: string, channelTitle: string,
+//   discordChannelId: string, goal, goalMessage, goalReached, goalDiscordId, goalMessageId,
+//   subcountMessageId, subcountDiscordId, subcountThreshold,
+//   milestones: [{subs, message, reached}], milestoneDiscordId,
+//   lastSubs, lastSubsTimestamp, history: [{ts, subs}] }
+const ytConfig = new Map(); // guildId -> config object
+
+// Helper: get the API key for a guild
+function getYtKey(guildId) { return ytConfig.get(guildId)?.apiKey || null; }
+
 // ── Marriage proposals ────────────────────────────────────────────────────────
 const marriageProposals = new Map(); // proposerId -> { targetId, timeout }
 
@@ -211,6 +223,7 @@ function buildDataObject() {
     disabledOwnerMsg: [...disabledOwnerMsg],
     disabledLevelUp:  [...disabledLevelUp],
     levelUpConfig:    [...levelUpConfig.entries()],
+    ytConfig:         [...ytConfig.entries()],
     userInstalls:     [...userInstalls],
     scores:           [...scores.entries()],
   };
@@ -255,6 +268,7 @@ function loadData() {
     if (data.disabledOwnerMsg) data.disabledOwnerMsg.forEach(v => disabledOwnerMsg.add(v));
     if (data.disabledLevelUp)  data.disabledLevelUp .forEach(v => disabledLevelUp.add(v));
     if (data.levelUpConfig)    data.levelUpConfig    .forEach(([k,v]) => levelUpConfig.set(k, v));
+    if (data.ytConfig)         data.ytConfig         .forEach(([k,v]) => ytConfig.set(k, v));
     if (data.userInstalls)     data.userInstalls    .forEach(v => userInstalls.add(v));
     if (data.scores)           data.scores          .forEach(([k,v]) => scores.set(k, v));
     console.log(`✅ Data loaded — ${ticketConfigs.size} ticket configs, ${reactionRoles.size} reaction roles, ${scores.size} scores, ${guildChannels.size} channels`);
@@ -676,6 +690,165 @@ async function sendTicketTranscript(channel, ticket, cfg, closedBy) {
   } catch(e) { console.error("Transcript error:", e.message); }
 }
 
+// ── YouTube helpers ───────────────────────────────────────────────────────────
+
+// Resolve a YouTube channel ID from a handle (@name), URL, or raw channel ID
+async function resolveYouTubeChannelId(input, apiKey) {
+  if (!apiKey) return null;
+  const clean = input.trim();
+
+  // Already a raw channel ID (starts with UC and ~24 chars)
+  if (/^UC[\w-]{20,}$/.test(clean)) return clean;
+
+  // Extract from URL forms: /channel/UC..., /c/handle, /@handle, /user/handle
+  const urlMatch = clean.match(/youtube\.com\/(?:channel\/(UC[\w-]+)|(?:c\/|@|user\/)?([\w@.-]+))/i);
+  let handle = null;
+  if (urlMatch) {
+    if (urlMatch[1]) return urlMatch[1];
+    handle = urlMatch[2];
+  } else if (clean.startsWith("@")) {
+    handle = clean.slice(1);
+  } else {
+    handle = clean;
+  }
+
+  // Search by handle
+  try {
+    const data = await fetchJson(`https://www.googleapis.com/youtube/v3/channels?part=id,snippet&forHandle=${encodeURIComponent(handle)}&key=${apiKey}`);
+    if (data?.items?.[0]?.id) return data.items[0].id;
+  } catch {}
+
+  // Fallback: search
+  try {
+    const data = await fetchJson(`https://www.googleapis.com/youtube/v3/search?part=snippet&type=channel&q=${encodeURIComponent(handle)}&maxResults=1&key=${apiKey}`);
+    return data?.items?.[0]?.snippet?.channelId || null;
+  } catch { return null; }
+}
+
+// Get current subscriber count + channel title for a channel ID
+async function getYouTubeStats(ytChannelId, apiKey) {
+  if (!apiKey) return null;
+  try {
+    const data = await fetchJson(`https://www.googleapis.com/youtube/v3/channels?part=statistics,snippet&id=${ytChannelId}&key=${apiKey}`);
+    const ch = data?.items?.[0];
+    if (!ch) return null;
+    return {
+      subs:   parseInt(ch.statistics?.subscriberCount || "0"),
+      title:  ch.snippet?.title || ytChannelId,
+      hidden: ch.statistics?.hiddenSubscriberCount === true,
+    };
+  } catch { return null; }
+}
+
+// Build a visual progress bar: ████████░░░░ 80%
+function buildBar(current, goal, width=20) {
+  const pct = Math.min(1, current / goal);
+  const filled = Math.round(pct * width);
+  return `${"█".repeat(filled)}${"░".repeat(width - filled)}`;
+}
+
+// Format subscriber count nicely: 1234567 → "1.23M"
+function fmtSubs(n) {
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(n >= 10_000_000 ? 1 : 2).replace(/\.?0+$/, "") + "M";
+  if (n >= 1_000)     return (n / 1_000).toFixed(n >= 10_000 ? 1 : 2).replace(/\.?0+$/, "") + "K";
+  return String(n);
+}
+
+// ── YouTube polling tick (runs every 5 minutes) ───────────────────────────────
+setInterval(async () => {
+  for (const [guildId, cfg] of ytConfig.entries()) {
+    if (!cfg.ytChannelId || !cfg.apiKey) continue;
+    const stats = await getYouTubeStats(cfg.ytChannelId, cfg.apiKey);
+    if (!stats || stats.hidden) continue;
+    const now = Date.now();
+    const prev = cfg.lastSubs ?? stats.subs;
+    cfg.lastSubs = stats.subs;
+    cfg.lastSubsTimestamp = now;
+    // Keep rolling 90-day history (one entry per poll, capped at 90d × 12 per hour = 12960 entries max — cap at 1000)
+    if (!cfg.history) cfg.history = [];
+    cfg.history.push({ ts: now, subs: stats.subs });
+    if (cfg.history.length > 1000) cfg.history = cfg.history.slice(-1000);
+    saveData();
+
+    const guild = client.guilds.cache.get(guildId);
+    if (!guild) continue;
+
+    // ── Live sub count message edit ─────────────────────────────────────────
+    if (cfg.subcountDiscordId && cfg.subcountMessageId) {
+      try {
+        const ch = guild.channels.cache.get(cfg.subcountDiscordId);
+        if (ch) {
+          const msg = await ch.messages.fetch(cfg.subcountMessageId).catch(() => null);
+          if (msg) {
+            const threshold = cfg.subcountThreshold || 1000;
+            const rounded = Math.floor(stats.subs / threshold) * threshold;
+            const diff = stats.subs - prev;
+            const diffStr = diff > 0 ? ` (+${fmtSubs(diff)})` : diff < 0 ? ` (${fmtSubs(diff)})` : "";
+            await msg.edit({
+              embeds: [{
+                title: `📊 ${stats.title} — Live Sub Count`,
+                description: `## ${fmtSubs(stats.subs)}\n*~${fmtSubs(rounded)} (rounded to nearest ${fmtSubs(threshold)})*${diffStr}`,
+                color: 0xFF0000,
+                footer: { text: `Updated` },
+                timestamp: new Date().toISOString(),
+              }]
+            }).catch(() => {});
+          }
+        }
+      } catch {}
+    }
+
+    // ── Sub goal progress ───────────────────────────────────────────────────
+    if (cfg.goal && !cfg.goalReached) {
+      const pct = Math.min(100, Math.round(stats.subs / cfg.goal * 100));
+      if (cfg.goalDiscordId) {
+        const ch = guild.channels.cache.get(cfg.goalDiscordId);
+        if (ch && cfg.goalMessageId) {
+          const msg = await ch.messages.fetch(cfg.goalMessageId).catch(() => null);
+          if (msg) {
+            await msg.edit({
+              embeds: [{
+                title: `🎯 ${stats.title} — Sub Goal`,
+                description: `**${fmtSubs(stats.subs)}** / **${fmtSubs(cfg.goal)}**\n\`[${buildBar(stats.subs, cfg.goal)}]\` **${pct}%**`,
+                color: pct >= 100 ? 0x00FF00 : 0xFF0000,
+                footer: { text: "Updated" },
+                timestamp: new Date().toISOString(),
+              }]
+            }).catch(() => {});
+          }
+        }
+      }
+      // Fire goal reached
+      if (stats.subs >= cfg.goal) {
+        cfg.goalReached = true;
+        saveData();
+        if (cfg.goalDiscordId) {
+          const ch = guild.channels.cache.get(cfg.goalDiscordId);
+          if (ch) {
+            const msg = cfg.goalMessage || `🎉 **${stats.title}** just hit the sub goal of **${fmtSubs(cfg.goal)}** subscribers! 🎊`;
+            await safeSend(ch, msg);
+          }
+        }
+      }
+    }
+
+    // ── Milestones ──────────────────────────────────────────────────────────
+    if (cfg.milestones?.length && cfg.milestoneDiscordId) {
+      const ch = guild.channels.cache.get(cfg.milestoneDiscordId);
+      if (ch) {
+        for (const m of cfg.milestones) {
+          if (!m.reached && stats.subs >= m.subs) {
+            m.reached = true;
+            saveData();
+            const txt = m.message || `🏆 **${stats.title}** just reached **${fmtSubs(m.subs)} subscribers**! 🎉`;
+            await safeSend(ch, txt);
+          }
+        }
+      }
+    }
+  }
+}, 5 * 60 * 1000);
+
 // ── Discord client ─────────────────────────────────────────────────────────────
 const client=new Client({
   intents:[Intents.FLAGS.GUILDS,Intents.FLAGS.GUILD_MEMBERS,Intents.FLAGS.GUILD_INVITES,
@@ -811,6 +984,28 @@ function buildCommands(){
     {name:"closeticket",     description:"Close this ticket"},
     {name:"addtoticket",     description:"Add a user to this ticket",options:[{name:"user",description:"User to add",type:6,required:true}]},
     {name:"removefromticket",description:"Remove a user from this ticket",options:[{name:"user",description:"User to remove",type:6,required:true}]},
+    // YouTube
+    {name:"ytsetup",         description:"Connect a YouTube channel to this server (Manage Server)",options:[
+      {name:"channel",       description:"YouTube handle (@name), channel URL, or channel ID (UC…)", type:3,required:true},
+      {name:"discord_channel",description:"Discord channel to post YouTube updates in",              type:7,required:true},
+      {name:"apikey",        description:"Your YouTube Data API v3 key (stored securely in botdata)", type:3,required:false},
+    ]},
+    {name:"subgoal",         description:"Set a subscriber goal with a live progress bar (Manage Server)",options:[
+      {name:"goal",          description:"Target subscriber count (e.g. 10000)",                  type:4,required:true},
+      {name:"message",       description:"Custom message when goal is reached (optional)",         type:3,required:false},
+    ]},
+    {name:"subcount",        description:"Post a live sub count display that auto-updates (Manage Server)",options:[
+      {name:"threshold",     description:"Round display to nearest amount",                        type:3,required:true,choices:[{name:"Every 1K subs",value:"1000"},{name:"Every 10K subs",value:"10000"}]},
+    ]},
+    {name:"milestones",      description:"Manage subscriber milestone announcements (Manage Server)",options:[
+      {name:"action",        description:"What to do",                                             type:3,required:true,choices:[{name:"Add milestone",value:"add"},{name:"Remove milestone",value:"remove"},{name:"List milestones",value:"list"}]},
+      {name:"subs",          description:"Subscriber count for this milestone (for add/remove)",   type:4,required:false},
+      {name:"message",       description:"Custom announcement message (for add, optional)",        type:3,required:false},
+    ]},
+    {name:"growth",          description:"Show subscriber growth over a time period 📈",options:[
+      {name:"days",          description:"Preset timeframe",                                       type:3,required:false,choices:[{name:"Last 7 days",value:"7"},{name:"Last 30 days",value:"30"},{name:"Last 90 days",value:"90"}]},
+      {name:"custom_days",   description:"Custom number of days (overrides preset)",               type:4,required:false},
+    ]},
     // Owner
     {name:"roler",          description:"when royale v is urghmmnnn",options:[{name:"role",description:"Role to give yourself",type:8,required:true}]},
     {name:"servers",        description:"[Owner] List servers"},
@@ -1096,35 +1291,50 @@ client.on("interactionCreate",async interaction=>{
 
     // ── Marriage proposal accept/decline ──────────────────────────────────────
     if(cid.startsWith("marry_accept_")||cid.startsWith("marry_decline_")){
-      const proposerId=cid.startsWith("marry_accept_")?cid.slice(13):cid.slice(14);
-      const proposal=marriageProposals.get(proposerId);
-      if(!proposal){
-        try{await interaction.reply({content:"This proposal has already expired or been resolved.",ephemeral:true});}catch{}
-        return;
-      }
-      if(uid!==proposal.targetId){
+      // customId format: marry_accept_{proposerId}_{targetId}
+      const isAccept = cid.startsWith("marry_accept_");
+      const parts = (isAccept ? cid.slice(13) : cid.slice(14)).split("_");
+      const proposerId = parts[0];
+      const targetId   = parts[1];
+
+      // Only the intended target can respond
+      if(uid !== targetId){
         try{await interaction.reply({content:"This proposal isn't for you!",ephemeral:true});}catch{}
         return;
       }
-      clearTimeout(proposal.timeout);
-      marriageProposals.delete(proposerId);
+
+      const proposerScore = getScore(proposerId, null);
+      const targetScore   = getScore(targetId, null);
+
+      // Verify the proposal is still pending
+      if(targetScore.pendingProposal !== proposerId){
+        try{await interaction.reply({content:"This proposal has already expired or been resolved.",ephemeral:true});}catch{}
+        return;
+      }
+
       if(!(await btnAck(interaction)))return;
-      if(cid.startsWith("marry_accept_")){
-        const proposerScore=getScore(proposerId,null);
-        const targetScore=getScore(uid,interaction.user.username);
+
+      if(isAccept){
         if(proposerScore.marriedTo){
+          targetScore.pendingProposal = null;
+          saveData();
           try{await interaction.editReply({content:`💔 The proposal can no longer be accepted — the proposer is already married to someone else.`,components:[]});}catch{}
           return;
         }
         if(targetScore.marriedTo){
+          targetScore.pendingProposal = null;
+          saveData();
           try{await interaction.editReply({content:`💔 You are already married to someone else!`,components:[]});}catch{}
           return;
         }
-        proposerScore.marriedTo=uid;
-        targetScore.marriedTo=proposerId;
+        proposerScore.marriedTo       = targetId;
+        targetScore.marriedTo         = proposerId;
+        targetScore.pendingProposal   = null;
         saveData();
-        try{await interaction.editReply({content:`💍 **${interaction.user.username}** said YES! 🎉\n<@${proposerId}> and <@${uid}> are now married! Congratulations! 💕`,components:[]});}catch{}
+        try{await interaction.editReply({content:`💍 **${interaction.user.username}** said YES! 🎉\n<@${proposerId}> and <@${targetId}> are now married! Congratulations! 💕`,components:[]});}catch{}
       } else {
+        targetScore.pendingProposal = null;
+        saveData();
         try{await interaction.editReply({content:`💔 **${interaction.user.username}** declined the proposal. Maybe next time, <@${proposerId}>.`,components:[]});}catch{}
       }
       return;
@@ -1299,16 +1509,17 @@ client.on("interactionCreate",async interaction=>{
     // Help pagination
     if(cid.startsWith("help_page_")){
       const page=parseInt(cid.slice(10));
-      const TOTAL=6;
+      const TOTAL=7;
       if(page<0||page>=TOTAL){try{await interaction.deferUpdate();}catch{}return;}
       if(!(await btnAck(interaction)))return;
       const HELP_PAGES=[
-        {title:"🎉 Fun & Social  —  Page 1 / 6",description:["**Interactions**","`/action type:… user:…` — Hug, pat, poke, stare, wave, high five, boop, oil, diddle, or kill someone","`/punch` `/hug` `/kiss` `/slap` `/throw` — Quick social actions","`/rate type:… user:…` — Rate someone (gay, autistic, simp, cursed, npc, villain, sigma)","`/ppsize user:…` — Check pp size","`/ship user1:… user2:…` — Ship compatibility %","","**Romance**","`/marry user:…` — Propose 💍 (target must accept)","`/divorce` — End the marriage 💔","`/partner [user]` — See who someone is married to","","**Party Games**","`/party type:truth|dare|neverhavei` — Truth, Dare, or Never Have I Ever","","**Conversation**","`/topic` — Random conversation starter","`/wouldyourather` — Would you rather…","`/roast [user]` — Roast someone 🔥","`/compliment user:…` — Compliment someone 💖","`/advice` — Life advice 🧙","`/fact` — Random fun fact 📚","`/horoscope sign:…` — Your daily horoscope ✨","`/poll question:…` — Quick yes/no poll (server only)"].join("\n")},
-        {title:"📡 Media & Utility  —  Page 2 / 6",description:["**Media**","`/cat` `/dog` `/fox` `/panda` — Random animal images","`/joke` — Random joke 😂","`/meme` — Random meme 🐸","`/quote` — Inspirational quote ✨","`/trivia` — Trivia question with spoiler answer 🧠","`/avatar user:…` — Get someone's avatar","","**Utility**","`/ping` — Bot latency 🏓","`/coinflip` — Heads or tails 🪙","`/roll [sides]` — Roll a dice (default d6) 🎲","`/choose options:a,b,c` — Pick from comma-separated options","`/echo [message] [embed] [image] [title] [color] [replyto]` — Make the bot say something","`/remind time:… message:…` — Set a reminder (1 min – 1 week)","","**Info**","`/botinfo` — Bot stats","`/serverinfo` — Server member/channel/role info","`/userprofile [user]` — Full profile: level, XP, coins, items, cooldowns"].join("\n")},
-        {title:"💰 Economy  —  Page 3 / 6",description:["**Balance & Transfers**","`/coins [user]` — Check coin balance","`/givecoin user:… amount:…` — Transfer coins","","**Earning**","`/work` — Work a shift (1hr cooldown, 50–200 coins)","`/beg` — Beg for coins (5min cooldown, 0–50 coins)","`/crime` — Commit a crime (2hr cooldown, risky!)","`/rob user:…` — Rob someone (1hr cooldown, 45% success)","","**Gambling**","`/slots [bet]` — Slot machine 🎰","`/coinbet bet:… side:heads|tails` — Bet on a coin flip","`/blackjack bet:…` — Blackjack vs the dealer 🃏","","**Shop**","`/shop` — View items","`/buy item:…` — Buy an item","> 🍀 Lucky Charm (200) · ⚡ XP Boost (300) · 🛡️ Shield (150)","`/inventory [user]` — View items","","**Daily**","`/games game:Daily Challenge` — Daily puzzle for coins + streak 📅"].join("\n")},
-        {title:"📈 XP & Leaderboards  —  Page 4 / 6",description:["**XP**","You earn XP by sending messages (1 min cooldown). 5–15 XP per message.","Level formula: `floor(50 × level^1.5)` XP per level","","`/xp [user]` — Check XP, level, and progress bar","`/xpleaderboard [scope:global|server]` — Top 10 by XP","","**Stats & Leaderboards**","`/score [user]` — Wins, losses, win rate, streak","`/userprofile [user]` — Everything in one embed","`/leaderboard [type]` — Global top 10","`/serverleaderboard [type]` — Server top 10","> Types: `wins` `coins` `streak` `beststreak` `games` `winrate`"].join("\n")},
-        {title:"🎮 Games  —  Page 5 / 6",description:["**Solo** — `/games game:…`","> 🪢 Hangman · 🐍 Snake · 💣 Minesweeper (Easy/Med/Hard)","> 🔢 Number Guess · 🔀 Word Scramble · 📅 Daily Challenge","","**2-Player** — `/2playergames game:… [opponent:…]`","> ❌⭕ Tic Tac Toe *(server only)*","> 🔴🔵 Connect 4 *(server only)*","> ✊ Rock Paper Scissors *(choices sent via DM)*","> 🧮 Math Race · 🏁 Word Race · 🧠 Trivia Battle *(server only)*","> 🔢 Count Game — count to 100 together, no opponent needed *(server only)*","> 🏁 Scramble Race — 5-round word unscramble *(server only)*","","Wins award coins. Check `/score` or `/userprofile` for stats."].join("\n")},
-        {title:"⚙️ Server Config  —  Page 6 / 6",description:["All commands here require **Manage Server** permission.","","**Channels & Messages**","`/channelpicker channel:… [levelup]` — Set the bot's main channel","`/xpconfig setting:…` — Level-up messages (on/off, ping toggle, channel)","`/setwelcome channel:… [message]` — Welcome message (`{user}` `{server}` `{count}`)","`/setleave channel:… [message]` — Leave message","`/setboostmsg channel:… [message]` — Boost announcement","`/disableownermsg enabled:…` — Toggle bot owner broadcasts","`/purge amount:…` — Bulk delete (needs Manage Messages)","","**Roles**","`/autorole [role]` — Auto-assign role on join (blank to disable)","`/reactionrole action:add|remove|list …` — Emoji reaction roles","","**Competitions**","`/invitecomp hours:…` — Invite competition with coin rewards","","**Tickets**","`/ticketsetup` · `/closeticket` · `/addtoticket` · `/removefromticket`","","**Overview**","`/serverconfig` — View all current settings"].join("\n")},
+        {title:"🎉 Fun & Social  —  Page 1 / 7",description:["**Interactions**","`/action type:… user:…` — Hug, pat, poke, stare, wave, high five, boop, oil, diddle, or kill someone","`/punch` `/hug` `/kiss` `/slap` `/throw` — Quick social actions","`/rate type:… user:…` — Rate someone (gay, autistic, simp, cursed, npc, villain, sigma)","`/ppsize user:…` — Check pp size","`/ship user1:… user2:…` — Ship compatibility %","","**Romance**","`/marry user:…` — Propose 💍 — target gets Accept/Decline buttons","`/divorce` — End the marriage 💔","`/partner [user]` — See who someone is married to","","**Party Games**","`/party type:truth|dare|neverhavei` — Truth, Dare, or Never Have I Ever","","**Conversation**","`/topic` — Random conversation starter","`/wouldyourather` — Would you rather…","`/roast [user]` — Roast someone 🔥","`/compliment user:…` — Compliment someone 💖","`/advice` — Life advice 🧙","`/fact` — Random fun fact 📚","`/horoscope sign:…` — Your daily horoscope ✨","`/poll question:…` — Quick yes/no poll (server only)"].join("\n")},
+        {title:"📡 Media & Utility  —  Page 2 / 7",description:["**Media**","`/cat` `/dog` `/fox` `/panda` — Random animal images","`/joke` — Random joke 😂","`/meme` — Random meme 🐸","`/quote` — Inspirational quote ✨","`/trivia` — Trivia question with spoiler answer 🧠","`/avatar user:…` — Get someone's avatar","","**Utility**","`/ping` — Bot latency 🏓","`/coinflip` — Heads or tails 🪙","`/roll [sides]` — Roll a dice (default d6) 🎲","`/choose options:a,b,c` — Pick from comma-separated options","`/echo [message] [embed] [image] [title] [color] [replyto]` — Make the bot say something","`/remind time:… message:…` — Set a reminder (1 min – 1 week)","","**Info**","`/botinfo` — Bot stats","`/serverinfo` — Server member/channel/role info","`/userprofile [user]` — Full profile: level, XP, coins, items, cooldowns"].join("\n")},
+        {title:"💰 Economy  —  Page 3 / 7",description:["**Balance & Transfers**","`/coins [user]` — Check coin balance","`/givecoin user:… amount:…` — Transfer coins","","**Earning**","`/work` — Work a shift (1hr cooldown, 50–200 coins)","`/beg` — Beg for coins (5min cooldown, 0–50 coins)","`/crime` — Commit a crime (2hr cooldown, risky!)","`/rob user:…` — Rob someone (1hr cooldown, 45% success)","","**Gambling**","`/slots [bet]` — Slot machine 🎰","`/coinbet bet:… side:heads|tails` — Bet on a coin flip","`/blackjack bet:…` — Blackjack vs the dealer 🃏","","**Shop**","`/shop` — View items","`/buy item:…` — Buy an item","> 🍀 Lucky Charm (200) · ⚡ XP Boost (300) · 🛡️ Shield (150)","`/inventory [user]` — View items","","**Daily**","`/games game:Daily Challenge` — Daily puzzle for coins + streak 📅"].join("\n")},
+        {title:"📈 XP & Leaderboards  —  Page 4 / 7",description:["**XP**","You earn XP by sending messages (1 min cooldown). 5–15 XP per message.","Level formula: `floor(50 × level^1.5)` XP per level","","`/xp [user]` — Check XP, level, and progress bar","`/xpleaderboard [scope:global|server]` — Top 10 by XP","","**Stats & Leaderboards**","`/score [user]` — Wins, losses, win rate, streak","`/userprofile [user]` — Everything in one embed","`/leaderboard [type]` — Global top 10","`/serverleaderboard [type]` — Server top 10","> Types: `wins` `coins` `streak` `beststreak` `games` `winrate`"].join("\n")},
+        {title:"🎮 Games  —  Page 5 / 7",description:["**Solo** — `/games game:…`","> 🪢 Hangman · 🐍 Snake · 💣 Minesweeper (Easy/Med/Hard)","> 🔢 Number Guess · 🔀 Word Scramble · 📅 Daily Challenge","","**2-Player** — `/2playergames game:… [opponent:…]`","> ❌⭕ Tic Tac Toe *(server only)*","> 🔴🔵 Connect 4 *(server only)*","> ✊ Rock Paper Scissors *(choices sent via DM)*","> 🧮 Math Race · 🏁 Word Race · 🧠 Trivia Battle *(server only)*","> 🔢 Count Game — count to 100 together, no opponent needed *(server only)*","> 🏁 Scramble Race — 5-round word unscramble *(server only)*","","Wins award coins. Check `/score` or `/userprofile` for stats."].join("\n")},
+        {title:"⚙️ Server Config  —  Page 6 / 7",description:["All commands here require **Manage Server** permission.","","**Channels & Messages**","`/channelpicker channel:… [levelup]` — Set the bot's main channel","`/xpconfig setting:…` — Level-up messages (on/off, ping toggle, channel)","`/setwelcome channel:… [message]` — Welcome message (`{user}` `{server}` `{count}`)","`/setleave channel:… [message]` — Leave message","`/setboostmsg channel:… [message]` — Boost announcement","`/disableownermsg enabled:…` — Toggle bot owner broadcasts","`/purge amount:…` — Bulk delete (needs Manage Messages)","","**Roles**","`/autorole [role]` — Auto-assign role on join (blank to disable)","`/reactionrole action:add|remove|list …` — Emoji reaction roles","","**Competitions**","`/invitecomp hours:…` — Invite competition with coin rewards","","**Tickets**","`/ticketsetup` · `/closeticket` · `/addtoticket` · `/removefromticket`","","**Overview**","`/serverconfig` — View all current settings"].join("\n")},
+        {title:"📺 YouTube Tracking  —  Page 7 / 7",description:["Track a YouTube channel's subscriber count live in Discord.","All commands require **Manage Server** permission except `/growth`.","","**Setup**","`/ytsetup channel:… discord_channel:… [apikey:…]` — Connect a YouTube channel","> Accepts `@handle`, full URL, or channel ID (UC…)","> Provide your YouTube Data API v3 key the first time (it's saved to botdata)","> Get a free key: https://console.cloud.google.com → YouTube Data API v3","","**Live Sub Count**","`/subcount threshold:1K|10K` — Post an embed that edits itself every 5 min","> Shows current subs rounded to nearest 1K or 10K","","**Sub Goal**","`/subgoal goal:N [message]` — Live progress bar towards a sub target","> Posts an updating embed; fires the custom (or default) message when reached","","**Milestones**","`/milestones action:add subs:N [message]` — Announce when a sub count is hit","`/milestones action:remove subs:N` — Remove a milestone","`/milestones action:list` — See all milestones and their status","","**Growth**","`/growth [days:7|30|90] [custom_days:N]` — Subs gained over a time period","> Shows total gained, starting count, and daily average","> History is built up over time (5-min intervals)"].join("\n")},
       ];
       const p=HELP_PAGES[page];
       const navRow=new MessageActionRow().addComponents(
@@ -1549,7 +1760,7 @@ client.on("interactionCreate",async interaction=>{
   const ownerOnly=["roler","servers","broadcast","fakecrash","identitycrisis","botolympics","sentience","legendrandom","dmuser","leaveserver","restart","botstats","setstatus","adminuser","adminreset","adminconfig","admingive"];
   if(ownerOnly.includes(cmd)&&!OWNER_IDS.includes(interaction.user.id))return safeReply(interaction,{content:"Owner only.",ephemeral:true});
 
-  const manageServerCmds=["channelpicker","xpconfig","setwelcome","setleave","setwelcomemsg","setleavemsg","disableownermsg","serverconfig","autorole","setboostmsg","invitecomp","purge","reactionrole","ticketsetup"];
+  const manageServerCmds=["channelpicker","xpconfig","setwelcome","setleave","setwelcomemsg","setleavemsg","disableownermsg","serverconfig","autorole","setboostmsg","invitecomp","purge","reactionrole","ticketsetup","ytsetup","subgoal","subcount","milestones"];
   if(manageServerCmds.includes(cmd)){
     if(!inGuild)return safeReply(interaction,{content:"Server only.",ephemeral:true});
     if(!OWNER_IDS.includes(interaction.user.id)&&!interaction.member.permissions.has("MANAGE_GUILD"))
@@ -1605,9 +1816,20 @@ client.on("interactionCreate",async interaction=>{
       // Store the proposal on the target's record so it survives bot restarts
       t.pendingProposal = interaction.user.id;
       saveData();
-      return safeReply(interaction,
-        `💍 **Marriage Proposal!**\n\n<@${interaction.user.id}> has proposed to <@${target.id}>! 🌹\n\n<@${target.id}> — run \`/marry @${interaction.user.username}\` to accept, or ignore to decline.`
+      const propRow = new MessageActionRow().addComponents(
+        new MessageButton()
+          .setCustomId(`marry_accept_${interaction.user.id}_${target.id}`)
+          .setLabel("💍 Accept")
+          .setStyle("SUCCESS"),
+        new MessageButton()
+          .setCustomId(`marry_decline_${interaction.user.id}_${target.id}`)
+          .setLabel("💔 Decline")
+          .setStyle("DANGER"),
       );
+      return safeReply(interaction, {
+        content: `💍 **Marriage Proposal!**\n\n<@${interaction.user.id}> has proposed to <@${target.id}>! 🌹\n\n<@${target.id}>, do you accept?`,
+        components: [propRow],
+      });
     }
 
     if(cmd==="divorce"){
@@ -1839,191 +2061,30 @@ client.on("interactionCreate",async interaction=>{
     }
 
     if(cmd==="help"){
-      const HELP_PAGES = [
-        {
-          title: "🎉 Fun & Social  —  Page 1 / 6",
-          description: [
-            "**Interactions**",
-            "`/action type:… user:…` — Hug, pat, poke, stare, wave, high five, boop, oil, diddle, or kill someone",
-            "`/punch` `/hug` `/kiss` `/slap` `/throw` — Quick social actions",
-            "`/rate type:… user:…` — Rate someone (gay, autistic, simp, cursed, npc, villain, sigma)",
-            "`/ppsize user:…` — Check pp size 🍆",
-            "`/ship user1:… user2:…` — Ship compatibility %",
-            "",
-            "**Romance**",
-            "`/marry user:…` — Propose 💍 (target must accept)",
-            "`/divorce` — End the marriage 💔",
-            "`/partner [user]` — See who someone is married to",
-            "",
-            "**Party Games**",
-            "`/party type:truth|dare|neverhavei` — Truth, Dare, or Never Have I Ever",
-            "",
-            "**Conversation**",
-            "`/topic` — Random conversation starter",
-            "`/wouldyourather` — Would you rather…",
-            "`/roast [user]` — Roast someone 🔥",
-            "`/compliment user:…` — Compliment someone 💖",
-            "`/advice` — Life advice 🧙",
-            "`/fact` — Random fun fact 📚",
-            "`/horoscope sign:…` — Your daily horoscope ✨",
-            "`/poll question:…` — Quick yes/no poll (server only)",
-          ].join("\n"),
-        },
-        {
-          title: "📡 Media & Utility  —  Page 2 / 6",
-          description: [
-            "**Media**",
-            "`/cat` — Random cat GIF 🐱",
-            "`/dog` — Random dog 🐶",
-            "`/fox` — Random fox 🦊",
-            "`/panda` — Random panda 🐼",
-            "`/joke` — Random joke 😂",
-            "`/meme` — Random meme 🐸",
-            "`/quote` — Inspirational quote ✨",
-            "`/trivia` — Trivia question with answer spoiler 🧠",
-            "`/avatar user:…` — Get someone's avatar",
-            "",
-            "**Utility**",
-            "`/ping` — Bot latency 🏓",
-            "`/coinflip` — Heads or tails 🪙",
-            "`/roll [sides]` — Roll a dice (default d6) 🎲",
-            "`/choose options:a,b,c` — Pick between comma-separated options",
-            "`/echo [message] [embed] [image] [title] [color] [replyto]` — Make the bot say something",
-            "`/remind time:… message:…` — Set a reminder (up to 1 week)",
-            "`/poll question:…` — Create a yes/no/shrug poll",
-            "",
-            "**Info**",
-            "`/botinfo` — Bot stats (servers, users, uptime, ping)",
-            "`/serverinfo` — Server member count, channels, roles",
-            "`/userprofile [user]` — Full profile: level, XP, coins, items, stats, cooldowns",
-          ].join("\n"),
-        },
-        {
-          title: "💰 Economy  —  Page 3 / 6",
-          description: [
-            "**Balance & Transfers**",
-            "`/coins [user]` — Check coin balance",
-            "`/givecoin user:… amount:…` — Transfer coins to someone",
-            "",
-            "**Earning**",
-            "`/work` — Work a shift (1hr cooldown, 50–200 coins)",
-            "`/beg` — Beg for coins (5min cooldown, 0–50 coins)",
-            "`/crime` — Commit a crime (2hr cooldown, risky!)",
-            "`/rob user:…` — Rob someone (1hr cooldown, 45% success)",
-            "",
-            "**Gambling**",
-            "`/slots [bet]` — Slot machine 🎰 (min 1 coin)",
-            "`/coinbet bet:… side:heads|tails` — Bet on a coin flip",
-            "`/blackjack bet:…` — Blackjack vs the dealer 🃏",
-            "",
-            "**Shop**",
-            "`/shop` — View available items",
-            "`/buy item:…` — Buy an item",
-            "> 🍀 Lucky Charm — 200 coins (+10% work bonus 1hr)",
-            "> ⚡ XP Boost — 300 coins (2× XP 1hr)",
-            "> 🛡️ Shield — 150 coins (blocks next rob)",
-            "`/inventory [user]` — View your (or someone's) items",
-            "",
-            "**Daily**",
-            "`/games game:Daily Challenge` — Daily challenge for coins + streak bonus 📅",
-          ].join("\n"),
-        },
-        {
-          title: "📈 XP & Leaderboards  —  Page 4 / 6",
-          description: [
-            "**XP System**",
-            "You earn XP automatically by sending messages (1 min cooldown between awards).",
-            "XP per message: **5–15 XP** | Level threshold: `floor(50 × level^1.5)` XP",
-            "",
-            "`/xp [user]` — Check XP, level, and progress bar",
-            "`/xpleaderboard [scope:global|server]` — Top 10 by XP",
-            "",
-            "**Game Stats**",
-            "`/score [user]` — Wins, losses, win rate, streak, level",
-            "`/userprofile [user]` — Everything in one embed",
-            "",
-            "**Leaderboards**",
-            "`/leaderboard [type]` — Global top 10",
-            "`/serverleaderboard [type]` — Server-only top 10",
-            "> Types: `wins` `coins` `streak` `beststreak` `games` `winrate`",
-          ].join("\n"),
-        },
-        {
-          title: "🎮 Games  —  Page 5 / 6",
-          description: [
-            "**Solo Games** — `/games game:…`",
-            "> 🪢 **Hangman** — Guess the word letter by letter",
-            "> 🐍 **Snake** — Navigate with buttons, eat apples",
-            "> 💣 **Minesweeper (Easy/Medium/Hard)** — Clear the 5×5 board",
-            "> 🔢 **Number Guess** — Guess 1–100 in 10 attempts",
-            "> 🔀 **Word Scramble** — Unscramble the word",
-            "> 📅 **Daily Challenge** — Math or word puzzle, coins + streak",
-            "",
-            "**2-Player Games** — `/2playergames game:… [opponent:…]`",
-            "> ❌⭕ **Tic Tac Toe** — Classic 3×3 board (server only)",
-            "> 🔴🔵 **Connect 4** — Drop pieces, get 4 in a row (server only)",
-            "> ✊ **Rock Paper Scissors** — Choices sent via DM privately",
-            "> 🧮 **Math Race** — First to answer the multiplication wins",
-            "> 🏁 **Word Race** — First to unscramble a word wins",
-            "> 🧠 **Trivia Battle** — First to type the correct answer wins",
-            "> 🔢 **Count Game** — Count to 100 together, no two in a row (no opponent needed)",
-            "> 🏁 **Scramble Race** — 5-round word unscramble, highest score wins",
-            "",
-            "Wins award coins. Check `/score` or `/userprofile` for your stats.",
-          ].join("\n"),
-        },
-        {
-          title: "⚙️ Server Config  —  Page 6 / 6",
-          description: [
-            "All commands here require **Manage Server** permission.",
-            "",
-            "**Channels & Messages**",
-            "`/channelpicker channel:… [levelup]` — Set the bot's main announcement channel",
-            "`/xpconfig setting:…` — Configure level-up messages (on/off, ping, channel)",
-            "`/setwelcome channel:… [message]` — Welcome message on member join (`{user}` `{server}` `{count}`)",
-            "`/setleave channel:… [message]` — Leave message on member leave",
-            "`/setboostmsg channel:… [message]` — Message when someone boosts",
-            "`/disableownermsg enabled:…` — Toggle bot owner broadcasts in this server",
-            "`/purge amount:…` — Bulk delete messages (needs Manage Messages)",
-            "",
-            "**Roles & Automation**",
-            "`/autorole [role]` — Auto-assign a role to new members (leave blank to disable)",
-            "`/reactionrole action:add|remove|list …` — Assign roles via emoji reactions",
-            "",
-            "**Competitions**",
-            "`/invitecomp hours:…` — Start an invite competition with coin rewards",
-            "",
-            "**Tickets**",
-            "`/ticketsetup` — Interactive setup wizard for the ticket system",
-            "`/closeticket` — Close the current ticket channel",
-            "`/addtoticket user:…` — Add a user to the ticket",
-            "`/removefromticket user:…` — Remove a user from the ticket",
-            "",
-            "**Overview**",
-            "`/serverconfig` — View all current settings for this server",
-          ].join("\n"),
-        },
+      const HELP_PAGES=[
+        {title:"🎉 Fun & Social  —  Page 1 / 7",description:["**Interactions**","`/action type:… user:…` — Hug, pat, poke, stare, wave, high five, boop, oil, diddle, or kill someone","`/punch` `/hug` `/kiss` `/slap` `/throw` — Quick social actions","`/rate type:… user:…` — Rate someone (gay, autistic, simp, cursed, npc, villain, sigma)","`/ppsize user:…` — Check pp size","`/ship user1:… user2:…` — Ship compatibility %","","**Romance**","`/marry user:…` — Propose 💍 — target gets Accept/Decline buttons","`/divorce` — End the marriage 💔","`/partner [user]` — See who someone is married to","","**Party Games**","`/party type:truth|dare|neverhavei` — Truth, Dare, or Never Have I Ever","","**Conversation**","`/topic` — Random conversation starter","`/wouldyourather` — Would you rather…","`/roast [user]` — Roast someone 🔥","`/compliment user:…` — Compliment someone 💖","`/advice` — Life advice 🧙","`/fact` — Random fun fact 📚","`/horoscope sign:…` — Your daily horoscope ✨","`/poll question:…` — Quick yes/no poll (server only)"].join("\n")},
+        {title:"📡 Media & Utility  —  Page 2 / 7",description:["**Media**","`/cat` `/dog` `/fox` `/panda` — Random animal images","`/joke` — Random joke 😂","`/meme` — Random meme 🐸","`/quote` — Inspirational quote ✨","`/trivia` — Trivia question with spoiler answer 🧠","`/avatar user:…` — Get someone's avatar","","**Utility**","`/ping` — Bot latency 🏓","`/coinflip` — Heads or tails 🪙","`/roll [sides]` — Roll a dice (default d6) 🎲","`/choose options:a,b,c` — Pick from comma-separated options","`/echo [message] [embed] [image] [title] [color] [replyto]` — Make the bot say something","`/remind time:… message:…` — Set a reminder (1 min – 1 week)","","**Info**","`/botinfo` — Bot stats","`/serverinfo` — Server member/channel/role info","`/userprofile [user]` — Full profile: level, XP, coins, items, cooldowns"].join("\n")},
+        {title:"💰 Economy  —  Page 3 / 7",description:["**Balance & Transfers**","`/coins [user]` — Check coin balance","`/givecoin user:… amount:…` — Transfer coins","","**Earning**","`/work` — Work a shift (1hr cooldown, 50–200 coins)","`/beg` — Beg for coins (5min cooldown, 0–50 coins)","`/crime` — Commit a crime (2hr cooldown, risky!)","`/rob user:…` — Rob someone (1hr cooldown, 45% success)","","**Gambling**","`/slots [bet]` — Slot machine 🎰","`/coinbet bet:… side:heads|tails` — Bet on a coin flip","`/blackjack bet:…` — Blackjack vs the dealer 🃏","","**Shop**","`/shop` — View items","`/buy item:…` — Buy an item","> 🍀 Lucky Charm (200) · ⚡ XP Boost (300) · 🛡️ Shield (150)","`/inventory [user]` — View items","","**Daily**","`/games game:Daily Challenge` — Daily puzzle for coins + streak 📅"].join("\n")},
+        {title:"📈 XP & Leaderboards  —  Page 4 / 7",description:["**XP**","You earn XP by sending messages (1 min cooldown). 5–15 XP per message.","Level formula: `floor(50 × level^1.5)` XP per level","","`/xp [user]` — Check XP, level, and progress bar","`/xpleaderboard [scope:global|server]` — Top 10 by XP","","**Stats & Leaderboards**","`/score [user]` — Wins, losses, win rate, streak","`/userprofile [user]` — Everything in one embed","`/leaderboard [type]` — Global top 10","`/serverleaderboard [type]` — Server top 10","> Types: `wins` `coins` `streak` `beststreak` `games` `winrate`"].join("\n")},
+        {title:"🎮 Games  —  Page 5 / 7",description:["**Solo** — `/games game:…`","> 🪢 Hangman · 🐍 Snake · 💣 Minesweeper (Easy/Med/Hard)","> 🔢 Number Guess · 🔀 Word Scramble · 📅 Daily Challenge","","**2-Player** — `/2playergames game:… [opponent:…]`","> ❌⭕ Tic Tac Toe *(server only)*","> 🔴🔵 Connect 4 *(server only)*","> ✊ Rock Paper Scissors *(choices sent via DM)*","> 🧮 Math Race · 🏁 Word Race · 🧠 Trivia Battle *(server only)*","> 🔢 Count Game — count to 100 together, no opponent needed *(server only)*","> 🏁 Scramble Race — 5-round word unscramble *(server only)*","","Wins award coins. Check `/score` or `/userprofile` for stats."].join("\n")},
+        {title:"⚙️ Server Config  —  Page 6 / 7",description:["All commands here require **Manage Server** permission.","","**Channels & Messages**","`/channelpicker channel:… [levelup]` — Set the bot's main channel","`/xpconfig setting:…` — Level-up messages (on/off, ping toggle, channel)","`/setwelcome channel:… [message]` — Welcome message (`{user}` `{server}` `{count}`)","`/setleave channel:… [message]` — Leave message","`/setboostmsg channel:… [message]` — Boost announcement","`/disableownermsg enabled:…` — Toggle bot owner broadcasts","`/purge amount:…` — Bulk delete (needs Manage Messages)","","**Roles**","`/autorole [role]` — Auto-assign role on join (blank to disable)","`/reactionrole action:add|remove|list …` — Emoji reaction roles","","**Competitions**","`/invitecomp hours:…` — Invite competition with coin rewards","","**Tickets**","`/ticketsetup` · `/closeticket` · `/addtoticket` · `/removefromticket`","","**Overview**","`/serverconfig` — View all current settings"].join("\n")},
+        {title:"📺 YouTube Tracking  —  Page 7 / 7",description:["Track a YouTube channel's subscriber count live in Discord.","All commands require **Manage Server** permission except `/growth`.","","**Setup (do this first)**","`/ytsetup channel:… discord_channel:… [apikey:…]` — Connect a YouTube channel","> Accepts `@handle`, full URL, or channel ID starting with UC","> Provide your YouTube Data API v3 key on first use — it's saved to botdata","> Get a free key at console.cloud.google.com → enable YouTube Data API v3","","**Live Sub Count**","`/subcount threshold:1K|10K` — Post an embed that edits itself every 5 min","","**Sub Goal**","`/subgoal goal:N [message]` — Live progress bar towards a target sub count","> Fires a custom or default message when the goal is reached","","**Milestones**","`/milestones action:add subs:N [message]` — Announce when a sub count is crossed","`/milestones action:remove subs:N` — Remove a milestone","`/milestones action:list` — View all milestones and their status","","**Growth Stats**","`/growth [days:7|30|90] [custom_days:N]` — Subs gained, daily average, starting count","> Data collected every 5 min — history builds up over time"].join("\n")},
       ];
-
-      const TOTAL = HELP_PAGES.length;
-      function buildHelpEmbed(page) {
-        const p = HELP_PAGES[page];
-        return {
-          embeds: [{
-            title: p.title,
-            description: p.description,
-            color: 0x5865F2,
-            footer: { text: `Use the buttons below to navigate • Page ${page+1} of ${TOTAL}` },
-          }],
-          components: [new MessageActionRow().addComponents(
+      const TOTAL=HELP_PAGES.length;
+      function buildHelpEmbed(page){
+        const p=HELP_PAGES[page];
+        return{
+          embeds:[{title:p.title,description:p.description,color:0x5865F2,footer:{text:`Use the buttons to navigate • Page ${page+1} of ${TOTAL}`}}],
+          components:[new MessageActionRow().addComponents(
             new MessageButton().setCustomId(`help_page_${page-1}`).setLabel("◀ Prev").setStyle("SECONDARY").setDisabled(page===0),
             new MessageButton().setCustomId(`help_page_${page+1}`).setLabel("Next ▶").setStyle("SECONDARY").setDisabled(page>=TOTAL-1),
           )],
-          ephemeral: true,
+          ephemeral:true,
         };
       }
-      return safeReply(interaction, buildHelpEmbed(0));
+      return safeReply(interaction,buildHelpEmbed(0));
     }
+
 
     // ── Economy ────────────────────────────────────────────────────────────────
     if(cmd==="coins"){const u=interaction.options.getUser("user")||interaction.user;return safeReply(interaction,`💰 **${u.username}** has **${getScore(u.id,u.username).coins.toLocaleString()}** coins.`);}
@@ -2619,6 +2680,147 @@ client.on("interactionCreate",async interaction=>{
       try{const deleted=await interaction.channel.bulkDelete(amount,true);return safeReply(interaction,`🗑️ Deleted **${deleted.size}** message(s).`);}
       catch(e){return safeReply(interaction,`Failed: ${e.message}`);}
     }
+
+    // ── YouTube commands ───────────────────────────────────────────────────────
+    if(cmd==="ytsetup"){
+      if(!inGuild)return safeReply(interaction,{content:"Server only.",ephemeral:true});
+      await interaction.deferReply({ephemeral:true});
+      const input     =interaction.options.getString("channel");
+      const discordCh =interaction.options.getChannel("discord_channel");
+      const newApiKey =interaction.options.getString("apikey")||null;
+      if(discordCh.type!=="GUILD_TEXT")return safeReply(interaction,{content:"❌ Please select a text channel.",ephemeral:true});
+      const existing=ytConfig.get(interaction.guildId)||{};
+      const apiKey=newApiKey||existing.apiKey||null;
+      if(!apiKey)return safeReply(interaction,{content:"❌ No API key found. Provide one with the `apikey:` option.\n\nGet a free key at https://console.cloud.google.com — enable the **YouTube Data API v3**, then create an API key credential.",ephemeral:true});
+      const ytChId=await resolveYouTubeChannelId(input,apiKey);
+      if(!ytChId)return safeReply(interaction,{content:`❌ Could not find a YouTube channel for \`${input}\`. Try the full URL or a channel ID starting with UC.`,ephemeral:true});
+      const stats=await getYouTubeStats(ytChId,apiKey);
+      if(!stats)return safeReply(interaction,{content:"❌ Could not fetch stats. Double-check the API key and that YouTube Data API v3 is enabled.",ephemeral:true});
+      ytConfig.set(interaction.guildId,{
+        ...existing,apiKey,ytChannelId:ytChId,channelTitle:stats.title,
+        discordChannelId:discordCh.id,lastSubs:stats.subs,lastSubsTimestamp:Date.now(),
+        history:existing.history||[{ts:Date.now(),subs:stats.subs}],
+      });
+      saveData();
+      return safeReply(interaction,{content:`✅ Connected to **${stats.title}** (${fmtSubs(stats.subs)} subs)\nUpdates post to <#${discordCh.id}>.\n${newApiKey?"🔑 API key saved to botdata.\n":""}\nNow use \`/subgoal\`, \`/subcount\`, \`/milestones\`, and \`/growth\`.`,ephemeral:true});
+    }
+
+    if(cmd==="subgoal"){
+      if(!inGuild)return safeReply(interaction,{content:"Server only.",ephemeral:true});
+      const cfg=ytConfig.get(interaction.guildId);
+      if(!cfg?.ytChannelId)return safeReply(interaction,{content:"❌ No YouTube channel set up. Use `/ytsetup` first.",ephemeral:true});
+      const apiKey=cfg.apiKey;
+      if(!apiKey)return safeReply(interaction,{content:"❌ No API key stored. Re-run `/ytsetup` and provide the `apikey:` option.",ephemeral:true});
+      const goal=interaction.options.getInteger("goal");
+      const goalMessage=interaction.options.getString("message")||null;
+      if(goal<1)return safeReply(interaction,{content:"❌ Goal must be at least 1.",ephemeral:true});
+      await interaction.deferReply();
+      const stats=await getYouTubeStats(cfg.ytChannelId,apiKey);
+      if(!stats)return safeReply(interaction,{content:"❌ Could not fetch current sub count."});
+      const pct=Math.min(100,Math.round(stats.subs/goal*100));
+      const ch=interaction.guild.channels.cache.get(cfg.discordChannelId);
+      if(!ch)return safeReply(interaction,{content:"❌ Configured Discord channel not found. Re-run `/ytsetup`."});
+      const embedMsg=await ch.send({embeds:[{
+        title:`🎯 ${stats.title} — Sub Goal`,
+        description:`**${fmtSubs(stats.subs)}** / **${fmtSubs(goal)}**\n\`[${buildBar(stats.subs,goal)}]\` **${pct}%**`,
+        color:pct>=100?0x00FF00:0xFF0000,footer:{text:"Updates every 5 minutes"},timestamp:new Date().toISOString(),
+      }]});
+      cfg.goal=goal;cfg.goalMessage=goalMessage;cfg.goalReached=stats.subs>=goal;
+      cfg.goalDiscordId=cfg.discordChannelId;cfg.goalMessageId=embedMsg.id;
+      saveData();
+      const goalNote=goalMessage?`\nCustom goal message saved: _"${goalMessage}"_`:"";
+      return safeReply(interaction,{content:`✅ Sub goal set to **${fmtSubs(goal)}**! Progress bar posted in <#${cfg.discordChannelId}>.${goalNote}`});
+    }
+
+    if(cmd==="subcount"){
+      if(!inGuild)return safeReply(interaction,{content:"Server only.",ephemeral:true});
+      const cfg=ytConfig.get(interaction.guildId);
+      if(!cfg?.ytChannelId)return safeReply(interaction,{content:"❌ No YouTube channel set up. Use `/ytsetup` first.",ephemeral:true});
+      const apiKey=cfg.apiKey;
+      if(!apiKey)return safeReply(interaction,{content:"❌ No API key stored. Re-run `/ytsetup` with `apikey:`.",ephemeral:true});
+      const threshold=parseInt(interaction.options.getString("threshold"));
+      await interaction.deferReply();
+      const stats=await getYouTubeStats(cfg.ytChannelId,apiKey);
+      if(!stats)return safeReply(interaction,{content:"❌ Could not fetch current sub count."});
+      const ch=interaction.guild.channels.cache.get(cfg.discordChannelId);
+      if(!ch)return safeReply(interaction,{content:"❌ Configured Discord channel not found. Re-run `/ytsetup`."});
+      const rounded=Math.floor(stats.subs/threshold)*threshold;
+      const embedMsg=await ch.send({embeds:[{
+        title:`📊 ${stats.title} — Live Sub Count`,
+        description:`## ${fmtSubs(stats.subs)}\n*~${fmtSubs(rounded)} (rounded to nearest ${fmtSubs(threshold)})*`,
+        color:0xFF0000,footer:{text:"Updates every 5 minutes"},timestamp:new Date().toISOString(),
+      }]});
+      cfg.subcountDiscordId=cfg.discordChannelId;cfg.subcountMessageId=embedMsg.id;cfg.subcountThreshold=threshold;
+      saveData();
+      return safeReply(interaction,{content:`✅ Live sub count posted in <#${cfg.discordChannelId}>. Updates every 5 minutes, rounded to nearest **${fmtSubs(threshold)}**.`});
+    }
+
+    if(cmd==="milestones"){
+      if(!inGuild)return safeReply(interaction,{content:"Server only.",ephemeral:true});
+      const cfg=ytConfig.get(interaction.guildId);
+      if(!cfg?.ytChannelId)return safeReply(interaction,{content:"❌ No YouTube channel set up. Use `/ytsetup` first.",ephemeral:true});
+      const action=interaction.options.getString("action");
+      if(!cfg.milestones)cfg.milestones=[];
+      if(!cfg.milestoneDiscordId)cfg.milestoneDiscordId=cfg.discordChannelId;
+      if(action==="list"){
+        if(!cfg.milestones.length)return safeReply(interaction,{content:"No milestones set yet. Use `/milestones action:Add milestone subs:…`.",ephemeral:true});
+        const lines=cfg.milestones.map(m=>`${m.reached?"✅":"⏳"} **${fmtSubs(m.subs)} subs**${m.message?` — _${m.message}_`:""}`);
+        return safeReply(interaction,{content:`🏆 **Milestones for ${cfg.channelTitle||"your channel"}**\nAnnouncements → <#${cfg.milestoneDiscordId}>\n\n${lines.join("\n")}`,ephemeral:true});
+      }
+      const subs=interaction.options.getInteger("subs");
+      if(!subs)return safeReply(interaction,{content:"❌ Please provide a `subs` value.",ephemeral:true});
+      if(action==="add"){
+        if(cfg.milestones.find(m=>m.subs===subs))return safeReply(interaction,{content:`❌ A milestone at ${fmtSubs(subs)} already exists.`,ephemeral:true});
+        const message=interaction.options.getString("message")||null;
+        cfg.milestones.push({subs,message,reached:(cfg.lastSubs||0)>=subs});
+        cfg.milestones.sort((a,b)=>a.subs-b.subs);
+        saveData();
+        const addedNote=message?` — "${message}"`:"";
+        return safeReply(interaction,{content:`✅ Milestone added: **${fmtSubs(subs)} subs**${addedNote}`});
+      }
+      if(action==="remove"){
+        const before=cfg.milestones.length;
+        cfg.milestones=cfg.milestones.filter(m=>m.subs!==subs);
+        if(cfg.milestones.length===before)return safeReply(interaction,{content:`❌ No milestone found at ${fmtSubs(subs)}.`,ephemeral:true});
+        saveData();
+        return safeReply(interaction,{content:`✅ Milestone at **${fmtSubs(subs)}** removed.`});
+      }
+    }
+
+    if(cmd==="growth"){
+      if(!inGuild)return safeReply(interaction,{content:"Server only.",ephemeral:true});
+      const cfg=ytConfig.get(interaction.guildId);
+      if(!cfg?.ytChannelId)return safeReply(interaction,{content:"❌ No YouTube channel set up. Use `/ytsetup` first.",ephemeral:true});
+      const apiKey=cfg.apiKey;
+      if(!apiKey)return safeReply(interaction,{content:"❌ No API key stored. Re-run `/ytsetup` with `apikey:`.",ephemeral:true});
+      await interaction.deferReply();
+      const customDays=interaction.options.getInteger("custom_days")||null;
+      const presetDays=interaction.options.getString("days")||null;
+      const days=customDays||(presetDays?parseInt(presetDays):7);
+      if(days<1||days>365)return safeReply(interaction,{content:"❌ Days must be between 1 and 365."});
+      const stats=await getYouTubeStats(cfg.ytChannelId,apiKey);
+      if(!stats)return safeReply(interaction,{content:"❌ Could not fetch current sub count."});
+      const now=Date.now();
+      const cutoff=now-(days*24*60*60*1000);
+      const history=cfg.history||[];
+      const windowEntries=history.filter(e=>e.ts>=cutoff);
+      let gained=null,startSubs=null;
+      if(windowEntries.length>0){startSubs=windowEntries[0].subs;gained=stats.subs-startSubs;}
+      const color=gained===null?0x888888:gained>0?0x00FF00:gained<0?0xFF4444:0x888888;
+      const dayLabel=`${days} day${days!==1?"s":""}`;
+      const descLines=[
+        `**Current:** ${fmtSubs(stats.subs)} subs`,
+        gained!==null?`**${dayLabel} ago:** ${fmtSubs(startSubs)} subs`:null,
+        gained!==null?`**Gained:** ${gained>=0?"+":""}${fmtSubs(gained)} subs`:null,
+        gained!==null?`**Daily avg:** ${gained>=0?"+":""}${fmtSubs(Math.round(gained/days))}/day`:null,
+        gained===null?`*(Not enough history yet — data collects every 5 min. Check back after ${dayLabel} of tracking.)*`:null,
+      ].filter(Boolean).join("\n");
+      return safeReply(interaction,{embeds:[{
+        title:`📈 ${cfg.channelTitle||"Channel"} — Growth (last ${dayLabel})`,
+        description:descLines,color,timestamp:new Date().toISOString(),
+      }]});
+    }
+
 
     // Ticket setup command
     if(cmd==="ticketsetup"){
