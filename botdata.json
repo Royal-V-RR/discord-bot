@@ -68,7 +68,12 @@
         ],
         "subcountDiscordId": "1483595393999700080",
         "subcountMessageId": "1483600861866233898",
-        "subcountThreshold": 1000
+        "subcountThreshold": 1000,
+        "goal": 15000,
+        "goalMessage": "@everyone, respawn raccoon just hit the sub goal of 15k subs! Congratulations to him!",
+        "goalReached": false,
+        "goalDiscordId": "1483595393999700080",
+        "goalMessageId": "1483601423173419142"
       }
     ]
   ],
