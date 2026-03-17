@@ -46,7 +46,25 @@
       }
     ]
   ],
-  "ytConfig": [],
+  "ytConfig": [
+    [
+      "1048053656035020911",
+      {
+        "apiKey": "AIzaSyCILHFZR9_HxA6Igt20QvPB9bcEl35JxdQ",
+        "ytChannelId": "UC4PeFFYzg1xjkb1VcGZVcqQ",
+        "channelTitle": "RespawnRaccoon",
+        "discordChannelId": "1483595393999700080",
+        "lastSubs": 10100,
+        "lastSubsTimestamp": 1773788274802,
+        "history": [
+          {
+            "ts": 1773788274802,
+            "subs": 10100
+          }
+        ]
+      }
+    ]
+  ],
   "userInstalls": [
     "969280648667889764",
     "1065656251649892382"
