@@ -122,14 +122,15 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 111,
+        "xp": 136,
         "level": 2,
         "lastWorkTime": 0,
         "lastBegTime": 0,
         "lastCrimeTime": 0,
         "lastRobTime": 0,
         "inventory": [],
-        "marriedTo": null
+        "marriedTo": null,
+        "pendingProposal": null
       }
     ],
     [
@@ -209,7 +210,8 @@
         "lastCrimeTime": 1773687420016,
         "lastRobTime": 0,
         "inventory": [],
-        "marriedTo": "969280648667889764"
+        "marriedTo": "969280648667889764",
+        "pendingProposal": null
       }
     ],
     [
