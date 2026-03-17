@@ -57,6 +57,9 @@ const userInstalls     = new Set();
 // channelId: override channel — null means use guildChannels fallback then same-channel
 const levelUpConfig    = new Map(); // guildId -> { enabled, ping, channelId }
 
+// ── Marriage proposals ────────────────────────────────────────────────────────
+const marriageProposals = new Map(); // proposerId -> { targetId, timeout }
+
 // ── Scores ────────────────────────────────────────────────────────────────────
 // FIX: scores MUST be declared before loadData() so loadData can populate it
 const scores = new Map();
@@ -67,7 +70,7 @@ function getScore(userId, username) {
     dailyStreak:0, bestStreak:0, lastDailyDate:"",
     xp:0, level:1,
     lastWorkTime:0, lastBegTime:0, lastCrimeTime:0, lastRobTime:0,
-    inventory:[], marriedTo:null
+    inventory:[], marriedTo:null, pendingProposal:null
   });
   const s = scores.get(userId);
   if (username) s.username = username;
@@ -79,6 +82,7 @@ function getScore(userId, username) {
   if (s.lastRobTime   == null) s.lastRobTime   = 0;
   if (s.inventory     == null) s.inventory     = [];
   if (s.marriedTo     == null) s.marriedTo     = null;
+  if (!('pendingProposal' in s)) s.pendingProposal = null;
   if (s.dailyStreak   == null) s.dailyStreak   = 0;
   if (s.bestStreak    == null) s.bestStreak    = 0;
   if (s.lastDailyDate == null) s.lastDailyDate = "";
@@ -124,60 +128,73 @@ let   _commitTimer = null;
 
 async function commitDataToGitHub(jsonString) {
   if (!GH_TOKEN || !GH_REPO) return;
-  try {
-    const getOpts = {
-      hostname: "api.github.com", port: 443,
-      path: `/repos/${GH_REPO}/contents/botdata.json`,
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${GH_TOKEN}`,
-        "User-Agent":  "discord-bot",
-        Accept:        "application/vnd.github+json",
-      }
-    };
-    const existing = await new Promise(resolve => {
-      const req = https.request(getOpts, res => {
+
+  // Helper: fetch current SHA of botdata.json (required for updates)
+  async function fetchSHA() {
+    return new Promise(resolve => {
+      const req = https.request({
+        hostname: "api.github.com", port: 443,
+        path: `/repos/${GH_REPO}/contents/botdata.json`,
+        method: "GET",
+        headers: { Authorization: `Bearer ${GH_TOKEN}`, "User-Agent": "discord-bot", Accept: "application/vnd.github+json" }
+      }, res => {
         let b = ""; res.on("data", c => b += c);
-        res.on("end", () => { try { resolve(JSON.parse(b)); } catch { resolve(null); } });
+        res.on("end", () => {
+          try {
+            const j = JSON.parse(b);
+            resolve(j?.sha || null);
+          } catch { resolve(null); }
+        });
       });
       req.on("error", () => resolve(null));
       req.end();
     });
-    const sha = existing?.sha || null;
+  }
 
+  // Helper: attempt one PUT
+  async function tryPut(sha) {
     const encoded = Buffer.from(jsonString).toString("base64");
     const body = JSON.stringify({
       message: "chore: auto-save botdata",
       content: encoded,
       ...(sha ? { sha } : {}),
     });
-    const putOpts = {
-      hostname: "api.github.com", port: 443,
-      path: `/repos/${GH_REPO}/contents/botdata.json`,
-      method: "PUT",
-      headers: {
-        Authorization:  `Bearer ${GH_TOKEN}`,
-        "User-Agent":   "discord-bot",
-        Accept:         "application/vnd.github+json",
-        "Content-Type": "application/json",
-        "Content-Length": Buffer.byteLength(body),
-      }
-    };
-    await new Promise((resolve, reject) => {
-      const req = https.request(putOpts, res => {
+    return new Promise((resolve, reject) => {
+      const req = https.request({
+        hostname: "api.github.com", port: 443,
+        path: `/repos/${GH_REPO}/contents/botdata.json`,
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${GH_TOKEN}`, "User-Agent": "discord-bot",
+          Accept: "application/vnd.github+json",
+          "Content-Type": "application/json", "Content-Length": Buffer.byteLength(body),
+        }
+      }, res => {
         let b = ""; res.on("data", c => b += c);
-        res.on("end", () => {
-          if (res.statusCode === 200 || res.statusCode === 201) {
-            console.log("✅ botdata.json committed to GitHub");
-          } else {
-            console.warn(`⚠️  GitHub commit HTTP ${res.statusCode}: ${b.slice(0,200)}`);
-          }
-          resolve();
-        });
+        res.on("end", () => resolve({ status: res.statusCode, body: b }));
       });
       req.on("error", reject);
       req.write(body); req.end();
     });
+  }
+
+  try {
+    // Attempt 1: fetch SHA and PUT
+    let sha = await fetchSHA();
+    let result = await tryPut(sha);
+
+    // If 409 (conflict) or 422 (wrong/missing SHA), fetch fresh SHA and retry once
+    if (result.status === 409 || result.status === 422) {
+      console.log(`⚠️  GitHub commit ${result.status} — retrying with fresh SHA`);
+      sha = await fetchSHA();
+      result = await tryPut(sha);
+    }
+
+    if (result.status === 200 || result.status === 201) {
+      console.log("✅ botdata.json committed to GitHub");
+    } else {
+      console.error(`❌ GitHub commit failed HTTP ${result.status}: ${result.body.slice(0,300)}`);
+    }
   } catch(e) { console.error("commitDataToGitHub error:", e.message); }
 }
 
@@ -1061,10 +1078,6 @@ client.on("messageCreate",async msg=>{
   }
 });
 
-// ── Marriage proposals ────────────────────────────────────────────────────────
-// Stores pending proposals: proposerId -> { targetId, channelId, timeout }
-const marriageProposals = new Map();
-
 // ── Interaction handler ───────────────────────────────────────────────────────
 client.on("interactionCreate",async interaction=>{
   if(!instanceLocked)return;
@@ -1093,14 +1106,10 @@ client.on("interactionCreate",async interaction=>{
         try{await interaction.reply({content:"This proposal isn't for you!",ephemeral:true});}catch{}
         return;
       }
-      // Clear the timeout and proposal
       clearTimeout(proposal.timeout);
       marriageProposals.delete(proposerId);
-
       if(!(await btnAck(interaction)))return;
-
       if(cid.startsWith("marry_accept_")){
-        // Double-check neither is already married (could have changed while waiting)
         const proposerScore=getScore(proposerId,null);
         const targetScore=getScore(uid,interaction.user.username);
         if(proposerScore.marriedTo){
@@ -1114,24 +1123,12 @@ client.on("interactionCreate",async interaction=>{
         proposerScore.marriedTo=uid;
         targetScore.marriedTo=proposerId;
         saveData();
-        try{
-          await interaction.editReply({
-            content:`💍 **${interaction.user.username}** said YES! 🎉\n<@${proposerId}> and <@${uid}> are now married! Congratulations! 💕`,
-            components:[]
-          });
-        }catch{}
+        try{await interaction.editReply({content:`💍 **${interaction.user.username}** said YES! 🎉\n<@${proposerId}> and <@${uid}> are now married! Congratulations! 💕`,components:[]});}catch{}
       } else {
-        try{
-          await interaction.editReply({
-            content:`💔 **${interaction.user.username}** declined the proposal. Maybe next time, <@${proposerId}>.`,
-            components:[]
-          });
-        }catch{}
+        try{await interaction.editReply({content:`💔 **${interaction.user.username}** declined the proposal. Maybe next time, <@${proposerId}>.`,components:[]});}catch{}
       }
       return;
     }
-
-    // Hangman
     if(cid.startsWith("hm_")){
       const letter=cid.slice(3);
       const gd=activeGames.get(interaction.channelId);
@@ -1572,48 +1569,54 @@ client.on("interactionCreate",async interaction=>{
     if(cmd==="slap")     return safeReply(interaction,`${au()} slapped ${bu()}`);
     if(cmd==="throw")    return safeReply(interaction,`${au()} threw ${pick(THROW_ITEMS)} at ${bu()}!`);
 
-    // ── /marry — proposal with accept/decline buttons ─────────────────────────
+    // ── /marry — persistent proposal stored in botdata.json ──────────────────
     if(cmd==="marry"){
-      if(!inGuild)return safeReply(interaction,{content:"💍 Marriage proposals only work in servers — the other person needs to be able to see and accept!",ephemeral:true});
       const target=interaction.options.getUser("user");
       if(target.id===interaction.user.id)return safeReply(interaction,{content:"You can't marry yourself.",ephemeral:true});
       if(target.bot)return safeReply(interaction,{content:"You can't marry a bot.",ephemeral:true});
-      const s=getScore(interaction.user.id,interaction.user.username);
-      if(s.marriedTo)return safeReply(interaction,{content:`You're already married to <@${s.marriedTo}>! Use /divorce first.`,ephemeral:true});
-      const t=getScore(target.id,target.username);
-      if(t.marriedTo)return safeReply(interaction,{content:`<@${target.id}> is already married!`,ephemeral:true});
-      // Check for existing pending proposal from this user
-      if(marriageProposals.has(interaction.user.id)){
-        return safeReply(interaction,{content:"You already have a pending proposal! Wait for it to expire or be answered.",ephemeral:true});
+
+      const s  = getScore(interaction.user.id, interaction.user.username);
+      const t  = getScore(target.id, target.username);
+
+      // ── Case 1: target already proposed to ME — this is an acceptance ──────
+      if(t.pendingProposal === interaction.user.id){
+        // Both must be unmarried
+        if(s.marriedTo) return safeReply(interaction,{content:`You're already married to <@${s.marriedTo}>! Use /divorce first.`,ephemeral:true});
+        if(t.marriedTo) return safeReply(interaction,{content:`<@${target.id}> is already married to someone else!`,ephemeral:true});
+        // Accept: marry both sides, clear the proposal
+        s.marriedTo = target.id;
+        t.marriedTo = interaction.user.id;
+        t.pendingProposal = null;
+        saveData();
+        return safeReply(interaction,`💍 **${interaction.user.username}** accepted! 🎉\n<@${interaction.user.id}> and <@${target.id}> are now married! Congratulations! 💕`);
       }
-      const proposerId=interaction.user.id;
-      const row=new MessageActionRow().addComponents(
-        new MessageButton().setCustomId(`marry_accept_${proposerId}`).setLabel("💍 Accept").setStyle("SUCCESS"),
-        new MessageButton().setCustomId(`marry_decline_${proposerId}`).setLabel("💔 Decline").setStyle("DANGER"),
+
+      // ── Case 2: I'm proposing ─────────────────────────────────────────────
+      if(s.marriedTo) return safeReply(interaction,{content:`You're already married to <@${s.marriedTo}>! Use /divorce first.`,ephemeral:true});
+      if(t.marriedTo) return safeReply(interaction,{content:`<@${target.id}> is already married!`,ephemeral:true});
+      // Check if target already has a different pending proposal incoming (from someone else)
+      if(t.pendingProposal && t.pendingProposal !== interaction.user.id){
+        return safeReply(interaction,{content:`<@${target.id}> already has a pending proposal from someone else.`,ephemeral:true});
+      }
+      // Check if I already proposed to this person
+      if(t.pendingProposal === interaction.user.id){
+        return safeReply(interaction,{content:`You already proposed to <@${target.id}>! They need to run \`/marry @${interaction.user.username}\` to accept.`,ephemeral:true});
+      }
+      // Store the proposal on the target's record so it survives bot restarts
+      t.pendingProposal = interaction.user.id;
+      saveData();
+      return safeReply(interaction,
+        `💍 **Marriage Proposal!**\n\n<@${interaction.user.id}> has proposed to <@${target.id}>! 🌹\n\n<@${target.id}> — run \`/marry @${interaction.user.username}\` to accept, or ignore to decline.`
       );
-      // Auto-expire after 60 seconds
-      const timeout=setTimeout(()=>{
-        if(marriageProposals.has(proposerId)){
-          marriageProposals.delete(proposerId);
-          // Edit the original message to show it expired
-          interaction.editReply({
-            content:`💍 **Marriage Proposal** — Expired\n<@${proposerId}> proposed to <@${target.id}> but the proposal timed out.`,
-            components:[]
-          }).catch(()=>{});
-        }
-      }, 60000);
-      marriageProposals.set(proposerId, { targetId: target.id, timeout });
-      return safeReply(interaction,{
-        content:`💍 **Marriage Proposal!**\n\n<@${proposerId}> has proposed to <@${target.id}>! 🌹\n\n<@${target.id}>, do you accept?`,
-        components:[row]
-      });
     }
 
     if(cmd==="divorce"){
       const s=getScore(interaction.user.id,interaction.user.username);
       if(!s.marriedTo)return safeReply(interaction,{content:"You're not married.",ephemeral:true});
-      const t=scores.get(s.marriedTo);if(t)t.marriedTo=null;
+      const t=scores.get(s.marriedTo);
+      if(t){ t.marriedTo=null; t.pendingProposal=null; }
       s.marriedTo=null;
+      s.pendingProposal=null;
       saveData();
       return safeReply(interaction,`💔 **${interaction.user.username}** filed for divorce. It's over.`);
     }
@@ -2515,7 +2518,7 @@ client.on("interactionCreate",async interaction=>{
     }
     if(cmd==="adminreset"){
       const target=interaction.options.getUser("user");
-      scores.set(target.id,{username:target.username,wins:0,gamesPlayed:0,coins:0,dailyStreak:0,bestStreak:0,lastDailyDate:"",xp:0,level:1,lastWorkTime:0,lastBegTime:0,lastCrimeTime:0,lastRobTime:0,inventory:[],marriedTo:null});
+      scores.set(target.id,{username:target.username,wins:0,gamesPlayed:0,coins:0,dailyStreak:0,bestStreak:0,lastDailyDate:"",xp:0,level:1,lastWorkTime:0,lastBegTime:0,lastCrimeTime:0,lastRobTime:0,inventory:[],marriedTo:null,pendingProposal:null});
       saveData();
       return safeReply(interaction,{content:`✅ Reset all stats for **${target.username}**.`,ephemeral:true});
     }
