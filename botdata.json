@@ -35,12 +35,14 @@
     ]
   ],
   "disabledOwnerMsg": [],
-  "disabledLevelUp": [],
+  "disabledLevelUp": [
+    "1048053656035020911"
+  ],
   "levelUpConfig": [
     [
       "1048053656035020911",
       {
-        "enabled": true,
+        "enabled": false,
         "ping": false,
         "channelId": "1475189245504131132"
       }
@@ -60,7 +62,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 0,
+        "xp": 11,
         "level": 2,
         "lastWorkTime": 1773738814131,
         "lastBegTime": 0,
@@ -120,7 +122,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 47,
+        "xp": 56,
         "level": 2,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -140,7 +142,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 6,
+        "xp": 12,
         "level": 3,
         "lastWorkTime": 0,
         "lastBegTime": 0,
