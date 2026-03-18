@@ -21,8 +21,10 @@
       {
         "nextId": 1,
         "categoryId": "1474787500521291809",
-        "supportRoleIds": [],
-        "supportRoleId": null,
+        "supportRoleIds": [
+          "1475153669287837716"
+        ],
+        "supportRoleId": "1475153669287837716",
         "panelMessageId": "1483801126859178069"
       }
     ]
