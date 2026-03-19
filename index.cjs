@@ -44,6 +44,7 @@ const disabledOwnerMsg = new Set();
 const activeGames      = new Map();
 const reminders        = [];
 const countGames       = new Map();
+const countingChannels = new Map(); // channelId -> { guildId, count, lastUserId, highScore }
 const inviteComps      = new Map();
 const inviteCache      = new Map();
 const ticketConfigs    = new Map();
@@ -128,6 +129,7 @@ const CONFIG = {
   work_cooldown_ms:3600000, beg_cooldown_ms:300000,
   crime_cooldown_ms:7200000, rob_cooldown_ms:3600000,
   daily_base_coins:100, daily_streak_bonus:10,
+  daily_wrong_penalty:5,
   slots_min_bet:1, game_win_coins:50, game_draw_coins:10,
   olympics_win_coins:75, starting_coins:100,
 };
@@ -224,6 +226,7 @@ function buildDataObject() {
     disabledLevelUp:  [...disabledLevelUp],
     levelUpConfig:    [...levelUpConfig.entries()],
     ytConfig:         [...ytConfig.entries()],
+    countingChannels: [...countingChannels.entries()],
     userInstalls:     [...userInstalls],
     scores:           [...scores.entries()],
   };
@@ -269,6 +272,7 @@ function loadData() {
     if (data.disabledLevelUp)  data.disabledLevelUp .forEach(v => disabledLevelUp.add(v));
     if (data.levelUpConfig)    data.levelUpConfig    .forEach(([k,v]) => levelUpConfig.set(k, v));
     if (data.ytConfig)         data.ytConfig         .forEach(([k,v]) => ytConfig.set(k, v));
+    if (data.countingChannels) data.countingChannels  .forEach(([k,v]) => countingChannels.set(k, v));
     if (data.userInstalls)     data.userInstalls    .forEach(v => userInstalls.add(v));
     if (data.scores)           data.scores          .forEach(([k,v]) => scores.set(k, v));
     console.log(`✅ Data loaded — ${ticketConfigs.size} ticket configs, ${reactionRoles.size} reaction roles, ${scores.size} scores, ${guildChannels.size} channels`);
@@ -958,6 +962,9 @@ function buildCommands(){
     ]},
     // Server management
     {name:"channelpicker",   description:"Set bot announcement channel (Manage Server)",options:[{name:"channel",description:"Channel",type:7,required:true},{name:"levelup",description:"Enable level-up notifications? (default: true)",type:5,required:false}]},
+    {name:"counting",        description:"Set or remove a permanent counting channel (Manage Server)",options:[
+      {name:"action",        description:"What to do",type:3,required:true,choices:[{name:"Set this channel as a counting channel",value:"set"},{name:"Remove counting from this channel",value:"remove"},{name:"Check current count",value:"status"}]},
+    ]},
     {name:"xpconfig",        description:"Configure level-up notifications for this server (Manage Server)",options:[
       {name:"setting",description:"What to configure",type:3,required:true,choices:[
         {name:"View current config",              value:"show"},
@@ -1267,6 +1274,37 @@ client.on("messageCreate",async msg=>{
         const was=cg.count;cg.count=0;cg.lastUserId=null;
         await msg.react("❌").catch(()=>{});
         await safeSend(msg.channel,`❌ <@${msg.author.id}> said **${num}** but expected **${was+1}**! Back to **0**.`);
+      }
+    }
+  }
+
+  // ── Permanent counting channel ────────────────────────────────────────────
+  const cc=countingChannels.get(msg.channelId);
+  if(cc){
+    const trimmed=msg.content.trim();
+    const num=parseInt(trimmed);
+    // Only process pure integer messages — ignore anything else silently
+    if(!isNaN(num)&&/^-?\d+$/.test(trimmed)){
+      if(msg.author.id===cc.lastUserId){
+        // Double count — reset
+        const was=cc.count;
+        cc.count=0;cc.lastUserId=null;
+        saveData();
+        await msg.react("❌").catch(()=>{});
+        await safeSend(msg.channel,`❌ <@${msg.author.id}> counted twice in a row! The count resets. (**${was}** → **0**)\nNext number: **1**`);
+      }else if(num===cc.count+1){
+        // Correct
+        cc.count++;cc.lastUserId=msg.author.id;
+        if(cc.count>(cc.highScore||0)){cc.highScore=cc.count;}
+        saveData();
+        await msg.react("✅").catch(()=>{});
+      }else{
+        // Wrong number — reset
+        const was=cc.count;
+        cc.count=0;cc.lastUserId=null;
+        saveData();
+        await msg.react("❌").catch(()=>{});
+        await safeSend(msg.channel,`❌ <@${msg.author.id}> said **${num}** but the next number was **${was+1}**! The count resets. (**${was}** → **0**)\nNext number: **1**`);
       }
     }
   }
@@ -1816,7 +1854,7 @@ client.on("interactionCreate",async interaction=>{
   const ownerOnly=["servers","broadcast","fakecrash","identitycrisis","botolympics","sentience","legendrandom","dmuser","leaveserver","restart","botstats","setstatus","adminuser","adminreset","adminconfig","admingive"];
   if(ownerOnly.includes(cmd)&&!OWNER_IDS.includes(interaction.user.id))return safeReply(interaction,{content:"Owner only.",ephemeral:true});
 
-  const manageServerCmds=["channelpicker","xpconfig","setwelcome","setleave","setwelcomemsg","setleavemsg","disableownermsg","serverconfig","autorole","setboostmsg","invitecomp","purge","reactionrole","ticketsetup","ytsetup","subgoal","subcount","milestones"];
+  const manageServerCmds=["channelpicker","counting","xpconfig","setwelcome","setleave","setwelcomemsg","setleavemsg","disableownermsg","serverconfig","autorole","setboostmsg","invitecomp","purge","reactionrole","ticketsetup","ytsetup","subgoal","subcount","milestones"];
   if(manageServerCmds.includes(cmd)){
     if(!inGuild)return safeReply(interaction,{content:"Server only.",ephemeral:true});
     if(!OWNER_IDS.includes(interaction.user.id)&&!interaction.member.permissions.has("MANAGE_GUILD"))
@@ -2311,7 +2349,7 @@ client.on("interactionCreate",async interaction=>{
         const ch=getDailyChallenge();const targetCh=getTargetChannel(interaction);
         await safeReply(interaction,`📅 **Daily Challenge!**\n\n${ch.desc}\n\nYou have **60 seconds**!`);
         const col=targetCh.createMessageCollector({filter:m=>m.author.id===uid,idle:60*1000});
-        col.on("collect",async m=>{if(m.content.trim().toLowerCase()===ch.answer.toLowerCase()){col.stop("won");dailyCompletions.add(uid);const s=recordDaily(uid,interaction.user.username);saveData();const bonus=(s.dailyStreak-1)*CONFIG.daily_streak_bonus;await m.reply(`🎉 **Correct!** +${CONFIG.daily_base_coins+bonus} coins\n🔥 Streak: **${s.dailyStreak}**${s.dailyStreak===s.bestStreak&&s.dailyStreak>1?" 🏆 New best!":""}\n💰 Balance: **${s.coins}**`);}else{const ps=getScore(m.author.id,m.author.username);const penalty=5;ps.coins=Math.max(0,ps.coins-penalty);saveData();await m.reply(`❌ Not quite! Keep trying... (-${penalty} coins)\n💰 Balance: **${ps.coins}**`);}});
+        col.on("collect",async m=>{if(m.content.trim().toLowerCase()===ch.answer.toLowerCase()){col.stop("won");dailyCompletions.add(uid);const s=recordDaily(uid,interaction.user.username);saveData();const bonus=(s.dailyStreak-1)*CONFIG.daily_streak_bonus;await m.reply(`🎉 **Correct!** +${CONFIG.daily_base_coins+bonus} coins\n🔥 Streak: **${s.dailyStreak}**${s.dailyStreak===s.bestStreak&&s.dailyStreak>1?" 🏆 New best!":""}\n💰 Balance: **${s.coins}**`);}else{const ps=getScore(m.author.id,m.author.username);const penalty=CONFIG.daily_wrong_penalty;ps.coins=Math.max(0,ps.coins-penalty);saveData();await m.reply(`❌ Not quite! Keep trying... (-${penalty} coins)\n💰 Balance: **${ps.coins}**`);}});
         col.on("end",(_,reason)=>{if(reason==="idle")safeSend(targetCh,`⏰ Daily timed out! Answer was **${ch.answer}**.`);});
         return;
       }
@@ -2469,6 +2507,32 @@ client.on("interactionCreate",async interaction=>{
       const levelupOpt=interaction.options.getBoolean("levelup");
       if(levelupOpt===false){disabledLevelUp.add(interaction.guildId);saveData();return safeReply(interaction,{content:`✅ Bot channel → <#${ch.id}>\n🔇 Level-up notifications **disabled**.`,ephemeral:true});}
       else{disabledLevelUp.delete(interaction.guildId);saveData();return safeReply(interaction,{content:`✅ Bot channel → <#${ch.id}>\n🔔 Level-up notifications **enabled**.`,ephemeral:true});}
+    }
+
+    if(cmd==="counting"){
+      if(!inGuild)return safeReply(interaction,{content:"Server only.",ephemeral:true});
+      const action=interaction.options.getString("action");
+      const chId=interaction.channelId;
+      if(action==="set"){
+        if(countingChannels.has(chId)){
+          const cc=countingChannels.get(chId);
+          return safeReply(interaction,{content:`This channel is already a counting channel! Current count: **${cc.count}** | High score: **${cc.highScore||0}**`,ephemeral:true});
+        }
+        countingChannels.set(chId,{guildId:interaction.guildId,count:0,lastUserId:null,highScore:0});
+        saveData();
+        return safeReply(interaction,`🔢 **Counting channel activated!**\n\nThis channel is now a counting channel. Start counting from **1**!\n\n> Numbers only — count one at a time, no counting twice in a row.\n> Mess up and the count resets back to **0**.`);
+      }
+      if(action==="remove"){
+        if(!countingChannels.has(chId))return safeReply(interaction,{content:"This channel is not a counting channel.",ephemeral:true});
+        countingChannels.delete(chId);
+        saveData();
+        return safeReply(interaction,`✅ Counting channel removed from <#${chId}>.`);
+      }
+      if(action==="status"){
+        if(!countingChannels.has(chId))return safeReply(interaction,{content:"This channel is not a counting channel.",ephemeral:true});
+        const cc=countingChannels.get(chId);
+        return safeReply(interaction,`🔢 **Counting Channel Status**\nCurrent count: **${cc.count}**\nHigh score: **${cc.highScore||0}**\nNext number: **${cc.count+1}**`);
+      }
     }
 
     if(cmd==="xpconfig"){
