@@ -410,6 +410,18 @@ const SLOT_SYMBOLS=["🍒","🍋","🍊","🍇","⭐","💎"];
 const WORK_RESPONSES=[{msg:"💼 You worked a shift at the office and earned **{c}** coins.",lo:80,hi:180},{msg:"🔧 You fixed some pipes and the client paid you **{c}** coins.",lo:60,hi:140},{msg:"💻 You freelanced on a website project and earned **{c}** coins.",lo:100,hi:200},{msg:"📦 You sorted packages at the warehouse for **{c}** coins.",lo:50,hi:120},{msg:"🎨 You painted a mural commission and received **{c}** coins.",lo:90,hi:190},{msg:"🍕 You delivered pizzas all evening and made **{c}** coins.",lo:55,hi:130},{msg:"🏗️ You worked a construction shift and earned **{c}** coins.",lo:85,hi:175}];
 const BEG_RESPONSES=[{msg:"🙏 A kind stranger tossed you **{c}** coins.",lo:5,hi:30,give:true},{msg:"😔 Nobody gave you anything. Rough day.",lo:0,hi:0,give:false},{msg:"🤑 Someone felt generous and handed you **{c}** coins!",lo:15,hi:50,give:true},{msg:"🫳 A passing cat knocked **{c}** coins toward you.",lo:1,hi:20,give:true},{msg:"📭 You begged for an hour and got absolutely nothing. Tragic.",lo:0,hi:0,give:false}];
 const CRIME_RESPONSES=[{msg:"🚨 You tried to pickpocket someone but got caught! Paid **{c}** coins in fines.",success:false,lo:20,hi:80},{msg:"💰 You hacked a vending machine and grabbed **{c}** coins worth of snacks.",success:true,lo:50,hi:150},{msg:"🛒 You shoplifted and flipped the goods for **{c}** coins.",success:true,lo:40,hi:120},{msg:"🕵️ You pulled off a small con and walked away with **{c}** coins.",success:true,lo:60,hi:160},{msg:"🚔 The cops showed up and you lost **{c}** coins fleeing.",success:false,lo:15,hi:60},{msg:"🎲 You rigged a street bet and won **{c}** coins.",success:true,lo:70,hi:170},{msg:"🧢 You got scammed while trying to scam someone else. Down **{c}** coins.",success:false,lo:10,hi:50}];
+
+// ── Shop items (module scope so all handlers can access) ───────────────────────
+// Note: prices come from CONFIG so they update when adminconfig changes them.
+// SHOP_ITEMS is a function so it always reads current CONFIG values.
+function getShopItems(){return{
+  lucky_charm:   {name:"Lucky Charm 🍀",  price:CONFIG.shop_lucky_charm_price,   desc:"+10% coins on all earning actions for 1hr (work, beg, crime, slots, blackjack)"},
+  xp_boost:      {name:"XP Boost ⚡",      price:CONFIG.shop_xp_boost_price,      desc:"2× XP from messages for 1hr"},
+  shield:        {name:"Shield 🛡️",        price:CONFIG.shop_shield_price,        desc:"Blocks the next rob attempt"},
+  coin_magnet:   {name:"Coin Magnet 🧲",   price:CONFIG.shop_coin_magnet_price,   desc:"Next /work gives 3× coins (single use)"},
+  mystery_box:   {name:"Mystery Box 📦",   price:CONFIG.shop_mystery_box_price,   desc:"Open for a random reward: 50–500 coins or a random item"},
+  rob_insurance: {name:"Rob Insurance 📋", price:CONFIG.shop_rob_insurance_price, desc:"If caught robbing, pay no fine (single use)"},
+};}
 const TRUTH_QUESTIONS=["Have you ever pretended to be asleep to avoid a conversation?","What's the most embarrassing thing in your search history?","Have you ever blamed someone else for something you did?","What's the longest you've gone without showering?","Have you ever sent a text to the wrong person?","What's something you pretend to like but secretly hate?","Have you ever ghosted someone and regretted it?","What's the most childish thing you still do?"];
 const DARE_ACTIONS=["Change your server nickname to 'Big Mistake' for 10 minutes.","Send a voice message saying 'I am a golden retriever' right now.","Type out your honest opinion of the last person who messaged you.","Use only capital letters for the next 5 messages.","Send the 5th photo in your camera roll with no context.","Type a haiku about the last thing you ate.","Compliment every person who has sent a message in the last 10 minutes.","Send a message using only emoji."];
 const NEVERHAVEI_STMTS=["... eaten food that fell on the floor.","... stayed up for more than 24 hours straight.","... pretended not to see a notification.","... laughed at something I shouldn't have.","... said 'you too' when the waiter said 'enjoy your meal'.","... accidentally liked a very old post while stalking someone's profile.","... cried at a movie or show alone.","... talked to my pet like they understand everything.","... sent a message and immediately regretted it.","... forgotten someone's name right after being introduced."];
@@ -1099,7 +1111,7 @@ function buildCommands(){
     {name:"adminconfig",    description:"[Owner] View/edit global config values",options:[{name:"key",description:`Config key (leave blank to list all). Keys: ${Object.keys(CONFIG).join(", ")}`,type:3,required:false},{name:"value",description:"New integer value",type:4,required:false}]},
     {name:"admingive",      description:"[Owner] Give coins and/or an item to a user",options:[
       {name:"user",   description:"Target user",   type:6,required:true},
-      {name:"amount", description:"Coins to give (0 for items only)", type:4,required:true},
+      {name:"amount", description:"Coins to give", type:4,required:false},
       {name:"item",   description:"Item to give (optional)", type:3,required:false,choices:[
         {name:"Lucky Charm 🍀",  value:"lucky_charm"},
         {name:"XP Boost ⚡",     value:"xp_boost"},
@@ -1596,13 +1608,16 @@ client.on("interactionCreate",async interaction=>{
       if(!(await btnAck(interaction)))return;
       const{deck,playerHand,dealerHand,bet,playerScore}=gd;
       const showBoard=(hide=true)=>`🃏 **Blackjack** (bet: ${bet} coins)\n\n**Your hand:** ${renderHand(playerHand)} — **${handVal(playerHand)}**\n**Dealer:** ${renderHand(dealerHand,hide)}${hide?"":" — **"+handVal(dealerHand)+"**"}`;
+      const bjFx=activeEffects.get(uid)||{};
+      const bjCharm=bjFx.lucky_charm_expiry&&bjFx.lucky_charm_expiry>Date.now();
+      const bjWin=(coins)=>bjCharm?Math.floor(coins*1.1):coins; // apply charm to wins only
       if(action==="hit"){
         playerHand.push(deck.pop());const pv=handVal(playerHand);
         if(pv>21){activeGames.delete(interaction.channelId);playerScore.coins-=bet;recordLoss(uid,interaction.user.username);saveData();try{await interaction.editReply({content:`${showBoard(false)}\n\n💥 **Bust!** Lost **${bet}** coins.\n💰 Balance: **${playerScore.coins}**`,components:makeBJButtons(true)});}catch{}}
-        else if(pv===21){while(handVal(dealerHand)<17)dealerHand.push(deck.pop());const dv=handVal(dealerHand);let msg;if(dv>21||pv>dv){playerScore.coins+=bet;recordWin(uid,interaction.user.username,0);msg=`✅ You win **${bet}** coins!`;}else if(pv===dv){recordDraw(uid,interaction.user.username);msg=`🤝 Push!`;}else{playerScore.coins-=bet;recordLoss(uid,interaction.user.username);msg=`❌ Dealer wins. Lost **${bet}** coins.`;}activeGames.delete(interaction.channelId);saveData();try{await interaction.editReply({content:`${showBoard(false)}\n\n${msg}\n💰 Balance: **${playerScore.coins}**`,components:makeBJButtons(true)});}catch{}}
+        else if(pv===21){while(handVal(dealerHand)<17)dealerHand.push(deck.pop());const dv=handVal(dealerHand);let msg;if(dv>21||pv>dv){const w=bjWin(bet);playerScore.coins+=w;recordWin(uid,interaction.user.username,0);msg=`✅ You win **${w}** coins!`+(bjCharm?" 🍀":"");}else if(pv===dv){recordDraw(uid,interaction.user.username);msg=`🤝 Push!`;}else{playerScore.coins-=bet;recordLoss(uid,interaction.user.username);msg=`❌ Dealer wins. Lost **${bet}** coins.`;}activeGames.delete(interaction.channelId);saveData();try{await interaction.editReply({content:`${showBoard(false)}\n\n${msg}\n💰 Balance: **${playerScore.coins}**`,components:makeBJButtons(true)});}catch{}}
         else{try{await interaction.editReply({content:showBoard(true),components:makeBJButtons()});}catch{}}
       }else{
-        while(handVal(dealerHand)<17)dealerHand.push(deck.pop());const pv=handVal(playerHand),dv=handVal(dealerHand);let msg;if(dv>21||pv>dv){playerScore.coins+=bet;recordWin(uid,interaction.user.username,0);msg=`✅ You win **${bet}** coins!`;}else if(pv===dv){recordDraw(uid,interaction.user.username);msg=`🤝 Push!`;}else{playerScore.coins-=bet;recordLoss(uid,interaction.user.username);msg=`❌ Dealer wins. Lost **${bet}** coins.`;}activeGames.delete(interaction.channelId);saveData();try{await interaction.editReply({content:`${showBoard(false)}\n\n${msg}\n💰 Balance: **${playerScore.coins}**`,components:makeBJButtons(true)});}catch{}
+        while(handVal(dealerHand)<17)dealerHand.push(deck.pop());const pv=handVal(playerHand),dv=handVal(dealerHand);let msg;if(dv>21||pv>dv){const w=bjWin(bet);playerScore.coins+=w;recordWin(uid,interaction.user.username,0);msg=`✅ You win **${w}** coins!`+(bjCharm?" 🍀":"");}else if(pv===dv){recordDraw(uid,interaction.user.username);msg=`🤝 Push!`;}else{playerScore.coins-=bet;recordLoss(uid,interaction.user.username);msg=`❌ Dealer wins. Lost **${bet}** coins.`;}activeGames.delete(interaction.channelId);saveData();try{await interaction.editReply({content:`${showBoard(false)}\n\n${msg}\n💰 Balance: **${playerScore.coins}**`,components:makeBJButtons(true)});}catch{}
       }
       return;
     }
@@ -2291,12 +2306,16 @@ client.on("interactionCreate",async interaction=>{
       if(bet<CONFIG.slots_min_bet)return safeReply(interaction,{content:`Min bet is ${CONFIG.slots_min_bet}.`,ephemeral:true});
       const s=getScore(interaction.user.id,interaction.user.username);
       if(s.coins<bet)return safeReply(interaction,{content:`You only have **${s.coins}** coins.`,ephemeral:true});
-      // Owners always land triple 💎 jackpot
       const reels=isOwner?["💎","💎","💎"]:spinSlots();
-      const{mult,label}=slotPayout(reels),winnings=Math.floor(bet*mult);
+      const{mult,label}=slotPayout(reels);
+      const fx=activeEffects.get(interaction.user.id)||{};
+      const hasCharm=fx.lucky_charm_expiry&&fx.lucky_charm_expiry>Date.now();
+      let winnings=Math.floor(bet*mult);
+      if(hasCharm&&winnings>0)winnings=Math.floor(winnings*1.1);
       s.coins=s.coins-bet+winnings;
       saveData();
-      return safeReply(interaction,`🎰 | ${reels.join(" | ")} |\n\n**${label}**\n`+(mult>=1?`✅ Won **${winnings}** coins! (+${winnings-bet})`:`❌ Lost **${bet}** coins.`)+`\n💰 Balance: **${s.coins}**`);
+      const charmTag=hasCharm&&winnings>0?" 🍀 +10%":"";
+      return safeReply(interaction,`🎰 | ${reels.join(" | ")} |\n\n**${label}**\n`+(mult>=1?`✅ Won **${winnings}** coins! (+${winnings-bet})`:`❌ Lost **${bet}** coins.`)+`\n💰 Balance: **${s.coins}**`+charmTag);
     }
     if(cmd==="coinbet"){
       const bet=interaction.options.getInteger("bet"),side=interaction.options.getString("side");
@@ -2316,7 +2335,13 @@ client.on("interactionCreate",async interaction=>{
       if(ps.coins<bet)return safeReply(interaction,{content:`You only have **${ps.coins}** coins.`,ephemeral:true});
       const deck=newDeck(),ph=[deck.pop(),deck.pop()],dh=[deck.pop(),deck.pop()];
       const showBoard=(hide=true)=>`🃏 **Blackjack** (bet: ${bet})\n\n**Your hand:** ${renderHand(ph)} — **${handVal(ph)}**\n**Dealer:** ${renderHand(dh,hide)}${hide?"":" — **"+handVal(dh)+"**"}`;
-      if(handVal(ph)===21){const reward=Math.floor(bet*1.5);ps.coins+=reward;ps.wins++;ps.gamesPlayed++;saveData();return safeReply(interaction,{content:`${showBoard(false)}\n\n🎉 **Blackjack!** Won **${reward}** coins!\n💰 Balance: **${ps.coins}**`,components:makeBJButtons(true)});}
+      if(handVal(ph)===21){
+        const bjFxDeal=activeEffects.get(interaction.user.id)||{};
+        const bjCharmDeal=bjFxDeal.lucky_charm_expiry&&bjFxDeal.lucky_charm_expiry>Date.now();
+        const reward=bjCharmDeal?Math.floor(Math.floor(bet*1.5)*1.1):Math.floor(bet*1.5);
+        ps.coins+=reward;ps.wins++;ps.gamesPlayed++;saveData();
+        return safeReply(interaction,{content:`${showBoard(false)}\n\n🎉 **Blackjack!** Won **${reward}** coins!`+(bjCharmDeal?" 🍀":"")+`\n💰 Balance: **${ps.coins}**`,components:makeBJButtons(true)});
+      }
       activeGames.set(cid,{type:"blackjack",deck,playerHand:ph,dealerHand:dh,bet,playerScore:ps,playerId:interaction.user.id});
       return safeReply(interaction,{content:showBoard(true),components:makeBJButtons()});
     }
@@ -2348,10 +2373,14 @@ client.on("interactionCreate",async interaction=>{
       s.lastBegTime=now;
       const givingResps=BEG_RESPONSES.filter(r=>r.give);
       const resp=isOwner?pick(givingResps):pick(BEG_RESPONSES);
-      const coins=isOwner?resp.hi:(resp.give?r(resp.lo,resp.hi):0);
+      let coins=isOwner?resp.hi:(resp.give?r(resp.lo,resp.hi):0);
+      const fx=activeEffects.get(interaction.user.id)||{};
+      const hasCharm=fx.lucky_charm_expiry&&fx.lucky_charm_expiry>now;
+      if(hasCharm&&coins>0)coins=Math.floor(coins*1.1);
       s.coins+=coins;
       saveData();
-      return safeReply(interaction,resp.msg.replace("{c}",coins)+(coins>0?`\n💰 Balance: **${s.coins}**`:""));
+      const charmTag=hasCharm&&coins>0?" 🍀 +10%":"";
+      return safeReply(interaction,resp.msg.replace("{c}",coins)+(coins>0?`\n💰 Balance: **${s.coins}**`+charmTag:""));
     }
     if(cmd==="crime"){
       const isOwner=OWNER_IDS.includes(interaction.user.id);
@@ -2360,10 +2389,15 @@ client.on("interactionCreate",async interaction=>{
       s.lastCrimeTime=now;
       const successResps=CRIME_RESPONSES.filter(r=>r.success);
       const resp=isOwner?pick(successResps):pick(CRIME_RESPONSES);
-      const coins=isOwner?resp.hi:r(resp.lo,resp.hi);
+      let coins=isOwner?resp.hi:r(resp.lo,resp.hi);
+      const fx=activeEffects.get(interaction.user.id)||{};
+      const hasCharm=fx.lucky_charm_expiry&&fx.lucky_charm_expiry>now;
+      // Charm only boosts successful crimes, not fines
+      if(hasCharm&&(isOwner||resp.success))coins=Math.floor(coins*1.1);
       if(isOwner||resp.success)s.coins+=coins;else s.coins=Math.max(0,s.coins-coins);
       saveData();
-      return safeReply(interaction,resp.msg.replace("{c}",coins)+`\n💰 Balance: **${s.coins}**`);
+      const charmTag=hasCharm&&(isOwner||resp.success)?" 🍀 +10%":"";
+      return safeReply(interaction,resp.msg.replace("{c}",coins)+`\n💰 Balance: **${s.coins}**`+charmTag);
     }
     if(cmd==="rob"){
       const isOwner=OWNER_IDS.includes(interaction.user.id);
@@ -2384,19 +2418,10 @@ client.on("interactionCreate",async interaction=>{
         const fine=Math.floor(s.coins*r(CONFIG.rob_fine_pct_min,CONFIG.rob_fine_pct_max)/100);s.coins=Math.max(0,s.coins-fine);saveData();return safeReply(interaction,`🚔 You tried to rob <@${target.id}> but got caught! Lost **${fine}** coins.\n💰 Your balance: **${s.coins}**`);
       }
     }
-
-    const SHOP_ITEMS={
-      lucky_charm:   {name:"Lucky Charm 🍀",  price:CONFIG.shop_lucky_charm_price,   desc:"+10% coins from /work for 1 hour"},
-      xp_boost:      {name:"XP Boost ⚡",      price:CONFIG.shop_xp_boost_price,      desc:"2× XP from messages for 1 hour"},
-      shield:        {name:"Shield 🛡️",        price:CONFIG.shop_shield_price,        desc:"Blocks the next rob attempt"},
-      coin_magnet:   {name:"Coin Magnet 🧲",   price:CONFIG.shop_coin_magnet_price,   desc:"Your next /work gives 3× coins (single use)"},
-      mystery_box:   {name:"Mystery Box 📦",   price:CONFIG.shop_mystery_box_price,   desc:"Open for a random reward: coins or an item"},
-      rob_insurance: {name:"Rob Insurance 📋", price:CONFIG.shop_rob_insurance_price, desc:"If caught robbing, pay no fine (single use)"},
-    };
-    if(cmd==="shop"){const lines=Object.entries(SHOP_ITEMS).map(([id,item])=>`**${item.name}** (\`${id}\`) — **${item.price}** coins\n> ${item.desc}`);return safeReply(interaction,`🛍️ **Item Shop**\n\n${lines.join("\n\n")}\n\nUse **/buy <item>** to purchase.`);}
+    if(cmd==="shop"){const lines=Object.entries(getShopItems()).map(([id,item])=>`**${item.name}** (\`${id}\`) — **${item.price}** coins\n> ${item.desc}`);return safeReply(interaction,`🛍️ **Item Shop**\n\n${lines.join("\n\n")}\n\nUse **/buy <item>** to purchase.`);}
     if(cmd==="buy"){
       const itemId=interaction.options.getString("item");
-      const item=SHOP_ITEMS[itemId];if(!item)return safeReply(interaction,{content:"Unknown item.",ephemeral:true});
+      const item=getShopItems()[itemId];if(!item)return safeReply(interaction,{content:"Unknown item.",ephemeral:true});
       const s=getScore(interaction.user.id,interaction.user.username);
       if(s.coins<item.price)return safeReply(interaction,{content:`You need **${item.price}** coins but only have **${s.coins}**.`,ephemeral:true});
       s.coins-=item.price;
@@ -2413,7 +2438,7 @@ client.on("interactionCreate",async interaction=>{
           // Random item (not another mystery box)
           const itemPool=["lucky_charm","xp_boost","shield","coin_magnet","rob_insurance"];
           const won=pick(itemPool);s.inventory.push(won);
-          rewardMsg=`🎁 You got a **${SHOP_ITEMS[won].name}**!`;
+          rewardMsg=`🎁 You got a **${getShopItems()[won].name}**!`;
         }
         saveData();
         return safeReply(interaction,`📦 **Mystery Box opened!**\n${rewardMsg}\n💰 Balance: **${s.coins}**`);
@@ -2443,7 +2468,7 @@ client.on("interactionCreate",async interaction=>{
       const s=getScore(u.id,u.username);
       if(!s.inventory||!s.inventory.length)return safeReply(interaction,`🎒 **${u.username}'s Inventory** is empty.`);
       const counts={};s.inventory.forEach(i=>counts[i]=(counts[i]||0)+1);
-      const lines=Object.entries(counts).map(([id,qty])=>`**${SHOP_ITEMS[id]?.name||id}** × ${qty}`);
+      const lines=Object.entries(counts).map(([id,qty])=>`**${getShopItems()[id]?.name||id}** × ${qty}`);
       return safeReply(interaction,`🎒 **${u.username}'s Inventory**\n${lines.join("\n")}`);
     }
 
@@ -2894,28 +2919,27 @@ client.on("interactionCreate",async interaction=>{
       return safeReply(interaction,{content:`✅ **${key}**: \`${old}\` → \`${value}\``,ephemeral:true});
     }
     if(cmd==="admingive"){
-      const target=interaction.options.getUser("user"),amount=interaction.options.getInteger("amount"),itemId=interaction.options.getString("item")||null;
-      if(amount<0)return safeReply(interaction,{content:"Amount must be ≥ 0.",ephemeral:true});
+      const target=interaction.options.getUser("user"),amount=interaction.options.getInteger("amount")??null,itemId=interaction.options.getString("item")||null;
+      if(amount!==null&&amount<0)return safeReply(interaction,{content:"Amount must be ≥ 0.",ephemeral:true});
+      if(amount===null&&!itemId)return safeReply(interaction,{content:"Provide an amount and/or an item.",ephemeral:true});
       const s=getScore(target.id,target.username);
+      const SHOP=getShopItems();
       const parts=[];
-      if(amount>0){s.coins+=amount;parts.push(`**${amount} coins**`);}
+      if(amount!==null&&amount>0){s.coins+=amount;parts.push(`**${amount} coins**`);}
       if(itemId){
-        // Timed items activate immediately rather than sitting in inventory
         if(itemId==="lucky_charm"||itemId==="xp_boost"){
           const fx=activeEffects.get(target.id)||{};
           const key=itemId==="lucky_charm"?"lucky_charm_expiry":"xp_boost_expiry";
           const now=Date.now();
           fx[key]=Math.max(fx[key]||now,now)+3600000;
           activeEffects.set(target.id,fx);
-          const itemNames={lucky_charm:"Lucky Charm 🍀",xp_boost:"XP Boost ⚡"};
-          parts.push(`**${itemNames[itemId]}** (activated for 1hr)`);
+          parts.push(`**${SHOP[itemId]?.name||itemId}** (activated for 1hr)`);
         }else{
           s.inventory.push(itemId);
-          const itemNames={shield:"Shield 🛡️",coin_magnet:"Coin Magnet 🧲",mystery_box:"Mystery Box 📦",rob_insurance:"Rob Insurance 📋"};
-          parts.push(`**${itemNames[itemId]||itemId}**`);
+          parts.push(`**${SHOP[itemId]?.name||itemId}**`);
         }
       }
-      if(!parts.length)return safeReply(interaction,{content:"Specify an amount > 0 and/or an item.",ephemeral:true});
+      if(!parts.length)return safeReply(interaction,{content:"Nothing to give.",ephemeral:true});
       saveData();
       return safeReply(interaction,{content:`✅ Gave ${parts.join(" and ")} to **${target.username}**.\n💰 New balance: **${s.coins}**`,ephemeral:true});
     }
