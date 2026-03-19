@@ -1089,7 +1089,7 @@ function buildCommands(){
     {name:"setstatus",      description:"[Owner] Set status",options:[{name:"text",description:"Text",type:3,required:true},{name:"type",description:"Type",type:3,required:false,choices:[{name:"Playing",value:"PLAYING"},{name:"Watching",value:"WATCHING"},{name:"Listening",value:"LISTENING"},{name:"Competing",value:"COMPETING"}]}]},
     {name:"adminuser",      description:"[Owner] Edit user stats",options:[{name:"user",description:"User",type:6,required:true},{name:"field",description:"Field",type:3,required:true,choices:[{name:"Coins",value:"coins"},{name:"Wins",value:"wins"},{name:"Games Played",value:"gamesPlayed"},{name:"Daily Streak",value:"dailyStreak"},{name:"Best Streak",value:"bestStreak"},{name:"XP",value:"xp"},{name:"Level",value:"level"}]},{name:"value",description:"New integer value",type:4,required:true}]},
     {name:"adminreset",     description:"[Owner] Reset all stats for user",options:[{name:"user",description:"User",type:6,required:true}]},
-    {name:"adminconfig",    description:"[Owner] View/edit config integers",options:[{name:"key",description:"Config key",type:3,required:false,choices:Object.keys(CONFIG).map(k=>({name:k,value:k}))},{name:"value",description:"New value",type:4,required:false}]},
+    {name:"adminconfig",    description:"[Owner] View/edit global config values",options:[{name:"key",description:`Config key (leave blank to list all). Keys: ${Object.keys(CONFIG).join(", ")}`,type:3,required:false},{name:"value",description:"New integer value",type:4,required:false}]},
     {name:"admingive",      description:"[Owner] Give coins to a user",options:[{name:"user",description:"User",type:6,required:true},{name:"amount",description:"Coins",type:4,required:true}]},
   ];
 }
@@ -2268,11 +2268,14 @@ client.on("interactionCreate",async interaction=>{
       return safeReply(interaction,`💸 <@${interaction.user.id}> gave **${amount}** coins to <@${target.id}>!`);
     }
     if(cmd==="slots"){
+      const isOwner=OWNER_IDS.includes(interaction.user.id);
       const bet=interaction.options.getInteger("bet")||10;
       if(bet<CONFIG.slots_min_bet)return safeReply(interaction,{content:`Min bet is ${CONFIG.slots_min_bet}.`,ephemeral:true});
       const s=getScore(interaction.user.id,interaction.user.username);
       if(s.coins<bet)return safeReply(interaction,{content:`You only have **${s.coins}** coins.`,ephemeral:true});
-      const reels=spinSlots(),{mult,label}=slotPayout(reels),winnings=Math.floor(bet*mult);
+      // Owners always land triple 💎 jackpot
+      const reels=isOwner?["💎","💎","💎"]:spinSlots();
+      const{mult,label}=slotPayout(reels),winnings=Math.floor(bet*mult);
       s.coins=s.coins-bet+winnings;
       saveData();
       return safeReply(interaction,`🎰 | ${reels.join(" | ")} |\n\n**${label}**\n`+(mult>=1?`✅ Won **${winnings}** coins! (+${winnings-bet})`:`❌ Lost **${bet}** coins.`)+`\n💰 Balance: **${s.coins}**`);
@@ -2793,8 +2796,22 @@ client.on("interactionCreate",async interaction=>{
     }
     if(cmd==="adminconfig"){
       const key=interaction.options.getString("key"),value=interaction.options.getInteger("value");
-      if(!key){const lines=Object.entries(CONFIG).map(([k,v])=>`**${k}**: \`${v}\``).join("\n");return safeReply(interaction,{content:`⚙️ **Config**\n\n${lines}`,ephemeral:true});}
-      if(!(key in CONFIG))return safeReply(interaction,{content:"Unknown key.",ephemeral:true});
+      if(!key){
+        const groups=[
+          ["📈 XP",["xp_per_msg_min","xp_per_msg_max","xp_cooldown_ms"]],
+          ["⏱️ Cooldowns (ms)",["work_cooldown_ms","beg_cooldown_ms","crime_cooldown_ms","rob_cooldown_ms"]],
+          ["💰 Economy",["daily_base_coins","daily_streak_bonus","daily_wrong_penalty","starting_coins"]],
+          ["🔫 Rob",["rob_steal_pct_min","rob_steal_pct_max","rob_fine_pct_min","rob_fine_pct_max","rob_success_chance"]],
+          ["🎰 Slots",["slots_min_bet"]],
+          ["🛍️ Shop",["shop_lucky_charm_price","shop_xp_boost_price","shop_shield_price"]],
+          ["🎮 Solo Games",["win_hangman","win_snake_per_point","win_minesweeper_easy","win_minesweeper_medium","win_minesweeper_hard","win_numberguess","win_wordscramble"]],
+          ["🕹️ 2-Player Games",["win_ttt","win_c4","win_rps","win_mathrace","win_wordrace","win_trivia","win_scramblerace","win_countgame"]],
+          ["🏅 Events",["olympics_win_coins","invite_comp_1st","invite_comp_2nd","invite_comp_3rd","invite_comp_per_invite"]],
+        ];
+        const lines=groups.map(([g,keys])=>`**${g}**\n${keys.map(k=>`\`${k}\` = ${CONFIG[k]}`).join("  ·  ")}`);
+        return safeReply(interaction,{content:`⚙️ **Global Config**\n\n${lines.join("\n\n")}\n\nUse \`/adminconfig key:<name> value:<number>\` to change any value.`,ephemeral:true});
+      }
+      if(!(key in CONFIG))return safeReply(interaction,{content:`❌ Unknown key \`${key}\`.\n\nValid keys: ${Object.keys(CONFIG).join(", ")}`,ephemeral:true});
       if(value==null)return safeReply(interaction,{content:`⚙️ **${key}** = \`${CONFIG[key]}\``,ephemeral:true});
       const old=CONFIG[key];CONFIG[key]=value;
       saveData();
