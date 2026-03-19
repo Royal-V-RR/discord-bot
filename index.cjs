@@ -113,12 +113,16 @@ function xpInfo(s) {
   s.level=lv; s.xp=xp; return{level:lv,xp,needed};
 }
 const xpCooldown = new Map();
+// Active timed item effects: userId -> { lucky_charm_expiry, xp_boost_expiry }
+const activeEffects = new Map();
 function tryAwardXP(uid, uname) {
   const now=Date.now(), last=xpCooldown.get(uid)||0;
   if(now-last<CONFIG.xp_cooldown_ms) return null;
   xpCooldown.set(uid,now);
   const s=getScore(uid,uname); const oldLv=s.level;
-  s.xp+=r(CONFIG.xp_per_msg_min, CONFIG.xp_per_msg_max);
+  const fx=activeEffects.get(uid)||{};
+  const boost=(fx.xp_boost_expiry&&fx.xp_boost_expiry>now)?2:1;
+  s.xp+=r(CONFIG.xp_per_msg_min, CONFIG.xp_per_msg_max)*boost;
   xpInfo(s);
   return s.level>oldLv ? s.level : null;
 }
@@ -145,6 +149,9 @@ const CONFIG = {
   shop_lucky_charm_price:200,
   shop_xp_boost_price:300,
   shop_shield_price:150,
+  shop_coin_magnet_price:350,
+  shop_mystery_box_price:100,
+  shop_rob_insurance_price:250,
   // Solo game win coins
   win_hangman:40,
   win_snake_per_point:5,
@@ -987,7 +994,7 @@ function buildCommands(){
     {name:"crime",    description:"Commit a crime 🦹"},
     {name:"rob",      description:"Rob another user 🔫",options:uReq()},
     {name:"shop",     description:"View the item shop 🛍️"},
-    {name:"buy",      description:"Buy an item 🛒",options:[{name:"item",description:"Item name",type:3,required:true,choices:[{name:"Lucky Charm (+10% coin bonus, 1hr)",value:"lucky_charm"},{name:"XP Boost (2× XP, 1hr)",value:"xp_boost"},{name:"Shield (blocks next rob)",value:"shield"}]}]},
+    {name:"buy",      description:"Buy an item 🛒",options:[{name:"item",description:"Item name",type:3,required:true,choices:[{name:"Lucky Charm 🍀 (+10% work coins, 1hr)",value:"lucky_charm"},{name:"XP Boost ⚡ (2× XP, 1hr)",value:"xp_boost"},{name:"Shield 🛡️ (blocks next rob)",value:"shield"},{name:"Coin Magnet 🧲 (next work = 3× coins)",value:"coin_magnet"},{name:"Mystery Box 📦 (random reward)",value:"mystery_box"},{name:"Rob Insurance 📋 (no fine if caught robbing)",value:"rob_insurance"}]}]},
     {name:"inventory",description:"Check your inventory 🎒",options:uReq(false)},
     // XP
     {name:"xp",           description:"Check XP and level 📈",options:uReq(false)},
@@ -1090,7 +1097,18 @@ function buildCommands(){
     {name:"adminuser",      description:"[Owner] Edit user stats",options:[{name:"user",description:"User",type:6,required:true},{name:"field",description:"Field",type:3,required:true,choices:[{name:"Coins",value:"coins"},{name:"Wins",value:"wins"},{name:"Games Played",value:"gamesPlayed"},{name:"Daily Streak",value:"dailyStreak"},{name:"Best Streak",value:"bestStreak"},{name:"XP",value:"xp"},{name:"Level",value:"level"}]},{name:"value",description:"New integer value",type:4,required:true}]},
     {name:"adminreset",     description:"[Owner] Reset all stats for user",options:[{name:"user",description:"User",type:6,required:true}]},
     {name:"adminconfig",    description:"[Owner] View/edit global config values",options:[{name:"key",description:`Config key (leave blank to list all). Keys: ${Object.keys(CONFIG).join(", ")}`,type:3,required:false},{name:"value",description:"New integer value",type:4,required:false}]},
-    {name:"admingive",      description:"[Owner] Give coins to a user",options:[{name:"user",description:"User",type:6,required:true},{name:"amount",description:"Coins",type:4,required:true}]},
+    {name:"admingive",      description:"[Owner] Give coins and/or an item to a user",options:[
+      {name:"user",   description:"Target user",   type:6,required:true},
+      {name:"amount", description:"Coins to give (0 for items only)", type:4,required:true},
+      {name:"item",   description:"Item to give (optional)", type:3,required:false,choices:[
+        {name:"Lucky Charm 🍀",  value:"lucky_charm"},
+        {name:"XP Boost ⚡",     value:"xp_boost"},
+        {name:"Shield 🛡️",      value:"shield"},
+        {name:"Coin Magnet 🧲",  value:"coin_magnet"},
+        {name:"Mystery Box 📦",  value:"mystery_box"},
+        {name:"Rob Insurance 📋",value:"rob_insurance"},
+      ]},
+    ]},
   ];
 }
 
@@ -2174,7 +2192,7 @@ client.on("interactionCreate",async interaction=>{
         const m = Math.ceil(rem / 60000);
         return m >= 60 ? `⏳ ${Math.floor(m/60)}h ${m%60}m` : `⏳ ${m}m`;
       };
-      const ITEM_NAMES = { lucky_charm:"Lucky Charm 🍀", xp_boost:"XP Boost ⚡", shield:"Shield 🛡️" };
+      const ITEM_NAMES = { lucky_charm:"Lucky Charm 🍀", xp_boost:"XP Boost ⚡", shield:"Shield 🛡️", coin_magnet:"Coin Magnet 🧲", mystery_box:"Mystery Box 📦", rob_insurance:"Rob Insurance 📋" };
       let inventoryText = "Empty";
       if (s.inventory && s.inventory.length > 0) {
         const counts = {};
@@ -2307,11 +2325,22 @@ client.on("interactionCreate",async interaction=>{
       const s=getScore(interaction.user.id,interaction.user.username),now=Date.now(),rem=CONFIG.work_cooldown_ms-(now-s.lastWorkTime);
       if(!isOwner&&rem>0)return safeReply(interaction,{content:`⏰ Rest first. Back in **${Math.ceil(rem/60000)}m**.`,ephemeral:true});
       s.lastWorkTime=now;
-      const resp=pick(WORK_RESPONSES),coins=isOwner?resp.hi:r(resp.lo,resp.hi);
+      const resp=pick(WORK_RESPONSES);
+      let coins=isOwner?resp.hi:r(resp.lo,resp.hi);
+      // Apply coin_magnet (single use, 3×)
+      const hasMagnet=s.inventory&&s.inventory.includes("coin_magnet");
+      if(hasMagnet){coins=coins*3;s.inventory.splice(s.inventory.indexOf("coin_magnet"),1);}
+      // Apply lucky_charm (+10%)
+      const fx=activeEffects.get(interaction.user.id)||{};
+      const hasCharm=fx.lucky_charm_expiry&&fx.lucky_charm_expiry>now;
+      if(hasCharm)coins=Math.floor(coins*1.1);
       s.coins+=coins;
       saveData();
       const ownerTag=isOwner?" 👑":"";
-      return safeReply(interaction,resp.msg.replace("{c}",coins)+`\n💰 Balance: **${s.coins}**`+ownerTag);    }
+      const bonusTag=hasMagnet?" 🧲 3×":"";
+      const charmTag=hasCharm?" 🍀 +10%":"";
+      return safeReply(interaction,resp.msg.replace("{c}",coins)+`\n💰 Balance: **${s.coins}**`+ownerTag+bonusTag+charmTag);
+    }
     if(cmd==="beg"){
       const isOwner=OWNER_IDS.includes(interaction.user.id);
       const s=getScore(interaction.user.id,interaction.user.username),now=Date.now(),rem=CONFIG.beg_cooldown_ms-(now-s.lastBegTime);
@@ -2348,17 +2377,64 @@ client.on("interactionCreate",async interaction=>{
       if(t.coins<10)return safeReply(interaction,`😅 <@${target.id}> is broke — not worth robbing.`);
       const success=isOwner||Math.random()<(CONFIG.rob_success_chance/100);
       if(success){const pct=isOwner?CONFIG.rob_steal_pct_max:r(CONFIG.rob_steal_pct_min,CONFIG.rob_steal_pct_max);const stolen=Math.floor(t.coins*pct/100);t.coins-=stolen;s.coins+=stolen;saveData();return safeReply(interaction,`🔫 <@${interaction.user.id}> robbed <@${target.id}> and stole **${stolen}** coins!\n💰 Your balance: **${s.coins}**`);}
-      else{const fine=Math.floor(s.coins*r(CONFIG.rob_fine_pct_min,CONFIG.rob_fine_pct_max)/100);s.coins=Math.max(0,s.coins-fine);saveData();return safeReply(interaction,`🚔 You tried to rob <@${target.id}> but got caught! Lost **${fine}** coins.\n💰 Your balance: **${s.coins}**`);}
+      else{
+        // Check rob_insurance
+        const hasInsurance=s.inventory&&s.inventory.includes("rob_insurance");
+        if(hasInsurance){s.inventory.splice(s.inventory.indexOf("rob_insurance"),1);saveData();return safeReply(interaction,`🚔 You tried to rob <@${target.id}> and got caught — but your **Rob Insurance 📋** covered the fine! Policy consumed.\n💰 Your balance: **${s.coins}**`);}
+        const fine=Math.floor(s.coins*r(CONFIG.rob_fine_pct_min,CONFIG.rob_fine_pct_max)/100);s.coins=Math.max(0,s.coins-fine);saveData();return safeReply(interaction,`🚔 You tried to rob <@${target.id}> but got caught! Lost **${fine}** coins.\n💰 Your balance: **${s.coins}**`);
+      }
     }
 
-    const SHOP_ITEMS={lucky_charm:{name:"Lucky Charm",price:CONFIG.shop_lucky_charm_price,desc:"+10% coin bonus on work for 1hr"},xp_boost:{name:"XP Boost",price:CONFIG.shop_xp_boost_price,desc:"2× XP gain for 1hr"},shield:{name:"Shield",price:CONFIG.shop_shield_price,desc:"Blocks the next rob attempt"}};
+    const SHOP_ITEMS={
+      lucky_charm:   {name:"Lucky Charm 🍀",  price:CONFIG.shop_lucky_charm_price,   desc:"+10% coins from /work for 1 hour"},
+      xp_boost:      {name:"XP Boost ⚡",      price:CONFIG.shop_xp_boost_price,      desc:"2× XP from messages for 1 hour"},
+      shield:        {name:"Shield 🛡️",        price:CONFIG.shop_shield_price,        desc:"Blocks the next rob attempt"},
+      coin_magnet:   {name:"Coin Magnet 🧲",   price:CONFIG.shop_coin_magnet_price,   desc:"Your next /work gives 3× coins (single use)"},
+      mystery_box:   {name:"Mystery Box 📦",   price:CONFIG.shop_mystery_box_price,   desc:"Open for a random reward: coins or an item"},
+      rob_insurance: {name:"Rob Insurance 📋", price:CONFIG.shop_rob_insurance_price, desc:"If caught robbing, pay no fine (single use)"},
+    };
     if(cmd==="shop"){const lines=Object.entries(SHOP_ITEMS).map(([id,item])=>`**${item.name}** (\`${id}\`) — **${item.price}** coins\n> ${item.desc}`);return safeReply(interaction,`🛍️ **Item Shop**\n\n${lines.join("\n\n")}\n\nUse **/buy <item>** to purchase.`);}
     if(cmd==="buy"){
       const itemId=interaction.options.getString("item");
       const item=SHOP_ITEMS[itemId];if(!item)return safeReply(interaction,{content:"Unknown item.",ephemeral:true});
       const s=getScore(interaction.user.id,interaction.user.username);
       if(s.coins<item.price)return safeReply(interaction,{content:`You need **${item.price}** coins but only have **${s.coins}**.`,ephemeral:true});
-      s.coins-=item.price;s.inventory.push(itemId);
+      s.coins-=item.price;
+
+      // Mystery box opens immediately — doesn't go to inventory
+      if(itemId==="mystery_box"){
+        const roll=Math.random();
+        let rewardMsg;
+        if(roll<0.5){
+          // Coin reward 50-500
+          const gained=r(50,500);s.coins+=gained;
+          rewardMsg=`💰 You got **${gained} coins**!`;
+        }else{
+          // Random item (not another mystery box)
+          const itemPool=["lucky_charm","xp_boost","shield","coin_magnet","rob_insurance"];
+          const won=pick(itemPool);s.inventory.push(won);
+          rewardMsg=`🎁 You got a **${SHOP_ITEMS[won].name}**!`;
+        }
+        saveData();
+        return safeReply(interaction,`📦 **Mystery Box opened!**\n${rewardMsg}\n💰 Balance: **${s.coins}**`);
+      }
+
+      // Timed items activate immediately
+      if(itemId==="lucky_charm"||itemId==="xp_boost"){
+        const fx=activeEffects.get(interaction.user.id)||{};
+        const now=Date.now();
+        const key=itemId==="lucky_charm"?"lucky_charm_expiry":"xp_boost_expiry";
+        // Stack: extend if already active
+        const current=fx[key]||now;
+        fx[key]=Math.max(current,now)+3600000; // +1hr
+        activeEffects.set(interaction.user.id,fx);
+        saveData();
+        const expiresIn=Math.ceil((fx[key]-now)/60000);
+        return safeReply(interaction,`✅ **${item.name}** activated! Effect lasts **${expiresIn} minutes**.\n💰 Balance: **${s.coins}**`);
+      }
+
+      // All other items go to inventory (shield, coin_magnet, rob_insurance)
+      s.inventory.push(itemId);
       saveData();
       return safeReply(interaction,`✅ Bought **${item.name}** for **${item.price}** coins!\n💰 Balance: **${s.coins}**`);
     }
@@ -2803,7 +2879,7 @@ client.on("interactionCreate",async interaction=>{
           ["💰 Economy",["daily_base_coins","daily_streak_bonus","daily_wrong_penalty","starting_coins"]],
           ["🔫 Rob",["rob_steal_pct_min","rob_steal_pct_max","rob_fine_pct_min","rob_fine_pct_max","rob_success_chance"]],
           ["🎰 Slots",["slots_min_bet"]],
-          ["🛍️ Shop",["shop_lucky_charm_price","shop_xp_boost_price","shop_shield_price"]],
+          ["🛍️ Shop",["shop_lucky_charm_price","shop_xp_boost_price","shop_shield_price","shop_coin_magnet_price","shop_mystery_box_price","shop_rob_insurance_price"]],
           ["🎮 Solo Games",["win_hangman","win_snake_per_point","win_minesweeper_easy","win_minesweeper_medium","win_minesweeper_hard","win_numberguess","win_wordscramble"]],
           ["🕹️ 2-Player Games",["win_ttt","win_c4","win_rps","win_mathrace","win_wordrace","win_trivia","win_scramblerace","win_countgame"]],
           ["🏅 Events",["olympics_win_coins","invite_comp_1st","invite_comp_2nd","invite_comp_3rd","invite_comp_per_invite"]],
@@ -2818,11 +2894,30 @@ client.on("interactionCreate",async interaction=>{
       return safeReply(interaction,{content:`✅ **${key}**: \`${old}\` → \`${value}\``,ephemeral:true});
     }
     if(cmd==="admingive"){
-      const target=interaction.options.getUser("user"),amount=interaction.options.getInteger("amount");
+      const target=interaction.options.getUser("user"),amount=interaction.options.getInteger("amount"),itemId=interaction.options.getString("item")||null;
       if(amount<0)return safeReply(interaction,{content:"Amount must be ≥ 0.",ephemeral:true});
-      const s=getScore(target.id,target.username);s.coins+=amount;
+      const s=getScore(target.id,target.username);
+      const parts=[];
+      if(amount>0){s.coins+=amount;parts.push(`**${amount} coins**`);}
+      if(itemId){
+        // Timed items activate immediately rather than sitting in inventory
+        if(itemId==="lucky_charm"||itemId==="xp_boost"){
+          const fx=activeEffects.get(target.id)||{};
+          const key=itemId==="lucky_charm"?"lucky_charm_expiry":"xp_boost_expiry";
+          const now=Date.now();
+          fx[key]=Math.max(fx[key]||now,now)+3600000;
+          activeEffects.set(target.id,fx);
+          const itemNames={lucky_charm:"Lucky Charm 🍀",xp_boost:"XP Boost ⚡"};
+          parts.push(`**${itemNames[itemId]}** (activated for 1hr)`);
+        }else{
+          s.inventory.push(itemId);
+          const itemNames={shield:"Shield 🛡️",coin_magnet:"Coin Magnet 🧲",mystery_box:"Mystery Box 📦",rob_insurance:"Rob Insurance 📋"};
+          parts.push(`**${itemNames[itemId]||itemId}**`);
+        }
+      }
+      if(!parts.length)return safeReply(interaction,{content:"Specify an amount > 0 and/or an item.",ephemeral:true});
       saveData();
-      return safeReply(interaction,{content:`✅ Gave **${amount}** coins to **${target.username}**. New balance: **${s.coins}**`,ephemeral:true});
+      return safeReply(interaction,{content:`✅ Gave ${parts.join(" and ")} to **${target.username}**.\n💰 New balance: **${s.coins}**`,ephemeral:true});
     }
 
     // Server management extras
