@@ -121,7 +121,7 @@ function tryAwardXP(uid, uname) {
   xpCooldown.set(uid,now);
   const s=getScore(uid,uname); const oldLv=s.level;
   const fx=activeEffects.get(uid)||{};
-  const boost=(fx.xp_boost_expiry&&fx.xp_boost_expiry>now)?2:1;
+  const boost=(fx.xp_boost_expiry&&fx.xp_boost_expiry>now)?(CONFIG.xp_boost_mult/100):1;
   s.xp+=r(CONFIG.xp_per_msg_min, CONFIG.xp_per_msg_max)*boost;
   xpInfo(s);
   return s.level>oldLv ? s.level : null;
@@ -139,12 +139,28 @@ const CONFIG = {
   daily_base_coins:100,    daily_streak_bonus:10,
   daily_wrong_penalty:5,
   starting_coins:100,
+  // Economy success chances (whole %, e.g. 60 = 60%)
+  beg_success_chance:60,
+  crime_success_chance:57,
   // Rob percentages (whole numbers, e.g. 10 = 10%)
   rob_steal_pct_min:10,    rob_steal_pct_max:30,
   rob_fine_pct_min:5,      rob_fine_pct_max:15,
   rob_success_chance:45,
   // Gambling
   slots_min_bet:1,
+  coinbet_win_chance:50,
+  // Slot multipliers (stored as integers, /100 when used — e.g. 1000 = 10×)
+  slots_jackpot_mult:1000,
+  slots_bigwin_mult:500,
+  slots_triple_mult:300,
+  slots_pair_mult:150,
+  // Blackjack natural payout (integer /100 — 150 = 1.5×)
+  blackjack_natural_mult:150,
+  // Item effects (whole %, e.g. 10 = +10%)
+  lucky_charm_bonus:10,
+  xp_boost_mult:200,
+  coin_magnet_mult:300,
+  mystery_box_coin_chance:50,
   // Shop prices
   shop_lucky_charm_price:200,
   shop_xp_boost_price:300,
@@ -573,7 +589,15 @@ function handVal(hand){let t=hand.reduce((s,c)=>s+cardVal(c),0),a=hand.filter(c=
 function renderHand(hand,hide=false){return hide?`${hand[0]} 🂠`:hand.join(" ");}
 function makeBJButtons(disabled=false){return[new MessageActionRow().addComponents(new MessageButton().setCustomId("bj_hit").setLabel("Hit 🃏").setStyle("SUCCESS").setDisabled(disabled),new MessageButton().setCustomId("bj_stand").setLabel("Stand ✋").setStyle("DANGER").setDisabled(disabled))];}
 function spinSlots(){return[pick(SLOT_SYMBOLS),pick(SLOT_SYMBOLS),pick(SLOT_SYMBOLS)];}
-function slotPayout(reels){if(reels[0]===reels[1]&&reels[1]===reels[2]){if(reels[0]==="💎")return{mult:10,label:"💎 JACKPOT 💎"};if(reels[0]==="⭐")return{mult:5,label:"⭐ BIG WIN ⭐"};return{mult:3,label:"🎰 THREE OF A KIND!"};}if(reels[0]===reels[1]||reels[1]===reels[2]||reels[0]===reels[2])return{mult:1.5,label:"Two of a kind"};return{mult:0,label:"No match"};}
+function slotPayout(reels){
+  if(reels[0]===reels[1]&&reels[1]===reels[2]){
+    if(reels[0]==="💎")return{mult:CONFIG.slots_jackpot_mult/100,label:"💎 JACKPOT 💎"};
+    if(reels[0]==="⭐")return{mult:CONFIG.slots_bigwin_mult/100,label:"⭐ BIG WIN ⭐"};
+    return{mult:CONFIG.slots_triple_mult/100,label:"🎰 THREE OF A KIND!"};
+  }
+  if(reels[0]===reels[1]||reels[1]===reels[2]||reels[0]===reels[2])return{mult:CONFIG.slots_pair_mult/100,label:"Two of a kind"};
+  return{mult:0,label:"No match"};
+}
 
 // Media fetchers
 async function fetchJson(url){return new Promise((resolve,reject)=>{https.get(url,{headers:{"Accept":"application/json"}},res=>{let body="";res.on("data",d=>body+=d);res.on("end",()=>{try{resolve(JSON.parse(body));}catch{reject();}});}).on("error",reject);});}
@@ -1610,7 +1634,7 @@ client.on("interactionCreate",async interaction=>{
       const showBoard=(hide=true)=>`🃏 **Blackjack** (bet: ${bet} coins)\n\n**Your hand:** ${renderHand(playerHand)} — **${handVal(playerHand)}**\n**Dealer:** ${renderHand(dealerHand,hide)}${hide?"":" — **"+handVal(dealerHand)+"**"}`;
       const bjFx=activeEffects.get(uid)||{};
       const bjCharm=bjFx.lucky_charm_expiry&&bjFx.lucky_charm_expiry>Date.now();
-      const bjWin=(coins)=>bjCharm?Math.floor(coins*1.1):coins; // apply charm to wins only
+      const bjWin=(coins)=>bjCharm?Math.floor(coins*(1+CONFIG.lucky_charm_bonus/100)):coins; // apply charm to wins only
       if(action==="hit"){
         playerHand.push(deck.pop());const pv=handVal(playerHand);
         if(pv>21){activeGames.delete(interaction.channelId);playerScore.coins-=bet;recordLoss(uid,interaction.user.username);saveData();try{await interaction.editReply({content:`${showBoard(false)}\n\n💥 **Bust!** Lost **${bet}** coins.\n💰 Balance: **${playerScore.coins}**`,components:makeBJButtons(true)});}catch{}}
@@ -2311,10 +2335,10 @@ client.on("interactionCreate",async interaction=>{
       const fx=activeEffects.get(interaction.user.id)||{};
       const hasCharm=fx.lucky_charm_expiry&&fx.lucky_charm_expiry>Date.now();
       let winnings=Math.floor(bet*mult);
-      if(hasCharm&&winnings>0)winnings=Math.floor(winnings*1.1);
+      if(hasCharm&&winnings>0)winnings=Math.floor(winnings*(1+CONFIG.lucky_charm_bonus/100));
       s.coins=s.coins-bet+winnings;
       saveData();
-      const charmTag=hasCharm&&winnings>0?" 🍀 +10%":"";
+      const charmTag=hasCharm&&winnings>0?" 🍀 +"+CONFIG.lucky_charm_bonus+"%":"";
       return safeReply(interaction,`🎰 | ${reels.join(" | ")} |\n\n**${label}**\n`+(mult>=1?`✅ Won **${winnings}** coins! (+${winnings-bet})`:`❌ Lost **${bet}** coins.`)+`\n💰 Balance: **${s.coins}**`+charmTag);
     }
     if(cmd==="coinbet"){
@@ -2322,7 +2346,7 @@ client.on("interactionCreate",async interaction=>{
       if(bet<1)return safeReply(interaction,{content:"Min bet is 1.",ephemeral:true});
       const s=getScore(interaction.user.id,interaction.user.username);
       if(s.coins<bet)return safeReply(interaction,{content:`You only have **${s.coins}** coins.`,ephemeral:true});
-      const result=Math.random()<0.5?"heads":"tails",won=result===side;s.coins+=won?bet:-bet;
+      const result=Math.random()<(CONFIG.coinbet_win_chance/100)?"heads":"tails",won=result===side;s.coins+=won?bet:-bet;
       saveData();
       return safeReply(interaction,`🪙 **${result.charAt(0).toUpperCase()+result.slice(1)}**\n`+(won?`✅ Won **${bet}** coins!`:`❌ Lost **${bet}** coins.`)+`\n💰 Balance: **${s.coins}**`);
     }
@@ -2338,7 +2362,7 @@ client.on("interactionCreate",async interaction=>{
       if(handVal(ph)===21){
         const bjFxDeal=activeEffects.get(interaction.user.id)||{};
         const bjCharmDeal=bjFxDeal.lucky_charm_expiry&&bjFxDeal.lucky_charm_expiry>Date.now();
-        const reward=bjCharmDeal?Math.floor(Math.floor(bet*1.5)*1.1):Math.floor(bet*1.5);
+        const reward=bjCharmDeal?Math.floor(Math.floor(bet*CONFIG.blackjack_natural_mult/100)*(1+CONFIG.lucky_charm_bonus/100)):Math.floor(bet*CONFIG.blackjack_natural_mult/100);
         ps.coins+=reward;ps.wins++;ps.gamesPlayed++;saveData();
         return safeReply(interaction,{content:`${showBoard(false)}\n\n🎉 **Blackjack!** Won **${reward}** coins!`+(bjCharmDeal?" 🍀":"")+`\n💰 Balance: **${ps.coins}**`,components:makeBJButtons(true)});
       }
@@ -2354,16 +2378,16 @@ client.on("interactionCreate",async interaction=>{
       let coins=isOwner?resp.hi:r(resp.lo,resp.hi);
       // Apply coin_magnet (single use, 3×)
       const hasMagnet=s.inventory&&s.inventory.includes("coin_magnet");
-      if(hasMagnet){coins=coins*3;s.inventory.splice(s.inventory.indexOf("coin_magnet"),1);}
+      if(hasMagnet){coins=Math.floor(coins*CONFIG.coin_magnet_mult/100);s.inventory.splice(s.inventory.indexOf("coin_magnet"),1);}
       // Apply lucky_charm (+10%)
       const fx=activeEffects.get(interaction.user.id)||{};
       const hasCharm=fx.lucky_charm_expiry&&fx.lucky_charm_expiry>now;
-      if(hasCharm)coins=Math.floor(coins*1.1);
+      if(hasCharm)coins=Math.floor(coins*(1+CONFIG.lucky_charm_bonus/100));
       s.coins+=coins;
       saveData();
       const ownerTag=isOwner?" 👑":"";
       const bonusTag=hasMagnet?" 🧲 3×":"";
-      const charmTag=hasCharm?" 🍀 +10%":"";
+      const charmTag=hasCharm?" 🍀 +"+CONFIG.lucky_charm_bonus+"%":"";
       return safeReply(interaction,resp.msg.replace("{c}",coins)+`\n💰 Balance: **${s.coins}**`+ownerTag+bonusTag+charmTag);
     }
     if(cmd==="beg"){
@@ -2372,14 +2396,16 @@ client.on("interactionCreate",async interaction=>{
       if(!isOwner&&rem>0)return safeReply(interaction,{content:`⏰ Wait **${Math.ceil(rem/1000)}s** before begging again.`,ephemeral:true});
       s.lastBegTime=now;
       const givingResps=BEG_RESPONSES.filter(r=>r.give);
-      const resp=isOwner?pick(givingResps):pick(BEG_RESPONSES);
-      let coins=isOwner?resp.hi:(resp.give?r(resp.lo,resp.hi):0);
+      const failResps=BEG_RESPONSES.filter(r=>!r.give);
+      const success=isOwner||Math.random()<(CONFIG.beg_success_chance/100);
+      const resp=success?pick(givingResps):pick(failResps);
+      let coins=isOwner?resp.hi:(success?r(resp.lo,resp.hi):0);
       const fx=activeEffects.get(interaction.user.id)||{};
       const hasCharm=fx.lucky_charm_expiry&&fx.lucky_charm_expiry>now;
-      if(hasCharm&&coins>0)coins=Math.floor(coins*1.1);
+      if(hasCharm&&coins>0)coins=Math.floor(coins*(1+CONFIG.lucky_charm_bonus/100));
       s.coins+=coins;
       saveData();
-      const charmTag=hasCharm&&coins>0?" 🍀 +10%":"";
+      const charmTag=hasCharm&&coins>0?" 🍀 +"+CONFIG.lucky_charm_bonus+"%":"";
       return safeReply(interaction,resp.msg.replace("{c}",coins)+(coins>0?`\n💰 Balance: **${s.coins}**`+charmTag:""));
     }
     if(cmd==="crime"){
@@ -2388,15 +2414,17 @@ client.on("interactionCreate",async interaction=>{
       if(!isOwner&&rem>0)return safeReply(interaction,{content:`⏰ Lay low for **${Math.ceil(rem/60000)}m**.`,ephemeral:true});
       s.lastCrimeTime=now;
       const successResps=CRIME_RESPONSES.filter(r=>r.success);
-      const resp=isOwner?pick(successResps):pick(CRIME_RESPONSES);
+      const failResps2=CRIME_RESPONSES.filter(r=>!r.success);
+      const crimeSuccess=isOwner||Math.random()<(CONFIG.crime_success_chance/100);
+      const resp=crimeSuccess?pick(successResps):pick(failResps2);
       let coins=isOwner?resp.hi:r(resp.lo,resp.hi);
-      const fx=activeEffects.get(interaction.user.id)||{};
-      const hasCharm=fx.lucky_charm_expiry&&fx.lucky_charm_expiry>now;
+      const fx2=activeEffects.get(interaction.user.id)||{};
+      const hasCharm=fx2.lucky_charm_expiry&&fx2.lucky_charm_expiry>now;
       // Charm only boosts successful crimes, not fines
-      if(hasCharm&&(isOwner||resp.success))coins=Math.floor(coins*1.1);
-      if(isOwner||resp.success)s.coins+=coins;else s.coins=Math.max(0,s.coins-coins);
+      if(hasCharm&&(isOwner||crimeSuccess))coins=Math.floor(coins*(1+CONFIG.lucky_charm_bonus/100));
+      if(isOwner||crimeSuccess)s.coins+=coins;else s.coins=Math.max(0,s.coins-coins);
       saveData();
-      const charmTag=hasCharm&&(isOwner||resp.success)?" 🍀 +10%":"";
+      const charmTag=hasCharm&&(isOwner||crimeSuccess)?" 🍀 +"+CONFIG.lucky_charm_bonus+"%":"";
       return safeReply(interaction,resp.msg.replace("{c}",coins)+`\n💰 Balance: **${s.coins}**`+charmTag);
     }
     if(cmd==="rob"){
@@ -2430,7 +2458,7 @@ client.on("interactionCreate",async interaction=>{
       if(itemId==="mystery_box"){
         const roll=Math.random();
         let rewardMsg;
-        if(roll<0.5){
+        if(roll<(CONFIG.mystery_box_coin_chance/100)){
           // Coin reward 50-500
           const gained=r(50,500);s.coins+=gained;
           rewardMsg=`💰 You got **${gained} coins**!`;
@@ -2902,8 +2930,11 @@ client.on("interactionCreate",async interaction=>{
           ["📈 XP",["xp_per_msg_min","xp_per_msg_max","xp_cooldown_ms"]],
           ["⏱️ Cooldowns (ms)",["work_cooldown_ms","beg_cooldown_ms","crime_cooldown_ms","rob_cooldown_ms"]],
           ["💰 Economy",["daily_base_coins","daily_streak_bonus","daily_wrong_penalty","starting_coins"]],
-          ["🔫 Rob",["rob_steal_pct_min","rob_steal_pct_max","rob_fine_pct_min","rob_fine_pct_max","rob_success_chance"]],
-          ["🎰 Slots",["slots_min_bet"]],
+          ["🎲 Success Chances (%)",["beg_success_chance","crime_success_chance","rob_success_chance","coinbet_win_chance","mystery_box_coin_chance"]],
+          ["🔫 Rob",["rob_steal_pct_min","rob_steal_pct_max","rob_fine_pct_min","rob_fine_pct_max"]],
+          ["🎰 Slots",["slots_min_bet","slots_jackpot_mult","slots_bigwin_mult","slots_triple_mult","slots_pair_mult"]],
+          ["🃏 Blackjack",["blackjack_natural_mult"]],
+          ["✨ Item Effects",["lucky_charm_bonus","xp_boost_mult","coin_magnet_mult"]],
           ["🛍️ Shop",["shop_lucky_charm_price","shop_xp_boost_price","shop_shield_price","shop_coin_magnet_price","shop_mystery_box_price","shop_rob_insurance_price"]],
           ["🎮 Solo Games",["win_hangman","win_snake_per_point","win_minesweeper_easy","win_minesweeper_medium","win_minesweeper_hard","win_numberguess","win_wordscramble"]],
           ["🕹️ 2-Player Games",["win_ttt","win_c4","win_rps","win_mathrace","win_wordrace","win_trivia","win_scramblerace","win_countgame"]],
