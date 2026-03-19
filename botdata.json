@@ -1,4 +1,20 @@
 {
+  "config": {
+    "xp_per_msg_min": 5,
+    "xp_per_msg_max": 15,
+    "work_cooldown_ms": 3600000,
+    "beg_cooldown_ms": 300000,
+    "crime_cooldown_ms": 7200000,
+    "rob_cooldown_ms": 3600000,
+    "daily_base_coins": 100,
+    "daily_streak_bonus": 10,
+    "daily_wrong_penalty": 5,
+    "slots_min_bet": 1,
+    "game_win_coins": 50,
+    "game_draw_coins": 10,
+    "olympics_win_coins": 75,
+    "starting_coins": 100
+  },
   "ticketConfigs": [
     [
       "1408975996715139084",
