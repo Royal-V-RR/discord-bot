@@ -115,7 +115,7 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 10300,
-        "lastSubsTimestamp": 1773947456102,
+        "lastSubsTimestamp": 1773947756115,
         "history": [
           {
             "ts": 1773788274802,
@@ -2172,6 +2172,10 @@
           {
             "ts": 1773947456102,
             "subs": 10300
+          },
+          {
+            "ts": 1773947756115,
+            "subs": 10300
           }
         ],
         "subcountDiscordId": "1483595393999700080",
@@ -2778,6 +2782,27 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 25,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null
+      }
+    ],
+    [
+      "1192976756538347655",
+      {
+        "username": "jettcocards_13818",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 10,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
