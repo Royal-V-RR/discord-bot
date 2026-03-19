@@ -1135,12 +1135,12 @@ function buildCommands(){
     {name:"adminconfig",    description:"[Owner] View/edit global config values",options:[{name:"key",description:`Config key (leave blank to list all). Keys: ${Object.keys(CONFIG).join(", ")}`,type:3,required:false},{name:"value",description:"New integer value",type:4,required:false}]},
     {name:"admingive",description:"[Owner] Give or take coins/items from a user",options:[
       {name:"user",          description:"Target user",                          type:6,required:true},
-      {name:"action",        description:"Give or take",                         type:3,required:true,choices:[
+      {name:"action",        description:"Give or take (default: give)",         type:3,required:false,choices:[
         {name:"Give",value:"give"},
         {name:"Take",value:"take"},
       ]},
-      {name:"amount",        description:"Coins (0 or omit for items only)",     type:4,required:false},
-      {name:"item",          description:"Item to give/take",                    type:3,required:false,choices:[
+      {name:"amount",        description:"Coins to give or take",                type:4,required:false},
+      {name:"item",          description:"Item to give or take",                 type:3,required:false,choices:[
         {name:"Lucky Charm 🍀",  value:"lucky_charm"},
         {name:"XP Boost ⚡",     value:"xp_boost"},
         {name:"Shield 🛡️",      value:"shield"},
@@ -2955,83 +2955,92 @@ client.on("interactionCreate",async interaction=>{
       return safeReply(interaction,{content:`✅ **${key}**: \`${old}\` → \`${value}\``,ephemeral:true});
     }
     if(cmd==="admingive"){
-      const target    = interaction.options.getUser("user");
-      const action    = interaction.options.getString("action"); // "give" or "take"
-      const amount    = interaction.options.getInteger("amount") ?? null;
-      const itemId    = interaction.options.getString("item") || null;
-      const itemQty   = Math.max(1, interaction.options.getInteger("item_quantity") ?? 1);
-      const isGive    = action === "give";
+      // Hard OWNER_IDS guard — belt and suspenders on top of ownerOnly array
+      if(!OWNER_IDS.includes(interaction.user.id))
+        return safeReply(interaction,{content:"❌ Owner only.",ephemeral:true});
+
+      const target   = interaction.options.getUser("user");
+      const action   = interaction.options.getString("action") || "give"; // default to give
+      const amount   = interaction.options.getInteger("amount") ?? null;
+      const itemId   = interaction.options.getString("item") || null;
+      const itemQty  = Math.max(1, interaction.options.getInteger("item_quantity") ?? 1);
+      const isGive   = action !== "take";
 
       if(amount === null && !itemId)
-        return safeReply(interaction,{content:"❌ Provide an `amount`, an `item`, or both.",ephemeral:true});
+        return safeReply(interaction,{content:"❌ You must provide an `amount`, an `item`, or both.",ephemeral:true});
       if(amount !== null && amount < 0)
-        return safeReply(interaction,{content:"❌ Amount must be ≥ 0.",ephemeral:true});
+        return safeReply(interaction,{content:"❌ Amount must be 0 or positive.",ephemeral:true});
 
+      // Fetch the score — if user isn't tracked yet this creates a fresh entry
       const s    = getScore(target.id, target.username);
       const SHOP = getShopItems();
-      const parts = [];
+      const lines = [];
 
-      // ── Coins ────────────────────────────────────────────────────────────────
+      // ── Coins ──────────────────────────────────────────────────────────────
       if(amount !== null && amount > 0){
         if(isGive){
           s.coins += amount;
-          parts.push(`gave **${amount} coins** (balance: **${s.coins}**)`);
+          lines.push(`💰 Gave **${amount} coins** → balance now **${s.coins}**`);
         } else {
-          const taken = Math.min(amount, s.coins); // can't go below 0
-          s.coins -= taken;
-          parts.push(`took **${taken} coins** (balance: **${s.coins}**)`);
+          const taken = Math.min(amount, s.coins);
+          s.coins    -= taken;
+          lines.push(`💸 Took **${taken} coins** → balance now **${s.coins}**`);
         }
       }
 
-      // ── Item ─────────────────────────────────────────────────────────────────
+      // ── Items ───────────────────────────────────────────────────────────────
       if(itemId){
         const itemName = SHOP[itemId]?.name || itemId;
-        const qty = itemQty;
 
         if(isGive){
-          // Timed items (lucky_charm, xp_boost) activate immediately — no inventory
           if(itemId === "lucky_charm" || itemId === "xp_boost"){
+            // Timed effects — activate directly, each qty = +1hr stacked
             const fx  = activeEffects.get(target.id) || {};
             const key = itemId === "lucky_charm" ? "lucky_charm_expiry" : "xp_boost_expiry";
             const now = Date.now();
-            // Each quantity = +1hr stacked
-            fx[key] = Math.max(fx[key] || now, now) + (3600000 * qty);
+            fx[key]   = Math.max(fx[key] || now, now) + 3600000 * itemQty;
             activeEffects.set(target.id, fx);
-            const hrs = qty === 1 ? "1hr" : `${qty}hr`;
-            parts.push(`activated **${itemName}** for **${hrs}**`);
+            const hrsLeft = Math.ceil((fx[key] - now) / 60000);
+            lines.push(`✨ Activated **${itemName}** × ${itemQty} → ${hrsLeft}min remaining`);
           } else {
-            // Push item(s) to inventory
-            for(let i = 0; i < qty; i++) s.inventory.push(itemId);
-            parts.push(`gave **${qty}× ${itemName}**`);
+            // All other items go to inventory
+            for(let i = 0; i < itemQty; i++) s.inventory.push(itemId);
+            lines.push(`🎒 Added **${itemQty}× ${itemName}** to inventory (total: ${s.inventory.filter(x=>x===itemId).length})`);
           }
         } else {
-          // Take: remove from inventory
+          // Taking items
           if(itemId === "lucky_charm" || itemId === "xp_boost"){
             const fx  = activeEffects.get(target.id) || {};
             const key = itemId === "lucky_charm" ? "lucky_charm_expiry" : "xp_boost_expiry";
+            if(!fx[key] || fx[key] < Date.now()){
+              return safeReply(interaction,{content:`❌ **${target.username}** doesn't have an active **${itemName}** effect.`,ephemeral:true});
+            }
             delete fx[key];
             activeEffects.set(target.id, fx);
-            parts.push(`removed active **${itemName}** effect`);
+            lines.push(`🚫 Removed active **${itemName}** effect`);
           } else {
             let removed = 0;
-            for(let i = 0; i < qty; i++){
+            for(let i = 0; i < itemQty; i++){
               const idx = s.inventory.indexOf(itemId);
-              if(idx !== -1){ s.inventory.splice(idx, 1); removed++; }
-              else break;
+              if(idx === -1) break;
+              s.inventory.splice(idx, 1);
+              removed++;
             }
             if(removed === 0)
-              return safeReply(interaction,{content:`❌ **${target.username}** doesn't have any **${itemName}** in their inventory.`,ephemeral:true});
-            parts.push(`took **${removed}× ${itemName}**`);
+              return safeReply(interaction,{content:`❌ **${target.username}** has no **${itemName}** in their inventory.`,ephemeral:true});
+            lines.push(`🗑️ Removed **${removed}× ${itemName}** from inventory (remaining: ${s.inventory.filter(x=>x===itemId).length})`);
           }
         }
       }
 
-      if(!parts.length)
-        return safeReply(interaction,{content:"❌ Nothing to do — amount was 0 and no item selected.",ephemeral:true});
+      if(!lines.length)
+        return safeReply(interaction,{content:"❌ Nothing changed — amount was 0 and no item provided.",ephemeral:true});
 
       saveData();
-      const verb = isGive ? "✅" : "🔻";
-      return safeReply(interaction,{content:`${verb} ${parts.join(" · ")} → **${target.username}**`,ephemeral:true});
+      return safeReply(interaction,{
+        content:`**Admin action on ${target.username}** (${target.id})\n${lines.join("\n")}`,
+        ephemeral:true,
+      });
     }
 
     // Server management extras
