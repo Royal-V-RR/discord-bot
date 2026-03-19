@@ -1287,11 +1287,10 @@ client.on("messageCreate",async msg=>{
     if(!isNaN(num)&&/^-?\d+$/.test(trimmed)){
       if(msg.author.id===cc.lastUserId){
         // Double count — reset
-        const was=cc.count;
         cc.count=0;cc.lastUserId=null;
         saveData();
         await msg.react("❌").catch(()=>{});
-        await safeSend(msg.channel,`❌ <@${msg.author.id}> counted twice in a row! The count resets. (**${was}** → **0**)\nNext number: **1**`);
+        await safeSend(msg.channel,`<@${msg.author.id}> messed the counting up! Shame on them! Start from zero.`);
       }else if(num===cc.count+1){
         // Correct
         cc.count++;cc.lastUserId=msg.author.id;
@@ -1300,11 +1299,10 @@ client.on("messageCreate",async msg=>{
         await msg.react("✅").catch(()=>{});
       }else{
         // Wrong number — reset
-        const was=cc.count;
         cc.count=0;cc.lastUserId=null;
         saveData();
         await msg.react("❌").catch(()=>{});
-        await safeSend(msg.channel,`❌ <@${msg.author.id}> said **${num}** but the next number was **${was+1}**! The count resets. (**${was}** → **0**)\nNext number: **1**`);
+        await safeSend(msg.channel,`<@${msg.author.id}> messed the counting up! Shame on them! Start from zero.`);
       }
     }
   }
