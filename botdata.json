@@ -2,6 +2,7 @@
   "config": {
     "xp_per_msg_min": 5,
     "xp_per_msg_max": 15,
+    "xp_cooldown_ms": 60000,
     "work_cooldown_ms": 3600000,
     "beg_cooldown_ms": 300000,
     "crime_cooldown_ms": 7200000,
@@ -9,11 +10,36 @@
     "daily_base_coins": 100,
     "daily_streak_bonus": 10,
     "daily_wrong_penalty": 25,
+    "starting_coins": 100,
+    "rob_steal_pct_min": 10,
+    "rob_steal_pct_max": 30,
+    "rob_fine_pct_min": 5,
+    "rob_fine_pct_max": 15,
+    "rob_success_chance": 45,
     "slots_min_bet": 1,
-    "game_win_coins": 50,
-    "game_draw_coins": 10,
+    "shop_lucky_charm_price": 200,
+    "shop_xp_boost_price": 300,
+    "shop_shield_price": 150,
+    "win_hangman": 40,
+    "win_snake_per_point": 5,
+    "win_minesweeper_easy": 30,
+    "win_minesweeper_medium": 60,
+    "win_minesweeper_hard": 100,
+    "win_numberguess": 30,
+    "win_wordscramble": 25,
+    "win_ttt": 50,
+    "win_c4": 50,
+    "win_rps": 40,
+    "win_mathrace": 40,
+    "win_wordrace": 40,
+    "win_trivia": 60,
+    "win_scramblerace": 80,
+    "win_countgame": 200,
     "olympics_win_coins": 75,
-    "starting_coins": 100
+    "invite_comp_1st": 500,
+    "invite_comp_2nd": 250,
+    "invite_comp_3rd": 100,
+    "invite_comp_per_invite": 10
   },
   "ticketConfigs": [
     [
@@ -86,7 +112,7 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 10300,
-        "lastSubsTimestamp": 1773939462891,
+        "lastSubsTimestamp": 1773939162854,
         "history": [
           {
             "ts": 1773788274802,
@@ -2050,10 +2076,6 @@
           },
           {
             "ts": 1773939162854,
-            "subs": 10300
-          },
-          {
-            "ts": 1773939462891,
             "subs": 10300
           }
         ],
