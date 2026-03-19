@@ -303,6 +303,15 @@ function buildDataObject() {
     countingChannels: [...countingChannels.entries()],
     userInstalls:     [...userInstalls],
     scores:           [...scores.entries()],
+    // Active item effects — expiry timestamps so buffs survive restarts
+    activeEffects:    [...activeEffects.entries()],
+    // Reminders — fire any overdue ones immediately on load
+    reminders:        [...reminders],
+    // Invite competitions — baseline stored as array of [code, uses] pairs
+    inviteComps:      [...inviteComps.entries()].map(([guildId, comp]) => [
+      guildId,
+      { endsAt: comp.endsAt, channelId: comp.channelId, baseline: [...comp.baseline.entries()] }
+    ]),
   };
 }
 
@@ -355,7 +364,59 @@ function loadData() {
     if (data.countingChannels) data.countingChannels  .forEach(([k,v]) => countingChannels.set(k, v));
     if (data.userInstalls)     data.userInstalls    .forEach(v => userInstalls.add(v));
     if (data.scores)           data.scores          .forEach(([k,v]) => scores.set(k, v));
-    console.log(`✅ Data loaded — ${ticketConfigs.size} ticket configs, ${reactionRoles.size} reaction roles, ${scores.size} scores, ${guildChannels.size} channels`);
+
+    // Restore active item effects — drop any that have already expired
+    if (data.activeEffects) {
+      const now = Date.now();
+      data.activeEffects.forEach(([uid, fx]) => {
+        const live = {};
+        if (fx.lucky_charm_expiry && fx.lucky_charm_expiry > now) live.lucky_charm_expiry = fx.lucky_charm_expiry;
+        if (fx.xp_boost_expiry    && fx.xp_boost_expiry    > now) live.xp_boost_expiry    = fx.xp_boost_expiry;
+        if (Object.keys(live).length > 0) activeEffects.set(uid, live);
+      });
+    }
+
+    // Restore reminders — overdue ones will fire on the next 30s tick
+    if (data.reminders) {
+      const now = Date.now();
+      data.reminders.forEach(rem => {
+        if (rem.time && rem.userId && rem.channelId && rem.message) {
+          // Keep future reminders; also keep ones up to 24h overdue so they fire ASAP
+          if (rem.time > now - 86400000) reminders.push(rem);
+        }
+      });
+    }
+
+    // Restore invite competitions — recreate baseline Map and re-arm the timeout
+    if (data.inviteComps) {
+      const now = Date.now();
+      data.inviteComps.forEach(([guildId, comp]) => {
+        if (!comp.endsAt || comp.endsAt <= now) return; // already expired
+        const baseline = new Map(comp.baseline || []);
+        inviteComps.set(guildId, { endsAt: comp.endsAt, channelId: comp.channelId, baseline });
+        // Re-arm the timer for the remaining duration
+        const remaining = comp.endsAt - now;
+        setTimeout(async () => {
+          const live = inviteComps.get(guildId); if (!live) return;
+          inviteComps.delete(guildId);
+          const guild = client.guilds.cache.get(guildId); if (!guild) return;
+          const ch = guild.channels.cache.get(live.channelId) || getGuildChannel(guild); if (!ch) return;
+          const allInvites = await guild.invites.fetch().catch(() => null);
+          const gained = new Map();
+          if (allInvites) { allInvites.forEach(inv => { if (!inv.inviter) return; const base = live.baseline.get(inv.code) || 0; const diff = (inv.uses||0) - base; if (diff <= 0) return; const id = inv.inviter.id; if (!gained.has(id)) gained.set(id, {username:inv.inviter.username,count:0}); gained.get(id).count += diff; }); }
+          const sorted = [...gained.entries()].sort((a,b) => b[1].count - a[1].count);
+          if (!sorted.length) { await safeSend(ch, "🏆 **Invite Competition Ended!**\n\nNo new tracked invites."); return; }
+          const medals = ["🥇","🥈","🥉"], rewards = [CONFIG.invite_comp_1st, CONFIG.invite_comp_2nd, CONFIG.invite_comp_3rd];
+          const top = sorted.slice(0,3);
+          const lines = top.map(([id,d],i) => `${medals[i]} <@${id}> — **${d.count}** invite${d.count!==1?"s":""} (+${rewards[i]} coins)`);
+          top.forEach(([id,d],i) => { getScore(id,d.username).coins += rewards[i]; });
+          saveData();
+          await safeSend(ch, `🏆 **Invite Competition Ended!**\n\n${lines.join("\n")}`);
+        }, remaining);
+      });
+    }
+
+    console.log(`✅ Data loaded — ${ticketConfigs.size} ticket configs, ${reactionRoles.size} reaction roles, ${scores.size} scores, ${guildChannels.size} channels, ${activeEffects.size} active effects, ${reminders.length} reminders, ${inviteComps.size} active competitions`);
   } catch(e) { console.error("loadData error:", e.message); }
 }
 
@@ -1232,21 +1293,18 @@ function buildCommands(){
 // ── Command registration ──────────────────────────────────────────────────────
 function discordRequest(method, path, body) {
   return new Promise((resolve, reject) => {
-    const data = body ? JSON.stringify(body) : "[]";
-    const opts = {
-      hostname: "discord.com", port: 443, path, method,
-      headers: {
-        Authorization: `Bot ${TOKEN}`,
-        "Content-Type": "application/json",
-        "Content-Length": Buffer.byteLength(data)
-      }
-    };
+    const noBody = method === "GET" || method === "DELETE";
+    const data   = noBody ? null : (body !== null && body !== undefined ? JSON.stringify(body) : "[]");
+    const headers = { Authorization: `Bot ${TOKEN}`, "Content-Type": "application/json" };
+    if (!noBody) headers["Content-Length"] = Buffer.byteLength(data);
+    const opts = { hostname: "discord.com", port: 443, path, method, headers };
     const req = https.request(opts, res => {
       let b = ""; res.on("data", c => b += c);
       res.on("end", () => resolve({ status: res.statusCode, body: b }));
     });
     req.on("error", reject);
-    req.write(data); req.end();
+    if (!noBody) req.write(data);
+    req.end();
   });
 }
 
@@ -1260,7 +1318,27 @@ async function clearGlobalCommands() {
 
 // Commands that should ONLY be guild-registered (instant propagation, no global cache lag).
 // Keep owner-only commands here so changes show up immediately without the 1hr global delay.
-const GUILD_ONLY_CMDS = ["admingive"];
+// These commands are registered per-guild (instant, <1s propagation) instead of globally.
+// Use this for commands where choices/options change and you can't wait 1hr for global cache.
+const GUILD_ONLY_CMDS = ["admingive","buy","open","shop","inventory"];
+
+// Wipe stale global versions of guild-only commands.
+// When a command moves from global to guild-only, its global entry lingers until explicitly deleted.
+async function wipeStaleGlobalCmds() {
+  try {
+    // Fetch all currently registered global commands
+    const r = await discordRequest("GET", `/api/v10/applications/${CLIENT_ID}/commands`, null);
+    if (r.status !== 200) return;
+    const global = JSON.parse(r.body);
+    // Delete any that are now guild-only
+    for (const cmd of global) {
+      if (GUILD_ONLY_CMDS.includes(cmd.name)) {
+        await discordRequest("DELETE", `/api/v10/applications/${CLIENT_ID}/commands/${cmd.id}`, null);
+        console.log(`🗑️ Deleted stale global command: ${cmd.name}`);
+      }
+    }
+  } catch(e) { console.warn("wipeStaleGlobalCmds error:", e.message); }
+}
 
 async function registerGlobalCommands() {
   try {
@@ -1313,6 +1391,9 @@ client.once("ready", async () => {
   console.log(`Bot ready: ${client.user.tag} [${INSTANCE_ID}] in ${client.guilds.cache.size} servers`);
   try { const owner = await client.users.fetch(OWNER_ID); await acquireInstanceLock(owner); }
   catch(e) { console.error("Lock error:", e); instanceLocked = true; }
+
+  // Step 0: Delete any stale global versions of guild-only commands (e.g. old /buy with 3 items).
+  await wipeStaleGlobalCmds();
 
   // Step 1: Register global commands (all except guild-only ones).
   await registerGlobalCommands();
