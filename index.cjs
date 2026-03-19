@@ -214,6 +214,7 @@ async function commitDataToGitHub(jsonString) {
 
 function buildDataObject() {
   return {
+    config:           {...CONFIG},
     ticketConfigs:    [...ticketConfigs.entries()],
     openTickets:      [...openTickets.entries()],
     guildChannels:    [...guildChannels.entries()],
@@ -260,6 +261,12 @@ function loadData() {
     const raw = fs.readFileSync(DATA_FILE, "utf8");
     if (!raw || !raw.trim()) { console.log("botdata.json is empty, starting fresh."); return; }
     const data = JSON.parse(raw);
+    // Restore saved CONFIG values — only known keys, only numbers, never overwrites defaults with bad data
+    if (data.config && typeof data.config === "object") {
+      for (const [k, v] of Object.entries(data.config)) {
+        if (k in CONFIG && typeof v === "number") CONFIG[k] = v;
+      }
+    }
     if (data.ticketConfigs)    data.ticketConfigs   .forEach(([k,v]) => ticketConfigs.set(k, v));
     if (data.openTickets)      data.openTickets     .forEach(([k,v]) => openTickets.set(k, v));
     if (data.guildChannels)    data.guildChannels   .forEach(([k,v]) => guildChannels.set(k, v));
@@ -2720,6 +2727,7 @@ client.on("interactionCreate",async interaction=>{
       if(!(key in CONFIG))return safeReply(interaction,{content:"Unknown key.",ephemeral:true});
       if(value==null)return safeReply(interaction,{content:`⚙️ **${key}** = \`${CONFIG[key]}\``,ephemeral:true});
       const old=CONFIG[key];CONFIG[key]=value;
+      saveData();
       return safeReply(interaction,{content:`✅ **${key}**: \`${old}\` → \`${value}\``,ephemeral:true});
     }
     if(cmd==="admingive"){
