@@ -1182,9 +1182,13 @@ async function clearGlobalCommands() {
   } catch(e) { console.warn("clearGlobalCommands error:", e.message); }
 }
 
+// Commands that should ONLY be guild-registered (instant propagation, no global cache lag).
+// Keep owner-only commands here so changes show up immediately without the 1hr global delay.
+const GUILD_ONLY_CMDS = ["admingive"];
+
 async function registerGlobalCommands() {
   try {
-    const cmds = buildCommands();
+    const cmds = buildCommands().filter(c => !GUILD_ONLY_CMDS.includes(c.name));
     const r = await discordRequest("PUT", `/api/v10/applications/${CLIENT_ID}/commands`, cmds);
     if (r.status === 200) {
       const registered = JSON.parse(r.body);
@@ -1195,14 +1199,36 @@ async function registerGlobalCommands() {
   } catch(e) { console.error("registerGlobalCommands error:", e.message); }
 }
 
-// Wipe all guild-level commands for a server (PUT empty array).
-// This removes any leftover guild commands from previous bot versions
-// that would otherwise cause every command to appear twice alongside global ones.
-async function clearGuildCommands(guildId) {
+// Register guild-only commands to a specific server (propagates in <1 second).
+async function registerGuildOnlyCommands(guildId) {
   try {
+    const cmds = buildCommands().filter(c => GUILD_ONLY_CMDS.includes(c.name));
+    const r = await discordRequest("PUT", `/api/v10/applications/${CLIENT_ID}/guilds/${guildId}/commands`, cmds);
+    if (r.status === 200) {
+      console.log(`✅ Guild [${guildId}]: ${JSON.parse(r.body).length} guild-only commands`);
+    } else {
+      console.warn(`⚠️ Guild-only commands [${guildId}] HTTP ${r.status}: ${r.body.slice(0,200)}`);
+    }
+  } catch(e) { console.warn(`registerGuildOnlyCommands [${guildId}]:`, e.message); }
+}
+
+// Wipe ALL guild-level commands for a server — used to clear old stale registrations
+// that would cause doubling alongside global commands.
+// Pass skipGuildOnly=true to wipe everything; false to re-register guild-only after wipe.
+async function clearGuildCommands(guildId, andReregister = true) {
+  try {
+    // First wipe everything
     const r = await discordRequest("PUT", `/api/v10/applications/${CLIENT_ID}/guilds/${guildId}/commands`, []);
-    if (r.status === 200) console.log(`✅ Guild commands cleared: ${guildId}`);
-    else console.warn(`⚠️ clearGuildCommands [${guildId}] HTTP ${r.status}`);
+    if (r.status === 200) {
+      if (andReregister) {
+        // Re-register just the guild-only commands
+        await registerGuildOnlyCommands(guildId);
+      } else {
+        console.log(`✅ Guild commands wiped: ${guildId}`);
+      }
+    } else {
+      console.warn(`⚠️ clearGuildCommands [${guildId}] HTTP ${r.status}`);
+    }
   } catch(e) { console.warn(`clearGuildCommands [${guildId}]:`, e.message); }
 }
 
@@ -1212,14 +1238,14 @@ client.once("ready", async () => {
   try { const owner = await client.users.fetch(OWNER_ID); await acquireInstanceLock(owner); }
   catch(e) { console.error("Lock error:", e); instanceLocked = true; }
 
-  // Step 1: Register commands globally (covers all servers + DMs).
+  // Step 1: Register global commands (all except guild-only ones).
   await registerGlobalCommands();
 
-  // Step 2: Wipe any leftover guild-level commands that cause duplicates.
-  // Stagger by 300ms per guild to avoid rate limits.
+  // Step 2: For every guild — wipe old commands then register guild-only commands.
+  // Stagger by 400ms per guild to avoid rate limits.
   const guilds = [...client.guilds.cache.values()];
   guilds.forEach((g, i) => {
-    setTimeout(() => clearGuildCommands(g.id), i * 300);
+    setTimeout(() => clearGuildCommands(g.id, true), i * 400);
   });
 
   // Snapshot invites for invite competitions
@@ -1230,8 +1256,8 @@ client.once("ready", async () => {
 
 client.on("guildCreate", async g => {
   console.log(`Joined: ${g.name} (${g.id})`);
-  // Clear any guild commands in case this server had them before
-  await clearGuildCommands(g.id);
+  // Register guild-only commands instantly when joining a new server
+  await registerGuildOnlyCommands(g.id);
   snapshotInvites(g).catch(() => {});
 });
 
@@ -2958,6 +2984,8 @@ client.on("interactionCreate",async interaction=>{
       // Hard OWNER_IDS guard — belt and suspenders on top of ownerOnly array
       if(!OWNER_IDS.includes(interaction.user.id))
         return safeReply(interaction,{content:"❌ Owner only.",ephemeral:true});
+      if(!inGuild)
+        return safeReply(interaction,{content:"❌ This command only works in servers.",ephemeral:true});
 
       const target   = interaction.options.getUser("user");
       const action   = interaction.options.getString("action") || "give"; // default to give
