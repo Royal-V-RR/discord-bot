@@ -1968,7 +1968,17 @@
       }
     ]
   ],
-  "countingChannels": [],
+  "countingChannels": [
+    [
+      "1484207820118294628",
+      {
+        "guildId": "1408975996715139084",
+        "count": 0,
+        "lastUserId": null,
+        "highScore": 0
+      }
+    ]
+  ],
   "userInstalls": [
     "969280648667889764",
     "1065656251649892382"
