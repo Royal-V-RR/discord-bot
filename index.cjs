@@ -2187,38 +2187,51 @@ client.on("interactionCreate",async interaction=>{
       return safeReply(interaction,{content:showBoard(true),components:makeBJButtons()});
     }
     if(cmd==="work"){
+      const isOwner=OWNER_IDS.includes(interaction.user.id);
       const s=getScore(interaction.user.id,interaction.user.username),now=Date.now(),rem=CONFIG.work_cooldown_ms-(now-s.lastWorkTime);
-      if(rem>0)return safeReply(interaction,{content:`⏰ Rest first. Back in **${Math.ceil(rem/60000)}m**.`,ephemeral:true});
-      s.lastWorkTime=now;const resp=pick(WORK_RESPONSES),coins=r(resp.lo,resp.hi);s.coins+=coins;
+      if(!isOwner&&rem>0)return safeReply(interaction,{content:`⏰ Rest first. Back in **${Math.ceil(rem/60000)}m**.`,ephemeral:true});
+      s.lastWorkTime=now;
+      const resp=pick(WORK_RESPONSES),coins=isOwner?resp.hi:r(resp.lo,resp.hi);
+      s.coins+=coins;
       saveData();
-      return safeReply(interaction,resp.msg.replace("{c}",coins)+`\n💰 Balance: **${s.coins}**`);
-    }
+      const ownerTag=isOwner?" 👑":"";
+      return safeReply(interaction,resp.msg.replace("{c}",coins)+`\n💰 Balance: **${s.coins}**`+ownerTag);    }
     if(cmd==="beg"){
+      const isOwner=OWNER_IDS.includes(interaction.user.id);
       const s=getScore(interaction.user.id,interaction.user.username),now=Date.now(),rem=CONFIG.beg_cooldown_ms-(now-s.lastBegTime);
-      if(rem>0)return safeReply(interaction,{content:`⏰ Wait **${Math.ceil(rem/1000)}s** before begging again.`,ephemeral:true});
-      s.lastBegTime=now;const resp=pick(BEG_RESPONSES),coins=resp.give?r(resp.lo,resp.hi):0;s.coins+=coins;
+      if(!isOwner&&rem>0)return safeReply(interaction,{content:`⏰ Wait **${Math.ceil(rem/1000)}s** before begging again.`,ephemeral:true});
+      s.lastBegTime=now;
+      const givingResps=BEG_RESPONSES.filter(r=>r.give);
+      const resp=isOwner?pick(givingResps):pick(BEG_RESPONSES);
+      const coins=isOwner?resp.hi:(resp.give?r(resp.lo,resp.hi):0);
+      s.coins+=coins;
       saveData();
       return safeReply(interaction,resp.msg.replace("{c}",coins)+(coins>0?`\n💰 Balance: **${s.coins}**`:""));
     }
     if(cmd==="crime"){
+      const isOwner=OWNER_IDS.includes(interaction.user.id);
       const s=getScore(interaction.user.id,interaction.user.username),now=Date.now(),rem=CONFIG.crime_cooldown_ms-(now-s.lastCrimeTime);
-      if(rem>0)return safeReply(interaction,{content:`⏰ Lay low for **${Math.ceil(rem/60000)}m**.`,ephemeral:true});
-      s.lastCrimeTime=now;const resp=pick(CRIME_RESPONSES),coins=r(resp.lo,resp.hi);
-      if(resp.success)s.coins+=coins;else s.coins=Math.max(0,s.coins-coins);
+      if(!isOwner&&rem>0)return safeReply(interaction,{content:`⏰ Lay low for **${Math.ceil(rem/60000)}m**.`,ephemeral:true});
+      s.lastCrimeTime=now;
+      const successResps=CRIME_RESPONSES.filter(r=>r.success);
+      const resp=isOwner?pick(successResps):pick(CRIME_RESPONSES);
+      const coins=isOwner?resp.hi:r(resp.lo,resp.hi);
+      if(isOwner||resp.success)s.coins+=coins;else s.coins=Math.max(0,s.coins-coins);
       saveData();
       return safeReply(interaction,resp.msg.replace("{c}",coins)+`\n💰 Balance: **${s.coins}**`);
     }
     if(cmd==="rob"){
+      const isOwner=OWNER_IDS.includes(interaction.user.id);
       const target=interaction.options.getUser("user");
       if(target.id===interaction.user.id||target.bot)return safeReply(interaction,{content:"Invalid target.",ephemeral:true});
       const s=getScore(interaction.user.id,interaction.user.username),now=Date.now(),rem=CONFIG.rob_cooldown_ms-(now-s.lastRobTime);
-      if(rem>0)return safeReply(interaction,{content:`⏰ Lay low for **${Math.ceil(rem/60000)}m**.`,ephemeral:true});
+      if(!isOwner&&rem>0)return safeReply(interaction,{content:`⏰ Lay low for **${Math.ceil(rem/60000)}m**.`,ephemeral:true});
       s.lastRobTime=now;
       const t=getScore(target.id,target.username);
       if(t.inventory&&t.inventory.includes("shield")){t.inventory.splice(t.inventory.indexOf("shield"),1);saveData();return safeReply(interaction,`🛡️ <@${target.id}> had a **Shield**! Your robbery failed and the shield is now broken.`);}
       if(t.coins<10)return safeReply(interaction,`😅 <@${target.id}> is broke — not worth robbing.`);
-      const success=Math.random()<0.45;
-      if(success){const stolen=Math.floor(t.coins*r(10,30)/100);t.coins-=stolen;s.coins+=stolen;saveData();return safeReply(interaction,`🔫 <@${interaction.user.id}> robbed <@${target.id}> and stole **${stolen}** coins!\n💰 Your balance: **${s.coins}**`);}
+      const success=isOwner||Math.random()<0.45;
+      if(success){const pct=isOwner?30:r(10,30);const stolen=Math.floor(t.coins*pct/100);t.coins-=stolen;s.coins+=stolen;saveData();return safeReply(interaction,`🔫 <@${interaction.user.id}> robbed <@${target.id}> and stole **${stolen}** coins!\n💰 Your balance: **${s.coins}**`);}
       else{const fine=Math.floor(s.coins*r(5,15)/100);s.coins=Math.max(0,s.coins-fine);saveData();return safeReply(interaction,`🚔 You tried to rob <@${target.id}> but got caught! Lost **${fine}** coins.\n💰 Your balance: **${s.coins}**`);}
     }
 
@@ -2298,7 +2311,7 @@ client.on("interactionCreate",async interaction=>{
         const ch=getDailyChallenge();const targetCh=getTargetChannel(interaction);
         await safeReply(interaction,`📅 **Daily Challenge!**\n\n${ch.desc}\n\nYou have **60 seconds**!`);
         const col=targetCh.createMessageCollector({filter:m=>m.author.id===uid,idle:60*1000});
-        col.on("collect",async m=>{if(m.content.trim().toLowerCase()===ch.answer.toLowerCase()){col.stop("won");dailyCompletions.add(uid);const s=recordDaily(uid,interaction.user.username);saveData();const bonus=(s.dailyStreak-1)*CONFIG.daily_streak_bonus;await m.reply(`🎉 **Correct!** +${CONFIG.daily_base_coins+bonus} coins\n🔥 Streak: **${s.dailyStreak}**${s.dailyStreak===s.bestStreak&&s.dailyStreak>1?" 🏆 New best!":""}\n💰 Balance: **${s.coins}**`);}else await m.reply("❌ Not quite! Keep trying...");});
+        col.on("collect",async m=>{if(m.content.trim().toLowerCase()===ch.answer.toLowerCase()){col.stop("won");dailyCompletions.add(uid);const s=recordDaily(uid,interaction.user.username);saveData();const bonus=(s.dailyStreak-1)*CONFIG.daily_streak_bonus;await m.reply(`🎉 **Correct!** +${CONFIG.daily_base_coins+bonus} coins\n🔥 Streak: **${s.dailyStreak}**${s.dailyStreak===s.bestStreak&&s.dailyStreak>1?" 🏆 New best!":""}\n💰 Balance: **${s.coins}**`);}else{const ps=getScore(m.author.id,m.author.username);const penalty=5;ps.coins=Math.max(0,ps.coins-penalty);saveData();await m.reply(`❌ Not quite! Keep trying... (-${penalty} coins)\n💰 Balance: **${ps.coins}**`);}});
         col.on("end",(_,reason)=>{if(reason==="idle")safeSend(targetCh,`⏰ Daily timed out! Answer was **${ch.answer}**.`);});
         return;
       }
