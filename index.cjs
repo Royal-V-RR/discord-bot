@@ -1133,10 +1133,14 @@ function buildCommands(){
     {name:"adminuser",      description:"[Owner] Edit user stats",options:[{name:"user",description:"User",type:6,required:true},{name:"field",description:"Field",type:3,required:true,choices:[{name:"Coins",value:"coins"},{name:"Wins",value:"wins"},{name:"Games Played",value:"gamesPlayed"},{name:"Daily Streak",value:"dailyStreak"},{name:"Best Streak",value:"bestStreak"},{name:"XP",value:"xp"},{name:"Level",value:"level"}]},{name:"value",description:"New integer value",type:4,required:true}]},
     {name:"adminreset",     description:"[Owner] Reset all stats for user",options:[{name:"user",description:"User",type:6,required:true}]},
     {name:"adminconfig",    description:"[Owner] View/edit global config values",options:[{name:"key",description:`Config key (leave blank to list all). Keys: ${Object.keys(CONFIG).join(", ")}`,type:3,required:false},{name:"value",description:"New integer value",type:4,required:false}]},
-    {name:"admingive",      description:"[Owner] Give coins and/or an item to a user",options:[
-      {name:"user",   description:"Target user",   type:6,required:true},
-      {name:"amount", description:"Coins to give", type:4,required:false},
-      {name:"item",   description:"Item to give (optional)", type:3,required:false,choices:[
+    {name:"admingive",description:"[Owner] Give or take coins/items from a user",options:[
+      {name:"user",          description:"Target user",                          type:6,required:true},
+      {name:"action",        description:"Give or take",                         type:3,required:true,choices:[
+        {name:"Give",value:"give"},
+        {name:"Take",value:"take"},
+      ]},
+      {name:"amount",        description:"Coins (0 or omit for items only)",     type:4,required:false},
+      {name:"item",          description:"Item to give/take",                    type:3,required:false,choices:[
         {name:"Lucky Charm 🍀",  value:"lucky_charm"},
         {name:"XP Boost ⚡",     value:"xp_boost"},
         {name:"Shield 🛡️",      value:"shield"},
@@ -1144,6 +1148,7 @@ function buildCommands(){
         {name:"Mystery Box 📦",  value:"mystery_box"},
         {name:"Rob Insurance 📋",value:"rob_insurance"},
       ]},
+      {name:"item_quantity", description:"How many of the item (default: 1)",    type:4,required:false},
     ]},
   ];
 }
@@ -2950,29 +2955,83 @@ client.on("interactionCreate",async interaction=>{
       return safeReply(interaction,{content:`✅ **${key}**: \`${old}\` → \`${value}\``,ephemeral:true});
     }
     if(cmd==="admingive"){
-      const target=interaction.options.getUser("user"),amount=interaction.options.getInteger("amount")??null,itemId=interaction.options.getString("item")||null;
-      if(amount!==null&&amount<0)return safeReply(interaction,{content:"Amount must be ≥ 0.",ephemeral:true});
-      if(amount===null&&!itemId)return safeReply(interaction,{content:"Provide an amount and/or an item.",ephemeral:true});
-      const s=getScore(target.id,target.username);
-      const SHOP=getShopItems();
-      const parts=[];
-      if(amount!==null&&amount>0){s.coins+=amount;parts.push(`**${amount} coins**`);}
-      if(itemId){
-        if(itemId==="lucky_charm"||itemId==="xp_boost"){
-          const fx=activeEffects.get(target.id)||{};
-          const key=itemId==="lucky_charm"?"lucky_charm_expiry":"xp_boost_expiry";
-          const now=Date.now();
-          fx[key]=Math.max(fx[key]||now,now)+3600000;
-          activeEffects.set(target.id,fx);
-          parts.push(`**${SHOP[itemId]?.name||itemId}** (activated for 1hr)`);
-        }else{
-          s.inventory.push(itemId);
-          parts.push(`**${SHOP[itemId]?.name||itemId}**`);
+      const target    = interaction.options.getUser("user");
+      const action    = interaction.options.getString("action"); // "give" or "take"
+      const amount    = interaction.options.getInteger("amount") ?? null;
+      const itemId    = interaction.options.getString("item") || null;
+      const itemQty   = Math.max(1, interaction.options.getInteger("item_quantity") ?? 1);
+      const isGive    = action === "give";
+
+      if(amount === null && !itemId)
+        return safeReply(interaction,{content:"❌ Provide an `amount`, an `item`, or both.",ephemeral:true});
+      if(amount !== null && amount < 0)
+        return safeReply(interaction,{content:"❌ Amount must be ≥ 0.",ephemeral:true});
+
+      const s    = getScore(target.id, target.username);
+      const SHOP = getShopItems();
+      const parts = [];
+
+      // ── Coins ────────────────────────────────────────────────────────────────
+      if(amount !== null && amount > 0){
+        if(isGive){
+          s.coins += amount;
+          parts.push(`gave **${amount} coins** (balance: **${s.coins}**)`);
+        } else {
+          const taken = Math.min(amount, s.coins); // can't go below 0
+          s.coins -= taken;
+          parts.push(`took **${taken} coins** (balance: **${s.coins}**)`);
         }
       }
-      if(!parts.length)return safeReply(interaction,{content:"Nothing to give.",ephemeral:true});
+
+      // ── Item ─────────────────────────────────────────────────────────────────
+      if(itemId){
+        const itemName = SHOP[itemId]?.name || itemId;
+        const qty = itemQty;
+
+        if(isGive){
+          // Timed items (lucky_charm, xp_boost) activate immediately — no inventory
+          if(itemId === "lucky_charm" || itemId === "xp_boost"){
+            const fx  = activeEffects.get(target.id) || {};
+            const key = itemId === "lucky_charm" ? "lucky_charm_expiry" : "xp_boost_expiry";
+            const now = Date.now();
+            // Each quantity = +1hr stacked
+            fx[key] = Math.max(fx[key] || now, now) + (3600000 * qty);
+            activeEffects.set(target.id, fx);
+            const hrs = qty === 1 ? "1hr" : `${qty}hr`;
+            parts.push(`activated **${itemName}** for **${hrs}**`);
+          } else {
+            // Push item(s) to inventory
+            for(let i = 0; i < qty; i++) s.inventory.push(itemId);
+            parts.push(`gave **${qty}× ${itemName}**`);
+          }
+        } else {
+          // Take: remove from inventory
+          if(itemId === "lucky_charm" || itemId === "xp_boost"){
+            const fx  = activeEffects.get(target.id) || {};
+            const key = itemId === "lucky_charm" ? "lucky_charm_expiry" : "xp_boost_expiry";
+            delete fx[key];
+            activeEffects.set(target.id, fx);
+            parts.push(`removed active **${itemName}** effect`);
+          } else {
+            let removed = 0;
+            for(let i = 0; i < qty; i++){
+              const idx = s.inventory.indexOf(itemId);
+              if(idx !== -1){ s.inventory.splice(idx, 1); removed++; }
+              else break;
+            }
+            if(removed === 0)
+              return safeReply(interaction,{content:`❌ **${target.username}** doesn't have any **${itemName}** in their inventory.`,ephemeral:true});
+            parts.push(`took **${removed}× ${itemName}**`);
+          }
+        }
+      }
+
+      if(!parts.length)
+        return safeReply(interaction,{content:"❌ Nothing to do — amount was 0 and no item selected.",ephemeral:true});
+
       saveData();
-      return safeReply(interaction,{content:`✅ Gave ${parts.join(" and ")} to **${target.username}**.\n💰 New balance: **${s.coins}**`,ephemeral:true});
+      const verb = isGive ? "✅" : "🔻";
+      return safeReply(interaction,{content:`${verb} ${parts.join(" · ")} → **${target.username}**`,ephemeral:true});
     }
 
     // Server management extras
