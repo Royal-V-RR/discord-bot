@@ -8,7 +8,7 @@
     "rob_cooldown_ms": 3600000,
     "daily_base_coins": 100,
     "daily_streak_bonus": 10,
-    "daily_wrong_penalty": 5,
+    "daily_wrong_penalty": 25,
     "slots_min_bet": 1,
     "game_win_coins": 50,
     "game_draw_coins": 10,
