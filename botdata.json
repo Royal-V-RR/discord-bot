@@ -20,6 +20,9 @@
     "shop_lucky_charm_price": 200,
     "shop_xp_boost_price": 300,
     "shop_shield_price": 150,
+    "shop_coin_magnet_price": 350,
+    "shop_mystery_box_price": 100,
+    "shop_rob_insurance_price": 250,
     "win_hangman": 40,
     "win_snake_per_point": 5,
     "win_minesweeper_easy": 30,
@@ -2638,7 +2641,7 @@
       {
         "username": "genuineleafy",
         "wins": 10,
-        "gamesPlayed": 17,
+        "gamesPlayed": 18,
         "coins": 13670,
         "dailyStreak": 0,
         "bestStreak": 0,
