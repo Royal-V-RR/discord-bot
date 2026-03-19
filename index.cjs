@@ -115,7 +115,7 @@ function xpInfo(s) {
 const xpCooldown = new Map();
 function tryAwardXP(uid, uname) {
   const now=Date.now(), last=xpCooldown.get(uid)||0;
-  if(now-last<60000) return null;
+  if(now-last<CONFIG.xp_cooldown_ms) return null;
   xpCooldown.set(uid,now);
   const s=getScore(uid,uname); const oldLv=s.level;
   s.xp+=r(CONFIG.xp_per_msg_min, CONFIG.xp_per_msg_max);
@@ -125,13 +125,46 @@ function tryAwardXP(uid, uname) {
 
 // ── Config ────────────────────────────────────────────────────────────────────
 const CONFIG = {
-  xp_per_msg_min:5, xp_per_msg_max:15,
+  // XP
+  xp_per_msg_min:5,        xp_per_msg_max:15,
+  xp_cooldown_ms:60000,
+  // Economy cooldowns (ms)
   work_cooldown_ms:3600000, beg_cooldown_ms:300000,
   crime_cooldown_ms:7200000, rob_cooldown_ms:3600000,
-  daily_base_coins:100, daily_streak_bonus:10,
+  // Economy rewards
+  daily_base_coins:100,    daily_streak_bonus:10,
   daily_wrong_penalty:5,
-  slots_min_bet:1, game_win_coins:50, game_draw_coins:10,
-  olympics_win_coins:75, starting_coins:100,
+  starting_coins:100,
+  // Rob percentages (whole numbers, e.g. 10 = 10%)
+  rob_steal_pct_min:10,    rob_steal_pct_max:30,
+  rob_fine_pct_min:5,      rob_fine_pct_max:15,
+  rob_success_chance:45,
+  // Gambling
+  slots_min_bet:1,
+  // Shop prices
+  shop_lucky_charm_price:200,
+  shop_xp_boost_price:300,
+  shop_shield_price:150,
+  // Solo game win coins
+  win_hangman:40,
+  win_snake_per_point:5,
+  win_minesweeper_easy:30,  win_minesweeper_medium:60,  win_minesweeper_hard:100,
+  win_numberguess:30,
+  win_wordscramble:25,
+  // 2-player game win coins
+  win_ttt:50,
+  win_c4:50,
+  win_rps:40,
+  win_mathrace:40,
+  win_wordrace:40,
+  win_trivia:60,
+  win_scramblerace:80,
+  win_countgame:200,
+  // Events / Olympics
+  olympics_win_coins:75,
+  // Invite competition rewards (1st/2nd/3rd place)
+  invite_comp_1st:500,     invite_comp_2nd:250,     invite_comp_3rd:100,
+  invite_comp_per_invite:10,
 };
 
 // ── Persistence ──────────────────────────────────────────────────────────────
@@ -441,8 +474,27 @@ function moveSnake(game,dir){const head={...game.snake[0]};if(dir==="up")head.y-
 
 function initMinesweeper(mines){
   const rows=5,cols=5,total=25;
+  // Mines not placed yet — deferred until first click to guarantee safe start
+  return{rows,cols,mineCount:mines,mines:null,adj:null,revealed:Array(total).fill(false),firstClick:true};
+}
+
+// Called on first click: place mines avoiding the clicked cell and its neighbors, then compute adjacency
+function placeMinesAvoiding(game,safeRow,safeCol){
+  const{rows,cols}=game;
+  const total=rows*cols;
+  // Build set of safe indices (clicked cell + all 8 neighbors)
+  const safeSet=new Set();
+  for(let dr=-1;dr<=1;dr++) for(let dc=-1;dc<=1;dc++){
+    const nr=safeRow+dr,nc=safeCol+dc;
+    if(nr>=0&&nr<rows&&nc>=0&&nc<cols) safeSet.add(nr*cols+nc);
+  }
   const mineSet=new Set();
-  while(mineSet.size<mines) mineSet.add(Math.floor(Math.random()*total));
+  const candidates=[...Array(total).keys()].filter(i=>!safeSet.has(i));
+  // If not enough non-safe cells, allow safe cells too (shouldn't happen on 5x5 with ≤10 mines)
+  const pool=candidates.length>=game.mineCount?candidates:[...Array(total).keys()].filter(i=>!safeSet.has(i)||candidates.length<game.mineCount);
+  while(mineSet.size<game.mineCount&&mineSet.size<pool.length){
+    mineSet.add(pool[Math.floor(Math.random()*pool.length)]);
+  }
   const mineArr=Array(total).fill(false);
   mineSet.forEach(i=>mineArr[i]=true);
   const adj=Array(total).fill(0);
@@ -455,7 +507,9 @@ function initMinesweeper(mines){
     }
     adj[row*cols+col]=ct;
   }
-  return{rows,cols,mines:mineArr,adj,revealed:Array(total).fill(false)};
+  game.mines=mineArr;
+  game.adj=adj;
+  game.firstClick=false;
 }
 function revealMS(game,row,col){
   const idx=row*game.cols+col;
@@ -476,7 +530,7 @@ function makeMSButtons(game,disabled=false){
       const idx=row*5+col;
       const rev=game.revealed[idx];
       let label,style;
-      if(rev){
+      if(rev&&game.mines&&game.adj){
         if(game.mines[idx]){label="💣";style="DANGER";}
         else if(game.adj[idx]>0){label=numLabels[game.adj[idx]-1];style="SUCCESS";}
         else{label="·";style="SUCCESS";}
@@ -610,17 +664,17 @@ async function runInviteOlympicsInGuild(guild, event, channelOverride) {
 
   const sorted = [...finalGains.entries()].sort((a, b) => b[1].count - a[1].count);
   const medals  = ["🥇","🥈","🥉"];
-  const rewards = [500, 250, 100];
+  const rewards = [CONFIG.invite_comp_1st, CONFIG.invite_comp_2nd, CONFIG.invite_comp_3rd];
   const top3    = sorted.slice(0, 3);
   const lines = top3.map(([id, d], i) => `${medals[i]} <@${id}> — **${d.count}** invite${d.count !== 1 ? "s" : ""} (+${rewards[i]} coins)`);
   top3.forEach(([id, d], i) => { getScore(id, d.username).coins += rewards[i]; });
   sorted.forEach(([id, d]) => {
-    if (!top3.find(([tid]) => tid === id)) { getScore(id, d.username).coins += d.count * 10; }
+    if (!top3.find(([tid]) => tid === id)) { getScore(id, d.username).coins += d.count * CONFIG.invite_comp_per_invite; }
   });
   saveData();
   await safeSend(channel,
     `🏆 **${event.name} — Final Results!**\n\n${lines.join("\n")}\n\n` +
-    (sorted.length > 3 ? `Everyone else who invited at least 1 person earned **10 coins per invite**.\n\n` : "") +
+    (sorted.length > 3 ? `Everyone else who invited at least 1 person earned **${CONFIG.invite_comp_per_invite} coins per invite**.\n\n` : "") +
     `Total participants: **${sorted.length}** | Total new invites: **${sorted.reduce((s,[,d])=>s+d.count,0)}**`
   );
 }
@@ -1272,10 +1326,10 @@ client.on("messageCreate",async msg=>{
         cg.count++;cg.lastUserId=msg.author.id;
         if(cg.count===100){
           countGames.delete(msg.guild.id);
-          getScore(msg.author.id,msg.author.username).coins+=200;
+          getScore(msg.author.id,msg.author.username).coins+=CONFIG.win_countgame;
           saveData();
           await msg.react("🎉").catch(()=>{});
-          await safeSend(msg.channel,`🎉 **100!** <@${msg.author.id}> got the final count and wins **200 coins**! The count game is over.`);
+          await safeSend(msg.channel,`🎉 **100!** <@${msg.author.id}> got the final count and wins **${CONFIG.win_countgame} coins**! The count game is over.`);
         }else{await msg.react("✅").catch(()=>{});}
       }else{
         const was=cg.count;cg.count=0;cg.lastUserId=null;
@@ -1390,7 +1444,7 @@ client.on("interactionCreate",async interaction=>{
       gd.guessed.add(letter);
       const wrong=[...gd.guessed].filter(l=>!gd.word.includes(l));
       const won=!gd.word.split("").some(l=>!gd.guessed.has(l));
-      if(won){activeGames.delete(interaction.channelId);recordWin(uid,interaction.user.username,40);saveData();try{await interaction.editReply({content:`✅ **Got it!** Word was **${gd.word}**! 🎉 (+40 coins)\n\n${renderHangman(gd.word,gd.guessed)}`,components:makeHangmanButtons(gd.word,gd.guessed,true)});}catch{}}
+      if(won){activeGames.delete(interaction.channelId);recordWin(uid,interaction.user.username,CONFIG.win_hangman);saveData();try{await interaction.editReply({content:`✅ **Got it!** Word was **${gd.word}**! 🎉 (+${CONFIG.win_hangman} coins)\n\n${renderHangman(gd.word,gd.guessed)}`,components:makeHangmanButtons(gd.word,gd.guessed,true)});}catch{}}
       else if(wrong.length>=6){activeGames.delete(interaction.channelId);recordLoss(uid,interaction.user.username);saveData();try{await interaction.editReply({content:`💀 **Game over!** Word was **${gd.word}**.\n\n${renderHangman(gd.word,new Set([...gd.guessed,...gd.word.split("")]))}`,components:makeHangmanButtons(gd.word,gd.guessed,true)});}catch{}}
       else{try{await interaction.editReply({content:`🪢 **Hangman**\n\n${renderHangman(gd.word,gd.guessed)}`,components:makeHangmanButtons(gd.word,gd.guessed)});}catch{}}
       return;
@@ -1405,7 +1459,7 @@ client.on("interactionCreate",async interaction=>{
       if(gd.playerId!==uid){try{await interaction.reply({content:"Not your game!",ephemeral:true});}catch{}return;}
       if(!(await btnAck(interaction)))return;
       const result=moveSnake(gd,dir);
-      if(result!=="ok"){activeGames.delete(interaction.channelId);const coins=gd.score*5;if(coins>0)getScore(uid,interaction.user.username).coins+=coins;recordLoss(uid,interaction.user.username);saveData();try{await interaction.editReply({content:`💀 **Game Over!** Score: **${gd.score}**${coins>0?` (+${coins} coins)`:""}\n\n${renderSnake(gd)}`,components:makeSnakeButtons(true)});}catch{}}
+      if(result!=="ok"){activeGames.delete(interaction.channelId);const coins=gd.score*CONFIG.win_snake_per_point;if(coins>0)getScore(uid,interaction.user.username).coins+=coins;recordLoss(uid,interaction.user.username);saveData();try{await interaction.editReply({content:`💀 **Game Over!** Score: **${gd.score}**${coins>0?` (+${coins} coins)`:""}\n\n${renderSnake(gd)}`,components:makeSnakeButtons(true)});}catch{}}
       else{try{await interaction.editReply({content:`🐍 **Snake** | Score: ${gd.score}\n\n${renderSnake(gd)}`,components:makeSnakeButtons()});}catch{}}
       return;
     }
@@ -1418,9 +1472,25 @@ client.on("interactionCreate",async interaction=>{
       if(gd.playerId!==uid){await btnEphemeral(interaction,"This is not your game!");return;}
       if(!await btnAck(interaction))return;
       const g=gd.game;
-      const mineCount={easy:3,medium:6,hard:10}[gd.diff||"easy"];
-      const reward={easy:30,medium:60,hard:100}[gd.diff||"easy"];
+      const mineCount=g.mineCount||{easy:3,medium:6,hard:10}[gd.diff||"easy"];
+      const reward={easy:CONFIG.win_minesweeper_easy,medium:CONFIG.win_minesweeper_medium,hard:CONFIG.win_minesweeper_hard}[gd.diff||"easy"];
       try{
+        // First click: place mines avoiding clicked cell and its neighbors, then flood reveal
+        if(g.firstClick){
+          placeMinesAvoiding(g,row,col);
+          revealMS(g,row,col);
+          const allDone=g.revealed.every((v,i)=>v||g.mines[i]);
+          if(allDone){
+            activeGames.delete(interaction.channelId);
+            recordWin(uid,interaction.user.username,reward);
+            saveData();
+            await interaction.editReply({content:`🎉 **Board cleared!** +${reward} coins\n💣 **Minesweeper** (${gd.diff||"easy"}) — ${mineCount} mines`,components:makeMSButtons(g,true)});
+          } else {
+            const remaining=g.revealed.filter((v,i)=>!v&&!g.mines[i]).length;
+            await interaction.editReply({content:`💣 **Minesweeper** (${gd.diff||"easy"}) — ${mineCount} mines | ${remaining} cells left`,components:makeMSButtons(g)});
+          }
+          return;
+        }
         if(g.mines[row*g.cols+col]){
           g.revealed.fill(true);
           activeGames.delete(interaction.channelId);
@@ -1464,7 +1534,7 @@ client.on("interactionCreate",async interaction=>{
       gd.board[idx]=gd.turn===0?"X":"O";
       const result=checkTTTWin(gd.board);
       const[p0,p1]=[gd.players[0],gd.players[1]];
-      if(result){activeGames.delete(interaction.channelId);let txt;if(result==="draw"){recordDraw(p0,null);recordDraw(p1,null);txt="🤝 **Draw!**";}else{recordWin(gd.players[gd.turn],interaction.user.username,50);recordLoss(gd.players[1-gd.turn],null);txt=`🎉 <@${gd.players[gd.turn]}> wins! (+50 coins)`;}saveData();try{await interaction.editReply({content:`❌⭕ **Tic Tac Toe**\n<@${p0}> ❌  vs  <@${p1}> ⭕\n\n${renderTTT(gd.board)}\n\n${txt}`,components:makeTTTButtons(gd.board,true)});}catch{}}
+      if(result){activeGames.delete(interaction.channelId);let txt;if(result==="draw"){recordDraw(p0,null);recordDraw(p1,null);txt="🤝 **Draw!**";}else{recordWin(gd.players[gd.turn],interaction.user.username,CONFIG.win_ttt);recordLoss(gd.players[1-gd.turn],null);txt=`🎉 <@${gd.players[gd.turn]}> wins! (+${CONFIG.win_ttt} coins)`;}saveData();try{await interaction.editReply({content:`❌⭕ **Tic Tac Toe**\n<@${p0}> ❌  vs  <@${p1}> ⭕\n\n${renderTTT(gd.board)}\n\n${txt}`,components:makeTTTButtons(gd.board,true)});}catch{}}
       else{gd.turn=1-gd.turn;try{await interaction.editReply({content:`❌⭕ **Tic Tac Toe**\n<@${p0}> ❌  vs  <@${p1}> ⭕\n\n${renderTTT(gd.board)}\n\nIt's <@${gd.players[gd.turn]}>'s turn!`,components:makeTTTButtons(gd.board)});}catch{}}
       return;
     }
@@ -1483,10 +1553,10 @@ client.on("interactionCreate",async interaction=>{
       const[p0,p1]=[gd.players[0],gd.players[1]];
       if(checkC4Win(gd.board,gd.turn+1)){
         activeGames.delete(interaction.channelId);
-        recordWin(gd.players[gd.turn],interaction.user.username,50);
+        recordWin(gd.players[gd.turn],interaction.user.username,CONFIG.win_c4);
         recordLoss(gd.players[1-gd.turn],null);
         saveData();
-        try{await interaction.editReply({content:`🔴🔵 **Connect 4**\n<@${p0}> 🔴  vs  <@${p1}> 🔵\n\n${renderC4(gd.board)}\n🎉 <@${gd.players[gd.turn]}> wins! (+50 coins)`,components:makeC4Buttons(true)});}catch{}
+        try{await interaction.editReply({content:`🔴🔵 **Connect 4**\n<@${p0}> 🔴  vs  <@${p1}> 🔵\n\n${renderC4(gd.board)}\n🎉 <@${gd.players[gd.turn]}> wins! (+${CONFIG.win_c4} coins)`,components:makeC4Buttons(true)});}catch{}
       } else if(!gd.board.includes(0)){
         activeGames.delete(interaction.channelId);
         recordDraw(p0,null);recordDraw(p1,null);
@@ -1539,8 +1609,8 @@ client.on("interactionCreate",async interaction=>{
         const[id1,id2]=[gd.p1,gd.p2],c1=gd.choices[id1],c2=gd.choices[id2];
         const beats={"✊":"✌️","✋":"✊","✌️":"✋"},names={"✊":"Rock","✋":"Paper","✌️":"Scissors"};
         let txt;if(c1===c2){recordDraw(id1,null);recordDraw(id2,null);txt="🤝 **Draw!**";}
-        else if(beats[c1]===c2){recordWin(id1,gd.u1,40);recordLoss(id2,null);txt=`🎉 <@${id1}> wins! ${names[c1]} beats ${names[c2]} (+40 coins)`;}
-        else{recordWin(id2,gd.u2,40);recordLoss(id1,null);txt=`🎉 <@${id2}> wins! ${names[c2]} beats ${names[c1]} (+40 coins)`;}
+        else if(beats[c1]===c2){recordWin(id1,gd.u1,CONFIG.win_rps);recordLoss(id2,null);txt=`🎉 <@${id1}> wins! ${names[c1]} beats ${names[c2]} (+${CONFIG.win_rps} coins)`;}
+        else{recordWin(id2,gd.u2,CONFIG.win_rps);recordLoss(id1,null);txt=`🎉 <@${id2}> wins! ${names[c2]} beats ${names[c1]} (+${CONFIG.win_rps} coins)`;}
         saveData();
         const ch=client.channels.cache.get(gd.channelId);
         if(ch)await safeSend(ch,`✊✋✌️ **RPS Results!**\n<@${id1}>: ${names[c1]}\n<@${id2}>: ${names[c2]}\n\n${txt}`);
@@ -2273,12 +2343,12 @@ client.on("interactionCreate",async interaction=>{
       const t=getScore(target.id,target.username);
       if(t.inventory&&t.inventory.includes("shield")){t.inventory.splice(t.inventory.indexOf("shield"),1);saveData();return safeReply(interaction,`🛡️ <@${target.id}> had a **Shield**! Your robbery failed and the shield is now broken.`);}
       if(t.coins<10)return safeReply(interaction,`😅 <@${target.id}> is broke — not worth robbing.`);
-      const success=isOwner||Math.random()<0.45;
-      if(success){const pct=isOwner?30:r(10,30);const stolen=Math.floor(t.coins*pct/100);t.coins-=stolen;s.coins+=stolen;saveData();return safeReply(interaction,`🔫 <@${interaction.user.id}> robbed <@${target.id}> and stole **${stolen}** coins!\n💰 Your balance: **${s.coins}**`);}
-      else{const fine=Math.floor(s.coins*r(5,15)/100);s.coins=Math.max(0,s.coins-fine);saveData();return safeReply(interaction,`🚔 You tried to rob <@${target.id}> but got caught! Lost **${fine}** coins.\n💰 Your balance: **${s.coins}**`);}
+      const success=isOwner||Math.random()<(CONFIG.rob_success_chance/100);
+      if(success){const pct=isOwner?CONFIG.rob_steal_pct_max:r(CONFIG.rob_steal_pct_min,CONFIG.rob_steal_pct_max);const stolen=Math.floor(t.coins*pct/100);t.coins-=stolen;s.coins+=stolen;saveData();return safeReply(interaction,`🔫 <@${interaction.user.id}> robbed <@${target.id}> and stole **${stolen}** coins!\n💰 Your balance: **${s.coins}**`);}
+      else{const fine=Math.floor(s.coins*r(CONFIG.rob_fine_pct_min,CONFIG.rob_fine_pct_max)/100);s.coins=Math.max(0,s.coins-fine);saveData();return safeReply(interaction,`🚔 You tried to rob <@${target.id}> but got caught! Lost **${fine}** coins.\n💰 Your balance: **${s.coins}**`);}
     }
 
-    const SHOP_ITEMS={lucky_charm:{name:"Lucky Charm",price:200,desc:"+10% coin bonus on work for 1hr"},xp_boost:{name:"XP Boost",price:300,desc:"2× XP gain for 1hr"},shield:{name:"Shield",price:150,desc:"Blocks the next rob attempt"}};
+    const SHOP_ITEMS={lucky_charm:{name:"Lucky Charm",price:CONFIG.shop_lucky_charm_price,desc:"+10% coin bonus on work for 1hr"},xp_boost:{name:"XP Boost",price:CONFIG.shop_xp_boost_price,desc:"2× XP gain for 1hr"},shield:{name:"Shield",price:CONFIG.shop_shield_price,desc:"Blocks the next rob attempt"}};
     if(cmd==="shop"){const lines=Object.entries(SHOP_ITEMS).map(([id,item])=>`**${item.name}** (\`${id}\`) — **${item.price}** coins\n> ${item.desc}`);return safeReply(interaction,`🛍️ **Item Shop**\n\n${lines.join("\n\n")}\n\nUse **/buy <item>** to purchase.`);}
     if(cmd==="buy"){
       const itemId=interaction.options.getString("item");
@@ -2382,7 +2452,7 @@ client.on("interactionCreate",async interaction=>{
         const targetCh=getTargetChannel(interaction);
         await safeReply(interaction,`🔢 **Number Guess!** 1–100, 10 attempts!`);
         const col=targetCh.createMessageCollector({filter:m=>m.author.id===interaction.user.id&&!isNaN(m.content.trim()),idle:2*60*1000});
-        col.on("collect",async m=>{const guess=parseInt(m.content.trim());attempts++;if(guess===target){col.stop();activeGames.delete(interaction.channelId);recordWin(interaction.user.id,interaction.user.username,30);saveData();await m.reply(`🎉 **${target}** in **${attempts}** attempt(s)! (+30 coins)`);}else if(attempts>=10){col.stop();activeGames.delete(interaction.channelId);recordLoss(interaction.user.id,interaction.user.username);saveData();await m.reply(`💀 Out of attempts! It was **${target}**.`);}else await m.reply(guess<target?`📈 Too low! ${10-attempts} left.`:`📉 Too high! ${10-attempts} left.`);});
+        col.on("collect",async m=>{const guess=parseInt(m.content.trim());attempts++;if(guess===target){col.stop();activeGames.delete(interaction.channelId);recordWin(interaction.user.id,interaction.user.username,CONFIG.win_numberguess);saveData();await m.reply(`🎉 **${target}** in **${attempts}** attempt(s)! (+${CONFIG.win_numberguess} coins)`);}else if(attempts>=10){col.stop();activeGames.delete(interaction.channelId);recordLoss(interaction.user.id,interaction.user.username);saveData();await m.reply(`💀 Out of attempts! It was **${target}**.`);}else await m.reply(guess<target?`📈 Too low! ${10-attempts} left.`:`📉 Too high! ${10-attempts} left.`);});
         col.on("end",(_,reason)=>{if(reason==="idle"){activeGames.delete(interaction.channelId);safeSend(getTargetChannel(interaction),`⏰ Timed out! It was **${target}**.`);}});
         return;
       }
@@ -2392,7 +2462,7 @@ client.on("interactionCreate",async interaction=>{
         const targetCh=getTargetChannel(interaction);
         await safeReply(interaction,`🔀 **Word Scramble!** Unscramble: **\`${scrambled}\`**`);
         const col=targetCh.createMessageCollector({filter:m=>m.author.id===interaction.user.id,idle:60*1000});
-        col.on("collect",async m=>{if(m.content.trim().toLowerCase()===word){col.stop();activeGames.delete(interaction.channelId);recordWin(interaction.user.id,interaction.user.username,25);saveData();await m.reply(`🎉 **${word}**! (+25 coins)`);}else await m.reply("❌ Not quite! Keep trying...");});
+        col.on("collect",async m=>{if(m.content.trim().toLowerCase()===word){col.stop();activeGames.delete(interaction.channelId);recordWin(interaction.user.id,interaction.user.username,CONFIG.win_wordscramble);saveData();await m.reply(`🎉 **${word}**! (+${CONFIG.win_wordscramble} coins)`);}else await m.reply("❌ Not quite! Keep trying...");});
         col.on("end",(_,reason)=>{if(reason==="idle"){activeGames.delete(interaction.channelId);safeSend(getTargetChannel(interaction),`⏰ Timed out! It was **${word}**.`);}});
         return;
       }
@@ -2448,7 +2518,7 @@ client.on("interactionCreate",async interaction=>{
         activeGames.set(interaction.channelId,{type:"mathrace"});
         const targetCh=getTargetChannel(interaction);
         await safeReply(interaction,`🧮 **Math Race!** <@${interaction.user.id}> vs <@${opp.id}>\n\n**What is ${av} × ${bv}?**`);
-        try{const col=await targetCh.awaitMessages({filter:m=>[interaction.user.id,opp.id].includes(m.author.id)&&m.content.trim()===answer,max:1,time:30000,errors:["time"]});activeGames.delete(interaction.channelId);const w=col.first().author,l=w.id===interaction.user.id?opp:interaction.user;recordWin(w.id,w.username,40);recordLoss(l.id,l.username);saveData();await col.first().reply(`🎉 **${w.username} wins!** Answer: **${answer}** (+40 coins)`);}
+        try{const col=await targetCh.awaitMessages({filter:m=>[interaction.user.id,opp.id].includes(m.author.id)&&m.content.trim()===answer,max:1,time:30000,errors:["time"]});activeGames.delete(interaction.channelId);const w=col.first().author,l=w.id===interaction.user.id?opp:interaction.user;recordWin(w.id,w.username,CONFIG.win_mathrace);recordLoss(l.id,l.username);saveData();await col.first().reply(`🎉 **${w.username} wins!** Answer: **${answer}** (+${CONFIG.win_mathrace} coins)`);}
         catch{activeGames.delete(interaction.channelId);await safeSend(getTargetChannel(interaction),`⏰ Time's up! Answer: **${answer}**.`);}
         return;
       }
@@ -2457,7 +2527,7 @@ client.on("interactionCreate",async interaction=>{
         activeGames.set(interaction.channelId,{type:"wordrace"});
         const targetCh=getTargetChannel(interaction);
         await safeReply(interaction,`🏁 **Word Race!** <@${interaction.user.id}> vs <@${opp.id}>\n\nUnscramble: **\`${scrambled}\`**`);
-        try{const col=await targetCh.awaitMessages({filter:m=>[interaction.user.id,opp.id].includes(m.author.id)&&m.content.trim().toLowerCase()===word,max:1,time:60000,errors:["time"]});activeGames.delete(interaction.channelId);const w=col.first().author,l=w.id===interaction.user.id?opp:interaction.user;recordWin(w.id,w.username,40);recordLoss(l.id,l.username);saveData();await col.first().reply(`🎉 **${w.username} wins!** Word: **${word}** (+40 coins)`);}
+        try{const col=await targetCh.awaitMessages({filter:m=>[interaction.user.id,opp.id].includes(m.author.id)&&m.content.trim().toLowerCase()===word,max:1,time:60000,errors:["time"]});activeGames.delete(interaction.channelId);const w=col.first().author,l=w.id===interaction.user.id?opp:interaction.user;recordWin(w.id,w.username,CONFIG.win_wordrace);recordLoss(l.id,l.username);saveData();await col.first().reply(`🎉 **${w.username} wins!** Word: **${word}** (+${CONFIG.win_wordrace} coins)`);}
         catch{activeGames.delete(interaction.channelId);await safeSend(getTargetChannel(interaction),`⏰ Time's up! Word: **${word}**.`);}
         return;
       }
@@ -2468,7 +2538,7 @@ client.on("interactionCreate",async interaction=>{
         activeGames.set(interaction.channelId,{type:"triviabattle"});
         const targetCh=getTargetChannel(interaction);
         await safeReply(interaction,{content:`🧠 **Trivia Battle!** <@${interaction.user.id}> vs <@${opp.id}>\n\n**${t.question}**\n\n${t.answers.map((a,i)=>`${["🇦","🇧","🇨","🇩"][i]} ${a}`).join("\n")}\n\nFirst to type the correct answer wins! You have **30 seconds**.`});
-        try{const col=await targetCh.awaitMessages({filter:m=>[interaction.user.id,opp.id].includes(m.author.id)&&m.content.trim().toLowerCase()===t.correct.toLowerCase(),max:1,time:30000,errors:["time"]});activeGames.delete(interaction.channelId);const winner=col.first().author,loser=winner.id===interaction.user.id?opp:interaction.user;recordWin(winner.id,winner.username,60);recordLoss(loser.id,loser.username);saveData();await col.first().reply(`🎉 **${winner.username}** wins! Answer: **${t.correct}** (+60 coins)`);}
+        try{const col=await targetCh.awaitMessages({filter:m=>[interaction.user.id,opp.id].includes(m.author.id)&&m.content.trim().toLowerCase()===t.correct.toLowerCase(),max:1,time:30000,errors:["time"]});activeGames.delete(interaction.channelId);const winner=col.first().author,loser=winner.id===interaction.user.id?opp:interaction.user;recordWin(winner.id,winner.username,CONFIG.win_trivia);recordLoss(loser.id,loser.username);saveData();await col.first().reply(`🎉 **${winner.username}** wins! Answer: **${t.correct}** (+${CONFIG.win_trivia} coins)`);}
         catch{activeGames.delete(interaction.channelId);await safeSend(getTargetChannel(interaction),`⏰ Time's up! The answer was **${t.correct}**.`);}
         return;
       }
@@ -2490,8 +2560,8 @@ client.on("interactionCreate",async interaction=>{
               col.stop("done");activeGames.delete(interaction.channelId);
               const s0=gd.scores[interaction.user.id]||0,s1=gd.scores[opp.id]||0;
               let txt;
-              if(s0>s1){recordWin(interaction.user.id,interaction.user.username,80);recordLoss(opp.id,opp.username);txt=`🎉 <@${interaction.user.id}> wins **${s0}–${s1}**! (+80 coins)`;}
-              else if(s1>s0){recordWin(opp.id,opp.username,80);recordLoss(interaction.user.id,interaction.user.username);txt=`🎉 <@${opp.id}> wins **${s1}–${s0}**! (+80 coins)`;}
+              if(s0>s1){recordWin(interaction.user.id,interaction.user.username,CONFIG.win_scramblerace);recordLoss(opp.id,opp.username);txt=`🎉 <@${interaction.user.id}> wins **${s0}–${s1}**! (+${CONFIG.win_scramblerace} coins)`;}
+              else if(s1>s0){recordWin(opp.id,opp.username,CONFIG.win_scramblerace);recordLoss(interaction.user.id,interaction.user.username);txt=`🎉 <@${opp.id}> wins **${s1}–${s0}**! (+${CONFIG.win_scramblerace} coins)`;}
               else{recordDraw(interaction.user.id,interaction.user.username);recordDraw(opp.id,opp.username);txt=`🤝 Tie! **${s0}–${s1}**`;}
               saveData();
               await safeSend(targetCh,`🏁 **Scramble Race over!**\n\n${txt}`);
@@ -3042,7 +3112,7 @@ client.on("interactionCreate",async interaction=>{
         if(allInvites){allInvites.forEach(inv=>{if(!inv.inviter)return;const base=comp.baseline.get(inv.code)||0;const diff=(inv.uses||0)-base;if(diff<=0)return;const id=inv.inviter.id;if(!gained.has(id))gained.set(id,{username:inv.inviter.username,count:0});gained.get(id).count+=diff;});}
         const sorted=[...gained.entries()].sort((a,b)=>b[1].count-a[1].count);
         if(!sorted.length){await safeSend(ch,"🏆 **Invite Competition Ended!**\n\nNo new tracked invites.");return;}
-        const medals=["🥇","🥈","🥉"],rewards=[500,250,100];
+        const medals=["🥇","🥈","🥉"],rewards=[CONFIG.invite_comp_1st,CONFIG.invite_comp_2nd,CONFIG.invite_comp_3rd];
         const top=sorted.slice(0,3);
         const lines=top.map(([id,d],i)=>`${medals[i]} <@${id}> — **${d.count}** invite${d.count!==1?"s":""} (+${rewards[i]} coins)`);
         top.forEach(([id,d],i)=>{getScore(id,d.username).coins+=rewards[i];});
