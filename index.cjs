@@ -161,12 +161,29 @@ const CONFIG = {
   xp_boost_mult:200,
   coin_magnet_mult:300,
   mystery_box_coin_chance:50,
+  // Normal Mystery Box drop weights (sum doesn't need to equal 100 — weights are relative)
+  mb_coins_small:10,   // 50–200 coins
+  mb_coins_large:15,   // 200–500 coins
+  mb_lucky_charm:15,
+  mb_xp_boost:15,
+  mb_shield:15,
+  mb_coin_magnet:15,
+  mb_rob_insurance:15,
+  // Item Mystery Box drop weights (cheaper box, lower quality)
+  imb_coins_tiny:30,   // exactly 5 coins (junk)
+  imb_coins_small:20,  // 20–80 coins
+  imb_lucky_charm:12,
+  imb_xp_boost:8,
+  imb_shield:12,
+  imb_coin_magnet:8,
+  imb_rob_insurance:10,
   // Shop prices
   shop_lucky_charm_price:200,
   shop_xp_boost_price:300,
   shop_shield_price:150,
   shop_coin_magnet_price:350,
   shop_mystery_box_price:100,
+  shop_item_mystery_box_price:40,
   shop_rob_insurance_price:250,
   // Solo game win coins
   win_hangman:40,
@@ -431,12 +448,13 @@ const CRIME_RESPONSES=[{msg:"🚨 You tried to pickpocket someone but got caught
 // Note: prices come from CONFIG so they update when adminconfig changes them.
 // SHOP_ITEMS is a function so it always reads current CONFIG values.
 function getShopItems(){return{
-  lucky_charm:   {name:"Lucky Charm 🍀",  price:CONFIG.shop_lucky_charm_price,   desc:"+10% coins on all earning actions for 1hr (work, beg, crime, slots, blackjack)"},
-  xp_boost:      {name:"XP Boost ⚡",      price:CONFIG.shop_xp_boost_price,      desc:"2× XP from messages for 1hr"},
-  shield:        {name:"Shield 🛡️",        price:CONFIG.shop_shield_price,        desc:"Blocks the next rob attempt"},
-  coin_magnet:   {name:"Coin Magnet 🧲",   price:CONFIG.shop_coin_magnet_price,   desc:"Next /work gives 3× coins (single use)"},
-  mystery_box:   {name:"Mystery Box 📦",   price:CONFIG.shop_mystery_box_price,   desc:"Open for a random reward: 50–500 coins or a random item"},
-  rob_insurance: {name:"Rob Insurance 📋", price:CONFIG.shop_rob_insurance_price, desc:"If caught robbing, pay no fine (single use)"},
+  lucky_charm:      {name:"Lucky Charm 🍀",       price:CONFIG.shop_lucky_charm_price,      desc:`+${CONFIG.lucky_charm_bonus}% coins on all earning actions for 1hr`},
+  xp_boost:         {name:"XP Boost ⚡",           price:CONFIG.shop_xp_boost_price,         desc:"2× XP from messages for 1hr"},
+  shield:           {name:"Shield 🛡️",             price:CONFIG.shop_shield_price,           desc:"Blocks the next rob attempt"},
+  coin_magnet:      {name:"Coin Magnet 🧲",        price:CONFIG.shop_coin_magnet_price,      desc:"Next /work gives 3× coins (single use)"},
+  mystery_box:      {name:"Mystery Box 📦",        price:CONFIG.shop_mystery_box_price,      desc:"Open with /open — weighted random reward: coins or item"},
+  item_mystery_box: {name:"Item Mystery Box 🎲",   price:CONFIG.shop_item_mystery_box_price, desc:"Open with /open — cheap, low quality drops. Could be just 5 coins!"},
+  rob_insurance:    {name:"Rob Insurance 📋",      price:CONFIG.shop_rob_insurance_price,    desc:"If caught robbing, pay no fine (single use)"},
 };}
 const TRUTH_QUESTIONS=["Have you ever pretended to be asleep to avoid a conversation?","What's the most embarrassing thing in your search history?","Have you ever blamed someone else for something you did?","What's the longest you've gone without showering?","Have you ever sent a text to the wrong person?","What's something you pretend to like but secretly hate?","Have you ever ghosted someone and regretted it?","What's the most childish thing you still do?"];
 const DARE_ACTIONS=["Change your server nickname to 'Big Mistake' for 10 minutes.","Send a voice message saying 'I am a golden retriever' right now.","Type out your honest opinion of the last person who messaged you.","Use only capital letters for the next 5 messages.","Send the 5th photo in your camera roll with no context.","Type a haiku about the last thing you ate.","Compliment every person who has sent a message in the last 10 minutes.","Send a message using only emoji."];
@@ -446,6 +464,51 @@ const HOROSCOPES={Aries:"♈ **Aries**: The stars say stop overthinking and send
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const r    = (min,max) => Math.floor(Math.random()*(max-min+1))+min;
 const pick = arr => arr[Math.floor(Math.random()*arr.length)];
+
+// Weighted random pick: takes {label: weight} object, returns chosen label
+function weightedPick(weights) {
+  const total = Object.values(weights).reduce((a,b)=>a+b,0);
+  let roll = Math.random()*total;
+  for(const [key,w] of Object.entries(weights)){
+    roll -= w;
+    if(roll <= 0) return key;
+  }
+  return Object.keys(weights)[0]; // fallback
+}
+
+// Open a normal Mystery Box — returns {type:'coins'|'item', coins?, itemId?}
+function openMysteryBox(){
+  const weights = {
+    coins_small:   CONFIG.mb_coins_small,
+    coins_large:   CONFIG.mb_coins_large,
+    lucky_charm:   CONFIG.mb_lucky_charm,
+    xp_boost:      CONFIG.mb_xp_boost,
+    shield:        CONFIG.mb_shield,
+    coin_magnet:   CONFIG.mb_coin_magnet,
+    rob_insurance: CONFIG.mb_rob_insurance,
+  };
+  const result = weightedPick(weights);
+  if(result === "coins_small") return {type:"coins", coins:r(50,200)};
+  if(result === "coins_large") return {type:"coins", coins:r(200,500)};
+  return {type:"item", itemId:result};
+}
+
+// Open an Item Mystery Box — lower quality, cheaper
+function openItemMysteryBox(){
+  const weights = {
+    coins_tiny:    CONFIG.imb_coins_tiny,
+    coins_small:   CONFIG.imb_coins_small,
+    lucky_charm:   CONFIG.imb_lucky_charm,
+    xp_boost:      CONFIG.imb_xp_boost,
+    shield:        CONFIG.imb_shield,
+    coin_magnet:   CONFIG.imb_coin_magnet,
+    rob_insurance: CONFIG.imb_rob_insurance,
+  };
+  const result = weightedPick(weights);
+  if(result === "coins_tiny")  return {type:"coins", coins:5};
+  if(result === "coins_small") return {type:"coins", coins:r(20,80)};
+  return {type:"item", itemId:result};
+}
 
 async function safeReply(interaction, payload) {
   try {
@@ -1030,7 +1093,19 @@ function buildCommands(){
     {name:"crime",    description:"Commit a crime 🦹"},
     {name:"rob",      description:"Rob another user 🔫",options:uReq()},
     {name:"shop",     description:"View the item shop 🛍️"},
-    {name:"buy",      description:"Buy an item 🛒",options:[{name:"item",description:"Item name",type:3,required:true,choices:[{name:"Lucky Charm 🍀 (+10% work coins, 1hr)",value:"lucky_charm"},{name:"XP Boost ⚡ (2× XP, 1hr)",value:"xp_boost"},{name:"Shield 🛡️ (blocks next rob)",value:"shield"},{name:"Coin Magnet 🧲 (next work = 3× coins)",value:"coin_magnet"},{name:"Mystery Box 📦 (random reward)",value:"mystery_box"},{name:"Rob Insurance 📋 (no fine if caught robbing)",value:"rob_insurance"}]}]},
+    {name:"buy",      description:"Buy an item 🛒",options:[{name:"item",description:"Item name",type:3,required:true,choices:[
+      {name:"Lucky Charm 🍀 (+10% coins, 1hr)",         value:"lucky_charm"},
+      {name:"XP Boost ⚡ (2× XP, 1hr)",                 value:"xp_boost"},
+      {name:"Shield 🛡️ (blocks next rob)",              value:"shield"},
+      {name:"Coin Magnet 🧲 (next work = 3× coins)",    value:"coin_magnet"},
+      {name:"Mystery Box 📦 (weighted random reward)",  value:"mystery_box"},
+      {name:"Item Mystery Box 🎲 (cheap, low quality)", value:"item_mystery_box"},
+      {name:"Rob Insurance 📋 (no fine if caught rob)", value:"rob_insurance"},
+    ]}]},
+    {name:"open",     description:"Open a mystery box from your inventory 📦",options:[{name:"box",description:"Which box to open",type:3,required:true,choices:[
+      {name:"Mystery Box 📦",      value:"mystery_box"},
+      {name:"Item Mystery Box 🎲", value:"item_mystery_box"},
+    ]}]},
     {name:"inventory",description:"Check your inventory 🎒",options:uReq(false)},
     // XP
     {name:"xp",           description:"Check XP and level 📈",options:uReq(false)},
@@ -1141,12 +1216,13 @@ function buildCommands(){
       ]},
       {name:"amount",        description:"Coins to give or take",                type:4,required:false},
       {name:"item",          description:"Item to give or take",                 type:3,required:false,choices:[
-        {name:"Lucky Charm 🍀",  value:"lucky_charm"},
-        {name:"XP Boost ⚡",     value:"xp_boost"},
-        {name:"Shield 🛡️",      value:"shield"},
-        {name:"Coin Magnet 🧲",  value:"coin_magnet"},
-        {name:"Mystery Box 📦",  value:"mystery_box"},
-        {name:"Rob Insurance 📋",value:"rob_insurance"},
+        {name:"Lucky Charm 🍀",       value:"lucky_charm"},
+        {name:"XP Boost ⚡",          value:"xp_boost"},
+        {name:"Shield 🛡️",           value:"shield"},
+        {name:"Coin Magnet 🧲",       value:"coin_magnet"},
+        {name:"Mystery Box 📦",       value:"mystery_box"},
+        {name:"Item Mystery Box 🎲",  value:"item_mystery_box"},
+        {name:"Rob Insurance 📋",     value:"rob_insurance"},
       ]},
       {name:"item_quantity", description:"How many of the item (default: 1)",    type:4,required:false},
     ]},
@@ -2262,7 +2338,7 @@ client.on("interactionCreate",async interaction=>{
         const m = Math.ceil(rem / 60000);
         return m >= 60 ? `⏳ ${Math.floor(m/60)}h ${m%60}m` : `⏳ ${m}m`;
       };
-      const ITEM_NAMES = { lucky_charm:"Lucky Charm 🍀", xp_boost:"XP Boost ⚡", shield:"Shield 🛡️", coin_magnet:"Coin Magnet 🧲", mystery_box:"Mystery Box 📦", rob_insurance:"Rob Insurance 📋" };
+      const ITEM_NAMES = { lucky_charm:"Lucky Charm 🍀", xp_boost:"XP Boost ⚡", shield:"Shield 🛡️", coin_magnet:"Coin Magnet 🧲", mystery_box:"Mystery Box 📦", item_mystery_box:"Item Mystery Box 🎲", rob_insurance:"Rob Insurance 📋" };
       let inventoryText = "Empty";
       if (s.inventory && s.inventory.length > 0) {
         const counts = {};
@@ -2485,22 +2561,11 @@ client.on("interactionCreate",async interaction=>{
       if(s.coins<item.price)return safeReply(interaction,{content:`You need **${item.price}** coins but only have **${s.coins}**.`,ephemeral:true});
       s.coins-=item.price;
 
-      // Mystery box opens immediately — doesn't go to inventory
-      if(itemId==="mystery_box"){
-        const roll=Math.random();
-        let rewardMsg;
-        if(roll<(CONFIG.mystery_box_coin_chance/100)){
-          // Coin reward 50-500
-          const gained=r(50,500);s.coins+=gained;
-          rewardMsg=`💰 You got **${gained} coins**!`;
-        }else{
-          // Random item (not another mystery box)
-          const itemPool=["lucky_charm","xp_boost","shield","coin_magnet","rob_insurance"];
-          const won=pick(itemPool);s.inventory.push(won);
-          rewardMsg=`🎁 You got a **${getShopItems()[won].name}**!`;
-        }
+      // Mystery boxes go to inventory — opened with /open
+      if(itemId==="mystery_box"||itemId==="item_mystery_box"){
+        s.inventory.push(itemId);
         saveData();
-        return safeReply(interaction,`📦 **Mystery Box opened!**\n${rewardMsg}\n💰 Balance: **${s.coins}**`);
+        return safeReply(interaction,`✅ Bought **${item.name}** for **${item.price}** coins! Use \`/open\` to open it.\n💰 Balance: **${s.coins}**`);
       }
 
       // Timed items activate immediately
@@ -2521,6 +2586,44 @@ client.on("interactionCreate",async interaction=>{
       s.inventory.push(itemId);
       saveData();
       return safeReply(interaction,`✅ Bought **${item.name}** for **${item.price}** coins!\n💰 Balance: **${s.coins}**`);
+    }
+    if(cmd==="open"){
+      const boxId=interaction.options.getString("box");
+      const s=getScore(interaction.user.id,interaction.user.username);
+      const SHOP=getShopItems();
+      const boxName=SHOP[boxId]?.name||boxId;
+      // Check inventory
+      const idx=s.inventory.indexOf(boxId);
+      if(idx===-1)return safeReply(interaction,{content:`❌ You don't have a **${boxName}** in your inventory. Buy one with \`/buy\`!`,ephemeral:true});
+      // Remove from inventory
+      s.inventory.splice(idx,1);
+      // Roll the box
+      const result=boxId==="mystery_box"?openMysteryBox():openItemMysteryBox();
+      let rewardMsg,rewardDetail;
+      if(result.type==="coins"){
+        s.coins+=result.coins;
+        saveData();
+        rewardMsg=`💰 **${result.coins} coins**!`;
+        rewardDetail=`💰 Balance: **${s.coins}**`;
+      }else{
+        const wonName=SHOP[result.itemId]?.name||result.itemId;
+        // Timed items activate immediately
+        if(result.itemId==="lucky_charm"||result.itemId==="xp_boost"){
+          const fx=activeEffects.get(interaction.user.id)||{};
+          const key=result.itemId==="lucky_charm"?"lucky_charm_expiry":"xp_boost_expiry";
+          const now=Date.now();
+          fx[key]=Math.max(fx[key]||now,now)+3600000;
+          activeEffects.set(interaction.user.id,fx);
+          rewardDetail="✨ Effect activated for 1hr!";
+        }else{
+          s.inventory.push(result.itemId);
+          rewardDetail="🎒 Added to your inventory.";
+        }
+        saveData();
+        rewardMsg=`🎁 **${wonName}**!`;
+      }
+      const emoji=boxId==="mystery_box"?"📦":"🎲";
+      return safeReply(interaction,`${emoji} **${boxName} opened!**\n\nYou got: ${rewardMsg}\n${rewardDetail}`);
     }
     if(cmd==="inventory"){
       const u=interaction.options.getUser("user")||interaction.user;
@@ -2961,12 +3064,14 @@ client.on("interactionCreate",async interaction=>{
           ["📈 XP",["xp_per_msg_min","xp_per_msg_max","xp_cooldown_ms"]],
           ["⏱️ Cooldowns (ms)",["work_cooldown_ms","beg_cooldown_ms","crime_cooldown_ms","rob_cooldown_ms"]],
           ["💰 Economy",["daily_base_coins","daily_streak_bonus","daily_wrong_penalty","starting_coins"]],
-          ["🎲 Success Chances (%)",["beg_success_chance","crime_success_chance","rob_success_chance","coinbet_win_chance","mystery_box_coin_chance"]],
+          ["🎲 Success Chances (%)",["beg_success_chance","crime_success_chance","rob_success_chance","coinbet_win_chance"]],
           ["🔫 Rob",["rob_steal_pct_min","rob_steal_pct_max","rob_fine_pct_min","rob_fine_pct_max"]],
           ["🎰 Slots",["slots_min_bet","slots_jackpot_mult","slots_bigwin_mult","slots_triple_mult","slots_pair_mult"]],
           ["🃏 Blackjack",["blackjack_natural_mult"]],
           ["✨ Item Effects",["lucky_charm_bonus","xp_boost_mult","coin_magnet_mult"]],
-          ["🛍️ Shop",["shop_lucky_charm_price","shop_xp_boost_price","shop_shield_price","shop_coin_magnet_price","shop_mystery_box_price","shop_rob_insurance_price"]],
+          ["🛍️ Shop",["shop_lucky_charm_price","shop_xp_boost_price","shop_shield_price","shop_coin_magnet_price","shop_mystery_box_price","shop_item_mystery_box_price","shop_rob_insurance_price"]],
+          ["📦 Mystery Box drops (weights — higher = more likely)",["mb_coins_small","mb_coins_large","mb_lucky_charm","mb_xp_boost","mb_shield","mb_coin_magnet","mb_rob_insurance"]],
+          ["🎲 Item Mystery Box drops (weights — higher = more likely)",["imb_coins_tiny","imb_coins_small","imb_lucky_charm","imb_xp_boost","imb_shield","imb_coin_magnet","imb_rob_insurance"]],
           ["🎮 Solo Games",["win_hangman","win_snake_per_point","win_minesweeper_easy","win_minesweeper_medium","win_minesweeper_hard","win_numberguess","win_wordscramble"]],
           ["🕹️ 2-Player Games",["win_ttt","win_c4","win_rps","win_mathrace","win_wordrace","win_trivia","win_scramblerace","win_countgame"]],
           ["🏅 Events",["olympics_win_coins","invite_comp_1st","invite_comp_2nd","invite_comp_3rd","invite_comp_per_invite"]],
