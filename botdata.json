@@ -3261,7 +3261,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 1,
+        "xp": 12,
         "level": 2,
         "lastWorkTime": 1774010330670,
         "lastBegTime": 0,
@@ -3534,13 +3534,17 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 6,
+        "xp": 22,
         "level": 2,
         "lastWorkTime": 1774010024213,
         "lastBegTime": 1774010030448,
         "lastCrimeTime": 1774010037571,
         "lastRobTime": 0,
-        "inventory": [],
+        "inventory": [
+          "item_mystery_box",
+          "item_mystery_box",
+          "item_mystery_box"
+        ],
         "marriedTo": null,
         "pendingProposal": null
       }
