@@ -1589,21 +1589,21 @@ client.on("messageCreate",async msg=>{
     // Only process pure integer messages — ignore anything else silently
     if(!isNaN(num)&&/^-?\d+$/.test(trimmed)){
       if(msg.author.id===cc.lastUserId){
-        // Double count — reset
+        // Double count — reset and commit immediately
         cc.count=0;cc.lastUserId=null;
-        saveData();
+        saveDataAndCommitNow().catch(()=>{});
         await msg.react("❌").catch(()=>{});
         await safeSend(msg.channel,`<@${msg.author.id}> messed the counting up! Shame on them! Start from zero.`);
       }else if(num===cc.count+1){
-        // Correct
+        // Correct — save to disk immediately, commit debounced
         cc.count++;cc.lastUserId=msg.author.id;
         if(cc.count>(cc.highScore||0)){cc.highScore=cc.count;}
         saveData();
         await msg.react("✅").catch(()=>{});
       }else{
-        // Wrong number — reset
+        // Wrong number — reset and commit immediately
         cc.count=0;cc.lastUserId=null;
-        saveData();
+        saveDataAndCommitNow().catch(()=>{});
         await msg.react("❌").catch(()=>{});
         await safeSend(msg.channel,`<@${msg.author.id}> messed the counting up! Shame on them! Start from zero.`);
       }
@@ -3158,7 +3158,7 @@ client.on("interactionCreate",async interaction=>{
         ];
         const fields=groups.map(([g,keys])=>({
           name:g,
-          value:keys.map(k=>`\`${k}\` **${CONFIG[k]}**`).join(" · "),
+          value:keys.map(k=>`\`${k}\` → **${CONFIG[k]}**`).join("\n"),
           inline:false,
         }));
         return safeReply(interaction,{embeds:[{
