@@ -3145,28 +3145,37 @@ client.on("interactionCreate",async interaction=>{
           ["📈 XP",["xp_per_msg_min","xp_per_msg_max","xp_cooldown_ms"]],
           ["⏱️ Cooldowns (ms)",["work_cooldown_ms","beg_cooldown_ms","crime_cooldown_ms","rob_cooldown_ms"]],
           ["💰 Economy",["daily_base_coins","daily_streak_bonus","daily_wrong_penalty","starting_coins"]],
-          ["🎲 Success Chances (%)",["beg_success_chance","crime_success_chance","rob_success_chance","coinbet_win_chance"]],
+          ["🎲 Chances (%)",["beg_success_chance","crime_success_chance","rob_success_chance","coinbet_win_chance"]],
           ["🔫 Rob",["rob_steal_pct_min","rob_steal_pct_max","rob_fine_pct_min","rob_fine_pct_max"]],
           ["🎰 Slots",["slots_min_bet","slots_jackpot_mult","slots_bigwin_mult","slots_triple_mult","slots_pair_mult"]],
-          ["🃏 Blackjack",["blackjack_natural_mult"]],
-          ["✨ Item Effects",["lucky_charm_bonus","xp_boost_mult","coin_magnet_mult"]],
-          ["🛍️ Shop",["shop_lucky_charm_price","shop_xp_boost_price","shop_shield_price","shop_coin_magnet_price","shop_mystery_box_price","shop_item_mystery_box_price","shop_rob_insurance_price"]],
-          ["📦 Mystery Box drops (weights — higher = more likely)",["mb_coins_small","mb_coins_large","mb_lucky_charm","mb_xp_boost","mb_shield","mb_coin_magnet","mb_rob_insurance"]],
-          ["🎲 Item Mystery Box drops (weights — higher = more likely)",["imb_coins_tiny","imb_coins_small","imb_lucky_charm","imb_xp_boost","imb_shield","imb_coin_magnet","imb_rob_insurance"]],
-          ["🎮 Solo Games",["win_hangman","win_snake_per_point","win_minesweeper_easy","win_minesweeper_medium","win_minesweeper_hard","win_numberguess","win_wordscramble"]],
-          ["🕹️ 2-Player Games",["win_ttt","win_c4","win_rps","win_mathrace","win_wordrace","win_trivia","win_scramblerace","win_countgame"]],
+          ["🃏 BJ & Effects",["blackjack_natural_mult","lucky_charm_bonus","xp_boost_mult","coin_magnet_mult"]],
+          ["🛍️ Shop prices",["shop_lucky_charm_price","shop_xp_boost_price","shop_shield_price","shop_coin_magnet_price","shop_mystery_box_price","shop_item_mystery_box_price","shop_rob_insurance_price"]],
+          ["📦 Mystery Box weights",["mb_coins_small","mb_coins_large","mb_lucky_charm","mb_xp_boost","mb_shield","mb_coin_magnet","mb_rob_insurance"]],
+          ["🎲 Item Box weights",["imb_coins_tiny","imb_coins_small","imb_lucky_charm","imb_xp_boost","imb_shield","imb_coin_magnet","imb_rob_insurance"]],
+          ["🎮 Solo wins",["win_hangman","win_snake_per_point","win_minesweeper_easy","win_minesweeper_medium","win_minesweeper_hard","win_numberguess","win_wordscramble"]],
+          ["🕹️ 2P wins",["win_ttt","win_c4","win_rps","win_mathrace","win_wordrace","win_trivia","win_scramblerace","win_countgame"]],
           ["🏅 Events",["olympics_win_coins","invite_comp_1st","invite_comp_2nd","invite_comp_3rd","invite_comp_per_invite"]],
         ];
-        const lines=groups.map(([g,keys])=>`**${g}**\n${keys.map(k=>`\`${k}\` = ${CONFIG[k]}`).join("  ·  ")}`);
-        return safeReply(interaction,{content:`⚙️ **Global Config**\n\n${lines.join("\n\n")}\n\nUse \`/adminconfig key:<name> value:<number>\` to change any value.`,ephemeral:true});
+        const fields=groups.map(([g,keys])=>({
+          name:g,
+          value:keys.map(k=>`\`${k}\` **${CONFIG[k]}**`).join(" · "),
+          inline:false,
+        }));
+        return safeReply(interaction,{embeds:[{
+          title:"⚙️ Global Config",
+          description:"Use `/adminconfig key:<name> value:<number>` to edit.\nAll 70 keys shown below.",
+          fields,
+          color:0x5865F2,
+        }],ephemeral:true});
       }
-      if(!(key in CONFIG))return safeReply(interaction,{content:`❌ Unknown key \`${key}\`.\n\nValid keys: ${Object.keys(CONFIG).join(", ")}`,ephemeral:true});
+      if(!(key in CONFIG))return safeReply(interaction,{content:`❌ Unknown key \`${key}\`. Run \`/adminconfig\` with no arguments to see all valid keys.`,ephemeral:true});
       if(value==null)return safeReply(interaction,{content:`⚙️ **${key}** = \`${CONFIG[key]}\``,ephemeral:true});
       const old=CONFIG[key];CONFIG[key]=value;
       saveData();
       return safeReply(interaction,{content:`✅ **${key}**: \`${old}\` → \`${value}\``,ephemeral:true});
     }
-    if(cmd==="admingive"){
+
+        if(cmd==="admingive"){
       // Hard OWNER_IDS guard — belt and suspenders on top of ownerOnly array
       if(!OWNER_IDS.includes(interaction.user.id))
         return safeReply(interaction,{content:"❌ Owner only.",ephemeral:true});
