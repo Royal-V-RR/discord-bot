@@ -49,6 +49,7 @@ const inviteComps      = new Map();
 const inviteCache      = new Map();
 const ticketConfigs    = new Map();
 const openTickets      = new Map();
+const premieres        = new Map(); // premiereId -> { title, endsAt, channelId, userId, messageId, guildId }
 const disabledLevelUp  = new Set(); // legacy — now superseded by levelUpConfig.enabled
 const userInstalls     = new Set();
 // Per-guild XP level-up notification config
@@ -312,6 +313,7 @@ function buildDataObject() {
       guildId,
       { endsAt: comp.endsAt, channelId: comp.channelId, baseline: [...comp.baseline.entries()] }
     ]),
+    premieres:        [...premieres.entries()],
   };
 }
 
@@ -416,7 +418,15 @@ function loadData() {
       });
     }
 
-    console.log(`✅ Data loaded — ${ticketConfigs.size} ticket configs, ${reactionRoles.size} reaction roles, ${scores.size} scores, ${guildChannels.size} channels, ${activeEffects.size} active effects, ${reminders.length} reminders, ${inviteComps.size} active competitions`);
+    // Restore premieres — re-arm their update intervals
+    if (data.premieres) {
+      const now = Date.now();
+      data.premieres.forEach(([id, p]) => {
+        if (p.endsAt > now) premieres.set(id, p);
+      });
+    }
+
+    console.log(`✅ Data loaded — ${ticketConfigs.size} ticket configs, ${reactionRoles.size} reaction roles, ${scores.size} scores, ${guildChannels.size} channels, ${activeEffects.size} active effects, ${reminders.length} reminders, ${inviteComps.size} active competitions, ${premieres.size} premieres`);
   } catch(e) { console.error("loadData error:", e.message); }
 }
 
@@ -750,6 +760,70 @@ setInterval(async()=>{
     }
   }
 },30000);
+
+// ── Premiere helpers ──────────────────────────────────────────────────────────
+function buildPremiereBar(endsAt, startedAt) {
+  const total  = endsAt - startedAt;
+  const elapsed= Date.now() - startedAt;
+  const pct    = Math.min(1, Math.max(0, elapsed / total));
+  const W      = 20;
+  const filled = Math.round(pct * W);
+  const bar    = "█".repeat(filled) + "░".repeat(W - filled);
+  return { bar, pct };
+}
+
+function buildPremiereEmbed(p) {
+  const now       = Date.now();
+  const remaining = Math.max(0, p.endsAt - now);
+  const hrs       = Math.floor(remaining / 3600000);
+  const mins      = Math.floor((remaining % 3600000) / 60000);
+  const { bar, pct } = buildPremiereBar(p.endsAt, p.startedAt);
+  const pctLabel  = Math.round(pct * 100);
+  const endTs     = Math.floor(p.endsAt / 1000);
+  const done      = remaining === 0;
+
+  return {
+    embeds: [{
+      title: done ? `🎬 ${p.title} — It's time!` : `🎬 ${p.title}`,
+      description: done
+        ? `<@${p.userId}> Your video is ready to upload! 🚀`
+        : [
+            `**Progress:** \`[${bar}]\` ${pctLabel}%`,
+            ``,
+            `⏳ **${hrs}h ${mins}m** remaining`,
+            `📅 Drops <t:${endTs}:R> (<t:${endTs}:f>)`,
+            ``,
+            `*Updates every 30 minutes*`,
+          ].join("\n"),
+      color: done ? 0x00FF00 : 0xFF4500,
+      footer: { text: done ? "Upload time! 🎉" : "Premiere countdown" },
+      timestamp: new Date().toISOString(),
+    }],
+  };
+}
+
+// Premiere tick — runs every 30 minutes, edits all active premiere embeds
+setInterval(async () => {
+  const now = Date.now();
+  for (const [id, p] of premieres) {
+    try {
+      const ch  = await client.channels.fetch(p.channelId).catch(() => null);
+      if (!ch) continue;
+      const msg = await ch.messages.fetch(p.messageId).catch(() => null);
+      if (!msg) continue;
+
+      if (now >= p.endsAt) {
+        // Finished — show done embed, ping user, then remove
+        await msg.edit(buildPremiereEmbed(p)).catch(() => {});
+        await safeSend(ch, `🎬 <@${p.userId}> **${p.title}** — time to upload! 🚀`);
+        premieres.delete(id);
+        saveData();
+      } else {
+        await msg.edit(buildPremiereEmbed(p)).catch(() => {});
+      }
+    } catch(e) { console.error("Premiere tick error:", e.message); }
+  }
+}, 30 * 60 * 1000);
 
 // Olympics
 async function snapshotInvites(guild){
@@ -1139,6 +1213,11 @@ function buildCommands(){
     {name:"horoscope",      description:"Your daily horoscope ✨",options:[{name:"sign",description:"Your star sign",type:3,required:true,choices:Object.keys(HOROSCOPES).map(k=>({name:k,value:k}))}]},
     {name:"poll",           description:"Create a quick yes/no poll 📊",options:[{name:"question",description:"Poll question",type:3,required:true}]},
     {name:"remind",         description:"Set a reminder ⏰",options:[{name:"time",description:"Time in minutes",type:4,required:true},{name:"message",description:"Reminder message",type:3,required:true}]},
+    {name:"premiere",       description:"Start a countdown to your video upload 🎬",options:[
+      {name:"hours",    description:"How many hours until the video releases",        type:10,required:true},
+      {name:"channel",  description:"Channel to post the countdown in",               type:7, required:true},
+      {name:"title",    description:"Video title (optional, shown in the countdown)", type:3, required:false},
+    ]},
     {name:"serverinfo",     description:"Server information 🏠"},
     {name:"userprofile",    description:"Full profile card — stats, economy, XP, inventory & more 📋",options:uReq(false)},
     {name:"botinfo",        description:"Bot information 🤖"},
@@ -2392,6 +2471,34 @@ client.on("interactionCreate",async interaction=>{
       if(minutes<1||minutes>10080)return safeReply(interaction,{content:"Time must be between 1 and 10080 minutes.",ephemeral:true});
       reminders.push({userId:interaction.user.id,channelId:interaction.channelId,time:Date.now()+minutes*60000,message});
       return safeReply(interaction,{content:`⏰ Reminder set! I'll remind you in **${minutes} minute(s)**: **${message}**`,ephemeral:true});
+    }
+
+    if(cmd==="premiere"){
+      const hours   = interaction.options.getNumber("hours");
+      const channel = interaction.options.getChannel("channel");
+      const title   = interaction.options.getString("title") || "Upcoming Video";
+      if(hours<=0||hours>720)return safeReply(interaction,{content:"❌ Hours must be between 0 and 720.",ephemeral:true});
+      // Check bot can send in the target channel
+      const perms=channel.permissionsFor(interaction.guild.me);
+      if(!perms||!perms.has("SEND_MESSAGES")||!perms.has("EMBED_LINKS"))
+        return safeReply(interaction,{content:`❌ I don't have permission to send embeds in <#${channel.id}>.`,ephemeral:true});
+
+      const now      = Date.now();
+      const endsAt   = now + Math.round(hours * 3600000);
+      const id       = `${interaction.user.id}_${now}`;
+      const premiere = { title, endsAt, startedAt:now, channelId:channel.id, userId:interaction.user.id, messageId:null, guildId:interaction.guildId };
+
+      // Post the initial embed and store the message ID
+      const embed = buildPremiereEmbed(premiere);
+      const sent  = await channel.send(embed).catch(()=>null);
+      if(!sent)return safeReply(interaction,{content:"❌ Failed to send the countdown message.",ephemeral:true});
+
+      premiere.messageId = sent.id;
+      premieres.set(id, premiere);
+      saveData();
+
+      const hrsLabel = hours === Math.floor(hours) ? `${hours}h` : `${hours}h`;
+      return safeReply(interaction,{content:`🎬 Premiere countdown started in <#${channel.id}>!\n**${title}** drops in **${hrsLabel}** — the bar updates every 30 minutes.`,ephemeral:true});
     }
 
     if(cmd==="serverinfo"){
