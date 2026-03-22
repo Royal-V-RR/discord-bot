@@ -102,6 +102,13 @@
         "transcriptChannelId": "1483800791264399380",
         "panelChannelId": "1475160360796553379"
       }
+    ],
+    [
+      "333949691962195969",
+      {
+        "nextId": 0,
+        "categoryId": "1028835735782035516"
+      }
     ]
   ],
   "openTickets": [],
@@ -4921,6 +4928,27 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 7,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null
+      }
+    ],
+    [
+      "229016449593769984",
+      {
+        "username": "goseale",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 14,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
