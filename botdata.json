@@ -107,7 +107,13 @@
       "333949691962195969",
       {
         "nextId": 0,
-        "categoryId": "1028835735782035516"
+        "categoryId": "1028835735782035516",
+        "supportRoleIds": [
+          "1401718772854685736"
+        ],
+        "supportRoleId": "1401718772854685736",
+        "logChannelId": null,
+        "transcriptChannelId": null
       }
     ]
   ],
