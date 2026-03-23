@@ -2425,36 +2425,36 @@ client.on("interactionCreate",async interaction=>{
     if(cmd==="neverhavei")    return safeReply(interaction,`🤚 **Never have I ever${pick(NEVERHAVEI_STMTS)}**\n\nReact with 🙋 if you have, 🙅 if you haven't!`);
 
     if(cmd==="echo"){
-      const text      = interaction.options.getString("message")||"";
-      const useEmbed  = interaction.options.getBoolean("embed")||false;
-      const imageUrl  = interaction.options.getString("image")||null;
-      const embedTitle= interaction.options.getString("title")||null;
-      const colorHex  = interaction.options.getString("color")||null;
-      const replyToId = interaction.options.getString("replyto")||null;
-      if(!text&&!imageUrl&&!embedTitle)return safeReply(interaction,{content:"❌ Provide at least a message, image, or title.",ephemeral:true});
-      await safeReply(interaction,{content:"✅",ephemeral:true});
-      const targetCh = getTargetChannel(interaction);
-      let replyTarget = null;
-      if(replyToId){
-        replyTarget = await targetCh.messages.fetch(replyToId).catch(()=>null);
-        if(!replyTarget) await interaction.followUp({content:`⚠️ Message ID \`${replyToId}\` not found — sending normally.`,ephemeral:true});
-      }
-      let resolvedColor = 0x5865F2;
-      if(colorHex){const cleaned=colorHex.replace(/^#/,"");const parsed=parseInt(cleaned,16);if(!isNaN(parsed))resolvedColor=parsed;}
-      let payload;
-      if(useEmbed||imageUrl||embedTitle){
-        const embed={description:text||null,title:embedTitle||null,color:resolvedColor,image:imageUrl?{url:imageUrl}:undefined};
-        if(!embed.description)delete embed.description;
-        if(!embed.title)delete embed.title;
-        if(!embed.image)delete embed.image;
-        payload={embeds:[embed]};
-      }else{payload={content:text};}
-      try{
-        if(replyTarget){await replyTarget.reply(payload);}
-        else{await safeSend(targetCh,payload);}
-      }catch(e){await interaction.followUp({content:`❌ Failed to send: ${e.message}`,ephemeral:true}).catch(()=>{});}
-      return;
-    }
+  const text      = interaction.options.getString("message")||"";
+  const useEmbed  = interaction.options.getBoolean("embed")||false;
+  const attachment= interaction.options.getAttachment("image")||null;
+  const embedTitle= interaction.options.getString("title")||null;
+  const colorHex  = interaction.options.getString("color")||null;
+  const replyToId = interaction.options.getString("replyto")||null;
+  if(!text&&!attachment&&!embedTitle)return safeReply(interaction,{content:"❌ Provide at least a message, image, or title.",ephemeral:true});
+  await safeReply(interaction,{content:"✅",ephemeral:true});
+  const targetCh = interaction.channel;
+  let replyTarget = null;
+  if(replyToId){
+    replyTarget = await targetCh.messages.fetch(replyToId).catch(()=>null);
+    if(!replyTarget) await interaction.followUp({content:`⚠️ Message ID \`${replyToId}\` not found — sending normally.`,ephemeral:true});
+  }
+  let resolvedColor = 0x5865F2;
+  if(colorHex){const cleaned=colorHex.replace(/^#/,"");const parsed=parseInt(cleaned,16);if(!isNaN(parsed))resolvedColor=parsed;}
+  let payload;
+  if(useEmbed||attachment||embedTitle){
+    const embed={description:text||null,title:embedTitle||null,color:resolvedColor,image:attachment?{url:attachment.url}:undefined};
+    if(!embed.description)delete embed.description;
+    if(!embed.title)delete embed.title;
+    if(!embed.image)delete embed.image;
+    payload={embeds:[embed]};
+  }else{payload={content:text};}
+  try{
+    if(replyTarget){await replyTarget.reply(payload);}
+    else{await safeSend(targetCh,payload);}
+  }catch(e){await interaction.followUp({content:`❌ Failed to send: ${e.message}`,ephemeral:true}).catch(()=>{});}
+  return;
+}
 
     if(cmd==="poll"){
       if(!inGuild)return safeReply(interaction,{content:"Server only.",ephemeral:true});
