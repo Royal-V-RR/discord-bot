@@ -129,7 +129,9 @@
         "channelId": "1485620274870358086",
         "subject": "",
         "openedAt": 1774269875337,
-        "status": "open"
+        "status": "closed",
+        "closedBy": "1082452773787942922",
+        "closedAt": 1774269882137
       }
     ]
   ],
@@ -4361,7 +4363,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 78,
+        "xp": 88,
         "level": 2,
         "lastWorkTime": 0,
         "lastBegTime": 0,
