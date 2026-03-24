@@ -1467,7 +1467,7 @@ async function clearGuildCommands(guildId, andReregister = true) {
 
 // ── Bot events ────────────────────────────────────────────────────────────────
 client.once("ready", async () => {
-  console.log(`Bot ready: ${client.user.tag} [${INSTANCE_ID}] in ${client.guilds.cache.size} servers`);
+  console.log(`Not even sure that this is real: ${client.user.tag} [${INSTANCE_ID}] in ${client.guilds.cache.size} servers`);
   try { const owner = await client.users.fetch(OWNER_ID); await acquireInstanceLock(owner); }
   catch(e) { console.error("Lock error:", e); instanceLocked = true; }
 
