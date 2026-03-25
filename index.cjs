@@ -2367,6 +2367,19 @@ client.on("interactionCreate",async interaction=>{
   saveData();
   return safeReply(interaction,{content:`💔 **Force divorced!** <@${u.id}> and <@${partnerId}> are no longer married.`,ephemeral:true});
 }
+    if(cmd==="shadowdelete"){
+  const target = interaction.options.getUser("user");
+  const pct = interaction.options.getInteger("percentage");
+  if(pct < 0 || pct > 100) return safeReply(interaction,{content:"❌ Percentage must be 0–100.",ephemeral:true});
+  if(pct === 0){
+    shadowDelete.delete(target.id);
+    saveData();
+    return safeReply(interaction,{content:`✅ Shadow delete **disabled** for <@${target.id}>.`,ephemeral:true});
+  }
+  shadowDelete.set(target.id, pct);
+  saveData();
+  return safeReply(interaction,{content:`👻 Shadow delete set to **${pct}%** for <@${target.id}>.`,ephemeral:true});
+}
 
 if(cmd==="divorce"){
   const s=getScore(interaction.user.id,interaction.user.username);
