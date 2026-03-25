@@ -2341,16 +2341,17 @@ client.on("interactionCreate",async interaction=>{
   return safeReply(interaction,{content:`💍 **Force married!** <@${u1.id}> and <@${u2.id}> are now married. Congrats (whether they like it or not). 💕`,ephemeral:true});
 }
 
-    if(cmd==="divorce"){
-      const s=getScore(interaction.user.id,interaction.user.username);
-      if(!s.marriedTo)return safeReply(interaction,{content:"You're not married.",ephemeral:true});
-      const t=scores.get(s.marriedTo);
-      if(t){ t.marriedTo=null; t.pendingProposal=null; }
-      s.marriedTo=null;
-      s.pendingProposal=null;
-      saveData();
-      return safeReply(interaction,`💔 **${interaction.user.username}** filed for divorce. It's over.`);
-    }
+if(cmd==="divorce"){
+  const s=getScore(interaction.user.id,interaction.user.username);
+  if(!s.marriedTo)return safeReply(interaction,{content:"You're not married.",ephemeral:true});
+  if(s.forceMarried)return safeReply(interaction,{content:"💀 Your marriage was **force ordained**. There is no escape.",ephemeral:true});
+  const t=scores.get(s.marriedTo);
+  if(t){ t.marriedTo=null; t.pendingProposal=null; }
+  s.marriedTo=null;
+  s.pendingProposal=null;
+  saveData();
+  return safeReply(interaction,`💔 **${interaction.user.username}** filed for divorce. It's over.`);
+}
     if(cmd==="partner"){
       const u=interaction.options.getUser("user")||interaction.user;
       const s=getScore(u.id,u.username);
