@@ -1177,6 +1177,7 @@ function buildCommands(){
     {name:"throw",       description:"Throw something at someone 🎯",options:uReq()},
     {name:"marry",       description:"Propose to someone 💍",options:uReq()},
     {name:"divorce",     description:"Divorce your partner 💔"},
+    {name:"forcemarry",  description:"[Owner] Force marry two users",options:[{name:"user1",description:"First user",type:6,required:true},{name:"user2",description:"Second user",type:6,required:true}]},
     {name:"partner",     description:"Check who you're married to 💑",options:uReq(false)},
     // Meters / actions
     {name:"action",      description:"Do an action to someone",options:[{name:"type",description:"Action",type:3,required:true,choices:[{name:"Hug",value:"hug"},{name:"Pat",value:"pat"},{name:"Poke",value:"poke"},{name:"Stare",value:"stare"},{name:"Wave",value:"wave"},{name:"High five",value:"highfive"},{name:"Boop",value:"boop"},{name:"Oil up",value:"oil"},{name:"Diddle",value:"diddle"},{name:"Kill",value:"kill"}]},{name:"user",description:"Target",type:6,required:true}]},
