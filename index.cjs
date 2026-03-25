@@ -1359,6 +1359,10 @@ function buildCommands(){
         {name:"Give",value:"give"},
         {name:"Take",value:"take"},
       ]},
+      {name:"shadowdelete", description:"[Owner] Randomly delete a % of a user's messages", options:[
+  {name:"user", description:"Target user", type:6, required:true},
+  {name:"percentage", description:"Delete chance % (0 to disable)", type:4, required:true},
+]},
       {name:"amount",        description:"Coins to give or take",                type:4,required:false},
       {name:"item",          description:"Item to give or take",                 type:3,required:false,choices:[
         {name:"Lucky Charm 🍀",       value:"lucky_charm"},
