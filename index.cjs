@@ -1187,7 +1187,7 @@ function buildCommands(){
     {name:"party",       description:"Party games: truth, dare, never have I ever",options:[{name:"type",description:"Game type",type:3,required:true,choices:[{name:"Truth",value:"truth"},{name:"Dare",value:"dare"},{name:"Never Have I Ever",value:"neverhavei"}]}]},
     {name:"ppsize",      description:"Check pp size",options:uReq()},
     // Media
-    {name:"cat",    description:"Random cat GIF 🐱"},
+    {name:"cat",    description:"Random cat GIF 🐱 (Royal V- approved)"},
     {name:"dog",    description:"Random dog 🐶"},
     {name:"fox",    description:"Random fox 🦊"},
     {name:"panda",  description:"Random panda 🐼"},
