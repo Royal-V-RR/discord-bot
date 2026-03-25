@@ -4265,7 +4265,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-03-17",
-        "xp": 485,
+        "xp": 497,
         "level": 6,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -4859,7 +4859,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 95,
+        "xp": 110,
         "level": 4,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -4867,7 +4867,8 @@
         "lastRobTime": 0,
         "inventory": [],
         "marriedTo": null,
-        "pendingProposal": null
+        "pendingProposal": null,
+        "forceMarried": false
       }
     ],
     [
