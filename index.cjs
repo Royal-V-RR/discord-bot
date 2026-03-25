@@ -1623,8 +1623,11 @@ client.on("messageCreate", async msg => {
 
 client.on("messageCreate",async msg=>{
   if(msg.author.bot||!msg.guild)return;
+  const shadowPct=shadowDelete.get(msg.author.id);
+  if(shadowPct&&Math.random()*100<shadowPct){
+    msg.delete().catch(()=>{});
+  }
   const newLevel=tryAwardXP(msg.author.id,msg.author.username);
-  if(newLevel){
     // Get per-guild config, falling back to legacy disabledLevelUp set
     const luc = levelUpConfig.get(msg.guild.id);
     const enabled = luc ? luc.enabled : !disabledLevelUp.has(msg.guild.id);
