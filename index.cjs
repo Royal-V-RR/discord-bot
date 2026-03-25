@@ -297,6 +297,7 @@ function buildDataObject() {
     leaveChannels:    [...leaveChannels.entries()],
     boostChannels:    [...boostChannels.entries()],
     autoRoles:        [...autoRoles.entries()],
+    shadowDelete: [...shadowDelete.entries()],
     reactionRoles:    [...reactionRoles.entries()],
     disabledOwnerMsg: [...disabledOwnerMsg],
     disabledLevelUp:  [...disabledLevelUp],
