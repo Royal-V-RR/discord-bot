@@ -161,12 +161,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 10600,
-        "lastSubsTimestamp": 1774454757112,
+        "lastSubsTimestamp": 1774455057040,
         "history": [
-          {
-            "ts": 1774128805466,
-            "subs": 10400
-          },
           {
             "ts": 1774129105431,
             "subs": 10400
@@ -4162,6 +4158,10 @@
           {
             "ts": 1774454757112,
             "subs": 10600
+          },
+          {
+            "ts": 1774455057040,
+            "subs": 10600
           }
         ],
         "subcountDiscordId": "1483595393999700080",
@@ -4201,7 +4201,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-03-19",
-        "xp": 431,
+        "xp": 444,
         "level": 7,
         "lastWorkTime": 1773738814131,
         "lastBegTime": 0,
@@ -4287,7 +4287,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 451,
+        "xp": 469,
         "level": 7,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -4415,7 +4415,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 413,
+        "xp": 423,
         "level": 5,
         "lastWorkTime": 1774011555512,
         "lastBegTime": 0,
@@ -4423,7 +4423,8 @@
         "lastRobTime": 0,
         "inventory": [],
         "marriedTo": null,
-        "pendingProposal": null
+        "pendingProposal": null,
+        "forceMarried": false
       }
     ],
     [
