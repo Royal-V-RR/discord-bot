@@ -1354,16 +1354,16 @@ function buildCommands(){
     {name:"adminuser",      description:"[Owner] Edit user stats",options:[{name:"user",description:"User",type:6,required:true},{name:"field",description:"Field",type:3,required:true,choices:[{name:"Coins",value:"coins"},{name:"Wins",value:"wins"},{name:"Games Played",value:"gamesPlayed"},{name:"Daily Streak",value:"dailyStreak"},{name:"Best Streak",value:"bestStreak"},{name:"XP",value:"xp"},{name:"Level",value:"level"}]},{name:"value",description:"New integer value",type:4,required:true}]},
     {name:"adminreset",     description:"[Owner] Reset all stats for user",options:[{name:"user",description:"User",type:6,required:true}]},
     {name:"adminconfig",    description:"[Owner] View/edit global config values",options:[{name:"key",description:"Config key to view or edit (leave blank to list all keys)",type:3,required:false},{name:"value",description:"New integer value",type:4,required:false}]},
+    {name:"shadowdelete", description:"[Owner] Randomly delete a % of a user's messages", options:[
+  {name:"user", description:"Target user", type:6, required:true},
+  {name:"percentage", description:"Delete chance % (0 to disable)", type:4, required:true},
+]},
     {name:"admingive",description:"[Owner] Give or take coins/items from a user",options:[
       {name:"user",          description:"Target user",                          type:6,required:true},
       {name:"action",        description:"Give or take (default: give)",         type:3,required:false,choices:[
         {name:"Give",value:"give"},
         {name:"Take",value:"take"},
       ]},
-      {name:"shadowdelete", description:"[Owner] Randomly delete a % of a user's messages", options:[
-  {name:"user", description:"Target user", type:6, required:true},
-  {name:"percentage", description:"Delete chance % (0 to disable)", type:4, required:true},
-]},
       {name:"amount",        description:"Coins to give or take",                type:4,required:false},
       {name:"item",          description:"Item to give or take",                 type:3,required:false,choices:[
         {name:"Lucky Charm 🍀",       value:"lucky_charm"},
