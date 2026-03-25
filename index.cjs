@@ -97,6 +97,7 @@ function getScore(userId, username) {
   if (s.inventory     == null) s.inventory     = [];
   if (s.marriedTo     == null) s.marriedTo     = null;
   if (!('pendingProposal' in s)) s.pendingProposal = null;
+  if (!('forceMarried' in s)) s.forceMarried = false;
   if (s.dailyStreak   == null) s.dailyStreak   = 0;
   if (s.bestStreak    == null) s.bestStreak    = 0;
   if (s.lastDailyDate == null) s.lastDailyDate = "";
