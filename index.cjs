@@ -1178,6 +1178,7 @@ function buildCommands(){
     {name:"throw",       description:"Throw something at someone 🎯",options:uReq()},
     {name:"marry",       description:"Propose to someone 💍",options:uReq()},
     {name:"divorce",     description:"Divorce your partner 💔"},
+    {name:"forcedivorce", description:"[Owner] Force divorce two users", options:[{name:"user",description:"User to divorce",type:6,required:true}]},
     {name:"forcemarry",  description:"[Owner] Force marry two users",options:[{name:"user1",description:"First user",type:6,required:true},{name:"user2",description:"Second user",type:6,required:true}]},
     {name:"partner",     description:"Check who you're married to 💑",options:uReq(false)},
     // Meters / actions
