@@ -4265,7 +4265,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-03-17",
-        "xp": 497,
+        "xp": 512,
         "level": 6,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -4393,7 +4393,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 200,
+        "xp": 207,
         "level": 4,
         "lastWorkTime": 1774281443541,
         "lastBegTime": 0,
@@ -4866,9 +4866,9 @@
         "lastCrimeTime": 0,
         "lastRobTime": 0,
         "inventory": [],
-        "marriedTo": null,
+        "marriedTo": "1480592876684706064",
         "pendingProposal": null,
-        "forceMarried": false
+        "forceMarried": true
       }
     ],
     [
@@ -5310,6 +5310,28 @@
         "inventory": [],
         "marriedTo": null,
         "pendingProposal": null
+      }
+    ],
+    [
+      "1480592876684706064",
+      {
+        "username": "RoyalBot",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 0,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": "1238069081240764477",
+        "pendingProposal": null,
+        "forceMarried": true
       }
     ]
   ],
