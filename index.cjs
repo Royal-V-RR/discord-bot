@@ -2332,8 +2332,8 @@ client.on("interactionCreate",async interaction=>{
   if(u1.id===u2.id)return safeReply(interaction,{content:"Can't marry someone to themselves.",ephemeral:true});
   const s1=getScore(u1.id,u1.username);
   const s2=getScore(u2.id,u2.username);
-  if(s1.marriedTo)return safeReply(interaction,{content:❌ <@${u1.id}> is already married to <@${s1.marriedTo}>.,ephemeral:true});
-  if(s2.marriedTo)return safeReply(interaction,{content:❌ <@${u2.id}> is already married to <@${s2.marriedTo}>.,ephemeral:true});
+  if(s1.marriedTo)return safeReply(interaction,{content:'❌ <@${u1.id}> is already married to <@${s1.marriedTo}>.',ephemeral:true});
+  if(s2.marriedTo)return safeReply(interaction,{content:'❌ <@${u2.id}> is already married to <@${s2.marriedTo}>.',ephemeral:true});
   s1.marriedTo=u2.id; s1.pendingProposal=null;
   s2.marriedTo=u1.id; s2.pendingProposal=null;
   saveData();
