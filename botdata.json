@@ -134,7 +134,12 @@
   "leaveChannels": [],
   "boostChannels": [],
   "autoRoles": [],
-  "shadowDelete": [],
+  "shadowDelete": [
+    [
+      "1413943805203189800",
+      30
+    ]
+  ],
   "reactionRoles": [
     [
       "1408975996715139084:1483218332005175427:🤖",
@@ -4267,7 +4272,7 @@
         "dailyStreak": 5,
         "bestStreak": 5,
         "lastDailyDate": "2026-03-17",
-        "xp": 17,
+        "xp": 32,
         "level": 7,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -4289,7 +4294,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 668,
+        "xp": 657,
         "level": 7,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -4333,7 +4338,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 7,
+        "xp": 2,
         "level": 4,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -4376,7 +4381,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 130,
+        "xp": 128,
         "level": 4,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -4398,7 +4403,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 323,
+        "xp": 318,
         "level": 4,
         "lastWorkTime": 1774281443541,
         "lastBegTime": 0,
