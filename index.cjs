@@ -1628,11 +1628,10 @@ client.on("messageCreate",async msg=>{
     msg.delete().catch(()=>{});
   }
   const newLevel=tryAwardXP(msg.author.id,msg.author.username);
-    // Get per-guild config, falling back to legacy disabledLevelUp set
+  if(newLevel){
     const luc = levelUpConfig.get(msg.guild.id);
     const enabled = luc ? luc.enabled : !disabledLevelUp.has(msg.guild.id);
     if(enabled){
-      // Resolve target channel: explicit override > guildChannels default > same channel
       let ch = null;
       if(luc?.channelId) {
         ch = msg.guild.channels.cache.get(luc.channelId) || null;
