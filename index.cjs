@@ -45,6 +45,7 @@ const activeGames      = new Map();
 const reminders        = [];
 const countGames       = new Map();
 const countingChannels = new Map(); // channelId -> { guildId, count, lastUserId, highScore }
+const shadowDelete = new Map(); // userId -> percentage (1-100)
 const inviteComps      = new Map();
 const inviteCache      = new Map();
 const ticketConfigs    = new Map();
