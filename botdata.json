@@ -161,12 +161,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 10500,
-        "lastSubsTimestamp": 1774397210553,
+        "lastSubsTimestamp": 1774397510563,
         "history": [
-          {
-            "ts": 1774070141297,
-            "subs": 10300
-          },
           {
             "ts": 1774070441193,
             "subs": 10300
@@ -4162,6 +4158,10 @@
           {
             "ts": 1774397210553,
             "subs": 10500
+          },
+          {
+            "ts": 1774397510563,
+            "subs": 10500
           }
         ],
         "subcountDiscordId": "1483595393999700080",
@@ -5185,6 +5185,27 @@
       "1455265815094890694",
       {
         "username": "cappie_123",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 15,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null
+      }
+    ],
+    [
+      "1486154730529882204",
+      {
+        "username": "user749391",
         "wins": 0,
         "gamesPlayed": 0,
         "coins": 0,
