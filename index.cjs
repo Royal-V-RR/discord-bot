@@ -359,6 +359,7 @@ function loadData() {
     if (data.welcomeChannels)  data.welcomeChannels .forEach(([k,v]) => welcomeChannels.set(k, v));
     if (data.leaveChannels)    data.leaveChannels   .forEach(([k,v]) => leaveChannels.set(k, v));
     if (data.boostChannels)    data.boostChannels   .forEach(([k,v]) => boostChannels.set(k, v));
+    if(data.shadowDelete) data.shadowDelete.forEach(([k,v]) => shadowDelete.set(k, v));
     if (data.autoRoles)        data.autoRoles       .forEach(([k,v]) => autoRoles.set(k, v));
     if (data.reactionRoles)    data.reactionRoles   .forEach(([k,v]) => reactionRoles.set(k, v));
     if (data.disabledOwnerMsg) data.disabledOwnerMsg.forEach(v => disabledOwnerMsg.add(v));
