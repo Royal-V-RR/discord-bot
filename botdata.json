@@ -4272,7 +4272,7 @@
         "username": "royalvmusic",
         "wins": 39,
         "gamesPlayed": 55,
-        "coins": 8333,
+        "coins": 8183,
         "dailyStreak": 5,
         "bestStreak": 5,
         "lastDailyDate": "2026-03-17",
@@ -4282,7 +4282,9 @@
         "lastBegTime": 0,
         "lastCrimeTime": 1774142684004,
         "lastRobTime": 0,
-        "inventory": [],
+        "inventory": [
+          "shield"
+        ],
         "marriedTo": "1082452773787942922",
         "pendingProposal": "1082452773787942922",
         "forceMarried": false
