@@ -4618,7 +4618,7 @@
         "username": "spacethecosmo",
         "wins": 4,
         "gamesPlayed": 10,
-        "coins": 700000084,
+        "coins": 699999934,
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
@@ -4628,7 +4628,9 @@
         "lastBegTime": 1774348804190,
         "lastCrimeTime": 0,
         "lastRobTime": 0,
-        "inventory": [],
+        "inventory": [
+          "shield"
+        ],
         "marriedTo": null,
         "pendingProposal": null,
         "forceMarried": false
