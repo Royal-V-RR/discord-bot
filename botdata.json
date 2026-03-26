@@ -4211,7 +4211,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-03-19",
-        "xp": 20,
+        "xp": 27,
         "level": 8,
         "lastWorkTime": 1773738814131,
         "lastBegTime": 0,
@@ -4255,7 +4255,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 84,
+        "xp": 94,
         "level": 3,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -4263,7 +4263,8 @@
         "lastRobTime": 0,
         "inventory": [],
         "marriedTo": null,
-        "pendingProposal": null
+        "pendingProposal": null,
+        "forceMarried": false
       }
     ],
     [
@@ -5478,6 +5479,72 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 9,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "forceMarried": false
+      }
+    ],
+    [
+      "1283882511973482564",
+      {
+        "username": "123fix",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 8,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "forceMarried": false
+      }
+    ],
+    [
+      "1486573909875884063",
+      {
+        "username": "hira050746",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 6,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "forceMarried": false
+      }
+    ],
+    [
+      "1387086766200062053",
+      {
+        "username": "shivermitimbers2012",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 12,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
