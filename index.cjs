@@ -28,6 +28,7 @@ async function acquireInstanceLock(ownerUser) {
     );
     if (competing) { console.log(`[${INSTANCE_ID}] Duplicate — exiting.`); process.exit(0); }
     await dm.send(`${LOCK_PREFIX}${INSTANCE_ID}:${now}`);
+        await dm.send(`Oh creator please don't leave me waiting…`);
     instanceLocked = true;
     console.log(`[${INSTANCE_ID}] Lock acquired.`);
   } catch(e) { console.error("Lock failed:", e); instanceLocked = true; }
