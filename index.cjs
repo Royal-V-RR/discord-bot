@@ -3487,11 +3487,42 @@ if(cmd==="divorce"){
     if(cmd==="purge"){
       if(!interaction.member.permissions.has("MANAGE_MESSAGES"))return safeReply(interaction,{content:"You need Manage Messages permission.",ephemeral:true});
       const amount=interaction.options.getInteger("amount");
+      const filter=interaction.options.getString("filter")||null;
+      const contains=interaction.options.getString("contains")||null;
       if(amount<1||amount>100)return safeReply(interaction,{content:"Amount must be 1–100.",ephemeral:true});
       await interaction.deferReply({ephemeral:true});
-      try{const deleted=await interaction.channel.bulkDelete(amount,true);return safeReply(interaction,`🗑️ Deleted **${deleted.size}** message(s).`);}
-      catch(e){return safeReply(interaction,`Failed: ${e.message}`);}
+      try{
+        const messages=await interaction.channel.messages.fetch({limit:amount});
+        let toDelete=[...messages.values()];
+        if(filter==="humans") toDelete=toDelete.filter(m=>!m.author.bot);
+        if(filter==="bots")   toDelete=toDelete.filter(m=>m.author.bot);
+        if(contains)          toDelete=toDelete.filter(m=>m.content.toLowerCase().includes(contains.toLowerCase()));
+        if(!toDelete.length)return safeReply(interaction,{content:"❌ No messages matched your filters.",ephemeral:true});
+        const cutoff=Date.now()-(14*24*60*60*1000);
+        const fresh=toDelete.filter(m=>m.createdTimestamp>cutoff);
+        const old=toDelete.filter(m=>m.createdTimestamp<=cutoff);
+        let deletedCount=0;
+        // Bulk delete fresh messages (under 14 days)
+        if(fresh.length){
+          const bulk=await interaction.channel.bulkDelete(fresh,true);
+          deletedCount+=bulk.size;
+        }
+        // One-by-one delete old messages (over 14 days)
+        if(old.length){
+          await safeReply(interaction,{content:`⏳ Deleting **${old.length}** old message(s) one by one, this may take a moment…`,ephemeral:true});
+          for(const m of old){
+            await m.delete().catch(()=>{});
+            deletedCount++;
+            await new Promise(res=>setTimeout(res,1000)); // 1 second delay to avoid rate limits
+          }
+        }
+        const filterDesc=filter?` (${filter} only)`:"";
+        const containsDesc=contains?` containing **"${contains}"**`:"";
+        return safeReply(interaction,{content:`🗑️ Deleted **${deletedCount}** message(s)${filterDesc}${containsDesc}.`,ephemeral:true});
+      }
+      catch(e){return safeReply(interaction,{content:`Failed: ${e.message}`,ephemeral:true});}
     }
+
 
     // ── YouTube commands ───────────────────────────────────────────────────────
     if(cmd==="ytsetup"){
