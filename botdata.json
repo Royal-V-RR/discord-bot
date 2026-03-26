@@ -167,12 +167,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 10600,
-        "lastSubsTimestamp": 1774554820289,
+        "lastSubsTimestamp": 1774555120273,
         "history": [
-          {
-            "ts": 1774230625038,
-            "subs": 10400
-          },
           {
             "ts": 1774231046764,
             "subs": 10400
@@ -4168,6 +4164,10 @@
           {
             "ts": 1774554820289,
             "subs": 10600
+          },
+          {
+            "ts": 1774555120273,
+            "subs": 10600
           }
         ],
         "subcountDiscordId": "1483595393999700080",
@@ -4361,7 +4361,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 26,
+        "xp": 37,
         "level": 3,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -6246,6 +6246,50 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 11,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "forceMarried": false
+      }
+    ],
+    [
+      "1486202636549230716",
+      {
+        "username": "snowgawky",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 10,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "forceMarried": false
+      }
+    ],
+    [
+      "878239714501611531",
+      {
+        "username": "justyourchillguy",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 6,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
