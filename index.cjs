@@ -1311,7 +1311,14 @@ function buildCommands(){
     {name:"reactionrole",     description:"Manage reaction roles (Manage Server)",options:[{name:"action",description:"What to do",type:3,required:true,choices:[{name:"Add",value:"add"},{name:"Remove",value:"remove"},{name:"List",value:"list"}]},{name:"messageid",description:"Message ID (for add/remove)",type:3,required:false},{name:"emoji",description:"Emoji (for add/remove)",type:3,required:false},{name:"role",description:"Role to give (for add)",type:8,required:false}]},
     {name:"setboostmsg",     description:"Set a server boost announcement message (Manage Server)",options:[{name:"channel",description:"Channel",type:7,required:true},{name:"message",description:"Use {user} {server}",type:3,required:false}]},
     {name:"invitecomp",      description:"Start an invite competition (Manage Server)",options:[{name:"hours",description:"Duration in hours (1-720)",type:4,required:true}]},
-    {name:"purge",           description:"Delete messages in bulk (Manage Messages)",options:[{name:"amount",description:"Number to delete (1-100)",type:4,required:true}]},
+    {name:"purge",           description:"Delete messages in bulk (Manage Messages)",options:[
+      {name:"amount",      description:"Number of messages to scan (1-100)",  type:4,required:true},
+      {name:"filter",      description:"Only delete certain messages",         type:3,required:false,choices:[
+        {name:"Humans only",  value:"humans"},
+        {name:"Bots only",    value:"bots"},
+      ]},
+      {name:"contains",    description:"Only delete messages containing this word/phrase", type:3,required:false},
+    ]},
     // Tickets
     {name:"ticketsetup",     description:"Open the ticket system setup dashboard (Manage Server)"},
     {name:"closeticket",     description:"Close this ticket"},
