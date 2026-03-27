@@ -167,12 +167,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 10600,
-        "lastSubsTimestamp": 1774617393767,
+        "lastSubsTimestamp": 1774617693851,
         "history": [
-          {
-            "ts": 1774293885620,
-            "subs": 10500
-          },
           {
             "ts": 1774294185696,
             "subs": 10500
@@ -4168,6 +4164,10 @@
           {
             "ts": 1774617393767,
             "subs": 10600
+          },
+          {
+            "ts": 1774617693851,
+            "subs": 10600
           }
         ],
         "subcountDiscordId": "1483595393999700080",
@@ -6774,6 +6774,28 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 7,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "forceMarried": false
+      }
+    ],
+    [
+      "1411657067369861173",
+      {
+        "username": "rucoyslayer_14662",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 12,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
