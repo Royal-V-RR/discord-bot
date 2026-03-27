@@ -167,12 +167,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 10600,
-        "lastSubsTimestamp": 1774570313709,
+        "lastSubsTimestamp": 1774570613726,
         "history": [
-          {
-            "ts": 1774244073735,
-            "subs": 10400
-          },
           {
             "ts": 1774244373743,
             "subs": 10400
@@ -4168,6 +4164,10 @@
           {
             "ts": 1774570313709,
             "subs": 10600
+          },
+          {
+            "ts": 1774570613726,
+            "subs": 10600
           }
         ],
         "subcountDiscordId": "1483595393999700080",
@@ -4614,7 +4614,7 @@
       {
         "username": "spacethecosmo",
         "wins": 7,
-        "gamesPlayed": 20,
+        "gamesPlayed": 21,
         "coins": 748899969,
         "dailyStreak": 0,
         "bestStreak": 0,
