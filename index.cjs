@@ -363,10 +363,11 @@ function loadData() {
     if (data.welcomeChannels)  data.welcomeChannels .forEach(([k,v]) => welcomeChannels.set(k, v));
     if (data.leaveChannels)    data.leaveChannels   .forEach(([k,v]) => leaveChannels.set(k, v));
     if (data.boostChannels)    data.boostChannels   .forEach(([k,v]) => boostChannels.set(k, v));
-    if(data.shadowDelete) data.shadowDelete.forEach(([k,v]) => shadowDelete.set(k, v));
+    if (data.shadowDelete) data.shadowDelete.forEach(([k,v]) => shadowDelete.set(k, v));
     if (data.autoRoles)        data.autoRoles       .forEach(([k,v]) => autoRoles.set(k, v));
     if (data.reactionRoles)    data.reactionRoles   .forEach(([k,v]) => reactionRoles.set(k, v));
     if (data.disabledOwnerMsg) data.disabledOwnerMsg.forEach(v => disabledOwnerMsg.add(v));
+    if (data.wipeProtected)    data.wipeProtected.forEach(v => wipeProtected.add(v));
     if (data.disabledLevelUp)  data.disabledLevelUp .forEach(v => disabledLevelUp.add(v));
     if (data.levelUpConfig)    data.levelUpConfig    .forEach(([k,v]) => levelUpConfig.set(k, v));
     if (data.ytConfig)         data.ytConfig         .forEach(([k,v]) => ytConfig.set(k, v));
