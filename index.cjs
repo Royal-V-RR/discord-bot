@@ -42,6 +42,7 @@ const boostChannels    = new Map();
 const autoRoles        = new Map();
 const reactionRoles    = new Map();
 const disabledOwnerMsg = new Set();
+const wipeProtected = new Set(); // guildIds that cannot be wiped with /logswipe
 const activeGames      = new Map();
 const reminders        = [];
 const countGames       = new Map();
