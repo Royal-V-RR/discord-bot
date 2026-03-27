@@ -3371,33 +3371,45 @@ if(cmd==="divorce"){
       }
     }
 
-    if(cmd==="logswipe"){
+if(cmd==="logswipe"){
       await interaction.deferReply({ephemeral:true});
       const guilds=[...client.guilds.cache.values()];
       if(!guilds.length)return safeReply(interaction,{content:"No servers found.",ephemeral:true});
 
-      // Build the server list embed
-      const lines=guilds.map((g,i)=>`${i+1}. **${g.name}** — \`${g.id}\` — ${g.memberCount} members${wipeProtected.has(g.id)?" 🔒 Protected":""}`);
-      const listText=lines.join("\n").slice(0,3900);
+      // Build readable server list
+      const lines=guilds.map((g,i)=>`${i+1}. **${g.name}** — \`${g.id}\` — ${g.memberCount} members${wipeProtected.has(g.id)?" 🔒":""}`)
+      const listText=lines.join("\n").slice(0,3000);
 
-      // Build select menu — skip protected servers
-      const selectOptions=guilds
-        .filter(g=>!wipeProtected.has(g.id))
-        .slice(0,25)
-        .map(g=>({label:g.name.slice(0,25),value:g.id,description:`${g.memberCount} members`}));
+      // Only show unprotected servers in the dropdown
+      const unprotected=guilds.filter(g=>!wipeProtected.has(g.id));
+      if(!unprotected.length)return safeReply(interaction,{content:"⚠️ All servers are protected from wiping.",ephemeral:true});
 
-      if(!selectOptions.length)return safeReply(interaction,{content:"All servers are protected from wiping.",ephemeral:true});
+      // Discord select menus max out at 25 options
+      const selectOptions=unprotected.slice(0,25).map(g=>({
+        label:g.name.slice(0,25),
+        value:g.id,
+        description:`${g.memberCount} members · ${g.id}`,
+      }));
 
-      const row1=new MessageActionRow().addComponents(
+      const selectRow=new MessageActionRow().addComponents(
         new MessageSelectMenu()
           .setCustomId("logswipe_select")
-          .setPlaceholder("Select a server to wipe…")
+          .setPlaceholder("Choose a server to wipe…")
           .setOptions(selectOptions)
       );
 
       return safeReply(interaction,{
-        content:`⚠️ **Server Wipe Tool**\nSelect a server below, then press **Wipe**.\n🔒 = Protected (use /disableserverlogs to toggle)\n\n${listText}`,
-        components:[row1],
+        content:[
+          `☠️ **Server Wipe Tool**`,
+          ``,
+          `**All servers the bot is in:**`,
+          listText,
+          ``,
+          `🔒 = Protected from wiping`,
+          ``,
+          `Select an unprotected server from the dropdown below, then confirm the wipe.`,
+        ].join("\n"),
+        components:[selectRow],
         ephemeral:true,
       });
     }
