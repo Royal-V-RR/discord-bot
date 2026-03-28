@@ -1418,7 +1418,7 @@ async function clearGlobalCommands() {
 // Keep owner-only commands here so changes show up immediately without the 1hr global delay.
 // These commands are registered per-guild (instant, <1s propagation) instead of globally.
 // Use this for commands where choices/options change and you can't wait 1hr for global cache.
-const GUILD_ONLY_CMDS = ["admingive","buy","open","shop","inventory","premiere","forcemarry","forcedivorce","shadowdelete","purge","logswipe","disableserverlogs"];
+const GUILD_ONLY_CMDS = ["admingive","buy","open","shop","inventory","premiere","forcemarry","forcedivorce","shadowdelete","purge"];
 
 // Wipe stale global versions of guild-only commands.
 // When a command moves from global to guild-only, its global entry lingers until explicitly deleted.
@@ -2271,7 +2271,7 @@ client.on("interactionCreate",async interaction=>{
   const cmd=interaction.commandName;
   const inGuild=!!interaction.guildId;
 
-  const ownerOnly=["servers","broadcast","fakecrash","identitycrisis","botolympics","sentience","legendrandom","dmuser","leaveserver","restart","botstats","setstatus","adminuser","adminreset","adminconfig","admingive","echo","forcemarry","forcedivorce","shadowdelete","logswipe","disableserverlogs"];
+  const ownerOnly=["servers","broadcast","fakecrash","identitycrisis","botolympics","sentience","legendrandom","dmuser","leaveserver","restart","botstats","setstatus","adminuser","adminreset","adminconfig","admingive","echo","forcemarry","forcedivorce","shadowdelete"];
   if(ownerOnly.includes(cmd)&&!OWNER_IDS.includes(interaction.user.id))return safeReply(interaction,{content:"Owner only.",ephemeral:true});
 
   const manageServerCmds=["channelpicker","counting","xpconfig","setwelcome","setleave","setwelcomemsg","setleavemsg","disableownermsg","serverconfig","autorole","setboostmsg","invitecomp","purge","reactionrole","ticketsetup","ytsetup","subgoal","subcount","milestones"];
