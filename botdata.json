@@ -147,8 +147,19 @@
     ]
   ],
   "disabledOwnerMsg": [],
-  "disabledLevelUp": [],
-  "levelUpConfig": [],
+  "disabledLevelUp": [
+    "1048053656035020911"
+  ],
+  "levelUpConfig": [
+    [
+      "1048053656035020911",
+      {
+        "enabled": false,
+        "ping": true,
+        "channelId": null
+      }
+    ]
+  ],
   "ytConfig": [],
   "countingChannels": [],
   "userInstalls": [],
@@ -163,7 +174,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 10,
+        "xp": 18,
         "level": 3,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -443,6 +454,28 @@
       "1251159168157483118",
       {
         "username": "junoblep",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 22,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "forceMarried": false
+      }
+    ],
+    [
+      "969280648667889764",
+      {
+        "username": "royalvmusic",
         "wins": 0,
         "gamesPlayed": 0,
         "coins": 0,
