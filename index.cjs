@@ -1357,8 +1357,6 @@ function buildCommands(){
     {name:"legendrandom",   description:"[Owner] Random legend"},
     {name:"dmuser",         description:"[Owner] DM a user",options:[{name:"user",description:"User",type:6,required:true},{name:"message",description:"Message",type:3,required:true}]},
     {name:"leaveserver",    description:"[Owner] Leave a server",options:[{name:"server",description:"Server ID",type:3,required:true}]},
-    {name:"logswipe",        description:"[Owner] Clear all server logs",},
-    {name:"disableserverlogs", description:"[Owner] Prevent a server from being logged",options:[{name:"server",description:"Server ID",type:3,required:true},{name:"enabled",description:"True to protect, false to unprotect",type:5,required:true}]},
     {name:"restart",        description:"[Owner] Restart"},
     {name:"botstats",       description:"[Owner] Bot stats"},
     {name:"setstatus",      description:"[Owner] Set status",options:[{name:"text",description:"Text",type:3,required:true},{name:"type",description:"Type",type:3,required:false,choices:[{name:"Playing",value:"PLAYING"},{name:"Watching",value:"WATCHING"},{name:"Listening",value:"LISTENING"},{name:"Competing",value:"COMPETING"}]}]},
