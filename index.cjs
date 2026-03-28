@@ -3633,42 +3633,6 @@ if(cmd==="divorce"){
         return safeReply(interaction,{content:`✅ Milestone at **${fmtSubs(subs)}** removed.`});
       }
     }
-
-    if(cmd==="growth"){
-      if(!inGuild)return safeReply(interaction,{content:"Server only.",ephemeral:true});
-      const cfg=ytConfig.get(interaction.guildId);
-      if(!cfg?.ytChannelId)return safeReply(interaction,{content:"❌ No YouTube channel set up. Use `/ytsetup` first.",ephemeral:true});
-      const apiKey=cfg.apiKey;
-      if(!apiKey)return safeReply(interaction,{content:"❌ No API key stored. Re-run `/ytsetup` with `apikey:`.",ephemeral:true});
-      await interaction.deferReply();
-      const customDays=interaction.options.getInteger("custom_days")||null;
-      const presetDays=interaction.options.getString("days")||null;
-      const days=customDays||(presetDays?parseInt(presetDays):7);
-      if(days<1||days>365)return safeReply(interaction,{content:"❌ Days must be between 1 and 365."});
-      const stats=await getYouTubeStats(cfg.ytChannelId,apiKey);
-      if(!stats)return safeReply(interaction,{content:"❌ Could not fetch current sub count."});
-      const now=Date.now();
-      const cutoff=now-(days*24*60*60*1000);
-      const history=cfg.history||[];
-      const windowEntries=history.filter(e=>e.ts>=cutoff);
-      let gained=null,startSubs=null;
-      if(windowEntries.length>0){startSubs=windowEntries[0].subs;gained=stats.subs-startSubs;}
-      const color=gained===null?0x888888:gained>0?0x00FF00:gained<0?0xFF4444:0x888888;
-      const dayLabel=`${days} day${days!==1?"s":""}`;
-      const descLines=[
-        `**Current:** ${fmtSubs(stats.subs)} subs`,
-        gained!==null?`**${dayLabel} ago:** ${fmtSubs(startSubs)} subs`:null,
-        gained!==null?`**Gained:** ${gained>=0?"+":""}${fmtSubs(gained)} subs`:null,
-        gained!==null?`**Daily avg:** ${gained>=0?"+":""}${fmtSubs(Math.round(gained/days))}/day`:null,
-        gained===null?`*(Not enough history yet — data collects every 5 min. Check back after ${dayLabel} of tracking.)*`:null,
-      ].filter(Boolean).join("\n");
-      return safeReply(interaction,{embeds:[{
-        title:`📈 ${cfg.channelTitle||"Channel"} — Growth (last ${dayLabel})`,
-        description:descLines,color,timestamp:new Date().toISOString(),
-      }]});
-    }
-
-
     // Ticket setup command
     if(cmd==="ticketsetup"){
       if(!inGuild)return safeReply(interaction,{content:"Server only.",ephemeral:true});
