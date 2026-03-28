@@ -3,11 +3,11 @@ name: Run Discord Bot
 on:
   workflow_dispatch:
   schedule:
-    - cron: "*/5 * * * *"
+    - cron: "*/30 * * * *"
 
 concurrency:
   group: discord-bot
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 permissions:
   contents: write
@@ -15,7 +15,7 @@ permissions:
 jobs:
   run-bot:
     runs-on: ubuntu-latest
-    timeout-minutes: 6
+    timeout-minutes: 31
 
     steps:
       - name: Checkout repository
@@ -41,4 +41,3 @@ jobs:
         env:
           TOKEN: ${{ secrets.TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
