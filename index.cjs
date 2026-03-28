@@ -303,7 +303,6 @@ function buildDataObject() {
     shadowDelete: [...shadowDelete.entries()],
     reactionRoles:    [...reactionRoles.entries()],
     disabledOwnerMsg: [...disabledOwnerMsg],
-    wipeProtected:    [...wipeProtected],
     disabledLevelUp:  [...disabledLevelUp],
     levelUpConfig:    [...levelUpConfig.entries()],
     ytConfig:         [...ytConfig.entries()],
