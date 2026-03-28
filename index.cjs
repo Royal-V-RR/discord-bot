@@ -1343,10 +1343,6 @@ function buildCommands(){
       {name:"subs",          description:"Subscriber count for this milestone (for add/remove)",   type:4,required:false},
       {name:"message",       description:"Custom announcement message (for add, optional)",        type:3,required:false},
     ]},
-    {name:"growth",          description:"Show subscriber growth over a time period 📈",options:[
-      {name:"days",          description:"Preset timeframe",                                       type:3,required:false,choices:[{name:"Last 7 days",value:"7"},{name:"Last 30 days",value:"30"},{name:"Last 90 days",value:"90"}]},
-      {name:"custom_days",   description:"Custom number of days (overrides preset)",               type:4,required:false},
-    ]},
     // Owner
     {name:"servers",        description:"[Owner] List servers"},
     {name:"broadcast",      description:"[Owner] Broadcast to all owners",options:[{name:"message",description:"Message",type:3,required:true}]},
