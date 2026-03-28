@@ -3355,64 +3355,6 @@ if(cmd==="divorce"){
       catch{return safeReply(interaction,"Could not send DM");}
     }
     if(cmd==="leaveserver"){const guild=client.guilds.cache.get(interaction.options.getString("server"));if(!guild)return safeReply(interaction,{content:"Server not found.",ephemeral:true});const name=guild.name;await guild.leave();return safeReply(interaction,{content:`Left ${name}`,ephemeral:true});}
-    if(cmd==="disableserverlogs"){
-      const guildId=interaction.options.getString("server");
-      const enabled=interaction.options.getBoolean("enabled");
-      const guild=client.guilds.cache.get(guildId);
-      if(!guild)return safeReply(interaction,{content:"❌ Server not found.",ephemeral:true});
-      if(enabled){
-        wipeProtected.add(guildId);
-        saveData();
-        return safeReply(interaction,{content:`🔒 **${guild.name}** is now protected from /logswipe.`,ephemeral:true});
-      } else {
-        wipeProtected.delete(guildId);
-        saveData();
-        return safeReply(interaction,{content:`🔓 **${guild.name}** is no longer protected from /logswipe.`,ephemeral:true});
-      }
-    }
-
-if(cmd==="logswipe"){
-      await interaction.deferReply({ephemeral:true});
-      const guilds=[...client.guilds.cache.values()];
-      if(!guilds.length)return safeReply(interaction,{content:"No servers found.",ephemeral:true});
-
-      // Build readable server list
-      const lines=guilds.map((g,i)=>`${i+1}. **${g.name}** — \`${g.id}\` — ${g.memberCount} members${wipeProtected.has(g.id)?" 🔒":""}`)
-      const listText=lines.join("\n").slice(0,3000);
-
-      // Only show unprotected servers in the dropdown
-      const unprotected=guilds.filter(g=>!wipeProtected.has(g.id));
-      if(!unprotected.length)return safeReply(interaction,{content:"⚠️ All servers are protected from wiping.",ephemeral:true});
-
-      // Discord select menus max out at 25 options
-      const selectOptions=unprotected.slice(0,25).map(g=>({
-        label:g.name.slice(0,25),
-        value:g.id,
-        description:`${g.memberCount} members · ${g.id}`,
-      }));
-
-      const selectRow=new MessageActionRow().addComponents(
-        new MessageSelectMenu()
-          .setCustomId("logswipe_select")
-          .setPlaceholder("Choose a server to wipe…")
-          .setOptions(selectOptions)
-      );
-
-      return safeReply(interaction,{
-        content:[
-          `☠️ **Server Wipe Tool**`,
-          ``,
-          `**All servers the bot is in:**`,
-          listText,
-          ``,
-          `🔒 = Protected from wiping`,
-          ``,
-          `Select an unprotected server from the dropdown below, then confirm the wipe.`,
-        ].join("\n"),
-        components:[selectRow],
-        ephemeral:true,
-      });
-    }
     if(cmd==="restart"){await safeReply(interaction,{content:"Restarting…",ephemeral:true});process.exit(0);}
     if(cmd==="setstatus"){const text=interaction.options.getString("text"),type=interaction.options.getString("type")||"PLAYING";client.user.setActivity(text,{type});return safeReply(interaction,{content:`Status → ${type}: ${text}`,ephemeral:true});}
     if(cmd==="adminuser"){
