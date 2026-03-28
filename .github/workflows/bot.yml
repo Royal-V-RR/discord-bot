@@ -7,7 +7,7 @@ on:
 
 concurrency:
   group: discord-bot
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 permissions:
   contents: write
@@ -15,10 +15,18 @@ permissions:
 jobs:
   run-bot:
     runs-on: ubuntu-latest
+    timeout-minutes: 6
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 1
+
+      - name: Pull latest botdata.json
+        run: |
+          git fetch origin main
+          git checkout origin/main -- botdata.json || echo "No botdata.json yet, starting fresh"
 
       - name: Setup Node.js
         uses: actions/setup-node@v3
@@ -33,3 +41,4 @@ jobs:
         env:
           TOKEN: ${{ secrets.TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
