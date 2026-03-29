@@ -6,7 +6,7 @@ on:
     - cron: "*/30 * * * *"
 
 concurrency:
-  group: discord-bot
+  group: discord-bot-${{ github.event_name }}
   cancel-in-progress: true
 
 permissions:
