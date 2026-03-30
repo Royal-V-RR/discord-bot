@@ -282,7 +282,7 @@ async function commitDataToGitHub(jsonString) {
     }
 
     if (result.status === 200 || result.status === 201) {
-      console.log("660818635497144333 used /moderation kick");
+      console.log("Digitally isolated");
     } else {
       console.error(`❌ GitHub commit failed HTTP ${result.status}: ${result.body.slice(0,300)}`);
     }
