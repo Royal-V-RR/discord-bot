@@ -745,6 +745,10 @@ async function getCatGif(){try{const d=await fetchJson("https://api.thecatapi.co
 async function getDogImage(){try{const d=await fetchJson("https://dog.ceo/api/breeds/image/random");return d?.message||null;}catch{return null;}}
 async function getFoxImage(){try{const d=await fetchJson("https://randomfox.ca/floof/");return d?.image||null;}catch{return null;}}
 async function getPandaImage(){try{const d=await fetchJson("https://some-random-api.com/img/panda");return d?.link||null;}catch{return null;}}
+async function getDuckImage(){try{const d=await fetchJson("https://random-d.uk/api/random");return d?.url||null;}catch{return null;}}
+async function getBunnyImage(){try{const d=await fetchJson("https://api.bunnies.io/v2/loop/random/?media=gif,png");return d?.media?.gif||d?.media?.png||null;}catch{return null;}}
+async function getKoalaImage(){try{const d=await fetchJson("https://some-random-api.com/img/koala");return d?.link||null;}catch{return null;}}
+async function getRaccoonImage(){try{const d=await fetchJson("https://some-random-api.com/img/raccoon");return d?.link||null;}catch{return null;}}
 async function getMeme(){try{const d=await fetchJson("https://meme-api.com/gimme");return d?.url||null;}catch{return null;}}
 async function getQuote(){try{const d=await fetchJson("https://zenquotes.io/api/random");return d?.[0]?`"${d[0].q}" — ${d[0].a}`:null;}catch{return null;}}
 async function getJoke(){try{const d=await fetchJson("https://official-joke-api.appspot.com/random_joke");return d?`${d.setup}\n\n||${d.punchline}||`:null;}catch{return null;}}
@@ -1192,10 +1196,17 @@ function buildCommands(){
     {name:"party",       description:"Party games: truth, dare, never have I ever",options:[{name:"type",description:"Game type",type:3,required:true,choices:[{name:"Truth",value:"truth"},{name:"Dare",value:"dare"},{name:"Never Have I Ever",value:"neverhavei"}]}]},
     {name:"ppsize",      description:"Check pp size",options:uReq()},
     // Media
-    {name:"cat",    description:"Random cat GIF 🐱 (Royal V- approved)"},
-    {name:"dog",    description:"Random dog 🐶"},
-    {name:"fox",    description:"Random fox 🦊"},
-    {name:"panda",  description:"Random panda 🐼"},
+// Media
+    {name:"gif",    description:"Get a random animal GIF 🐾",options:[{name:"animal",description:"Which animal",type:3,required:true,choices:[
+      {name:"Cat 🐱",   value:"cat"},
+      {name:"Dog 🐶",   value:"dog"},
+      {name:"Fox 🦊",   value:"fox"},
+      {name:"Panda 🐼", value:"panda"},
+      {name:"Duck 🦆",  value:"duck"},
+      {name:"Bunny 🐇", value:"bunny"},
+      {name:"Koala 🐨", value:"koala"},
+      {name:"Raccoon 🦝",value:"raccoon"},
+    ]}]},
     {name:"joke",   description:"Random joke 😂"},
     {name:"meme",   description:"Random meme 🐸"},
     {name:"quote",  description:"Inspirational quote ✨"},
@@ -2458,10 +2469,24 @@ if(cmd==="divorce"){
     if(cmd==="villain")    return safeReply(interaction,`${bu()}'s villain arc is ${r(0,100)}% complete 😈`);
     if(cmd==="sigma")      return safeReply(interaction,`${bu()}'s sigma rating: ${r(0,100)}/100 💪`);
 
-    if(cmd==="cat")  {await interaction.deferReply();return safeReply(interaction,await getCatGif()    ||"Couldn't fetch a cat 😿");}
-    if(cmd==="dog")  {await interaction.deferReply();return safeReply(interaction,await getDogImage()  ||"Couldn't fetch a dog 🐶");}
-    if(cmd==="fox")  {await interaction.deferReply();return safeReply(interaction,await getFoxImage()  ||"Couldn't fetch a fox 🦊");}
-    if(cmd==="panda"){await interaction.deferReply();return safeReply(interaction,await getPandaImage()||"Couldn't fetch a panda 🐼");}
+if(cmd==="gif"){
+      const animal=interaction.options.getString("animal");
+      const fetchers={
+        cat:    getCatGif,
+        dog:    getDogImage,
+        fox:    getFoxImage,
+        panda:  getPandaImage,
+        duck:   getDuckImage,
+        bunny:  getBunnyImage,
+        koala:  getKoalaImage,
+        raccoon:getRaccoonImage,
+      };
+      const labels={cat:"Cat 🐱",dog:"Dog 🐶",fox:"Fox 🦊",panda:"Panda 🐼",duck:"Duck 🦆",bunny:"Bunny 🐇",koala:"Koala 🐨",raccoon:"Raccoon 🦝"};
+      await interaction.deferReply();
+      const url=await (fetchers[animal]?.())||null;
+      if(!url)return safeReply(interaction,`Couldn't fetch a ${labels[animal]||animal} right now, try again!`);
+      return safeReply(interaction,{embeds:[{title:`${labels[animal]||animal}`,image:{url},color:0xffaacc}]});
+    }
     if(cmd==="joke") {await interaction.deferReply();return safeReply(interaction,await getJoke()      ||"No joke today.");}
     if(cmd==="meme") {await interaction.deferReply();return safeReply(interaction,await getMeme()      ||"Meme API down 😔");}
     if(cmd==="quote"){await interaction.deferReply();return safeReply(interaction,await getQuote()     ||"The wise are silent today.");}
