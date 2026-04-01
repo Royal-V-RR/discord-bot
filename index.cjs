@@ -1506,8 +1506,8 @@ client.once("ready", async () => {
   // Step 2: For every guild — wipe old commands then register guild-only commands.
   // Stagger by 400ms per guild to avoid rate limits.
   const guilds = [...client.guilds.cache.values()];
-  guilds.forEach((g, i) => {
-    setTimeout(() => clearGuildCommands(g.id, true), i * 400);
+guilds.forEach((g, i) => {
+    setTimeout(() => clearGuildCommands(g.id, true), i * 800);
   });
 
   // Snapshot invites for invite competitions
