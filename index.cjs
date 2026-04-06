@@ -1458,18 +1458,35 @@ async function registerGlobalCommands() {
   } catch(e) { console.error("registerGlobalCommands error:", e.message); }
 }
 
-// Register guild-only commands to a specific server (propagates in <1 second).
-async function registerGuildOnlyCommands(guildId) {
+async function registerGuildOnlyCommands(guildId, force = false) {
   try {
     const cmds = buildCommands().filter(c => GUILD_ONLY_CMDS.includes(c.name));
+    // Build a fingerprint of the current guild-only command definitions
+    const fingerprint = JSON.stringify(cmds.map(c => c.name).sort());
+
+    if (!force) {
+      // Fetch what's currently registered for this guild
+      const existing = await discordRequest("GET", `/api/v10/applications/${CLIENT_ID}/guilds/${guildId}/commands`, null);
+      if (existing.status === 200) {
+        const registeredNames = JSON.parse(existing.body).map(c => c.name).sort();
+        const registeredFingerprint = JSON.stringify(registeredNames);
+        // If the same set of commands is already registered, skip
+        if (registeredFingerprint === fingerprint) {
+          console.log(`⏭️ Guild [${guildId}]: guild-only commands unchanged, skipping`);
+          return;
+        }
+      }
+    }
+
     const r = await discordRequest("PUT", `/api/v10/applications/${CLIENT_ID}/guilds/${guildId}/commands`, cmds);
     if (r.status === 200) {
-      console.log(`✅ Guild [${guildId}]: ${JSON.parse(r.body).length} guild-only commands`);
+      console.log(`✅ Guild [${guildId}]: ${JSON.parse(r.body).length} guild-only commands registered`);
     } else {
       console.warn(`⚠️ Guild-only commands [${guildId}] HTTP ${r.status}: ${r.body.slice(0,200)}`);
     }
   } catch(e) { console.warn(`registerGuildOnlyCommands [${guildId}]:`, e.message); }
 }
+
 
 // Wipe ALL guild-level commands for a server — used to clear old stale registrations
 // that would cause doubling alongside global commands.
