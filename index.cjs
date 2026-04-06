@@ -1493,12 +1493,25 @@ async function registerGuildOnlyCommands(guildId, force = false) {
 // Pass skipGuildOnly=true to wipe everything; false to re-register guild-only after wipe.
 async function clearGuildCommands(guildId, andReregister = true) {
   try {
-    // First wipe everything
+    // Check what's currently registered before wiping
+    const existing = await discordRequest("GET", `/api/v10/applications/${CLIENT_ID}/guilds/${guildId}/commands`, null);
+    if (existing.status === 200) {
+      const registered = JSON.parse(existing.body);
+      const guildOnlyNames = buildCommands().filter(c => GUILD_ONLY_CMDS.includes(c.name)).map(c => c.name).sort();
+      const registeredNames = registered.map(c => c.name).sort();
+      // Only wipe+reregister if there are stale/extra commands or the set differs
+      const hasStale = registered.some(c => !GUILD_ONLY_CMDS.includes(c.name));
+      const sameSet = JSON.stringify(registeredNames) === JSON.stringify(guildOnlyNames);
+      if (!hasStale && sameSet) {
+        console.log(`⏭️ Guild [${guildId}]: commands already clean, skipping wipe`);
+        return;
+      }
+    }
+    // Wipe and reregister only if needed
     const r = await discordRequest("PUT", `/api/v10/applications/${CLIENT_ID}/guilds/${guildId}/commands`, []);
     if (r.status === 200) {
       if (andReregister) {
-        // Re-register just the guild-only commands
-        await registerGuildOnlyCommands(guildId);
+        await registerGuildOnlyCommands(guildId, true); // force=true since we just wiped
       } else {
         console.log(`✅ Guild commands wiped: ${guildId}`);
       }
@@ -1507,6 +1520,7 @@ async function clearGuildCommands(guildId, andReregister = true) {
     }
   } catch(e) { console.warn(`clearGuildCommands [${guildId}]:`, e.message); }
 }
+
 
 // ── Bot events ────────────────────────────────────────────────────────────────
 client.once("ready", async () => {
