@@ -130,7 +130,15 @@
       "787720264342437889"
     ]
   ],
-  "welcomeChannels": [],
+  "welcomeChannels": [
+    [
+      "1048053656035020911",
+      {
+        "channelId": "1048072153704181780",
+        "message": "Welcome {user} to the official respawn raccoon discord server! You are the {count}th member!"
+      }
+    ]
+  ],
   "leaveChannels": [],
   "boostChannels": [],
   "autoRoles": [],
@@ -169,7 +177,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 829,
+        "xp": 843,
         "level": 9,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -301,7 +309,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 266,
+        "xp": 273,
         "level": 8,
         "lastWorkTime": 0,
         "lastBegTime": 0,
