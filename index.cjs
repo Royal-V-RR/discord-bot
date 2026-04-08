@@ -1520,9 +1520,11 @@ const r = await discordRequest("PUT", `/api/v10/applications/${CLIENT_ID}/guilds
       console.warn(`⚠️ Guild [${guildId}]: hit 200/day limit. Retrying in ${Math.ceil(retryAfter)}s…`);
       await new Promise(res => setTimeout(res, (retryAfter + 2) * 1000));
       await registerGuildOnlyCommands(guildId, true);
-    } else {
+} else {
       console.warn(`⚠️ clearGuildCommands [${guildId}] HTTP ${r.status}`);
     }
+  } catch(e) { console.warn(`clearGuildCommands [${guildId}]:`, e.message); }
+}
 
 // ── Bot events ────────────────────────────────────────────────────────────────
 client.once("ready", async () => {
