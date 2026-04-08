@@ -1390,8 +1390,9 @@ function buildCommands(){
         {name:"Item Mystery Box 🎲",  value:"item_mystery_box"},
         {name:"Rob Insurance 📋",     value:"rob_insurance"},
       ]},
-      {name:"item_quantity", description:"How many of the item (default: 1)",    type:4,required:false},
+{name:"item_quantity", description:"How many of the item (default: 1)",    type:4,required:false},
     ]},
+    {name:"rolespingfix", description:"List roles that can @everyone and fix them (Manage Server)"},
   ];
 }
 
