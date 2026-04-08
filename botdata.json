@@ -192,9 +192,9 @@
         "lastCrimeTime": 0,
         "lastRobTime": 0,
         "inventory": [],
-        "marriedTo": null,
+        "marriedTo": "1413943805203189800",
         "pendingProposal": null,
-        "forceMarried": false
+        "forceMarried": true
       }
     ],
     [
@@ -852,9 +852,9 @@
         "lastCrimeTime": 0,
         "lastRobTime": 0,
         "inventory": [],
-        "marriedTo": null,
+        "marriedTo": "1245284545452834857",
         "pendingProposal": null,
-        "forceMarried": false
+        "forceMarried": true
       }
     ],
     [
@@ -4211,7 +4211,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 65,
+        "xp": 80,
         "level": 5,
         "lastWorkTime": 0,
         "lastBegTime": 0,
