@@ -3500,6 +3500,37 @@ if(cmd==="gif"){
     }
 
     // Server management extras
+    if(cmd==="rolespingfix"){
+      const isOwner=OWNER_IDS.includes(interaction.user.id);
+      if(!isOwner&&!interaction.member?.permissions.has("MANAGE_GUILD"))return safeReply(interaction,{content:"❌ You need the **Manage Server** permission to use this.",ephemeral:true});
+      if(!inGuild)return safeReply(interaction,{content:"Server only.",ephemeral:true});
+      await interaction.deferReply({ephemeral:true});
+      const guild=interaction.guild;
+      await guild.roles.fetch();
+      const dangerous=guild.roles.cache.filter(r=>{
+        if(r.managed||r.id===guild.id)return false;
+        return r.permissions.has("MENTION_EVERYONE");
+      });
+      if(!dangerous.size){
+        return safeReply(interaction,{embeds:[{
+          title:"✅ No dangerous roles found",
+          description:"No roles have the **Mention Everyone** permission.",
+          color:0x57F287,
+        }],ephemeral:true});
+      }
+      const lines=dangerous.map(r=>`<@&${r.id}> — \`${r.name}\` (ID: ${r.id})`).join("\n");
+      const fixBtn=new MessageActionRow().addComponents(
+        new MessageButton().setCustomId("rolespingfix_fix").setLabel(`Fix All (${dangerous.size} role${dangerous.size!==1?"s":""})`).setStyle("DANGER").setEmoji("🔧")
+      );
+      return safeReply(interaction,{embeds:[{
+        title:"⚠️ Roles with @everyone Permission",
+        description:`The following **${dangerous.size}** role(s) can ping @everyone:\n\n${lines}\n\nClick **Fix All** to remove the Mention Everyone permission from all of them.`,
+        color:0xFEE75C,
+        footer:{text:"This only removes the Mention Everyone permission — all other permissions stay intact."},
+      }],components:[fixBtn],ephemeral:true});
+    }
+    // Server management extras
+    if(cmd==="setwelcomemsg"){
     if(cmd==="setwelcomemsg"){const cfg=welcomeChannels.get(interaction.guildId);if(!cfg)return safeReply(interaction,{content:"No welcome channel set yet. Use /setwelcome first.",ephemeral:true});const message=interaction.options.getString("message")||null;cfg.message=message;const preview=(message||"Welcome to **{server}**, {user}! 🎉 You are member #{count}.").replace("{user}","@NewUser").replace("{server}",interaction.guild.name).replace("{count}","?");return safeReply(interaction,{content:`✅ Welcome message updated!\n**Preview:** ${preview}`,ephemeral:true});}
     if(cmd==="setleavemsg"){const cfg=leaveChannels.get(interaction.guildId);if(!cfg)return safeReply(interaction,{content:"No leave channel set yet. Use /setleave first.",ephemeral:true});const message=interaction.options.getString("message")||null;cfg.message=message;const preview=(message||"**{user}** has left **{server}**. 👋").replace("{user}","Username").replace("{server}",interaction.guild.name);return safeReply(interaction,{content:`✅ Leave message updated!\n**Preview:** ${preview}`,ephemeral:true});}
     if(cmd==="serverconfig"){
