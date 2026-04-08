@@ -185,7 +185,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 1025,
+        "xp": 1036,
         "level": 10,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -499,7 +499,9 @@
         "lastBegTime": 0,
         "lastCrimeTime": 1775223068449,
         "lastRobTime": 0,
-        "inventory": [],
+        "inventory": [
+          "rob_insurance"
+        ],
         "marriedTo": "1082452773787942922",
         "pendingProposal": null,
         "forceMarried": false
