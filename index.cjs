@@ -1508,19 +1508,21 @@ async function clearGuildCommands(guildId, andReregister = true) {
       }
     }
     // Wipe and reregister only if needed
-    const r = await discordRequest("PUT", `/api/v10/applications/${CLIENT_ID}/guilds/${guildId}/commands`, []);
+const r = await discordRequest("PUT", `/api/v10/applications/${CLIENT_ID}/guilds/${guildId}/commands`, []);
     if (r.status === 200) {
       if (andReregister) {
-        await registerGuildOnlyCommands(guildId, true); // force=true since we just wiped
+        await registerGuildOnlyCommands(guildId, true);
       } else {
         console.log(`✅ Guild commands wiped: ${guildId}`);
       }
+    } else if (r.status === 400 && r.body.includes("30034")) {
+      const retryAfter = JSON.parse(r.body).retry_after || 60;
+      console.warn(`⚠️ Guild [${guildId}]: hit 200/day limit. Retrying in ${Math.ceil(retryAfter)}s…`);
+      await new Promise(res => setTimeout(res, (retryAfter + 2) * 1000));
+      await registerGuildOnlyCommands(guildId, true);
     } else {
       console.warn(`⚠️ clearGuildCommands [${guildId}] HTTP ${r.status}`);
     }
-  } catch(e) { console.warn(`clearGuildCommands [${guildId}]:`, e.message); }
-}
-
 
 // ── Bot events ────────────────────────────────────────────────────────────────
 client.once("ready", async () => {
