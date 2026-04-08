@@ -1528,18 +1528,21 @@ client.once("ready", async () => {
   try { const owner = await client.users.fetch(OWNER_ID); await acquireInstanceLock(owner); }
   catch(e) { console.error("Lock error:", e); instanceLocked = true; }
 
-  // Step 0: Delete any stale global versions of guild-only commands (e.g. old /buy with 3 items).
+  // Don't register commands if this instance lost the lock and is about to exit
+  if (!instanceLocked) return;
+
+  // Step 0: Delete any stale global versions of guild-only commands.
   await wipeStaleGlobalCmds();
 
   // Step 1: Register global commands (all except guild-only ones).
   await registerGlobalCommands();
 
-  // Step 2: For every guild — wipe old commands then register guild-only commands.
-  // Stagger by 400ms per guild to avoid rate limits.
+  // Step 2: For every guild — register guild-only commands (skips if already registered).
   const guilds = [...client.guilds.cache.values()];
-guilds.forEach((g, i) => {
-    setTimeout(() => clearGuildCommands(g.id, true), i * 800);
-  });
+  for (let i = 0; i < guilds.length; i++) {
+    await new Promise(res => setTimeout(res, i === 0 ? 0 : 1000));
+    await clearGuildCommands(guilds[i].id, true);
+  }
 
   // Snapshot invites for invite competitions
   for (const guild of guilds) {
