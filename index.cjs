@@ -2034,6 +2034,35 @@ client.on("interactionCreate",async interaction=>{
     }
 
     // botstats users page
+    if(cid==="rolespingfix_fix"){
+      if(!OWNER_IDS.includes(interaction.user.id)&&!interaction.member?.permissions.has("MANAGE_GUILD"))return interaction.reply({content:"❌ You need the **Manage Server** permission to use this.",ephemeral:true});
+      await interaction.deferUpdate();
+      const guild=interaction.guild;
+      await guild.roles.fetch();
+      const dangerous=guild.roles.cache.filter(r=>{
+        if(r.managed||r.id===guild.id)return false;
+        return r.permissions.has("MENTION_EVERYONE");
+      });
+      if(!dangerous.size){
+        return interaction.editReply({embeds:[{title:"✅ Already clean",description:"No roles have Mention Everyone anymore.",color:0x57F287}],components:[]});
+      }
+      const results=[];
+      for(const[,role]of dangerous){
+        try{
+          const newPerms=role.permissions.remove("MENTION_EVERYONE");
+          await role.setPermissions(newPerms,`/rolespingfix used by ${interaction.user.tag}`);
+          results.push(`✅ Fixed: \`${role.name}\``);
+        }catch(e){
+          results.push(`❌ Failed: \`${role.name}\` — ${e.message}`);
+        }
+      }
+      return interaction.editReply({embeds:[{
+        title:"🔧 Role Fix Complete",
+        description:results.join("\n"),
+        color:0x57F287,
+        footer:{text:"Mention Everyone permission removed from all listed roles."},
+      }],components:[]});
+    }
     if(cid==="botstats_users"||cid.startsWith("botstats_page_")){
       if(!OWNER_IDS.includes(uid)){await btnEphemeral(interaction,"Owner only.");return;}
       if(!await btnAck(interaction))return;
