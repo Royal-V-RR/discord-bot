@@ -3131,7 +3131,7 @@ if(cmd==="custominstruction"){
     });
   }
 
-  const instruction = interaction.options.getString("text");
+  const instruction = interaction.options.getString("instruction");
 
   if(!instruction){
     return safeReply(interaction,{
