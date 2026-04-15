@@ -3078,7 +3078,78 @@ if(cmd==="gif"){
       }
       return safeReply(interaction,{content:"Unknown game.",ephemeral:true});
     }
+// ── Gemini AI ─────────────────────────────
 
+// /chat (Owner + Guild only)
+if(cmd==="chat"){
+  if(!inGuild){
+    return safeReply(interaction,{
+      content:"❌ This command can only be used in servers.",
+      ephemeral:true
+    });
+  }
+
+  if(!OWNER_IDS.includes(interaction.user.id)){
+    return safeReply(interaction,{
+      content:"❌ Owner only command.",
+      ephemeral:true
+    });
+  }
+
+  const message = interaction.options.getString("message");
+
+  if(!message){
+    return safeReply(interaction,{
+      content:"❌ Please provide a message.",
+      ephemeral:true
+    });
+  }
+
+  await interaction.deferReply();
+
+  try{
+    const response = await askGemini(message);
+    return interaction.editReply(response.slice(0,2000));
+  }catch(err){
+    console.error(err);
+    return interaction.editReply("❌ Gemini error.");
+  }
+}
+
+
+// /custominstruction (Owner only)
+if(cmd==="custominstruction"){
+  if(!OWNER_IDS.includes(interaction.user.id)){
+    return safeReply(interaction,{
+      content:"❌ Owner only command.",
+      ephemeral:true
+    });
+  }
+
+  const instruction = interaction.options.getString("text");
+
+  if(!instruction){
+    return safeReply(interaction,{
+      content:"❌ Provide instruction text.",
+      ephemeral:true
+    });
+  }
+
+  try{
+    setInstruction(instruction);
+
+    return safeReply(interaction,{
+      content:"✅ Custom instruction saved.",
+      ephemeral:true
+    });
+  }catch(err){
+    console.error(err);
+    return safeReply(interaction,{
+      content:"❌ Failed to save instruction.",
+      ephemeral:true
+    });
+  }
+}
     // ── /2playergames — multiplayer game launcher ─────────────────────────────
     if(cmd==="2playergames"){
       const game=interaction.options.getString("game");
