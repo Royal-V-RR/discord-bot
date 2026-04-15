@@ -35,7 +35,7 @@ async function askGemini(prompt){
     : prompt;
 
   const res = await fetch(
-`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`,
     {
       method:"POST",
       headers:{ "Content-Type":"application/json" },
@@ -46,6 +46,7 @@ async function askGemini(prompt){
   );
 
   const json = await res.json();
+  console.log("Gemini raw response:", JSON.stringify(json, null, 2));
 
   if(!json.candidates) return "No response.";
 
