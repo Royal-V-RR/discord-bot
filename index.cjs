@@ -3938,6 +3938,57 @@ if(cmd==="custominstruction"){
       },hours*3600000);
       return;
     }
+    if(cmd==="chat"){
+      await interaction.deferReply();
+      const userMessage = interaction.options.getString("message");
+      const userId = interaction.user.id;
+
+      // Load data & init history
+      const d = loadData();
+      if(!d.geminiHistory) d.geminiHistory = {};
+      if(!d.geminiHistory[userId]) d.geminiHistory[userId] = [];
+
+      // Append user turn
+      d.geminiHistory[userId].push({ role:"user", parts:[{ text: userMessage }] });
+
+      // Build contents — prepend custom instruction as a fake exchange if set
+      let contents = d.geminiHistory[userId];
+      if(d.customInstruction){
+        contents = [
+          { role:"user",  parts:[{ text: d.customInstruction }] },
+          { role:"model", parts:[{ text: "Understood." }] },
+          ...d.geminiHistory[userId]
+        ];
+      }
+
+      const API_KEY = process.env.GEMINI_API_KEY;
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${API_KEY}`,
+        { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ contents }) }
+      );
+      const json = await res.json();
+      const reply = json.candidates?.[0]?.content?.parts?.[0]?.text ?? "No response.";
+
+      // Save assistant turn & persist
+      d.geminiHistory[userId].push({ role:"model", parts:[{ text: reply }] });
+      saveData(d);
+
+      return interaction.editReply(reply.slice(0, 2000));
+    }
+
+    if(cmd==="custominstruction"){
+      const instruction = interaction.options.getString("instruction");
+      setInstruction(instruction);
+      return safeReply(interaction,{ content:"✅ Custom instruction set.", ephemeral:true });
+    }
+
+    if(cmd==="clearchat"){
+      const userId = interaction.user.id;
+      const d = loadData();
+      if(d.geminiHistory) d.geminiHistory[userId] = [];
+      saveData(d);
+      return safeReply(interaction,{ content:"🗑️ Your Gemini chat history has been cleared.", ephemeral:true });
+    }
 
     // Count game
   }catch(err){
