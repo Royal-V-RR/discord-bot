@@ -1396,6 +1396,10 @@ function buildCommands(){
     {name:"rolespingfix", description:"List roles that can @everyone and fix them (Manage Server)"},
   ];
 }
+{name:"chat",              description:"Chat with Gemini AI (remembers your full conversation)",options:[{name:"message",description:"Your message",type:3,required:true}]},
+{name:"custominstruction", description:"Set a custom system instruction for Gemini",options:[{name:"instruction",description:"The instruction",type:3,required:true}]},
+{name:"clearchat",         description:"Clear your Gemini chat history 🗑️"},
+
 
 // ── Command registration ──────────────────────────────────────────────────────
 function discordRequest(method, path, body) {
