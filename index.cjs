@@ -3,6 +3,7 @@ const { Client, Intents, MessageActionRow, MessageButton, MessageSelectMenu } = 
 const https = require("https");
 const http  = require("http");
 const fs    = require("fs");
+const { askGemini, setInstruction } = require("./gemini/index.cjs");
 
 const TOKEN     = process.env.TOKEN;
 const CLIENT_ID = "1480592876684706064";
