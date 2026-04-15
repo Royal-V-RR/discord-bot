@@ -1427,7 +1427,7 @@ async function clearGlobalCommands() {
 // Keep owner-only commands here so changes show up immediately without the 1hr global delay.
 // These commands are registered per-guild (instant, <1s propagation) instead of globally.
 // Use this for commands where choices/options change and you can't wait 1hr for global cache.
-const GUILD_ONLY_CMDS = ["admingive","buy","open","shop","inventory","premiere","forcemarry","forcedivorce","shadowdelete","purge","rolespingfix"];
+const GUILD_ONLY_CMDS = ["admingive","buy","open","shop","inventory","premiere","forcemarry","forcedivorce","shadowdelete","purge","rolespingfix","chat","custominstruction"];
 
 // Wipe stale global versions of guild-only commands.
 // When a command moves from global to guild-only, its global entry lingers until explicitly deleted.
