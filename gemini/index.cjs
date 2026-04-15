@@ -5,28 +5,20 @@ const { exec } = require("child_process");
 
 const dataPath = path.join(__dirname, "botdata.json");
 
-// Load data
 function loadData(){
   return JSON.parse(fs.readFileSync(dataPath, "utf8"));
 }
 
-// Save data
 function saveData(data){
   fs.writeFileSync(dataPath, JSON.stringify(data, null, 2));
 }
 
-// Commit to GitHub
 function commitToGit(){
-  exec(`
-    git add gemini/botdata.json &&
-    git commit -m "Update botdata.json" &&
-    git push
-  `, (err) => {
-    if(err) console.error("Git commit failed:", err);
+  exec(`git add gemini/botdata.json && git commit -m "update botdata" && git push`, (err)=>{
+    if(err) console.error("Git error:", err);
   });
 }
 
-// Set custom instruction
 function setInstruction(instruction){
   const data = loadData();
   data.customInstruction = instruction;
@@ -34,7 +26,6 @@ function setInstruction(instruction){
   commitToGit();
 }
 
-// Ask Gemini
 async function askGemini(prompt){
   const API_KEY = process.env.GEMINI_API_KEY;
   const data = loadData();
@@ -46,17 +37,11 @@ async function askGemini(prompt){
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${API_KEY}`,
     {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      method:"POST",
+      headers:{ "Content-Type":"application/json" },
       body: JSON.stringify({
-        contents: [
-          {
-            parts: [{ text: fullPrompt }],
-          },
-        ],
-      }),
+        contents:[{ parts:[{ text: fullPrompt }] }]
+      })
     }
   );
 
@@ -67,7 +52,4 @@ async function askGemini(prompt){
   return json.candidates[0].content.parts[0].text;
 }
 
-module.exports = {
-  askGemini,
-  setInstruction
-};
+module.exports = { askGemini, setInstruction };
