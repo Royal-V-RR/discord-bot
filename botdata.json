@@ -75,7 +75,7 @@
     [
       "1408975996715139084",
       {
-        "nextId": 10,
+        "nextId": 11,
         "categoryId": "1413221494078705867",
         "supportRoleIds": [
           "1424856346318344325",
@@ -119,7 +119,20 @@
       }
     ]
   ],
-  "openTickets": [],
+  "openTickets": [
+    [
+      "1494951751433064560",
+      {
+        "guildId": "1408975996715139084",
+        "userId": "1459784869952622659",
+        "ticketId": "0011",
+        "channelId": "1494951751433064560",
+        "subject": "",
+        "openedAt": 1776494672492,
+        "status": "open"
+      }
+    ]
+  ],
   "guildChannels": [
     [
       "1048053656035020911",
@@ -10351,7 +10364,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 222,
+        "xp": 228,
         "level": 3,
         "lastWorkTime": 0,
         "lastBegTime": 0,
