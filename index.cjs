@@ -2531,16 +2531,7 @@ if(cmd==="divorce"){
       if(t==="neverhavei")return safeReply(interaction,`🤚 **Never have I ever${pick(NEVERHAVEI_STMTS)}**\n\nReact 🙋 if you have!`);
     }
     if(cmd==="ppsize"){const s=`8${"=".repeat(r(3,30))}D`;return safeReply(interaction,`${bu()}'s pp: ${s}`);}
-    if(cmd==="gayrate"){const u=interaction.options.getUser("user");return safeReply(interaction,`<@${u.id}> is ${GAY_IDS.includes(u.id)?100:r(0,100)}% gay`);}
-    if(cmd==="iq")         return safeReply(interaction,`${bu()}'s IQ is ${r(60,180)}`);
-    if(cmd==="sus")        return safeReply(interaction,`${bu()} is ${r(0,100)}% sus`);
-    if(cmd==="howautistic"){const u=interaction.options.getUser("user");return safeReply(interaction,`<@${u.id}> is ${GAY_IDS.includes(u.id)?100:r(0,100)}% autistic`);}
-    if(cmd==="simp")       return safeReply(interaction,`${bu()} is ${r(0,100)}% a simp 💘`);
-    if(cmd==="cursed")     return safeReply(interaction,`${bu()} has ${r(0,100)}% cursed energy 🌀`);
-    if(cmd==="rizz")       return safeReply(interaction,`${bu()}'s rizz level: ${r(0,100)}/100 😎`);
-    if(cmd==="npc")        return safeReply(interaction,`${bu()} is ${r(0,100)}% NPC 🤖`);
-    if(cmd==="villain")    return safeReply(interaction,`${bu()}'s villain arc is ${r(0,100)}% complete 😈`);
-    if(cmd==="sigma")      return safeReply(interaction,`${bu()}'s sigma rating: ${r(0,100)}/100 💪`);
+;
 
 if(cmd==="gif"){
       const animal=interaction.options.getString("animal");
@@ -2562,7 +2553,22 @@ if(cmd==="gif"){
     }
     if(cmd==="joke") {await interaction.deferReply();return safeReply(interaction,await getJoke()      ||"No joke today.");}
     if(cmd==="meme") {await interaction.deferReply();return safeReply(interaction,await getMeme()      ||"Meme API down 😔");}
-    if(cmd==="quote"){await interaction.deferReply();return safeReply(interaction,await getQuote()     ||"The wise are silent today.");}
+    if(cmd==="quote"){
+      await interaction.deferReply();
+      try {
+        const listRes = await fetch("https://api.github.com/repos/Royal-V-RR/discord-bot/contents/quotes", {
+          headers: { "User-Agent": "RoyalBot", "Authorization": `token ${GH_TOKEN}` }
+        });
+        if(!listRes.ok) return safeReply(interaction, "Couldn't load quotes right now.");
+        const files = await listRes.json();
+        const images = files.filter(f => /\.(png|jpe?g|gif|webp)$/i.test(f.name));
+        if(!images.length) return safeReply(interaction, "No images in the quotes folder.");
+        const chosen = images[Math.floor(Math.random() * images.length)];
+        return safeReply(interaction, { files: [chosen.download_url] });
+      } catch(e) {
+        return safeReply(interaction, "Something went wrong fetching a quote.");
+      }
+    }
     if(cmd==="trivia"){
       await interaction.deferReply();const t=await getTrivia();
       if(!t)return safeReply(interaction,"Trivia API is down.");
@@ -2576,13 +2582,11 @@ if(cmd==="gif"){
     if(cmd==="compliment")    return safeReply(interaction,`💖 ${bu()}: ${pick(COMPLIMENTS)}`);
     if(cmd==="ship")          {const u1=interaction.options.getUser("user1"),u2=interaction.options.getUser("user2"),pct=r(0,100),bar="█".repeat(Math.floor(pct/10))+"░".repeat(10-Math.floor(pct/10));return safeReply(interaction,`💘 **${u1.username}** + **${u2.username}**\n\n${bar} **${pct}%**\n\n${pct>=80?"Soulmates 💕":pct>=50?"There's potential 👀":pct>=30?"It's complicated 😬":"Maybe just friends 😅"}`);}
     if(cmd==="topic")         return safeReply(interaction,`💬 ${pick(TOPICS)}`);
-    if(cmd==="wouldyourather")return safeReply(interaction,`🤷 ${pick(WYR)}`);
+
     if(cmd==="advice")        return safeReply(interaction,`🧙 ${pick(ADVICE)}`);
     if(cmd==="fact")          return safeReply(interaction,`📚 ${pick(FACTS)}`);
     if(cmd==="horoscope")     return safeReply(interaction,HOROSCOPES[interaction.options.getString("sign")]||"Unknown sign.");
-    if(cmd==="truth")         return safeReply(interaction,`🫢 **Truth:** ${pick(TRUTH_QUESTIONS)}`);
-    if(cmd==="dare")          return safeReply(interaction,`😈 **Dare:** ${pick(DARE_ACTIONS)}`);
-    if(cmd==="neverhavei")    return safeReply(interaction,`🤚 **Never have I ever${pick(NEVERHAVEI_STMTS)}**\n\nReact with 🙋 if you have, 🙅 if you haven't!`);
+
 
     if(cmd==="echo"){
   const text      = interaction.options.getString("message")||"";
