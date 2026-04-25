@@ -2782,11 +2782,11 @@ if(cmd==="gif"){
         const files = await listRes.json();
         const images = files.filter(f => /\.(png|jpe?g|gif|webp)$/i.test(f.name));
         if(!images.length) return safeReply(interaction, "No images in the quotes folder.");
-        // ~20% chance to send the upload promo message instead of a quote image
-        if(Math.random() < 0.2){
-          return safeReply(interaction, { content: "Do you want to be able to upload images to be used in /quote? Add **genuineleafy** or **royalvmusic** in discord to do so!" });
-        }
         const chosen = images[Math.floor(Math.random() * images.length)];
+        // ~5% chance to also show the upload promo message alongside the image
+        if(Math.random() < 0.05){
+          return safeReply(interaction, { content: "Do you want to be able to upload images to be used in /quote? Add **genuineleafy** or **royalvmusic** in discord to do so!", files: [chosen.download_url] });
+        }
         return safeReply(interaction, { files: [chosen.download_url] });
       } catch(e) {
         return safeReply(interaction, "Something went wrong fetching a quote.");
