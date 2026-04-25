@@ -323,6 +323,7 @@ function buildDataObject() {
     ]),
     premieres:        [...premieres.entries()],
     raConfig:         [...raConfig.entries()],
+    activityChecks:   [...activityChecks.entries()],
   };
 }
 
@@ -439,7 +440,57 @@ function loadData() {
 
     if (data.raConfig) data.raConfig.forEach(([k,v]) => raConfig.set(k, v));
 
-    console.log(`✅ Data loaded — ${ticketConfigs.size} ticket configs, ${reactionRoles.size} reaction roles, ${scores.size} scores, ${guildChannels.size} channels, ${activeEffects.size} active effects, ${reminders.length} reminders, ${inviteComps.size} active competitions, ${premieres.size} premieres`);
+    // Restore active activity checks — re-arm their expiry timers
+    if (data.activityChecks) {
+      const now = Date.now();
+      data.activityChecks.forEach(([msgId, check]) => {
+        if (!check.deadline || check.deadline <= now) return; // already expired
+        activityChecks.set(msgId, check);
+        const remaining = check.deadline - now;
+        setTimeout(async () => {
+          const c = activityChecks.get(msgId);
+          if (!c) return;
+          activityChecks.delete(msgId);
+          saveData();
+          const guild = client.guilds.cache.get(c.guildId); if (!guild) return;
+          const channel = guild.channels.cache.get(c.channelId); if (!channel) return;
+
+          let reacted = new Set();
+          try {
+            const freshMsg = await channel.messages.fetch(msgId);
+            const reaction = freshMsg.reactions.cache.get("✅");
+            if (reaction) {
+              const users = await reaction.users.fetch();
+              users.forEach(u => { if (!u.bot) reacted.add(u.id); });
+            }
+          } catch(e) { console.error("activity-check (restored) fetch error:", e); }
+
+          let missing = [];
+          try {
+            const members = await guild.members.fetch();
+            members.forEach(m => {
+              if (m.user.bot) return;
+              const hasRequired = c.roleIds.some(rid => m.roles.cache.has(rid));
+              if (!hasRequired) return;
+              const isExcluded = c.excludedIds.some(rid => m.roles.cache.has(rid));
+              if (isExcluded) return;
+              if (!reacted.has(m.id)) missing.push(`<@${m.id}>`);
+            });
+          } catch(e) { console.error("activity-check (restored) member fetch error:", e); }
+
+          const respondedCount = reacted.size;
+          const missingText = missing.length ? missing.join(", ") : "None — everyone checked in! ✅";
+          await safeSend(channel, [
+            `📋 **Activity Check Closed**`,
+            ``,
+            `✅ **Checked in:** ${respondedCount} member${respondedCount !== 1 ? "s" : ""}`,
+            `❌ **Did not respond:** ${missingText}`,
+          ].join("\n")).catch(() => {});
+        }, remaining);
+      });
+    }
+
+    console.log(`✅ Data loaded — ${ticketConfigs.size} ticket configs, ${reactionRoles.size} reaction roles, ${scores.size} scores, ${guildChannels.size} channels, ${activeEffects.size} active effects, ${reminders.length} reminders, ${inviteComps.size} active competitions, ${premieres.size} premieres, ${activityChecks.size} activity checks, ${raConfig.size} RA configs`);
   } catch(e) { console.error("loadData error:", e.message); }
 }
 
@@ -1900,11 +1951,13 @@ client.on("interactionCreate",async interaction=>{
         deadline:   Date.now()+deadlineHr*3600000,
         messageId:  sentMsg.id,
       });
+      saveData();
 
       setTimeout(async()=>{
         const check = activityChecks.get(sentMsg.id);
         if(!check) return;
         activityChecks.delete(sentMsg.id);
+        saveData();
 
         let reacted = new Set();
         try {
@@ -2729,11 +2782,11 @@ if(cmd==="gif"){
         const files = await listRes.json();
         const images = files.filter(f => /\.(png|jpe?g|gif|webp)$/i.test(f.name));
         if(!images.length) return safeReply(interaction, "No images in the quotes folder.");
-        const chosen = images[Math.floor(Math.random() * images.length)];
-        // ~20% chance to show the upload promo message instead of a quote
+        // ~20% chance to send the upload promo message instead of a quote image
         if(Math.random() < 0.2){
           return safeReply(interaction, { content: "Do you want to be able to upload images to be used in /quote? Add **genuineleafy** or **royalvmusic** in discord to do so!" });
         }
+        const chosen = images[Math.floor(Math.random() * images.length)];
         return safeReply(interaction, { files: [chosen.download_url] });
       } catch(e) {
         return safeReply(interaction, "Something went wrong fetching a quote.");
