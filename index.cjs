@@ -9,6 +9,7 @@ const CLIENT_ID = "1480592876684706064";
 const OWNER_IDS = ["1419803002771865722","969280648667889764"];
 const OWNER_ID  = OWNER_IDS[1];
 const GAY_IDS   = ["1245284545452834857","1413943805203189800","1057320311453913149","1193150033864949811"];
+const MEMERS    = ["1419803002771865722"]; // Users allowed to use /upload source
 
 // ── Instance lock ─────────────────────────────────────────────────────────────
 const INSTANCE_ID = Math.random().toString(36).slice(2, 8);
@@ -54,6 +55,9 @@ const openTickets      = new Map();
 const premieres        = new Map(); // premiereId -> { title, endsAt, channelId, userId, messageId, guildId }
 const disabledLevelUp  = new Set(); // legacy — now superseded by levelUpConfig.enabled
 const userInstalls     = new Set();
+const activityChecks   = new Map(); // messageId -> { guildId, channelId, roleIds, deadline, respondedUsers: Set }
+const raConfig         = new Map(); // guildId -> { raRoleId, loaRoleId }
+const raTimers         = new Map(); // `${guildId}:${userId}:${type}` -> timeoutId
 // Per-guild XP level-up notification config
 // { enabled: bool, ping: bool, channelId: string|null }
 // enabled: whether to post at all (default true)
@@ -318,6 +322,7 @@ function buildDataObject() {
       { endsAt: comp.endsAt, channelId: comp.channelId, baseline: [...comp.baseline.entries()] }
     ]),
     premieres:        [...premieres.entries()],
+    raConfig:         [...raConfig.entries()],
   };
 }
 
@@ -431,6 +436,8 @@ function loadData() {
         if (p.endsAt > now) premieres.set(id, p);
       });
     }
+
+    if (data.raConfig) data.raConfig.forEach(([k,v]) => raConfig.set(k, v));
 
     console.log(`✅ Data loaded — ${ticketConfigs.size} ticket configs, ${reactionRoles.size} reaction roles, ${scores.size} scores, ${guildChannels.size} channels, ${activeEffects.size} active effects, ${reminders.length} reminders, ${inviteComps.size} active competitions, ${premieres.size} premieres`);
   } catch(e) { console.error("loadData error:", e.message); }
@@ -1396,6 +1403,35 @@ function buildCommands(){
     {name:"chat",              description:"Chat with Gemini AI",options:[{name:"message",description:"Your message",type:3,required:true}]},
 {name:"custominstruction", description:"Set a custom system instruction for Gemini",options:[{name:"instruction",description:"The instruction",type:3,required:true}]},
 {name:"clearchat",         description:"Clear your Gemini chat history"},
+    {name:"upload",            description:"Upload an image to the quotes folder",options:[
+      {name:"source",          description:"[Memers only] Upload a file directly from your device",type:11,required:false},
+      {name:"link",            description:"[Memers only] Submit an image via URL link",type:3,required:false},
+    ]},
+    {name:"activity-check",   description:"Send an activity check (Manage Server)",options:[
+      {name:"channel",         description:"Channel to send the activity check in",type:7,required:true},
+      {name:"deadline",        description:"Hours until check closes (default: 24)",type:4,required:false},
+      {name:"message",         description:"Custom message text (optional)",type:3,required:false},
+      {name:"ping",            description:"Ping the required roles in the message? (default: true)",type:5,required:false},
+    ]},
+    {name:"raconfig",         description:"Set up RA and LOA roles for this server (Manage Server)",options:[
+      {name:"action",          description:"What to do",type:3,required:true,choices:[
+        {name:"Create roles automatically",value:"create"},
+        {name:"Set existing RA role",value:"set_ra"},
+        {name:"Set existing LOA role",value:"set_loa"},
+        {name:"View current config",value:"view"},
+      ]},
+      {name:"role",            description:"Existing role to use (for set_ra / set_loa)",type:8,required:false},
+    ]},
+    {name:"reduced-activity", description:"Give or remove the Reduced Activity role from a member",options:[
+      {name:"user",            description:"Member to apply RA to",type:6,required:true},
+      {name:"action",          description:"Give or remove",type:3,required:true,choices:[{name:"Give",value:"give"},{name:"Remove",value:"remove"}]},
+      {name:"duration",        description:"How long to keep the RA role (hours, optional — permanent if omitted)",type:4,required:false},
+    ]},
+    {name:"loa",              description:"Give or remove the LOA role from a member",options:[
+      {name:"user",            description:"Member to apply LOA to",type:6,required:true},
+      {name:"action",          description:"Give or remove",type:3,required:true,choices:[{name:"Give",value:"give"},{name:"Remove",value:"remove"}]},
+      {name:"duration",        description:"How long to keep the LOA role (hours, optional — permanent if omitted)",type:4,required:false},
+    ]},
   ];
 }
 
@@ -1431,7 +1467,7 @@ async function clearGlobalCommands() {
 // Keep owner-only commands here so changes show up immediately without the 1hr global delay.
 // These commands are registered per-guild (instant, <1s propagation) instead of globally.
 // Use this for commands where choices/options change and you can't wait 1hr for global cache.
-const GUILD_ONLY_CMDS = ["admingive","buy","open","shop","inventory","premiere","forcemarry","forcedivorce","shadowdelete","purge","rolespingfix","chat","custominstruction","clearchat"];
+const GUILD_ONLY_CMDS = ["admingive","buy","open","shop","inventory","premiere","forcemarry","forcedivorce","shadowdelete","purge","rolespingfix","chat","custominstruction","clearchat","upload","activity-check","raconfig","reduced-activity","loa"];
 
 // Wipe stale global versions of guild-only commands.
 // When a command moves from global to guild-only, its global entry lingers until explicitly deleted.
@@ -1777,6 +1813,135 @@ client.on("interactionCreate",async interaction=>{
   if(interaction.isButton()||interaction.isSelectMenu()){
     const uid=interaction.user.id;
     const cid=interaction.customId;
+
+    // ── Activity check role selection ─────────────────────────────────────────
+    if(cid.startsWith("ac_required_")||cid.startsWith("ac_excluded_")){
+      if(!interaction.client._acPending) interaction.client._acPending = new Map();
+      const pending = interaction.client._acPending.get(interaction.user.id);
+      if(!pending){ try{await interaction.reply({content:"Session expired. Run /activity-check again.",ephemeral:true});}catch{}return; }
+
+      const isRequired = cid.startsWith("ac_required_");
+      const selected = interaction.values;
+
+      if(isRequired) pending.requiredIds = selected;
+      else           pending.excludedIds = selected;
+
+      interaction.client._acPending.set(interaction.user.id, pending);
+
+      // If both have been touched, show a Send button
+      const readyToSend = pending.requiredIds.length > 0;
+      const reqNames  = pending.requiredIds.map(id=>interaction.guild.roles.cache.get(id)?.name||id).join(", ")||"none";
+      const exclNames = pending.excludedIds.map(id=>interaction.guild.roles.cache.get(id)?.name||id).join(", ")||"none (RA/LOA always excluded)";
+
+      const sendBtn = new MessageActionRow().addComponents(
+        new MessageButton().setCustomId("ac_send_"+interaction.user.id).setLabel("Send Activity Check").setStyle("SUCCESS").setDisabled(!readyToSend)
+      );
+
+      try {
+        await interaction.update({
+          content:[
+            `📋 **Activity Check Setup**`,
+            `✅ Required roles: **${reqNames}**`,
+            `🚫 Excluded roles: **${exclNames}**`,
+            readyToSend ? `\nClick **Send Activity Check** when ready.` : `\nSelect at least one required role first.`
+          ].join("\n"),
+          components:[...interaction.message.components.slice(0,2), sendBtn]
+        });
+      } catch{}
+      return;
+    }
+
+    if(cid.startsWith("ac_send_")){
+      const userId = cid.slice(8);
+      if(interaction.user.id !== userId){ try{await interaction.reply({content:"Not your activity check.",ephemeral:true});}catch{}return; }
+      if(!interaction.client._acPending) interaction.client._acPending = new Map();
+      const pending = interaction.client._acPending.get(userId);
+      if(!pending){ try{await interaction.reply({content:"Session expired. Run /activity-check again.",ephemeral:true});}catch{}return; }
+      interaction.client._acPending.delete(userId);
+
+      const { channel, deadlineHr, customMsg, doPing, requiredIds, excludedIds } = pending;
+      const cfg = raConfig.get(interaction.guildId)||{};
+      const autoExcluded = [cfg.raRoleId, cfg.loaRoleId].filter(Boolean);
+      const allExcluded  = [...new Set([...excludedIds, ...autoExcluded])];
+
+      const deadlineTs   = Math.floor((Date.now()+deadlineHr*3600000)/1000);
+      const roleMentions = requiredIds.map(id=>`<@&${id}>`).join(", ");
+      const pingText     = doPing ? requiredIds.map(id=>`<@&${id}>`).join(" ")+"\n" : "";
+
+      const msgContent = [
+        pingText,
+        `📋 **Activity Check**`,
+        ``,
+        customMsg||"React with ✅ to confirm you're active!",
+        ``,
+        `**Required roles:** ${roleMentions}`,
+        `**Deadline:** <t:${deadlineTs}:R> (<t:${deadlineTs}:f>)`,
+        ``,
+        `React below with ✅ to check in.`
+      ].join("\n");
+
+      try { await interaction.update({content:"✅ Sending activity check…",components:[]}); } catch{}
+
+      let sentMsg;
+      try {
+        sentMsg = await safeSend(channel, msgContent);
+        if(!sentMsg) return;
+        await sentMsg.react("✅");
+      } catch(e) {
+        await interaction.followUp({content:`❌ Failed to send: ${e.message}`,ephemeral:true}).catch(()=>{});
+        return;
+      }
+
+      activityChecks.set(sentMsg.id,{
+        guildId:    interaction.guildId,
+        channelId:  channel.id,
+        roleIds:    requiredIds,
+        excludedIds: allExcluded,
+        deadline:   Date.now()+deadlineHr*3600000,
+        messageId:  sentMsg.id,
+      });
+
+      setTimeout(async()=>{
+        const check = activityChecks.get(sentMsg.id);
+        if(!check) return;
+        activityChecks.delete(sentMsg.id);
+
+        let reacted = new Set();
+        try {
+          const freshMsg = await channel.messages.fetch(sentMsg.id);
+          const reaction = freshMsg.reactions.cache.get("✅");
+          if(reaction){
+            const users = await reaction.users.fetch();
+            users.forEach(u=>{ if(!u.bot) reacted.add(u.id); });
+          }
+        } catch(e){ console.error("activity-check fetch error:",e); }
+
+        let missing = [];
+        try {
+          const members = await interaction.guild.members.fetch();
+          members.forEach(m=>{
+            if(m.user.bot) return;
+            const hasRequired = check.roleIds.some(rid=>m.roles.cache.has(rid));
+            if(!hasRequired) return;
+            const isExcluded = check.excludedIds.some(rid=>m.roles.cache.has(rid));
+            if(isExcluded) return;
+            if(!reacted.has(m.id)) missing.push(`<@${m.id}>`);
+          });
+        } catch(e){ console.error("activity-check member fetch error:",e); }
+
+        const respondedCount = reacted.size;
+        const missingText = missing.length ? missing.join(", ") : "None — everyone checked in! ✅";
+
+        await safeSend(channel,[
+          `📋 **Activity Check Closed**`,
+          ``,
+          `✅ **Checked in:** ${respondedCount} member${respondedCount!==1?"s":""}`,
+          `❌ **Did not respond:** ${missingText}`,
+        ].join("\n")).catch(()=>{});
+      }, deadlineHr*3600000);
+
+      return;
+    }
 
     // ── Marriage proposal accept/decline ──────────────────────────────────────
     if(cid.startsWith("marry_accept_")||cid.startsWith("marry_decline_")){
@@ -3996,6 +4161,232 @@ if(cmd==="custominstruction"){
       if(d.geminiHistory) d.geminiHistory[userId] = [];
       saveData(d);
       return safeReply(interaction,{ content:"🗑️ Your Gemini chat history has been cleared.", ephemeral:true });
+    }
+
+    if(cmd==="upload"){
+      if(!inGuild) return safeReply(interaction,{content:"Server only.",ephemeral:true});
+      // Both source and link are restricted to MEMERS
+      if(!MEMERS.includes(interaction.user.id))
+        return safeReply(interaction,{content:"❌ You don't have permission to use /upload.",ephemeral:true});
+
+      const attachment = interaction.options.getAttachment("source")||null;
+      const link       = interaction.options.getString("link")||null;
+
+      if(!attachment && !link)
+        return safeReply(interaction,{content:"❌ Provide either a file (source) or a URL (link).",ephemeral:true});
+
+      await interaction.deferReply({ephemeral:true});
+
+      try {
+        let fileBuffer, fileName;
+
+        if(attachment){
+          if(!/^image\//i.test(attachment.contentType||""))
+            return safeReply(interaction,{content:"❌ Attachment must be an image file.",ephemeral:true});
+          const res = await fetch(attachment.url);
+          if(!res.ok) return safeReply(interaction,{content:"❌ Failed to download the attachment.",ephemeral:true});
+          fileBuffer = Buffer.from(await res.arrayBuffer());
+          fileName   = attachment.name;
+        } else {
+          let parsedUrl;
+          try { parsedUrl = new URL(link); } catch { return safeReply(interaction,{content:"❌ That doesn't look like a valid URL.",ephemeral:true}); }
+          if(!/^https?:/.test(parsedUrl.protocol)) return safeReply(interaction,{content:"❌ URL must be http or https.",ephemeral:true});
+          const res = await fetch(link);
+          if(!res.ok) return safeReply(interaction,{content:"❌ Couldn't fetch the image from that URL.",ephemeral:true});
+          const ct = res.headers.get("content-type")||"";
+          if(!/^image\//i.test(ct)) return safeReply(interaction,{content:"❌ That URL doesn't point to an image.",ephemeral:true});
+          fileBuffer = Buffer.from(await res.arrayBuffer());
+          const pathParts = parsedUrl.pathname.split("/");
+          fileName = pathParts[pathParts.length-1]||"image.jpg";
+          if(!/\.(png|jpe?g|gif|webp)$/i.test(fileName)) fileName += ".jpg";
+        }
+
+        const ghPath  = `quotes/${fileName}`;
+        const encoded = fileBuffer.toString("base64");
+
+        const checkRes = await fetch(`https://api.github.com/repos/Royal-V-RR/discord-bot/contents/${ghPath}`,{
+          headers:{"User-Agent":"RoyalBot","Authorization":`token ${GH_TOKEN}`,"Accept":"application/vnd.github+json"}
+        });
+        let sha = null;
+        if(checkRes.ok){ const j=await checkRes.json(); sha=j.sha||null; }
+
+        const putRes = await fetch(`https://api.github.com/repos/Royal-V-RR/discord-bot/contents/${ghPath}`,{
+          method:"PUT",
+          headers:{
+            "User-Agent":"RoyalBot","Authorization":`token ${GH_TOKEN}`,
+            "Accept":"application/vnd.github+json","Content-Type":"application/json"
+          },
+          body: JSON.stringify({
+            message:`feat: upload quote image ${fileName} via Discord`,
+            content: encoded,
+            ...(sha?{sha}:{})
+          })
+        });
+
+        if(!putRes.ok){
+          const err = await putRes.text();
+          console.error("GitHub upload failed:",err);
+          return safeReply(interaction,{content:`❌ GitHub upload failed (HTTP ${putRes.status}).`,ephemeral:true});
+        }
+
+        return safeReply(interaction,{content:`✅ \`${fileName}\` uploaded to the quotes folder!`,ephemeral:true});
+      } catch(e) {
+        console.error("upload error:",e);
+        return safeReply(interaction,{content:"❌ Something went wrong during upload.",ephemeral:true});
+      }
+    }
+
+    if(cmd==="activity-check"){
+      if(!inGuild) return safeReply(interaction,{content:"Server only.",ephemeral:true});
+      const hasPerms = OWNER_IDS.includes(interaction.user.id)||interaction.member.permissions.has("MANAGE_GUILD");
+      if(!hasPerms) return safeReply(interaction,{content:"❌ You need Manage Server permission.",ephemeral:true});
+
+      const channel    = interaction.options.getChannel("channel");
+      const deadlineHr = interaction.options.getInteger("deadline")??24;
+      const customMsg  = interaction.options.getString("message")||null;
+      const doPing     = interaction.options.getBoolean("ping")??true;
+
+      // Build role list for dropdowns — cap at 25, exclude @everyone and managed roles
+      const cfg = raConfig.get(interaction.guildId)||{};
+      const excludedByDefault = new Set([cfg.raRoleId, cfg.loaRoleId].filter(Boolean));
+      const allRoles = [...interaction.guild.roles.cache.values()]
+        .filter(r => r.id !== interaction.guild.id && !r.managed)
+        .sort((a,b) => b.position - a.position)
+        .slice(0, 25);
+
+      if(!allRoles.length) return safeReply(interaction,{content:"❌ No assignable roles found in this server.",ephemeral:true});
+
+      const makeOptions = (selectedIds=[]) => allRoles.map(r => ({
+        label: r.name.slice(0,25),
+        value: r.id,
+        default: selectedIds.includes(r.id),
+      }));
+
+      const requiredMenu = new MessageActionRow().addComponents(
+        new MessageSelectMenu()
+          .setCustomId(`ac_required_${channel.id}_${deadlineHr}_${doPing}`)
+          .setPlaceholder("Select required roles (staff who must check in)")
+          .setMinValues(1).setMaxValues(Math.min(allRoles.length,25))
+          .addOptions(makeOptions())
+      );
+      const excludedMenu = new MessageActionRow().addComponents(
+        new MessageSelectMenu()
+          .setCustomId(`ac_excluded_${channel.id}_${deadlineHr}_${doPing}`)
+          .setPlaceholder("Select excluded roles (optional — RA/LOA auto-excluded)")
+          .setMinValues(0).setMaxValues(Math.min(allRoles.length,25))
+          .addOptions(makeOptions([...excludedByDefault]))
+      );
+      const msgLine = customMsg ? `\n📝 Message: *${customMsg}*` : "";
+      await safeReply(interaction,{
+        content:`📋 **Activity Check Setup**\nChannel: ${channel}\nDeadline: **${deadlineHr}h**${msgLine}\n\nSelect the roles below, then click **Send Check** once both dropdowns are set.`,
+        components:[requiredMenu, excludedMenu],
+        ephemeral:true
+      });
+      // Store pending config keyed by user so the select handler can retrieve it
+      if(!interaction.client._acPending) interaction.client._acPending = new Map();
+      interaction.client._acPending.set(interaction.user.id, { channel, deadlineHr, customMsg, doPing, requiredIds:[], excludedIds:[...excludedByDefault] });
+      return;
+    }
+
+    if(cmd==="raconfig"){
+      if(!inGuild) return safeReply(interaction,{content:"Server only.",ephemeral:true});
+      const hasPerms = OWNER_IDS.includes(interaction.user.id)||interaction.member.permissions.has("MANAGE_GUILD");
+      if(!hasPerms) return safeReply(interaction,{content:"❌ You need Manage Server permission.",ephemeral:true});
+      const action = interaction.options.getString("action");
+      const roleArg = interaction.options.getRole("role")||null;
+      const cfg = raConfig.get(interaction.guildId)||{};
+
+      if(action==="view"){
+        const raRole  = cfg.raRoleId  ? interaction.guild.roles.cache.get(cfg.raRoleId)  : null;
+        const loaRole = cfg.loaRoleId ? interaction.guild.roles.cache.get(cfg.loaRoleId) : null;
+        return safeReply(interaction,{content:[
+          `📋 **RA/LOA Config for ${interaction.guild.name}**`,
+          `🟡 Reduced Activity role: ${raRole?`<@&${raRole.id}> (${raRole.name})`:"Not set"}`,
+          `🔴 LOA role: ${loaRole?`<@&${loaRole.id}> (${loaRole.name})`:"Not set"}`,
+        ].join("\n"),ephemeral:true});
+      }
+
+      if(action==="create"){
+        await interaction.deferReply({ephemeral:true});
+        try {
+          const raRole  = await interaction.guild.roles.create({name:"Reduced Activity",color:"Yellow",reason:"RoyalBot RA/LOA setup"});
+          const loaRole = await interaction.guild.roles.create({name:"LOA",color:"Red",reason:"RoyalBot RA/LOA setup"});
+          raConfig.set(interaction.guildId,{raRoleId:raRole.id,loaRoleId:loaRole.id});
+          saveData();
+          return safeReply(interaction,{content:`✅ Created <@&${raRole.id}> and <@&${loaRole.id}>. All set!`,ephemeral:true});
+        } catch(e) {
+          return safeReply(interaction,{content:`❌ Failed to create roles: ${e.message}`,ephemeral:true});
+        }
+      }
+
+      if(action==="set_ra"){
+        if(!roleArg) return safeReply(interaction,{content:"❌ Provide a role.",ephemeral:true});
+        cfg.raRoleId = roleArg.id;
+        raConfig.set(interaction.guildId,cfg);
+        saveData();
+        return safeReply(interaction,{content:`✅ Reduced Activity role set to <@&${roleArg.id}>.`,ephemeral:true});
+      }
+
+      if(action==="set_loa"){
+        if(!roleArg) return safeReply(interaction,{content:"❌ Provide a role.",ephemeral:true});
+        cfg.loaRoleId = roleArg.id;
+        raConfig.set(interaction.guildId,cfg);
+        saveData();
+        return safeReply(interaction,{content:`✅ LOA role set to <@&${roleArg.id}>.`,ephemeral:true});
+      }
+
+      return safeReply(interaction,{content:"❌ Unknown action.",ephemeral:true});
+    }
+
+    if(cmd==="reduced-activity"||cmd==="loa"){
+      if(!inGuild) return safeReply(interaction,{content:"Server only.",ephemeral:true});
+      const hasPerms = OWNER_IDS.includes(interaction.user.id)||interaction.member.permissions.has("MANAGE_ROLES");
+      if(!hasPerms) return safeReply(interaction,{content:"❌ You need Manage Roles permission.",ephemeral:true});
+
+      const cfg = raConfig.get(interaction.guildId)||{};
+      const isRA = cmd==="reduced-activity";
+      const roleId = isRA ? cfg.raRoleId : cfg.loaRoleId;
+      const roleLabel = isRA ? "Reduced Activity" : "LOA";
+      if(!roleId) return safeReply(interaction,{content:`❌ The ${roleLabel} role hasn't been set up. Run \`/raconfig\` first.`,ephemeral:true});
+
+      const role = interaction.guild.roles.cache.get(roleId);
+      if(!role) return safeReply(interaction,{content:`❌ The configured ${roleLabel} role no longer exists. Run \`/raconfig\` to set it again.`,ephemeral:true});
+
+      const target   = interaction.options.getUser("user");
+      const action   = interaction.options.getString("action");
+      const duration = interaction.options.getInteger("duration")||null; // hours
+
+      const member = await interaction.guild.members.fetch(target.id).catch(()=>null);
+      if(!member) return safeReply(interaction,{content:"❌ Couldn't find that member.",ephemeral:true});
+
+      const timerKey = `${interaction.guildId}:${target.id}:${cmd}`;
+
+      if(action==="give"){
+        try { await member.roles.add(role); } catch(e) { return safeReply(interaction,{content:`❌ Failed to add role: ${e.message}`,ephemeral:true}); }
+        // Cancel any existing timer for this user+type
+        if(raTimers.has(timerKey)){ clearTimeout(raTimers.get(timerKey)); raTimers.delete(timerKey); }
+        let reply = `✅ Gave <@&${roleId}> to <@${target.id}>.`;
+        if(duration){
+          const ms = duration*3600000;
+          const t = setTimeout(async()=>{
+            raTimers.delete(timerKey);
+            const m = await interaction.guild.members.fetch(target.id).catch(()=>null);
+            if(m) await m.roles.remove(roleId).catch(()=>{});
+          }, ms);
+          raTimers.set(timerKey, t);
+          reply += ` Role will be removed automatically <t:${Math.floor((Date.now()+ms)/1000)}:R>.`;
+        }
+        return safeReply(interaction,{content:reply,ephemeral:true});
+      }
+
+      if(action==="remove"){
+        // Cancel timer if any
+        if(raTimers.has(timerKey)){ clearTimeout(raTimers.get(timerKey)); raTimers.delete(timerKey); }
+        try { await member.roles.remove(role); } catch(e) { return safeReply(interaction,{content:`❌ Failed to remove role: ${e.message}`,ephemeral:true}); }
+        return safeReply(interaction,{content:`✅ Removed <@&${roleId}> from <@${target.id}>.`,ephemeral:true});
+      }
+
+      return safeReply(interaction,{content:"❌ Unknown action.",ephemeral:true});
     }
 
     // Count game
