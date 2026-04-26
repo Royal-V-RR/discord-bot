@@ -82,6 +82,47 @@ function getYtKey(guildId) { return ytConfig.get(guildId)?.apiKey || null; }
 // ── Marriage proposals ────────────────────────────────────────────────────────
 const marriageProposals = new Map(); // proposerId -> { targetId, timeout }
 
+// ── Quote shuffle queue ───────────────────────────────────────────────────────
+// In-memory Fisher-Yates shuffled queue so every image is shown before repeats.
+// No writes to botdata.json. Refills automatically when exhausted.
+// A fetch lock prevents multiple concurrent /quote calls from double-fetching.
+let quoteQueue    = [];   // shuffled array of GitHub file objects
+let quoteFetching = false; // true while a refill fetch is in flight
+
+function shuffleArray(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+async function refillQuoteQueue() {
+  if (quoteFetching) return; // another call is already fetching
+  quoteFetching = true;
+  try {
+    const res = await fetch("https://api.github.com/repos/Royal-V-RR/discord-bot/contents/quotes", {
+      headers: { "User-Agent": "RoyalBot", "Authorization": `token ${GH_TOKEN}` }
+    });
+    if (!res.ok) { quoteFetching = false; return; }
+    const files  = await res.json();
+    const images = files.filter(f => /\.(png|jpe?g|gif|webp)$/i.test(f.name));
+    if (images.length) quoteQueue = shuffleArray(images);
+  } catch(e) { console.error("Quote queue refill failed:", e); }
+  quoteFetching = false;
+}
+
+// Returns the next image from the queue, refilling if needed.
+// Returns null if the queue can't be filled (GitHub unavailable).
+async function nextQuoteImage() {
+  // Proactively refill when queue is almost empty (≤10% remaining)
+  if (quoteQueue.length === 0 || quoteQueue.length <= Math.max(1, Math.floor(quoteQueue.length * 0.1))) {
+    await refillQuoteQueue();
+  }
+  if (quoteQueue.length === 0) return null;
+  return quoteQueue.shift();
+}
+
 // ── Scores ────────────────────────────────────────────────────────────────────
 // FIX: scores MUST be declared before loadData() so loadData can populate it
 const scores = new Map();
@@ -2906,14 +2947,8 @@ if(cmd==="gif"){
     if(cmd==="quote"){
       try { await interaction.deferReply(); } catch { /* user-install context on foreign server — reply will still work */ }
       try {
-        const listRes = await fetch("https://api.github.com/repos/Royal-V-RR/discord-bot/contents/quotes", {
-          headers: { "User-Agent": "RoyalBot", "Authorization": `token ${GH_TOKEN}` }
-        });
-        if(!listRes.ok) return safeReply(interaction, "Couldn't load quotes right now.");
-        const files = await listRes.json();
-        const images = files.filter(f => /\.(png|jpe?g|gif|webp)$/i.test(f.name));
-        if(!images.length) return safeReply(interaction, "No images in the quotes folder.");
-        const chosen = images[Math.floor(Math.random() * images.length)];
+        const chosen = await nextQuoteImage();
+        if(!chosen) return safeReply(interaction, "Couldn't load quotes right now.");
         // ~5% chance to also show the upload promo message
         if(Math.random() < 0.05){
           return safeReply(interaction, { content: "Do you want to be able to upload images to be used in /quote? Add **genuineleafy** or **royalvmusic** in discord to do so!", files: [chosen.download_url] });
