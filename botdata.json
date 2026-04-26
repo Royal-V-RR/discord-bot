@@ -10434,7 +10434,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 274,
+        "xp": 283,
         "level": 4,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -10443,7 +10443,9 @@
         "inventory": [],
         "marriedTo": null,
         "pendingProposal": null,
-        "forceMarried": false
+        "forceMarried": false,
+        "imagesUploaded": 0,
+        "uploadedImages": []
       }
     ],
     [
@@ -12507,6 +12509,30 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 32,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "855490204119203900",
+      {
+        "username": "vindicateme",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 14,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
