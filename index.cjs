@@ -2904,9 +2904,7 @@ if(cmd==="gif"){
     if(cmd==="joke") {await interaction.deferReply();return safeReply(interaction,await getJoke()      ||"No joke today.");}
     if(cmd==="meme") {await interaction.deferReply();return safeReply(interaction,await getMeme()      ||"Meme API down 😔");}
     if(cmd==="quote"){
-      // In a server the bot isn't a member of (user-install only context), we can only reply ephemerally
-      const botNotInGuild = !inGuild || !interaction.guild?.members?.me;
-      await interaction.deferReply({ ephemeral: botNotInGuild });
+      try { await interaction.deferReply(); } catch { /* user-install context on foreign server — reply will still work */ }
       try {
         const listRes = await fetch("https://api.github.com/repos/Royal-V-RR/discord-bot/contents/quotes", {
           headers: { "User-Agent": "RoyalBot", "Authorization": `token ${GH_TOKEN}` }
@@ -2916,11 +2914,12 @@ if(cmd==="gif"){
         const images = files.filter(f => /\.(png|jpe?g|gif|webp)$/i.test(f.name));
         if(!images.length) return safeReply(interaction, "No images in the quotes folder.");
         const chosen = images[Math.floor(Math.random() * images.length)];
-        // ~5% chance to also show the upload promo message alongside the image
-        if(Math.random() < 0.05 && !botNotInGuild){
-          return safeReply(interaction, { content: "Do you want to be able to upload images to be used in /quote? Add **genuineleafy** or **royalvmusic** in discord to do so!", files: [chosen.download_url] });
+        const imageUrl = `https://raw.githubusercontent.com/Royal-V-RR/discord-bot/main/quotes/${encodeURIComponent(chosen.name)}`;
+        // ~5% chance to also show the upload promo message
+        if(Math.random() < 0.05){
+          return safeReply(interaction, { content: "Do you want to be able to upload images to be used in /quote? Add **genuineleafy** or **royalvmusic** in discord to do so!", embeds: [{ image: { url: imageUrl } }] });
         }
-        return safeReply(interaction, { files: [chosen.download_url] });
+        return safeReply(interaction, { embeds: [{ image: { url: imageUrl } }] });
       } catch(e) {
         return safeReply(interaction, "Something went wrong fetching a quote.");
       }
