@@ -1534,6 +1534,10 @@ function buildCommands(){
       ]},
       {name:"user",            description:"User to add or remove (not needed for list)",type:6,required:false},
     ]},
+    {name:"quotelist",         description:"[Owner] List all images in the quotes folder"},
+    {name:"quotedelete",       description:"[Owner] Delete an image from the quotes folder",options:[
+      {name:"filename",        description:"Exact filename to delete (use /quotelist to find it)",type:3,required:true},
+    ]},
     {name:"library",           description:"Browse images a user has uploaded to the quotes folder",options:[
       {name:"user",            description:"User whose uploads to browse",type:6,required:true},
     ]},
@@ -1598,7 +1602,7 @@ async function clearGlobalCommands() {
 // Keep owner-only commands here so changes show up immediately without the 1hr global delay.
 // These commands are registered per-guild (instant, <1s propagation) instead of globally.
 // Use this for commands where choices/options change and you can't wait 1hr for global cache.
-const GUILD_ONLY_CMDS = ["admingive","buy","open","shop","inventory","premiere","forcemarry","forcedivorce","shadowdelete","purge","rolespingfix","library","activity-check","raconfig","reduced-activity","loa","fakemessage"];
+const GUILD_ONLY_CMDS = ["admingive","buy","open","shop","inventory","premiere","forcemarry","forcedivorce","shadowdelete","purge","rolespingfix","library","activity-check","raconfig","reduced-activity","loa","fakemessage","quotedelete","quotelist"];
 
 // Wipe stale global versions of guild-only commands.
 // When a command moves from global to guild-only, its global entry lingers until explicitly deleted.
@@ -2900,7 +2904,9 @@ if(cmd==="gif"){
     if(cmd==="joke") {await interaction.deferReply();return safeReply(interaction,await getJoke()      ||"No joke today.");}
     if(cmd==="meme") {await interaction.deferReply();return safeReply(interaction,await getMeme()      ||"Meme API down 😔");}
     if(cmd==="quote"){
-      await interaction.deferReply();
+      // In a server the bot isn't a member of (user-install only context), we can only reply ephemerally
+      const botNotInGuild = !inGuild || !interaction.guild?.members?.me;
+      await interaction.deferReply({ ephemeral: botNotInGuild });
       try {
         const listRes = await fetch("https://api.github.com/repos/Royal-V-RR/discord-bot/contents/quotes", {
           headers: { "User-Agent": "RoyalBot", "Authorization": `token ${GH_TOKEN}` }
@@ -2911,7 +2917,7 @@ if(cmd==="gif"){
         if(!images.length) return safeReply(interaction, "No images in the quotes folder.");
         const chosen = images[Math.floor(Math.random() * images.length)];
         // ~5% chance to also show the upload promo message alongside the image
-        if(Math.random() < 0.05){
+        if(Math.random() < 0.05 && !botNotInGuild){
           return safeReply(interaction, { content: "Do you want to be able to upload images to be used in /quote? Add **genuineleafy** or **royalvmusic** in discord to do so!", files: [chosen.download_url] });
         }
         return safeReply(interaction, { files: [chosen.download_url] });
@@ -4314,7 +4320,80 @@ if(cmd==="gif"){
       return safeReply(interaction,{content:"❌ Unknown action.",ephemeral:true});
     }
 
-    if(cmd==="upload"){
+    if(cmd==="quotelist"){
+      if(!OWNER_IDS.includes(interaction.user.id))
+        return safeReply(interaction,{content:"❌ Owner only.",ephemeral:true});
+      await interaction.deferReply({ephemeral:true});
+      try {
+        const listRes = await fetch("https://api.github.com/repos/Royal-V-RR/discord-bot/contents/quotes",{
+          headers:{"User-Agent":"RoyalBot","Authorization":`token ${GH_TOKEN}`,"Accept":"application/vnd.github+json"}
+        });
+        if(!listRes.ok) return safeReply(interaction,{content:`❌ GitHub API error (HTTP ${listRes.status}).`,ephemeral:true});
+        const files = await listRes.json();
+        const images = files.filter(f => f.type==="file" && /\.(png|jpe?g|gif|webp)$/i.test(f.name));
+        if(!images.length) return safeReply(interaction,{content:"📭 No images in the quotes folder.",ephemeral:true});
+        // Split into chunks of 50 filenames per message to stay under Discord's 2000 char limit
+        const names = images.map((f,i) => `${i+1}. \`${f.name}\``);
+        const chunks = [];
+        let chunk = [];
+        for(const line of names){
+          if((chunk.join("\n").length + line.length + 1) > 1800){ chunks.push(chunk); chunk = []; }
+          chunk.push(line);
+        }
+        if(chunk.length) chunks.push(chunk);
+        await safeReply(interaction,{content:`🖼️ **Quotes folder — ${images.length} image${images.length!==1?"s":""}:**\n${chunks[0].join("\n")}`,ephemeral:true});
+        for(let i=1;i<chunks.length;i++){
+          await interaction.followUp({content:chunks[i].join("\n"),ephemeral:true}).catch(()=>{});
+        }
+        return;
+      } catch(e) {
+        console.error("quotelist error:",e);
+        return safeReply(interaction,{content:"❌ Something went wrong fetching the quotes list.",ephemeral:true});
+      }
+    }
+
+    if(cmd==="quotedelete"){
+      if(!OWNER_IDS.includes(interaction.user.id))
+        return safeReply(interaction,{content:"❌ Owner only.",ephemeral:true});
+      const fileName = interaction.options.getString("filename").trim();
+      await interaction.deferReply({ephemeral:true});
+      try {
+        const ghPath = `quotes/${fileName}`;
+        // Fetch the file's SHA (required for deletion)
+        const checkRes = await fetch(`https://api.github.com/repos/Royal-V-RR/discord-bot/contents/${ghPath}`,{
+          headers:{"User-Agent":"RoyalBot","Authorization":`token ${GH_TOKEN}`,"Accept":"application/vnd.github+json"}
+        });
+        if(checkRes.status===404) return safeReply(interaction,{content:`❌ File \`${fileName}\` not found in the quotes folder.`,ephemeral:true});
+        if(!checkRes.ok) return safeReply(interaction,{content:`❌ GitHub API error (HTTP ${checkRes.status}).`,ephemeral:true});
+        const fileData = await checkRes.json();
+        const sha = fileData.sha;
+        if(!sha) return safeReply(interaction,{content:"❌ Couldn't retrieve file SHA for deletion.",ephemeral:true});
+        // Delete the file
+        const delRes = await fetch(`https://api.github.com/repos/Royal-V-RR/discord-bot/contents/${ghPath}`,{
+          method:"DELETE",
+          headers:{"User-Agent":"RoyalBot","Authorization":`token ${GH_TOKEN}`,"Accept":"application/vnd.github+json","Content-Type":"application/json"},
+          body: JSON.stringify({ message:`chore: delete quote image ${fileName} via Discord`, sha })
+        });
+        if(!delRes.ok){
+          const err = await delRes.text();
+          console.error("quotedelete GitHub error:",err);
+          return safeReply(interaction,{content:`❌ GitHub delete failed (HTTP ${delRes.status}).`,ephemeral:true});
+        }
+        // Remove from any user's uploadedImages list so their library stays accurate
+        for(const [,s] of scores){
+          if(Array.isArray(s.uploadedImages) && s.uploadedImages.includes(fileName)){
+            s.uploadedImages = s.uploadedImages.filter(n=>n!==fileName);
+          }
+        }
+        saveData();
+        return safeReply(interaction,{content:`🗑️ \`${fileName}\` deleted from the quotes folder.`,ephemeral:true});
+      } catch(e) {
+        console.error("quotedelete error:",e);
+        return safeReply(interaction,{content:"❌ Something went wrong during deletion.",ephemeral:true});
+      }
+    }
+
+
       // Both source and link are restricted to MEMERS
       if(!MEMERS.has(interaction.user.id))
         return safeReply(interaction,{content:"❌ You don't have permission to use /upload.",ephemeral:true});
