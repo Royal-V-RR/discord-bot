@@ -159,11 +159,20 @@
   ],
   "disabledOwnerMsg": [],
   "disabledLevelUp": [
-    "1048053656035020911"
+    "1048053656035020911",
+    "1440773513060290763"
   ],
   "levelUpConfig": [
     [
       "1048053656035020911",
+      {
+        "enabled": false,
+        "ping": true,
+        "channelId": null
+      }
+    ],
+    [
+      "1440773513060290763",
       {
         "enabled": false,
         "ping": true,
