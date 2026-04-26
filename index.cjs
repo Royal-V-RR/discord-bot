@@ -56,6 +56,7 @@ const premieres        = new Map(); // premiereId -> { title, endsAt, channelId,
 const disabledLevelUp  = new Set(); // legacy — now superseded by levelUpConfig.enabled
 const userInstalls     = new Set();
 const activityChecks   = new Map(); // messageId -> { guildId, channelId, roleIds, deadline, respondedUsers: Set }
+const scheduledChecks  = new Map(); // `${guildId}:${channelId}` -> { guildId, channelId, dayOfWeek, hour, minute, deadlineHr, customMsg, doPing, roleIds, excludedIds, nextFire }
 const raConfig         = new Map(); // guildId -> { raRoleId, loaRoleId }
 const raTimers         = new Map(); // `${guildId}:${userId}:${type}` -> timeoutId
 // Per-guild XP level-up notification config
@@ -324,6 +325,7 @@ function buildDataObject() {
     premieres:        [...premieres.entries()],
     raConfig:         [...raConfig.entries()],
     activityChecks:   [...activityChecks.entries()],
+    scheduledChecks:  [...scheduledChecks.entries()],
   };
 }
 
@@ -440,6 +442,7 @@ function loadData() {
 
     if (data.raConfig) data.raConfig.forEach(([k,v]) => raConfig.set(k, v));
 
+    if (data.scheduledChecks) data.scheduledChecks.forEach(([k,v]) => scheduledChecks.set(k, v));
     // Restore active activity checks — re-arm their expiry timers
     if (data.activityChecks) {
       const now = Date.now();
@@ -499,6 +502,67 @@ loadData();
 
 // Auto-save every 2 minutes
 setInterval(() => saveData(), 2 * 60 * 1000);
+
+// ── Scheduled activity check ticker (runs every minute) ──────────────────────
+// Parses "Monday 09:00" style schedule strings and fires checks at the right time.
+function parseSchedule(str) {
+  // Accepts "Monday 09:00", "mon 9:00", "wednesday 14:30", etc.
+  const days = ["sunday","monday","tuesday","wednesday","thursday","friday","saturday"];
+  const parts = str.trim().toLowerCase().split(/\s+/);
+  if (parts.length < 2) return null;
+  const dayIndex = days.findIndex(d => d.startsWith(parts[0].slice(0,3)));
+  if (dayIndex === -1) return null;
+  const timeParts = parts[1].split(":");
+  if (timeParts.length < 2) return null;
+  const hour = parseInt(timeParts[0]), minute = parseInt(timeParts[1]);
+  if (isNaN(hour) || isNaN(minute) || hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
+  return { dayOfWeek: dayIndex, hour, minute };
+}
+
+setInterval(async () => {
+  if (!scheduledChecks.size) return;
+  const now = new Date();
+  const nowDay = now.getUTCDay(), nowHour = now.getUTCHours(), nowMin = now.getUTCMinutes();
+  for (const [key, sc] of scheduledChecks) {
+    if (sc.dayOfWeek !== nowDay || sc.hour !== nowHour || sc.minute !== nowMin) continue;
+    // Prevent double-firing in the same minute
+    const fireKey = `${key}:${nowDay}:${nowHour}:${nowMin}`;
+    if (sc._lastFire === fireKey) continue;
+    sc._lastFire = fireKey;
+    try {
+      const guild = client.guilds.cache.get(sc.guildId); if (!guild) continue;
+      const channel = guild.channels.cache.get(sc.channelId); if (!channel) continue;
+      const deadline = Date.now() + sc.deadlineHr * 3600000;
+      const pingLine = sc.doPing && sc.roleIds?.length ? sc.roleIds.map(id => `<@&${id}>`).join(" ") + " " : "";
+      const msgText = [
+        `${pingLine}📋 **Activity Check!**`,
+        sc.customMsg || "React with ✅ to confirm you're active.",
+        `\n⏰ Closes <t:${Math.floor(deadline / 1000)}:R>`,
+      ].join("\n");
+      const sent = await channel.send(msgText).catch(() => null);
+      if (!sent) continue;
+      await sent.react("✅").catch(() => {});
+      activityChecks.set(sent.id, {
+        guildId: sc.guildId, channelId: sc.channelId,
+        roleIds: sc.roleIds || [], excludedIds: sc.excludedIds || [],
+        deadline,
+      });
+      setTimeout(async () => {
+        const c = activityChecks.get(sent.id); if (!c) return;
+        activityChecks.delete(sent.id); saveData();
+        const g2 = client.guilds.cache.get(c.guildId); if (!g2) return;
+        const ch2 = g2.channels.cache.get(c.channelId); if (!ch2) return;
+        let reacted = new Set();
+        try { const fm = await ch2.messages.fetch(sent.id); const rx = fm.reactions.cache.get("✅"); if (rx) { const u = await rx.users.fetch(); u.forEach(u2 => { if (!u2.bot) reacted.add(u2.id); }); } } catch {}
+        let missing = [];
+        try { const members = await g2.members.fetch(); members.forEach(m => { if (m.user.bot) return; if (!c.roleIds.some(rid => m.roles.cache.has(rid))) return; if (c.excludedIds.some(rid => m.roles.cache.has(rid))) return; if (!reacted.has(m.id)) missing.push(`<@${m.id}>`); }); } catch {}
+        const missingText = missing.length ? missing.join(", ") : "None — everyone checked in! ✅";
+        await ch2.send([`📋 **Activity Check Closed**`, ``, `✅ **Checked in:** ${reacted.size}`, `❌ **Did not respond:** ${missingText}`].join("\n")).catch(() => {});
+      }, sc.deadlineHr * 3600000);
+      saveData();
+    } catch(e) { console.error("scheduled activity check error:", e); }
+  }
+}, 60 * 1000);
 
 // FIX: On graceful shutdown, await the commit before exiting so GitHub Actions captures the data
 process.on("SIGTERM", async () => {
@@ -1280,12 +1344,12 @@ function buildCommands(){
     {name:"advice",         description:"Life advice 🧙"},
     {name:"fact",           description:"Fun fact 📚"},
     {name:"echo",           description:"Make the bot say something 📢",options:[
-  {name:"message",     description:"The text to send",                          type:3,required:false},
-  {name:"embed",       description:"Turn the message into a rich embed",         type:5,required:false},
-  {name:"image",       description:"Attach an image URL or upload",              type:3,required:false},
-  {name:"title",       description:"Embed title (only used when embed is on)",   type:3,required:false},
-  {name:"color",       description:"Embed colour as hex e.g. #ff0000",           type:3,required:false},
-  {name:"replyto",     description:"Message ID to reply to in this channel",     type:3,required:false},
+  {name:"message",     description:"The text to send",                          type:3, required:false},
+  {name:"embed",       description:"Turn the message into a rich embed",         type:5, required:false},
+  {name:"image",       description:"Attach an image file",                       type:11,required:false},
+  {name:"title",       description:"Embed title (only used when embed is on)",   type:3, required:false},
+  {name:"color",       description:"Embed colour as hex e.g. #ff0000",           type:3, required:false},
+  {name:"replyto",     description:"Message ID to reply to in this channel",     type:3, required:false},
 ]},
     {name:"horoscope",      description:"Your daily horoscope ✨",options:[{name:"sign",description:"Your star sign",type:3,required:true,choices:Object.keys(HOROSCOPES).map(k=>({name:k,value:k}))}]},
     {name:"poll",           description:"Create a quick yes/no poll 📊",options:[{name:"question",description:"Poll question",type:3,required:true}]},
@@ -1451,9 +1515,6 @@ function buildCommands(){
 {name:"item_quantity", description:"How many of the item (default: 1)",    type:4,required:false},
     ]},
     {name:"rolespingfix", description:"List roles that can @everyone and fix them (Manage Server)"},
-    {name:"chat",              description:"Chat with Gemini AI",options:[{name:"message",description:"Your message",type:3,required:true}]},
-{name:"custominstruction", description:"Set a custom system instruction for Gemini",options:[{name:"instruction",description:"The instruction",type:3,required:true}]},
-{name:"clearchat",         description:"Clear your Gemini chat history"},
     {name:"upload",            description:"Upload an image to the quotes folder",options:[
       {name:"source",          description:"[Memers only] Upload a file directly from your device",type:11,required:false},
       {name:"link",            description:"[Memers only] Submit an image via URL link",type:3,required:false},
@@ -1463,6 +1524,7 @@ function buildCommands(){
       {name:"deadline",        description:"Hours until check closes (default: 24)",type:4,required:false},
       {name:"message",         description:"Custom message text (optional)",type:3,required:false},
       {name:"ping",            description:"Ping the required roles in the message? (default: true)",type:5,required:false},
+      {name:"schedule",        description:"Send automatically at this time every week (e.g. Monday 09:00)",type:3,required:false},
     ]},
     {name:"raconfig",         description:"Set up RA and LOA roles for this server (Manage Server)",options:[
       {name:"action",          description:"What to do",type:3,required:true,choices:[
@@ -1518,7 +1580,7 @@ async function clearGlobalCommands() {
 // Keep owner-only commands here so changes show up immediately without the 1hr global delay.
 // These commands are registered per-guild (instant, <1s propagation) instead of globally.
 // Use this for commands where choices/options change and you can't wait 1hr for global cache.
-const GUILD_ONLY_CMDS = ["admingive","buy","open","shop","inventory","premiere","forcemarry","forcedivorce","shadowdelete","purge","rolespingfix","chat","custominstruction","clearchat","activity-check","raconfig","reduced-activity","loa"];
+const GUILD_ONLY_CMDS = ["admingive","buy","open","shop","inventory","premiere","forcemarry","forcedivorce","shadowdelete","purge","rolespingfix","upload","activity-check","raconfig","reduced-activity","loa"];
 
 // Wipe stale global versions of guild-only commands.
 // When a command moves from global to guild-only, its global entry lingers until explicitly deleted.
@@ -1910,7 +1972,7 @@ client.on("interactionCreate",async interaction=>{
       if(!pending){ try{await interaction.reply({content:"Session expired. Run /activity-check again.",ephemeral:true});}catch{}return; }
       interaction.client._acPending.delete(userId);
 
-      const { channel, deadlineHr, customMsg, doPing, requiredIds, excludedIds } = pending;
+      const { channel, deadlineHr, customMsg, doPing, requiredIds, excludedIds, parsedSchedule, scheduleStr } = pending;
       const cfg = raConfig.get(interaction.guildId)||{};
       const autoExcluded = [cfg.raRoleId, cfg.loaRoleId].filter(Boolean);
       const allExcluded  = [...new Set([...excludedIds, ...autoExcluded])];
@@ -1951,6 +2013,25 @@ client.on("interactionCreate",async interaction=>{
         deadline:   Date.now()+deadlineHr*3600000,
         messageId:  sentMsg.id,
       });
+
+      // If a recurring schedule was requested, save it now that we have the final role sets
+      if (parsedSchedule) {
+        const scKey = `${interaction.guildId}:${channel.id}`;
+        scheduledChecks.set(scKey, {
+          guildId:     interaction.guildId,
+          channelId:   channel.id,
+          dayOfWeek:   parsedSchedule.dayOfWeek,
+          hour:        parsedSchedule.hour,
+          minute:      parsedSchedule.minute,
+          deadlineHr,
+          customMsg,
+          doPing,
+          roleIds:     requiredIds,
+          excludedIds: allExcluded,
+          scheduleStr,
+        });
+      }
+
       saveData();
 
       setTimeout(async()=>{
@@ -2245,7 +2326,7 @@ client.on("interactionCreate",async interaction=>{
         {title:"📈 XP & Leaderboards  —  Page 4 / 8",description:["**XP**","You earn XP by sending messages (1 min cooldown). 5–15 XP per message.","Level formula: `floor(50 × level^1.5)` XP per level","","`/xp [user]` — Check XP, level, and progress bar","`/xpleaderboard [scope:global|server]` — Top 10 by XP","","**Stats & Leaderboards**","`/score [user]` — Wins, losses, win rate, streak","`/userprofile [user]` — Everything in one embed","`/leaderboard [type]` — Global top 10","`/serverleaderboard [type]` — Server top 10","> Types: `wins` `coins` `streak` `beststreak` `games` `winrate`"].join("\n")},
         {title:"🎮 Games  —  Page 5 / 8",description:["**Solo** — `/games game:…`","> 🪢 Hangman · 🐍 Snake · 💣 Minesweeper (Easy/Med/Hard)","> 🔢 Number Guess · 🔀 Word Scramble · 📅 Daily Challenge","","**2-Player** — `/2playergames game:… [opponent:…]`","> ❌⭕ Tic Tac Toe *(server only)*","> 🔴🔵 Connect 4 *(server only)*","> ✊ Rock Paper Scissors *(choices sent via DM)*","> 🧮 Math Race · 🏁 Word Race · 🧠 Trivia Battle *(server only)*","> 🔢 Count Game — count to 100 together, no opponent needed *(server only)*","> 🏁 Scramble Race — 5-round word unscramble *(server only)*","","Wins award coins. Check `/score` or `/userprofile` for stats."].join("\n")},
         {title:"⚙️ Server Config  —  Page 6 / 8",description:["Most commands here require **Manage Server** permission.","","**Channels & Messages**","`/channelpicker channel:… [levelup]` — Set the bot's main channel","`/xpconfig setting:…` — Level-up messages (on/off, ping toggle, channel)","`/setwelcome channel:… [message]` — Welcome message (`{user}` `{server}` `{count}`)","`/setleave channel:… [message]` — Leave message","`/setboostmsg channel:… [message]` — Boost announcement","`/disableownermsg enabled:…` — Toggle bot owner broadcasts","`/purge amount:…` — Bulk delete (needs Manage Messages)","`/counting action:set|remove|status` — Set a permanent counting channel","","**Roles**","`/autorole [role]` — Auto-assign role on join (blank to disable)","`/reactionrole action:add|remove|list …` — Emoji reaction roles","`/rolespingfix` — List & fix roles that can @everyone","","**Competitions & Tickets**","`/invitecomp hours:…` — Invite competition with coin rewards","`/ticketsetup` · `/closeticket` · `/addtoticket` · `/removefromticket`","","**Overview**","`/serverconfig` — View all current settings"].join("\n")},
-        {title:"🛡️ Activity & RA/LOA  —  Page 7 / 8",description:["**Activity Checks** *(Manage Server)*","`/activity-check channel:… [deadline] [message] [ping]` — Send a check-in to staff","> Specify which roles must respond and who is excluded","> Auto-closes after the deadline and reports who didn't check in","","**RA / LOA Setup** *(Manage Server)*","`/raconfig action:create` — Auto-create Reduced Activity + LOA roles","`/raconfig action:set_ra|set_loa role:…` — Use existing roles","`/raconfig action:view` — See current config","","**Assigning Roles** *(Manage Roles)*","`/reduced-activity user:… action:give|remove [duration]` — Give/remove RA role","`/loa user:… action:give|remove [duration]` — Give/remove LOA role","> `duration` is in hours — omit for permanent","","**AI Chat** *(server only)*","`/chat message:…` — Chat with Gemini AI 🤖","`/custominstruction instruction:…` — Set a custom Gemini system prompt","`/clearchat` — Clear your Gemini chat history"].join("\n")},
+        {title:"🛡️ Activity & RA/LOA  —  Page 7 / 8",description:["**Activity Checks** *(Manage Server)*","`/activity-check channel:… [deadline] [message] [ping] [schedule]` — Send a check-in to staff","> Specify which roles must respond and who is excluded","> Auto-closes after the deadline and reports who didn't check in","> Add `schedule:Monday 09:00` (UTC) to repeat it weekly automatically","","**RA / LOA Setup** *(Manage Server)*","`/raconfig action:create` — Auto-create Reduced Activity + LOA roles","`/raconfig action:set_ra|set_loa role:…` — Use existing roles","`/raconfig action:view` — See current config","","**Assigning Roles** *(Manage Roles)*","`/reduced-activity user:… action:give|remove [duration]` — Give/remove RA role","`/loa user:… action:give|remove [duration]` — Give/remove LOA role","> `duration` is in hours — omit for permanent"].join("\n")},
         {title:"📺 YouTube Tracking  —  Page 8 / 8",description:["Track a YouTube channel's subscriber count live in Discord.","All commands require **Manage Server** permission.","","**Setup (do this first)**","`/ytsetup channel:… discord_channel:… [apikey:…]` — Connect a YouTube channel","> Accepts `@handle`, full URL, or channel ID starting with UC","> Provide your YouTube Data API v3 key on first use — it's saved to botdata","> Get a free key at console.cloud.google.com → enable YouTube Data API v3","","**Live Sub Count**","`/subcount threshold:1K|10K` — Post an embed that edits itself every 5 min","","**Sub Goal**","`/subgoal goal:N [message]` — Live progress bar towards a target sub count","> Fires a custom or default message when the goal is reached","","**Milestones**","`/milestones action:add subs:N [message]` — Announce when a sub count is crossed","`/milestones action:remove subs:N` — Remove a milestone","`/milestones action:list` — View all milestones and their status"].join("\n")},
       ];
       const p=HELP_PAGES[page];
@@ -2570,7 +2651,7 @@ client.on("interactionCreate",async interaction=>{
   const cmd=interaction.commandName;
   const inGuild=!!interaction.guildId;
 
-  const ownerOnly=["servers","broadcast","fakecrash","identitycrisis","botolympics","sentience","legendrandom","dmuser","leaveserver","restart","botstats","setstatus","adminuser","adminreset","adminconfig","admingive","echo","forcemarry","forcedivorce","shadowdelete","chat","custominstruction","clearchat"];
+  const ownerOnly=["servers","broadcast","fakecrash","identitycrisis","botolympics","sentience","legendrandom","dmuser","leaveserver","restart","botstats","setstatus","adminuser","adminreset","adminconfig","admingive","echo","forcemarry","forcedivorce","shadowdelete"];
   if(ownerOnly.includes(cmd)&&!OWNER_IDS.includes(interaction.user.id))return safeReply(interaction,{content:"Owner only.",ephemeral:true});
 
   const manageServerCmds=["channelpicker","counting","xpconfig","setwelcome","setleave","setwelcomemsg","setleavemsg","disableownermsg","serverconfig","autorole","setboostmsg","invitecomp","purge","reactionrole","ticketsetup","ytsetup","subgoal","subcount","milestones"];
@@ -2976,7 +3057,7 @@ if(cmd==="gif"){
         {title:"📈 XP & Leaderboards  —  Page 4 / 8",description:["**XP**","You earn XP by sending messages (1 min cooldown). 5–15 XP per message.","Level formula: `floor(50 × level^1.5)` XP per level","","`/xp [user]` — Check XP, level, and progress bar","`/xpleaderboard [scope:global|server]` — Top 10 by XP","","**Stats & Leaderboards**","`/score [user]` — Wins, losses, win rate, streak","`/userprofile [user]` — Everything in one embed","`/leaderboard [type]` — Global top 10","`/serverleaderboard [type]` — Server top 10","> Types: `wins` `coins` `streak` `beststreak` `games` `winrate`"].join("\n")},
         {title:"🎮 Games  —  Page 5 / 8",description:["**Solo** — `/games game:…`","> 🪢 Hangman · 🐍 Snake · 💣 Minesweeper (Easy/Med/Hard)","> 🔢 Number Guess · 🔀 Word Scramble · 📅 Daily Challenge","","**2-Player** — `/2playergames game:… [opponent:…]`","> ❌⭕ Tic Tac Toe *(server only)*","> 🔴🔵 Connect 4 *(server only)*","> ✊ Rock Paper Scissors *(choices sent via DM)*","> 🧮 Math Race · 🏁 Word Race · 🧠 Trivia Battle *(server only)*","> 🔢 Count Game — count to 100 together, no opponent needed *(server only)*","> 🏁 Scramble Race — 5-round word unscramble *(server only)*","","Wins award coins. Check `/score` or `/userprofile` for stats."].join("\n")},
         {title:"⚙️ Server Config  —  Page 6 / 8",description:["Most commands here require **Manage Server** permission.","","**Channels & Messages**","`/channelpicker channel:… [levelup]` — Set the bot's main channel","`/xpconfig setting:…` — Level-up messages (on/off, ping toggle, channel)","`/setwelcome channel:… [message]` — Welcome message (`{user}` `{server}` `{count}`)","`/setleave channel:… [message]` — Leave message","`/setboostmsg channel:… [message]` — Boost announcement","`/disableownermsg enabled:…` — Toggle bot owner broadcasts","`/purge amount:…` — Bulk delete (needs Manage Messages)","`/counting action:set|remove|status` — Set a permanent counting channel","","**Roles**","`/autorole [role]` — Auto-assign role on join (blank to disable)","`/reactionrole action:add|remove|list …` — Emoji reaction roles","`/rolespingfix` — List & fix roles that can @everyone","","**Competitions & Tickets**","`/invitecomp hours:…` — Invite competition with coin rewards","`/ticketsetup` · `/closeticket` · `/addtoticket` · `/removefromticket`","","**Overview**","`/serverconfig` — View all current settings"].join("\n")},
-        {title:"🛡️ Activity & RA/LOA  —  Page 7 / 8",description:["**Activity Checks** *(Manage Server)*","`/activity-check channel:… [deadline] [message] [ping]` — Send a check-in to staff","> Specify which roles must respond and who is excluded","> Auto-closes after the deadline and reports who didn't check in","","**RA / LOA Setup** *(Manage Server)*","`/raconfig action:create` — Auto-create Reduced Activity + LOA roles","`/raconfig action:set_ra|set_loa role:…` — Use existing roles","`/raconfig action:view` — See current config","","**Assigning Roles** *(Manage Roles)*","`/reduced-activity user:… action:give|remove [duration]` — Give/remove RA role","`/loa user:… action:give|remove [duration]` — Give/remove LOA role","> `duration` is in hours — omit for permanent","","**AI Chat** *(server only)*","`/chat message:…` — Chat with Gemini AI 🤖","`/custominstruction instruction:…` — Set a custom Gemini system prompt","`/clearchat` — Clear your Gemini chat history"].join("\n")},
+        {title:"🛡️ Activity & RA/LOA  —  Page 7 / 8",description:["**Activity Checks** *(Manage Server)*","`/activity-check channel:… [deadline] [message] [ping] [schedule]` — Send a check-in to staff","> Specify which roles must respond and who is excluded","> Auto-closes after the deadline and reports who didn't check in","> Add `schedule:Monday 09:00` (UTC) to repeat it weekly automatically","","**RA / LOA Setup** *(Manage Server)*","`/raconfig action:create` — Auto-create Reduced Activity + LOA roles","`/raconfig action:set_ra|set_loa role:…` — Use existing roles","`/raconfig action:view` — See current config","","**Assigning Roles** *(Manage Roles)*","`/reduced-activity user:… action:give|remove [duration]` — Give/remove RA role","`/loa user:… action:give|remove [duration]` — Give/remove LOA role","> `duration` is in hours — omit for permanent"].join("\n")},
         {title:"📺 YouTube Tracking  —  Page 8 / 8",description:["Track a YouTube channel's subscriber count live in Discord.","All commands require **Manage Server** permission.","","**Setup (do this first)**","`/ytsetup channel:… discord_channel:… [apikey:…]` — Connect a YouTube channel","> Accepts `@handle`, full URL, or channel ID starting with UC","> Provide your YouTube Data API v3 key on first use — it's saved to botdata","> Get a free key at console.cloud.google.com → enable YouTube Data API v3","","**Live Sub Count**","`/subcount threshold:1K|10K` — Post an embed that edits itself every 5 min","","**Sub Goal**","`/subgoal goal:N [message]` — Live progress bar towards a target sub count","> Fires a custom or default message when the goal is reached","","**Milestones**","`/milestones action:add subs:N [message]` — Announce when a sub count is crossed","`/milestones action:remove subs:N` — Remove a milestone","`/milestones action:list` — View all milestones and their status"].join("\n")},
       ];
       const TOTAL=HELP_PAGES.length;
@@ -3310,78 +3391,6 @@ if(cmd==="gif"){
       }
       return safeReply(interaction,{content:"Unknown game.",ephemeral:true});
     }
-// ── Gemini AI ─────────────────────────────
-
-// /chat (Owner + Guild only)
-if(cmd==="chat"){
-  if(!inGuild){
-    return safeReply(interaction,{
-      content:"❌ This command can only be used in servers.",
-      ephemeral:true
-    });
-  }
-
-  if(!OWNER_IDS.includes(interaction.user.id)){
-    return safeReply(interaction,{
-      content:"❌ Owner only command.",
-      ephemeral:true
-    });
-  }
-
-  const message = interaction.options.getString("message");
-
-  if(!message){
-    return safeReply(interaction,{
-      content:"❌ Please provide a message.",
-      ephemeral:true
-    });
-  }
-
-  await interaction.deferReply();
-
-  try{
-    const response = await askGemini(message);
-    return interaction.editReply(response.slice(0,2000));
-  }catch(err){
-    console.error(err);
-    return interaction.editReply("❌ Gemini error.");
-  }
-}
-
-
-// /custominstruction (Owner only)
-if(cmd==="custominstruction"){
-  if(!OWNER_IDS.includes(interaction.user.id)){
-    return safeReply(interaction,{
-      content:"❌ Owner only command.",
-      ephemeral:true
-    });
-  }
-
-  const instruction = interaction.options.getString("instruction");
-
-  if(!instruction){
-    return safeReply(interaction,{
-      content:"❌ Provide instruction text.",
-      ephemeral:true
-    });
-  }
-
-  try{
-    setInstruction(instruction);
-
-    return safeReply(interaction,{
-      content:"✅ Custom instruction saved.",
-      ephemeral:true
-    });
-  }catch(err){
-    console.error(err);
-    return safeReply(interaction,{
-      content:"❌ Failed to save instruction.",
-      ephemeral:true
-    });
-  }
-}
     // ── /2playergames — multiplayer game launcher ─────────────────────────────
     if(cmd==="2playergames"){
       const game=interaction.options.getString("game");
@@ -3675,15 +3684,7 @@ if(cmd==="custominstruction"){
       for(const g of client.guilds.cache.values()){totalUsers+=g.memberCount;serverList+=`• ${g.name} (${g.memberCount.toLocaleString()})\n`;if(serverList.length>1500){serverList+="…and more\n";break;}}
       const ui=await getUserAppInstalls();
       const appUserCount=userInstalls.size;
-      // Fetch quote image count from GitHub
-      let quoteImageCount="?";
-      try {
-        const qRes = await fetch("https://api.github.com/repos/Royal-V-RR/discord-bot/contents/quotes",{
-          headers:{"User-Agent":"RoyalBot","Authorization":`token ${GH_TOKEN}`,"Accept":"application/vnd.github+json"}
-        });
-        if(qRes.ok){ const files=await qRes.json(); quoteImageCount=Array.isArray(files)?files.filter(f=>f.type==="file").length:"?"; }
-      } catch{}
-      const content=`**Bot Stats**\nServers: **${client.guilds.cache.size.toLocaleString()}**\nTotal users (across servers): **${totalUsers.toLocaleString()}**\nApp installs (Discord estimate): **${typeof ui==="number"?ui.toLocaleString():ui}**\nTracked app users (interacted outside servers): **${appUserCount}**\nQuote images: **${quoteImageCount}**\n\n${serverList}`;
+      const content=`**Bot Stats**\nServers: **${client.guilds.cache.size.toLocaleString()}**\nTotal users (across servers): **${totalUsers.toLocaleString()}**\nApp installs (Discord estimate): **${typeof ui==="number"?ui.toLocaleString():ui}**\nTracked app users (interacted outside servers): **${appUserCount}**\n\n${serverList}`;
       const btn=new MessageActionRow().addComponents(new MessageButton().setCustomId("botstats_users").setLabel(`View App Users (${appUserCount})`).setStyle("SECONDARY").setDisabled(appUserCount===0));
       return safeReply(interaction,{content,components:[btn]});
     }
@@ -4178,59 +4179,8 @@ if(cmd==="custominstruction"){
       },hours*3600000);
       return;
     }
-    if(cmd==="chat"){
-      await interaction.deferReply();
-      const userMessage = interaction.options.getString("message");
-      const userId = interaction.user.id;
-
-      // Load data & init history
-      const d = loadData();
-      if(!d.geminiHistory) d.geminiHistory = {};
-      if(!d.geminiHistory[userId]) d.geminiHistory[userId] = [];
-
-      // Append user turn
-      d.geminiHistory[userId].push({ role:"user", parts:[{ text: userMessage }] });
-
-      // Build contents — prepend custom instruction as a fake exchange if set
-      let contents = d.geminiHistory[userId];
-      if(d.customInstruction){
-        contents = [
-          { role:"user",  parts:[{ text: d.customInstruction }] },
-          { role:"model", parts:[{ text: "Understood." }] },
-          ...d.geminiHistory[userId]
-        ];
-      }
-
-      const API_KEY = process.env.GEMINI_API_KEY;
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${API_KEY}`,
-        { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ contents }) }
-      );
-      const json = await res.json();
-      const reply = json.candidates?.[0]?.content?.parts?.[0]?.text ?? "No response.";
-
-      // Save assistant turn & persist
-      d.geminiHistory[userId].push({ role:"model", parts:[{ text: reply }] });
-      saveData(d);
-
-      return interaction.editReply(reply.slice(0, 2000));
-    }
-
-    if(cmd==="custominstruction"){
-      const instruction = interaction.options.getString("instruction");
-      setInstruction(instruction);
-      return safeReply(interaction,{ content:"✅ Custom instruction set.", ephemeral:true });
-    }
-
-    if(cmd==="clearchat"){
-      const userId = interaction.user.id;
-      const d = loadData();
-      if(d.geminiHistory) d.geminiHistory[userId] = [];
-      saveData(d);
-      return safeReply(interaction,{ content:"🗑️ Your Gemini chat history has been cleared.", ephemeral:true });
-    }
-
     if(cmd==="upload"){
+      if(!inGuild) return safeReply(interaction,{content:"Server only.",ephemeral:true});
       // Both source and link are restricted to MEMERS
       if(!MEMERS.includes(interaction.user.id))
         return safeReply(interaction,{content:"❌ You don't have permission to use /upload.",ephemeral:true});
@@ -4311,6 +4261,13 @@ if(cmd==="custominstruction"){
       const deadlineHr = interaction.options.getInteger("deadline")??24;
       const customMsg  = interaction.options.getString("message")||null;
       const doPing     = interaction.options.getBoolean("ping")??true;
+      const scheduleStr= interaction.options.getString("schedule")||null;
+
+      // If a schedule string is provided, parse and save it — then go through role selection
+      const parsedSchedule = scheduleStr ? parseSchedule(scheduleStr) : null;
+      if (scheduleStr && !parsedSchedule) {
+        return safeReply(interaction,{content:"❌ Couldn't parse that schedule. Use a format like `Monday 09:00` or `Wed 14:30` (UTC).",ephemeral:true});
+      }
 
       // Build role list for dropdowns — cap at 25, exclude @everyone and managed roles
       const cfg = raConfig.get(interaction.guildId)||{};
@@ -4343,14 +4300,15 @@ if(cmd==="custominstruction"){
           .addOptions(makeOptions([...excludedByDefault]))
       );
       const msgLine = customMsg ? `\n📝 Message: *${customMsg}*` : "";
+      const schedLine = parsedSchedule ? `\n🕐 Schedule: **${scheduleStr}** (UTC, weekly)` : "";
       await safeReply(interaction,{
-        content:`📋 **Activity Check Setup**\nChannel: ${channel}\nDeadline: **${deadlineHr}h**${msgLine}\n\nSelect the roles below, then click **Send Check** once both dropdowns are set.`,
+        content:`📋 **Activity Check Setup**\nChannel: ${channel}\nDeadline: **${deadlineHr}h**${msgLine}${schedLine}\n\nSelect the roles below, then click **Send Check** once both dropdowns are set.`,
         components:[requiredMenu, excludedMenu],
         ephemeral:true
       });
       // Store pending config keyed by user so the select handler can retrieve it
       if(!interaction.client._acPending) interaction.client._acPending = new Map();
-      interaction.client._acPending.set(interaction.user.id, { channel, deadlineHr, customMsg, doPing, requiredIds:[], excludedIds:[...excludedByDefault] });
+      interaction.client._acPending.set(interaction.user.id, { channel, deadlineHr, customMsg, doPing, requiredIds:[], excludedIds:[...excludedByDefault], parsedSchedule, scheduleStr });
       return;
     }
 
