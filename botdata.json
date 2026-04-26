@@ -307,7 +307,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 526,
+        "xp": 537,
         "level": 8,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -316,7 +316,9 @@
         "inventory": [],
         "marriedTo": null,
         "pendingProposal": null,
-        "forceMarried": false
+        "forceMarried": false,
+        "imagesUploaded": 0,
+        "uploadedImages": []
       }
     ],
     [
@@ -870,8 +872,8 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 717,
-        "level": 6,
+        "xp": 6,
+        "level": 7,
         "lastWorkTime": 0,
         "lastBegTime": 0,
         "lastCrimeTime": 0,
@@ -3333,7 +3335,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-20",
-        "xp": 430,
+        "xp": 437,
         "level": 10,
         "lastWorkTime": 0,
         "lastBegTime": 0,
