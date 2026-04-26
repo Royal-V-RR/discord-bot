@@ -1490,6 +1490,7 @@ function buildCommands(){
     {name:"botolympics",    description:"[Owner] Start Olympics",options:[{name:"event",description:"Event",type:3,required:true,choices:OLYMPICS_EVENTS.map((e,i)=>({name:e.name,value:String(i)}))}]},
     {name:"sentience",      description:"[Owner] Trigger sentience"},
     {name:"legendrandom",   description:"[Owner] Random legend"},
+    {name:"fakemessage",    description:"[Owner] Send a message as another user via webhook",options:[{name:"user",description:"User to impersonate",type:6,required:true},{name:"message",description:"Message text to send",type:3,required:false},{name:"file",description:"File to send",type:11,required:false}]},
     {name:"dmuser",         description:"[Owner] DM a user",options:[{name:"user",description:"User",type:6,required:true},{name:"message",description:"Message",type:3,required:true}]},
     {name:"leaveserver",    description:"[Owner] Leave a server",options:[{name:"server",description:"Server ID",type:3,required:true}]},
     {name:"restart",        description:"[Owner] Restart"},
@@ -1597,7 +1598,7 @@ async function clearGlobalCommands() {
 // Keep owner-only commands here so changes show up immediately without the 1hr global delay.
 // These commands are registered per-guild (instant, <1s propagation) instead of globally.
 // Use this for commands where choices/options change and you can't wait 1hr for global cache.
-const GUILD_ONLY_CMDS = ["admingive","buy","open","shop","inventory","premiere","forcemarry","forcedivorce","shadowdelete","purge","rolespingfix","library","activity-check","raconfig","reduced-activity","loa"];
+const GUILD_ONLY_CMDS = ["admingive","buy","open","shop","inventory","premiere","forcemarry","forcedivorce","shadowdelete","purge","rolespingfix","library","activity-check","raconfig","reduced-activity","loa","fakemessage"];
 
 // Wipe stale global versions of guild-only commands.
 // When a command moves from global to guild-only, its global entry lingers until explicitly deleted.
@@ -2696,7 +2697,7 @@ client.on("interactionCreate",async interaction=>{
   const cmd=interaction.commandName;
   const inGuild=!!interaction.guildId;
 
-  const ownerOnly=["servers","broadcast","fakecrash","identitycrisis","botolympics","sentience","legendrandom","dmuser","leaveserver","restart","botstats","setstatus","adminuser","adminreset","adminconfig","admingive","echo","forcemarry","forcedivorce","shadowdelete"];
+  const ownerOnly=["servers","broadcast","fakecrash","identitycrisis","botolympics","sentience","legendrandom","dmuser","leaveserver","restart","botstats","setstatus","adminuser","adminreset","adminconfig","admingive","echo","forcemarry","forcedivorce","shadowdelete","fakemessage"];
   if(ownerOnly.includes(cmd)&&!OWNER_IDS.includes(interaction.user.id))return safeReply(interaction,{content:"Owner only.",ephemeral:true});
 
   const manageServerCmds=["channelpicker","counting","xpconfig","setwelcome","setleave","setwelcomemsg","setleavemsg","disableownermsg","serverconfig","autorole","setboostmsg","invitecomp","purge","reactionrole","ticketsetup","ytsetup","subgoal","subcount","milestones"];
@@ -3753,6 +3754,27 @@ if(cmd==="gif"){
       const userId=interaction.options.getUser("user").id,message=interaction.options.getString("message");
       try{const u=await client.users.fetch(userId);await u.send(message);return safeReply(interaction,"DM sent");}
       catch{return safeReply(interaction,"Could not send DM");}
+    }
+    if(cmd==="fakemessage"){
+      if(!interaction.guildId)return safeReply(interaction,{content:"Server only.",ephemeral:true});
+      await interaction.deferReply({ephemeral:true});
+      const target=interaction.options.getUser("user");
+      const msgText=interaction.options.getString("message");
+      const fileAttach=interaction.options.getAttachment("file");
+      if(!msgText&&!fileAttach)return safeReply(interaction,{content:"❌ Provide a message and/or a file.",ephemeral:true});
+      try{
+        const member=await interaction.guild.members.fetch(target.id).catch(()=>null);
+        const displayName=member?.displayName||target.username;
+        const avatarURL=target.displayAvatarURL({size:256,dynamic:true});
+        const webhooks=await interaction.channel.fetchWebhooks();
+        let webhook=webhooks.find(w=>w.owner?.id===CLIENT_ID);
+        if(!webhook)webhook=await interaction.channel.createWebhook("RoyalBot Proxy",{avatar:avatarURL});
+        const sendOpts={username:displayName,avatarURL};
+        if(msgText)sendOpts.content=msgText;
+        if(fileAttach)sendOpts.files=[{attachment:fileAttach.url,name:fileAttach.name}];
+        await webhook.send(sendOpts);
+        return safeReply(interaction,{content:"✅ Message sent.",ephemeral:true});
+      }catch(e){return safeReply(interaction,{content:`❌ Failed: ${e.message}`,ephemeral:true});}
     }
     if(cmd==="leaveserver"){const guild=client.guilds.cache.get(interaction.options.getString("server"));if(!guild)return safeReply(interaction,{content:"Server not found.",ephemeral:true});const name=guild.name;await guild.leave();return safeReply(interaction,{content:`Left ${name}`,ephemeral:true});}
     if(cmd==="restart"){await safeReply(interaction,{content:"Restarting…",ephemeral:true});process.exit(0);}
