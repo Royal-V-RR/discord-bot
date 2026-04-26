@@ -4393,7 +4393,7 @@ if(cmd==="gif"){
       }
     }
 
-
+    if(cmd==="upload"){
       // Both source and link are restricted to MEMERS
       if(!MEMERS.has(interaction.user.id))
         return safeReply(interaction,{content:"❌ You don't have permission to use /upload.",ephemeral:true});
