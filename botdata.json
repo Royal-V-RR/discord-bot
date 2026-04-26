@@ -207,7 +207,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 692,
+        "xp": 706,
         "level": 6,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -216,7 +216,9 @@
         "inventory": [],
         "marriedTo": null,
         "pendingProposal": null,
-        "forceMarried": false
+        "forceMarried": false,
+        "imagesUploaded": 0,
+        "uploadedImages": []
       }
     ],
     [
@@ -318,7 +320,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-15",
-        "xp": 1266,
+        "xp": 1289,
         "level": 13,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -1848,7 +1850,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 1391,
+        "xp": 1396,
         "level": 13,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -3619,7 +3621,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 264,
+        "xp": 272,
         "level": 10,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -3628,7 +3630,9 @@
         "inventory": [],
         "marriedTo": null,
         "pendingProposal": null,
-        "forceMarried": false
+        "forceMarried": false,
+        "imagesUploaded": 0,
+        "uploadedImages": []
       }
     ],
     [
@@ -8327,8 +8331,8 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 46,
-        "level": 1,
+        "xp": 2,
+        "level": 2,
         "lastWorkTime": 0,
         "lastBegTime": 0,
         "lastCrimeTime": 0,
@@ -8336,7 +8340,9 @@
         "inventory": [],
         "marriedTo": null,
         "pendingProposal": null,
-        "forceMarried": false
+        "forceMarried": false,
+        "imagesUploaded": 0,
+        "uploadedImages": []
       }
     ],
     [
@@ -12385,6 +12391,30 @@
         "marriedTo": null,
         "pendingProposal": null,
         "forceMarried": false
+      }
+    ],
+    [
+      "1492990878283989142",
+      {
+        "username": "austin670542",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 14,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
       }
     ]
   ],
