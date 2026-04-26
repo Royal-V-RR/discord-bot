@@ -3026,7 +3026,7 @@ if(cmd==="gif"){
       const u = interaction.options.getUser("user") || interaction.user;
       const s = getScore(u.id, u.username);
       const { level, xp, needed } = xpInfo(s);
-      const member = inGuild ? interaction.guild.members.cache.get(u.id) : null;
+      const member = inGuild ? await interaction.guild.members.fetch(u.id).catch(()=>null) : null;
       const createdTs = Math.floor(u.createdTimestamp / 1000);
       const joinedTs  = member ? Math.floor(member.joinedTimestamp / 1000) : null;
       const barFilled = Math.floor((xp / needed) * 20);
@@ -3731,7 +3731,20 @@ if(cmd==="gif"){
       for(const g of client.guilds.cache.values()){totalUsers+=g.memberCount;serverList+=`• ${g.name} (${g.memberCount.toLocaleString()})\n`;if(serverList.length>1500){serverList+="…and more\n";break;}}
       const ui=await getUserAppInstalls();
       const appUserCount=userInstalls.size;
-      const content=`**Bot Stats**\nServers: **${client.guilds.cache.size.toLocaleString()}**\nTotal users (across servers): **${totalUsers.toLocaleString()}**\nApp installs (Discord estimate): **${typeof ui==="number"?ui.toLocaleString():ui}**\nTracked app users (interacted outside servers): **${appUserCount}**\n\n${serverList}`;
+
+      // Fetch quotes folder count from GitHub
+      let quotesCount = "?";
+      try {
+        const ghRes = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/quotes`,{
+          headers:{"User-Agent":"RoyalBot","Authorization":`token ${GH_TOKEN}`,"Accept":"application/vnd.github+json"}
+        });
+        if(ghRes.ok){
+          const files = await ghRes.json();
+          if(Array.isArray(files)) quotesCount = files.filter(f=>f.type==="file").length;
+        }
+      } catch(e){ console.error("botstats quotes fetch:",e.message); }
+
+      const content=`**Bot Stats**\nServers: **${client.guilds.cache.size.toLocaleString()}**\nTotal users (across servers): **${totalUsers.toLocaleString()}**\nApp installs (Discord estimate): **${typeof ui==="number"?ui.toLocaleString():ui}**\nTracked app users (interacted outside servers): **${appUserCount}**\n🖼️ Images in quotes folder: **${quotesCount}**\n\n${serverList}`;
       const btn=new MessageActionRow().addComponents(new MessageButton().setCustomId("botstats_users").setLabel(`View App Users (${appUserCount})`).setStyle("SECONDARY").setDisabled(appUserCount===0));
       return safeReply(interaction,{content,components:[btn]});
     }
