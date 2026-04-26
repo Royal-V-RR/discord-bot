@@ -9,7 +9,8 @@ const CLIENT_ID = "1480592876684706064";
 const OWNER_IDS = ["1419803002771865722","969280648667889764"];
 const OWNER_ID  = OWNER_IDS[1];
 const GAY_IDS   = ["1245284545452834857","1413943805203189800","1057320311453913149","1193150033864949811"];
-const MEMERS    = ["1419803002771865722","1259223683826712729","1254388539890860083","1082452773787942922","1193150033864949811","1413943805203189800","969280648667889764","690219723472109616"]; // Users allowed to use /upload source
+// Mutable — managed via /managememers (owner only), persisted in botdata.json
+const MEMERS = new Set(["1419803002771865722","1259223683826712729","1254388539890860083","1082452773787942922","1193150033864949811","1413943805203189800","969280648667889764","690219723472109616"]); // Users allowed to use /upload
 
 // ── Instance lock ─────────────────────────────────────────────────────────────
 const INSTANCE_ID = Math.random().toString(36).slice(2, 8);
@@ -329,6 +330,7 @@ function buildDataObject() {
     raConfig:         [...raConfig.entries()],
     activityChecks:   [...activityChecks.entries()],
     scheduledChecks:  [...scheduledChecks.entries()],
+    memers:           [...MEMERS],
   };
 }
 
@@ -383,6 +385,7 @@ function loadData() {
     if (data.countingChannels) data.countingChannels  .forEach(([k,v]) => countingChannels.set(k, v));
     if (data.userInstalls)     data.userInstalls    .forEach(v => userInstalls.add(v));
     if (data.scores)           data.scores          .forEach(([k,v]) => scores.set(k, v));
+    if (data.memers)           { MEMERS.clear(); data.memers.forEach(v => MEMERS.add(v)); }
 
     // Restore active item effects — drop any that have already expired
     if (data.activeEffects) {
@@ -1522,6 +1525,14 @@ function buildCommands(){
       {name:"source",          description:"[Memers only] Upload a file directly from your device",type:11,required:false},
       {name:"link",            description:"[Memers only] Submit an image via URL link",type:3,required:false},
     ]},
+    {name:"managememers",      description:"[Owner] Add or remove users from the upload allowlist",options:[
+      {name:"action",          description:"Add or remove",type:3,required:true,choices:[
+        {name:"Add",value:"add"},
+        {name:"Remove",value:"remove"},
+        {name:"List",value:"list"},
+      ]},
+      {name:"user",            description:"User to add or remove (not needed for list)",type:6,required:false},
+    ]},
     {name:"library",           description:"Browse images a user has uploaded to the quotes folder",options:[
       {name:"user",            description:"User whose uploads to browse",type:6,required:true},
     ]},
@@ -1586,7 +1597,7 @@ async function clearGlobalCommands() {
 // Keep owner-only commands here so changes show up immediately without the 1hr global delay.
 // These commands are registered per-guild (instant, <1s propagation) instead of globally.
 // Use this for commands where choices/options change and you can't wait 1hr for global cache.
-const GUILD_ONLY_CMDS = ["admingive","buy","open","shop","inventory","premiere","forcemarry","forcedivorce","shadowdelete","purge","rolespingfix","upload","library","activity-check","raconfig","reduced-activity","loa"];
+const GUILD_ONLY_CMDS = ["admingive","buy","open","shop","inventory","premiere","forcemarry","forcedivorce","shadowdelete","purge","rolespingfix","library","activity-check","raconfig","reduced-activity","loa"];
 
 // Wipe stale global versions of guild-only commands.
 // When a command moves from global to guild-only, its global entry lingers until explicitly deleted.
@@ -4235,10 +4246,42 @@ if(cmd==="gif"){
       });
     }
 
+    if(cmd==="managememers"){
+      if(!OWNER_IDS.includes(interaction.user.id))
+        return safeReply(interaction,{content:"❌ Owner only.",ephemeral:true});
+      const action = interaction.options.getString("action");
+      const target = interaction.options.getUser("user")||null;
+
+      if(action==="list"){
+        const list = [...MEMERS].map(id=>`<@${id}>`).join("\n")||"*(none)*";
+        return safeReply(interaction,{content:`📋 **Upload allowlist (${MEMERS.size}):**\n${list}`,ephemeral:true});
+      }
+
+      if(!target)
+        return safeReply(interaction,{content:"❌ Provide a user for add/remove.",ephemeral:true});
+
+      if(action==="add"){
+        if(MEMERS.has(target.id))
+          return safeReply(interaction,{content:`ℹ️ <@${target.id}> is already in the allowlist.`,ephemeral:true});
+        MEMERS.add(target.id);
+        saveData();
+        return safeReply(interaction,{content:`✅ Added <@${target.id}> to the upload allowlist.`,ephemeral:true});
+      }
+
+      if(action==="remove"){
+        if(!MEMERS.has(target.id))
+          return safeReply(interaction,{content:`ℹ️ <@${target.id}> isn't in the allowlist.`,ephemeral:true});
+        MEMERS.delete(target.id);
+        saveData();
+        return safeReply(interaction,{content:`✅ Removed <@${target.id}> from the upload allowlist.`,ephemeral:true});
+      }
+
+      return safeReply(interaction,{content:"❌ Unknown action.",ephemeral:true});
+    }
+
     if(cmd==="upload"){
-      if(!inGuild) return safeReply(interaction,{content:"Server only.",ephemeral:true});
       // Both source and link are restricted to MEMERS
-      if(!MEMERS.includes(interaction.user.id))
+      if(!MEMERS.has(interaction.user.id))
         return safeReply(interaction,{content:"❌ You don't have permission to use /upload.",ephemeral:true});
 
       const attachment = interaction.options.getAttachment("source")||null;
