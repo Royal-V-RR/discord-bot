@@ -2914,12 +2914,11 @@ if(cmd==="gif"){
         const images = files.filter(f => /\.(png|jpe?g|gif|webp)$/i.test(f.name));
         if(!images.length) return safeReply(interaction, "No images in the quotes folder.");
         const chosen = images[Math.floor(Math.random() * images.length)];
-        const imageUrl = `https://raw.githubusercontent.com/Royal-V-RR/discord-bot/main/quotes/${encodeURIComponent(chosen.name)}`;
         // ~5% chance to also show the upload promo message
         if(Math.random() < 0.05){
-          return safeReply(interaction, { content: "Do you want to be able to upload images to be used in /quote? Add **genuineleafy** or **royalvmusic** in discord to do so!", embeds: [{ image: { url: imageUrl } }] });
+          return safeReply(interaction, { content: "Do you want to be able to upload images to be used in /quote? Add **genuineleafy** or **royalvmusic** in discord to do so!", files: [chosen.download_url] });
         }
-        return safeReply(interaction, { embeds: [{ image: { url: imageUrl } }] });
+        return safeReply(interaction, { files: [chosen.download_url] });
       } catch(e) {
         return safeReply(interaction, "Something went wrong fetching a quote.");
       }
@@ -4431,6 +4430,9 @@ if(cmd==="gif"){
 
         const ghPath  = `quotes/${fileName}`;
         const encoded = fileBuffer.toString("base64");
+
+        if(fileBuffer.length > 1_000_000)
+          return safeReply(interaction,{content:`❌ File is too large (${(fileBuffer.length/1024/1024).toFixed(1)} MB). GitHub's API only accepts images under 1 MB.`,ephemeral:true});
 
         const checkRes = await fetch(`https://api.github.com/repos/Royal-V-RR/discord-bot/contents/${ghPath}`,{
           headers:{"User-Agent":"RoyalBot","Authorization":`token ${GH_TOKEN}`,"Accept":"application/vnd.github+json"}
