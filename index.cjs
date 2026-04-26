@@ -1518,7 +1518,7 @@ async function clearGlobalCommands() {
 // Keep owner-only commands here so changes show up immediately without the 1hr global delay.
 // These commands are registered per-guild (instant, <1s propagation) instead of globally.
 // Use this for commands where choices/options change and you can't wait 1hr for global cache.
-const GUILD_ONLY_CMDS = ["admingive","buy","open","shop","inventory","premiere","forcemarry","forcedivorce","shadowdelete","purge","rolespingfix","chat","custominstruction","clearchat","upload","activity-check","raconfig","reduced-activity","loa"];
+const GUILD_ONLY_CMDS = ["admingive","buy","open","shop","inventory","premiere","forcemarry","forcedivorce","shadowdelete","purge","rolespingfix","chat","custominstruction","clearchat","activity-check","raconfig","reduced-activity","loa"];
 
 // Wipe stale global versions of guild-only commands.
 // When a command moves from global to guild-only, its global entry lingers until explicitly deleted.
@@ -3675,7 +3675,15 @@ if(cmd==="custominstruction"){
       for(const g of client.guilds.cache.values()){totalUsers+=g.memberCount;serverList+=`• ${g.name} (${g.memberCount.toLocaleString()})\n`;if(serverList.length>1500){serverList+="…and more\n";break;}}
       const ui=await getUserAppInstalls();
       const appUserCount=userInstalls.size;
-      const content=`**Bot Stats**\nServers: **${client.guilds.cache.size.toLocaleString()}**\nTotal users (across servers): **${totalUsers.toLocaleString()}**\nApp installs (Discord estimate): **${typeof ui==="number"?ui.toLocaleString():ui}**\nTracked app users (interacted outside servers): **${appUserCount}**\n\n${serverList}`;
+      // Fetch quote image count from GitHub
+      let quoteImageCount="?";
+      try {
+        const qRes = await fetch("https://api.github.com/repos/Royal-V-RR/discord-bot/contents/quotes",{
+          headers:{"User-Agent":"RoyalBot","Authorization":`token ${GH_TOKEN}`,"Accept":"application/vnd.github+json"}
+        });
+        if(qRes.ok){ const files=await qRes.json(); quoteImageCount=Array.isArray(files)?files.filter(f=>f.type==="file").length:"?"; }
+      } catch{}
+      const content=`**Bot Stats**\nServers: **${client.guilds.cache.size.toLocaleString()}**\nTotal users (across servers): **${totalUsers.toLocaleString()}**\nApp installs (Discord estimate): **${typeof ui==="number"?ui.toLocaleString():ui}**\nTracked app users (interacted outside servers): **${appUserCount}**\nQuote images: **${quoteImageCount}**\n\n${serverList}`;
       const btn=new MessageActionRow().addComponents(new MessageButton().setCustomId("botstats_users").setLabel(`View App Users (${appUserCount})`).setStyle("SECONDARY").setDisabled(appUserCount===0));
       return safeReply(interaction,{content,components:[btn]});
     }
@@ -4223,7 +4231,6 @@ if(cmd==="custominstruction"){
     }
 
     if(cmd==="upload"){
-      if(!inGuild) return safeReply(interaction,{content:"Server only.",ephemeral:true});
       // Both source and link are restricted to MEMERS
       if(!MEMERS.includes(interaction.user.id))
         return safeReply(interaction,{content:"❌ You don't have permission to use /upload.",ephemeral:true});
