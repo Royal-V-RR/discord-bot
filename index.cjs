@@ -110,6 +110,7 @@ function getScore(userId, username) {
   if (s.bestStreak    == null) s.bestStreak    = 0;
   if (s.lastDailyDate == null) s.lastDailyDate = "";
   if (s.imagesUploaded == null) s.imagesUploaded = 0;
+  if (!Array.isArray(s.uploadedImages)) s.uploadedImages = [];
   return s;
 }
 function recordWin(uid, uname, coins=50)  { const s=getScore(uid,uname); s.wins++; s.gamesPlayed++; s.coins+=coins; }
@@ -1521,6 +1522,9 @@ function buildCommands(){
       {name:"source",          description:"[Memers only] Upload a file directly from your device",type:11,required:false},
       {name:"link",            description:"[Memers only] Submit an image via URL link",type:3,required:false},
     ]},
+    {name:"library",           description:"Browse images a user has uploaded to the quotes folder",options:[
+      {name:"user",            description:"User whose uploads to browse",type:6,required:true},
+    ]},
     {name:"activity-check",   description:"Send an activity check (Manage Server)",options:[
       {name:"channel",         description:"Channel to send the activity check in",type:7,required:true},
       {name:"deadline",        description:"Hours until check closes (default: 24)",type:4,required:false},
@@ -1582,7 +1586,7 @@ async function clearGlobalCommands() {
 // Keep owner-only commands here so changes show up immediately without the 1hr global delay.
 // These commands are registered per-guild (instant, <1s propagation) instead of globally.
 // Use this for commands where choices/options change and you can't wait 1hr for global cache.
-const GUILD_ONLY_CMDS = ["admingive","buy","open","shop","inventory","premiere","forcemarry","forcedivorce","shadowdelete","purge","rolespingfix","upload","activity-check","raconfig","reduced-activity","loa"];
+const GUILD_ONLY_CMDS = ["admingive","buy","open","shop","inventory","premiere","forcemarry","forcedivorce","shadowdelete","purge","rolespingfix","upload","library","activity-check","raconfig","reduced-activity","loa"];
 
 // Wipe stale global versions of guild-only commands.
 // When a command moves from global to guild-only, its global entry lingers until explicitly deleted.
@@ -2129,6 +2133,34 @@ client.on("interactionCreate",async interaction=>{
       }
       return;
     }
+    // ── Library navigation ────────────────────────────────────────────────────
+    if(cid.startsWith("lib_")){
+      // customId: lib_prev_{targetUserId}_{currentIndex} or lib_next_{...}
+      const parts = cid.split("_"); // ["lib","prev"|"next", userId, index]
+      const dir = parts[1];
+      const targetUserId = parts[2];
+      const currentIdx = parseInt(parts[3]);
+      const targetScore = getScore(targetUserId, null);
+      const files = targetScore.uploadedImages || [];
+      if(!files.length){ try{await interaction.reply({content:"No images found.",ephemeral:true});}catch{}return; }
+      const newIdx = dir==="prev" ? Math.max(0,currentIdx-1) : Math.min(files.length-1,currentIdx+1);
+      const fileName = files[newIdx];
+      const imageUrl = `https://raw.githubusercontent.com/Royal-V-RR/discord-bot/main/quotes/${encodeURIComponent(fileName)}`;
+      const targetUser = await client.users.fetch(targetUserId).catch(()=>null);
+      const displayName = targetUser?.username || "Unknown";
+      const row = new MessageActionRow().addComponents(
+        new MessageButton().setCustomId(`lib_prev_${targetUserId}_${newIdx}`).setLabel("◀ Prev").setStyle("SECONDARY").setDisabled(newIdx===0),
+        new MessageButton().setCustomId(`lib_next_${targetUserId}_${newIdx}`).setLabel("Next ▶").setStyle("SECONDARY").setDisabled(newIdx===files.length-1),
+      );
+      try{
+        await interaction.update({
+          content:`🖼️ **${displayName}'s Library** — Image ${newIdx+1} of ${files.length}\n**\`${fileName}\`**\n${imageUrl}`,
+          components:[row]
+        });
+      }catch{}
+      return;
+    }
+
     if(cid.startsWith("hm_")){
       const letter=cid.slice(3);
       const gd=activeGames.get(interaction.channelId);
@@ -4183,6 +4215,26 @@ if(cmd==="gif"){
       },hours*3600000);
       return;
     }
+    if(cmd==="library"){
+      if(!inGuild) return safeReply(interaction,{content:"Server only.",ephemeral:true});
+      const targetUser = interaction.options.getUser("user");
+      const targetScore = getScore(targetUser.id, targetUser.username);
+      const files = targetScore.uploadedImages || [];
+      if(!files.length)
+        return safeReply(interaction,{content:`📭 **${targetUser.username}** hasn't uploaded any images yet.`,ephemeral:true});
+      const idx = 0;
+      const fileName = files[idx];
+      const imageUrl = `https://raw.githubusercontent.com/Royal-V-RR/discord-bot/main/quotes/${encodeURIComponent(fileName)}`;
+      const row = new MessageActionRow().addComponents(
+        new MessageButton().setCustomId(`lib_prev_${targetUser.id}_${idx}`).setLabel("◀ Prev").setStyle("SECONDARY").setDisabled(true),
+        new MessageButton().setCustomId(`lib_next_${targetUser.id}_${idx}`).setLabel("Next ▶").setStyle("SECONDARY").setDisabled(files.length<=1),
+      );
+      return safeReply(interaction,{
+        content:`🖼️ **${targetUser.username}'s Library** — Image ${idx+1} of ${files.length}\n**\`${fileName}\`**\n${imageUrl}`,
+        components:[row]
+      });
+    }
+
     if(cmd==="upload"){
       if(!inGuild) return safeReply(interaction,{content:"Server only.",ephemeral:true});
       // Both source and link are restricted to MEMERS
@@ -4251,6 +4303,8 @@ if(cmd==="gif"){
 
         const s = getScore(interaction.user.id, interaction.user.username);
         s.imagesUploaded = (s.imagesUploaded || 0) + 1;
+        if (!Array.isArray(s.uploadedImages)) s.uploadedImages = [];
+        if (!s.uploadedImages.includes(fileName)) s.uploadedImages.push(fileName);
         saveData();
         return safeReply(interaction,{content:`✅ \`${fileName}\` uploaded to the quotes folder!`,ephemeral:true});
       } catch(e) {
