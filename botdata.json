@@ -169,7 +169,14 @@
     ]
   ],
   "shadowDelete": [],
-  "clankerify": [],
+  "clankerify": [
+    [
+      "690219723472109616",
+      {
+        "expiresAt": null
+      }
+    ]
+  ],
   "reactionRoles": [
     [
       "1408975996715139084:1483218332005175427:🤖",
@@ -575,7 +582,7 @@
         "marriedTo": null,
         "pendingProposal": null,
         "forceMarried": false,
-        "imagesUploaded": 47,
+        "imagesUploaded": 48,
         "uploadedImages": [
           "IMG_4186.png",
           "quote_1498252621922832514.png",
@@ -622,7 +629,8 @@
           "IMG_4293.png",
           "IMG_4295.png",
           "IMG_4294.png",
-          "IMG_4296.png"
+          "IMG_4296.png",
+          "quote_1498701785404014612.png"
         ]
       }
     ],
@@ -660,7 +668,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 2297,
+        "xp": 2307,
         "level": 13,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -988,7 +996,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 311,
+        "xp": 323,
         "level": 8,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -3879,7 +3887,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 938,
+        "xp": 947,
         "level": 10,
         "lastWorkTime": 0,
         "lastBegTime": 0,
