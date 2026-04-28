@@ -169,6 +169,14 @@
     ]
   ],
   "shadowDelete": [],
+  "clankerify": [
+    [
+      "1254388539890860083",
+      {
+        "expiresAt": null
+      }
+    ]
+  ],
   "reactionRoles": [
     [
       "1408975996715139084:1483218332005175427:🤖",
@@ -987,7 +995,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 276,
+        "xp": 284,
         "level": 8,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -13382,6 +13390,7 @@
   ],
   "activityChecks": [],
   "scheduledChecks": [],
+  "dailyQuoteChannels": [],
   "memers": [
     "1419803002771865722",
     "1259223683826712729",
