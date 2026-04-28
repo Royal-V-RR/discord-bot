@@ -653,7 +653,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 71,
+        "xp": 84,
         "level": 11,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -13672,7 +13672,7 @@
     [
       "spits again.png",
       {
-        "up": 4,
+        "up": 7,
         "down": 0
       }
     ],
@@ -13680,7 +13680,7 @@
       "IMG_7873.png",
       {
         "up": 0,
-        "down": 2
+        "down": 3
       }
     ]
   ],
@@ -13832,6 +13832,10 @@
     [
       "1498795882668101653",
       "IMG_7873.png"
+    ],
+    [
+      "1498795927240966436",
+      "spits again.png"
     ]
   ]
 }
