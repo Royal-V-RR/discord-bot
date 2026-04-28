@@ -390,7 +390,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-15",
-        "xp": 64,
+        "xp": 73,
         "level": 14,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -2060,7 +2060,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 90,
+        "xp": 102,
         "level": 14,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -13644,7 +13644,14 @@
     [
       "quote_1475286443571019910.png",
       {
-        "up": 3,
+        "up": 4,
+        "down": 0
+      }
+    ],
+    [
+      "quote_1498401357743390864.png",
+      {
+        "up": 1,
         "down": 0
       }
     ]
@@ -13777,6 +13784,10 @@
     [
       "1498795560608464977",
       "quote_1475286443571019910.png"
+    ],
+    [
+      "1498795619802943629",
+      "quote_1498401357743390864.png"
     ]
   ]
 }
