@@ -92,6 +92,10 @@ const marriageProposals = new Map(); // proposerId -> { targetId, timeout }
 // A fetch lock prevents multiple concurrent /quote calls from double-fetching.
 let quoteQueue    = [];   // shuffled array of GitHub file objects
 let quoteFetching = false; // true while a refill fetch is in flight
+// quoteVotes: filename -> { up: number, down: number }
+const quoteVotes = new Map();
+// quoteVoteMessages: messageId -> filename  (tracks which quote a message shows)
+const quoteVoteMessages = new Map();
 
 function shuffleArray(arr) {
   for (let i = arr.length - 1; i > 0; i--) {
@@ -102,7 +106,7 @@ function shuffleArray(arr) {
 }
 
 async function refillQuoteQueue() {
-  if (quoteFetching) return; // another call is already fetching
+  if (quoteFetching) return;
   quoteFetching = true;
   try {
     const res = await fetch("https://api.github.com/repos/Royal-V-RR/discord-bot/contents/quotes", {
@@ -111,15 +115,27 @@ async function refillQuoteQueue() {
     if (!res.ok) { quoteFetching = false; return; }
     const files  = await res.json();
     const images = files.filter(f => /\.(png|jpe?g|gif|webp)$/i.test(f.name));
-    if (images.length) quoteQueue = shuffleArray(images);
+    if (images.length) quoteQueue = weightedShuffleQuotes(images);
   } catch(e) { console.error("Quote queue refill failed:", e); }
   quoteFetching = false;
+}
+
+// Build a weighted-shuffled array: each image gets a weight of max(1, baseWeight + up - down)
+// baseWeight = 10 so a new quote starts neutral and can be voted down but not to 0
+function weightedShuffleQuotes(images) {
+  const BASE = 10;
+  const weighted = [];
+  for (const img of images) {
+    const v = quoteVotes.get(img.name) || { up: 0, down: 0 };
+    const w = Math.max(1, BASE + v.up - v.down);
+    for (let i = 0; i < w; i++) weighted.push(img);
+  }
+  return shuffleArray(weighted);
 }
 
 // Returns the next image from the queue, refilling if needed.
 // Returns null if the queue can't be filled (GitHub unavailable).
 async function nextQuoteImage() {
-  // Proactively refill when queue is almost empty (≤10% remaining)
   if (quoteQueue.length === 0 || quoteQueue.length <= Math.max(1, Math.floor(quoteQueue.length * 0.1))) {
     await refillQuoteQueue();
   }
@@ -378,6 +394,8 @@ function buildDataObject() {
     scheduledChecks:      [...scheduledChecks.entries()],
     dailyQuoteChannels:   [...dailyQuoteChannels.entries()],
     memers:               [...MEMERS],
+    quoteVotes:           [...quoteVotes.entries()],
+    quoteVoteMessages:    [...quoteVoteMessages.entries()],
   };
 }
 
@@ -555,6 +573,8 @@ function loadData() {
 
 
     if (data.dailyQuoteChannels) data.dailyQuoteChannels.forEach(([k,v]) => dailyQuoteChannels.set(k, v));
+    if (data.quoteVotes)         data.quoteVotes.forEach(([k,v]) => quoteVotes.set(k, v));
+    if (data.quoteVoteMessages)  data.quoteVoteMessages.forEach(([k,v]) => quoteVoteMessages.set(k, v));
 
     console.log(`✅ Data loaded — ${ticketConfigs.size} ticket configs, ${reactionRoles.size} reaction roles, ${scores.size} scores, ${guildChannels.size} channels, ${activeEffects.size} active effects, ${reminders.length} reminders, ${inviteComps.size} active competitions, ${premieres.size} premieres, ${activityChecks.size} activity checks, ${raConfig.size} RA configs, ${dailyQuoteChannels.size} daily quote channels`);
   } catch(e) { console.error("loadData error:", e.message); }
@@ -585,7 +605,13 @@ setInterval(async () => {
       if (!ch) continue;
       const chosen = await nextQuoteImage();
       if (!chosen) continue;
-      await safeSend(ch, { content: `🌅 **Daily Quote**`, files: [chosen.download_url] });
+      const sent = await safeSend(ch, { content: `🌅 **Daily Quote**`, files: [chosen.download_url] });
+      if (sent) {
+        await sent.react("👍").catch(()=>{});
+        await sent.react("👎").catch(()=>{});
+        quoteVoteMessages.set(sent.id, chosen.name);
+        saveData();
+      }
     } catch(e) { console.error(`Daily quote tick error [${guildId}]:`, e.message); }
   }
 }, 60 * 1000);
@@ -1874,6 +1900,21 @@ client.on("messageReactionAdd", async (reaction, user) => {
   } catch { return; }
   const guildId = reaction.message.guildId;
   if(!guildId) return;
+
+  // ── Quote vote tracking ──────────────────────────────────────────────────────
+  const quoteName = quoteVoteMessages.get(reaction.message.id);
+  if (quoteName) {
+    const emoji = reaction.emoji.name;
+    if (emoji === "👍" || emoji === "👎") {
+      const v = quoteVotes.get(quoteName) || { up: 0, down: 0 };
+      if (emoji === "👍") v.up++;
+      else                v.down++;
+      quoteVotes.set(quoteName, v);
+      saveData();
+    }
+    return; // don't fall through to reaction-role logic
+  }
+
   const key = `${guildId}:${reaction.message.id}:${emojiKey(reaction)}`;
   const roleId = reactionRoles.get(key);
   if(!roleId) return;
@@ -1895,6 +1936,21 @@ client.on("messageReactionRemove", async (reaction, user) => {
   } catch { return; }
   const guildId = reaction.message.guildId;
   if(!guildId) return;
+
+  // ── Quote vote removal ───────────────────────────────────────────────────────
+  const quoteName = quoteVoteMessages.get(reaction.message.id);
+  if (quoteName) {
+    const emoji = reaction.emoji.name;
+    if (emoji === "👍" || emoji === "👎") {
+      const v = quoteVotes.get(quoteName) || { up: 0, down: 0 };
+      if (emoji === "👍") v.up   = Math.max(0, v.up - 1);
+      else                v.down = Math.max(0, v.down - 1);
+      quoteVotes.set(quoteName, v);
+      saveData();
+    }
+    return;
+  }
+
   const key = `${guildId}:${reaction.message.id}:${emojiKey(reaction)}`;
   const roleId = reactionRoles.get(key);
   if(!roleId) return;
@@ -3148,11 +3204,26 @@ if(cmd==="gif"){
       try {
         const chosen = await nextQuoteImage();
         if(!chosen) return safeReply(interaction, "Couldn't load quotes right now.");
+        let sent;
         // ~5% chance to also show the upload promo message
         if(Math.random() < 0.05){
-          return safeReply(interaction, { content: "Do you want to be able to upload images to be used in /quote? Add **genuineleafy** or **royalvmusic** in discord to do so!", files: [chosen.download_url] });
+          sent = await safeReply(interaction, { content: "Do you want to be able to upload images to be used in /quote? Add **genuineleafy** or **royalvmusic** in discord to do so!", files: [chosen.download_url] });
+        } else {
+          sent = await safeReply(interaction, { files: [chosen.download_url] });
         }
-        return safeReply(interaction, { files: [chosen.download_url] });
+        // Fetch the real Message object so we can react on it
+        if(sent){
+          try {
+            const msg = sent.id ? sent : await interaction.fetchReply().catch(()=>null);
+            if(msg){
+              await msg.react("👍").catch(()=>{});
+              await msg.react("👎").catch(()=>{});
+              quoteVoteMessages.set(msg.id, chosen.name);
+              saveData();
+            }
+          } catch {}
+        }
+        return;
       } catch(e) {
         return safeReply(interaction, "Something went wrong fetching a quote.");
       }
