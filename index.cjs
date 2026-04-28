@@ -49,6 +49,8 @@ const reminders        = [];
 const countGames       = new Map();
 const countingChannels = new Map(); // channelId -> { guildId, count, lastUserId, highScore }
 const shadowDelete = new Map(); // userId -> percentage (1-100)
+// clankerify: userId -> { expiresAt: number|null } (null = permanent)
+const clankerify = new Map();
 const inviteComps      = new Map();
 const inviteCache      = new Map();
 const ticketConfigs    = new Map();
@@ -66,6 +68,8 @@ const raTimers         = new Map(); // `${guildId}:${userId}:${type}` -> timeout
 // ping:    whether to @mention the user (default true)
 // channelId: override channel — null means use guildChannels fallback then same-channel
 const levelUpConfig    = new Map(); // guildId -> { enabled, ping, channelId }
+const dailyQuoteChannels = new Map(); // guildId -> { channelId, hour, timezone }
+const quoteCooldown    = new Map(); // userId -> last use timestamp
 
 // ── YouTube tracking ─────────────────────────────────────────────────────────
 // ytConfig: per-guild YouTube settings persisted in botdata.json
@@ -350,6 +354,7 @@ function buildDataObject() {
     boostChannels:    [...boostChannels.entries()],
     autoRoles:        [...autoRoles.entries()],
     shadowDelete: [...shadowDelete.entries()],
+    clankerify:   [...clankerify.entries()],
     reactionRoles:    [...reactionRoles.entries()],
     disabledOwnerMsg: [...disabledOwnerMsg],
     disabledLevelUp:  [...disabledLevelUp],
@@ -370,8 +375,9 @@ function buildDataObject() {
     premieres:        [...premieres.entries()],
     raConfig:         [...raConfig.entries()],
     activityChecks:   [...activityChecks.entries()],
-    scheduledChecks:  [...scheduledChecks.entries()],
-    memers:           [...MEMERS],
+    scheduledChecks:      [...scheduledChecks.entries()],
+    dailyQuoteChannels:   [...dailyQuoteChannels.entries()],
+    memers:               [...MEMERS],
   };
 }
 
@@ -416,6 +422,13 @@ function loadData() {
     if (data.leaveChannels)    data.leaveChannels   .forEach(([k,v]) => leaveChannels.set(k, v));
     if (data.boostChannels)    data.boostChannels   .forEach(([k,v]) => boostChannels.set(k, v));
     if (data.shadowDelete) data.shadowDelete.forEach(([k,v]) => shadowDelete.set(k, v));
+    if (data.clankerify) {
+      const now = Date.now();
+      data.clankerify.forEach(([k,v]) => {
+        // Drop entries that have already expired
+        if (v.expiresAt === null || v.expiresAt > now) clankerify.set(k, v);
+      });
+    }
     if (data.autoRoles)        data.autoRoles       .forEach(([k,v]) => autoRoles.set(k, v));
     if (data.reactionRoles)    data.reactionRoles   .forEach(([k,v]) => reactionRoles.set(k, v));
     if (data.disabledOwnerMsg) data.disabledOwnerMsg.forEach(v => disabledOwnerMsg.add(v));
@@ -540,7 +553,10 @@ function loadData() {
       });
     }
 
-    console.log(`✅ Data loaded — ${ticketConfigs.size} ticket configs, ${reactionRoles.size} reaction roles, ${scores.size} scores, ${guildChannels.size} channels, ${activeEffects.size} active effects, ${reminders.length} reminders, ${inviteComps.size} active competitions, ${premieres.size} premieres, ${activityChecks.size} activity checks, ${raConfig.size} RA configs`);
+
+    if (data.dailyQuoteChannels) data.dailyQuoteChannels.forEach(([k,v]) => dailyQuoteChannels.set(k, v));
+
+    console.log(`✅ Data loaded — ${ticketConfigs.size} ticket configs, ${reactionRoles.size} reaction roles, ${scores.size} scores, ${guildChannels.size} channels, ${activeEffects.size} active effects, ${reminders.length} reminders, ${inviteComps.size} active competitions, ${premieres.size} premieres, ${activityChecks.size} activity checks, ${raConfig.size} RA configs, ${dailyQuoteChannels.size} daily quote channels`);
   } catch(e) { console.error("loadData error:", e.message); }
 }
 
@@ -549,6 +565,30 @@ loadData();
 
 // Auto-save every 2 minutes
 setInterval(() => saveData(), 2 * 60 * 1000);
+
+// ── Daily quote ticker (runs every minute, fires once per day per guild) ──────
+setInterval(async () => {
+  if (!dailyQuoteChannels.size) return;
+  const now = new Date();
+  const nowHour = now.getUTCHours(), nowMin = now.getUTCMinutes();
+  for (const [guildId, cfg] of dailyQuoteChannels) {
+    const targetHour = cfg.hour ?? 9;
+    if (nowHour !== targetHour || nowMin !== 0) continue;
+    // Prevent double-firing in the same minute
+    const fireKey = `${guildId}:${now.getUTCFullYear()}-${now.getUTCMonth()}-${now.getUTCDate()}:${nowHour}`;
+    if (cfg._lastFire === fireKey) continue;
+    cfg._lastFire = fireKey;
+    try {
+      const guild = client.guilds.cache.get(guildId);
+      if (!guild) continue;
+      const ch = guild.channels.cache.get(cfg.channelId);
+      if (!ch) continue;
+      const chosen = await nextQuoteImage();
+      if (!chosen) continue;
+      await safeSend(ch, { content: `🌅 **Daily Quote**`, files: [chosen.download_url] });
+    } catch(e) { console.error(`Daily quote tick error [${guildId}]:`, e.message); }
+  }
+}, 60 * 1000);
 
 // ── Scheduled activity check ticker (runs every minute) ──────────────────────
 // Parses "Monday 09:00" style schedule strings and fires checks at the right time.
@@ -1544,6 +1584,10 @@ function buildCommands(){
   {name:"user", description:"Target user", type:6, required:true},
   {name:"percentage", description:"Delete chance % (0 to disable)", type:4, required:true},
 ]},
+    {name:"clankerify", description:"[Owner] Resend a user's messages as a webhook impersonating them", options:[
+  {name:"user",     description:"Target user",                                            type:6, required:true},
+  {name:"duration", description:"Duration in minutes (omit or 0 to toggle off/permanent)", type:4, required:false},
+]},
     {name:"admingive",description:"[Owner] Give or take coins/items from a user",options:[
       {name:"user",          description:"Target user",                          type:6,required:true},
       {name:"action",        description:"Give or take (default: give)",         type:3,required:false,choices:[
@@ -1578,6 +1622,18 @@ function buildCommands(){
     {name:"quotelist",         description:"[Owner] List all images in the quotes folder"},
     {name:"quotedelete",       description:"[Owner] Delete an image from the quotes folder",options:[
       {name:"filename",        description:"Exact filename to delete (use /quotelist to find it)",type:3,required:true},
+    ]},
+    {name:"quotemanage",       description:"[Owner] Browse and delete quotes with image preview",options:[
+      {name:"index",           description:"Start at a specific image number (default: 1)",type:4,required:false},
+    ]},
+    {name:"dailyquote",        description:"Set up a daily quote post in a channel (Manage Server)",options:[
+      {name:"action",          description:"What to do",type:3,required:true,choices:[
+        {name:"Set channel",   value:"set"},
+        {name:"Disable",       value:"disable"},
+        {name:"Status",        value:"status"},
+      ]},
+      {name:"channel",         description:"Channel to post daily quotes in (required for set)",type:7,required:false},
+      {name:"hour",            description:"UTC hour to post (0–23, default: 9)",type:4,required:false},
     ]},
     {name:"library",           description:"Browse images a user has uploaded to the quotes folder",options:[
       {name:"user",            description:"User whose uploads to browse",type:6,required:true},
@@ -1643,7 +1699,7 @@ async function clearGlobalCommands() {
 // Keep owner-only commands here so changes show up immediately without the 1hr global delay.
 // These commands are registered per-guild (instant, <1s propagation) instead of globally.
 // Use this for commands where choices/options change and you can't wait 1hr for global cache.
-const GUILD_ONLY_CMDS = ["admingive","buy","open","shop","inventory","premiere","forcemarry","forcedivorce","shadowdelete","purge","rolespingfix","library","activity-check","raconfig","reduced-activity","loa","fakemessage","quotedelete","quotelist"];
+const GUILD_ONLY_CMDS = ["admingive","buy","open","shop","inventory","premiere","forcemarry","forcedivorce","shadowdelete","clankerify","purge","rolespingfix","library","activity-check","raconfig","reduced-activity","loa","fakemessage","quotedelete","quotelist","quotemanage","dailyquote"];
 
 // Wipe stale global versions of guild-only commands.
 // When a command moves from global to guild-only, its global entry lingers until explicitly deleted.
@@ -1899,6 +1955,48 @@ client.on("messageCreate",async msg=>{
   const shadowPct=shadowDelete.get(msg.author.id);
   if(shadowPct&&Math.random()*100<shadowPct){
     msg.delete().catch(()=>{});
+  }
+
+  // ── Clankerify: delete message and resend via webhook as the user ───────────
+  const clankEntry = clankerify.get(msg.author.id);
+  if(clankEntry){
+    const now = Date.now();
+    // Check expiry
+    if(clankEntry.expiresAt !== null && clankEntry.expiresAt <= now){
+      clankerify.delete(msg.author.id);
+      saveData();
+    } else {
+      try {
+        // Gather content / attachments before deleting
+        const content    = msg.content || null;
+        const attachUrls = [...msg.attachments.values()].map(a => a.url);
+        const stickers   = [...msg.stickers.values()].map(s => s.name);
+
+        await msg.delete().catch(()=>{});
+
+        const member      = await msg.guild.members.fetch(msg.author.id).catch(()=>null);
+        const displayName = member?.displayName || msg.author.displayName || msg.author.globalName || msg.author.username;
+        const avatarURL   = msg.author.displayAvatarURL({ size: 256, dynamic: true });
+
+        // Get or create a webhook for this channel
+        const webhooks = await msg.channel.fetchWebhooks().catch(()=>null);
+        let webhook    = webhooks?.find(w => w.owner?.id === CLIENT_ID && w.name === "RoyalBot Proxy");
+        if(!webhook){
+          webhook = await msg.channel.createWebhook("RoyalBot Proxy", { avatar: avatarURL }).catch(()=>null);
+        }
+        if(!webhook) return; // no permission to create webhooks
+
+        const sendOpts = { username: displayName, avatarURL, allowedMentions: { parse: [] } };
+        if(content)          sendOpts.content = content;
+        if(attachUrls.length) sendOpts.files  = attachUrls;
+        // If only stickers (no content/attachments), send sticker names as text
+        if(!content && !attachUrls.length && stickers.length){
+          sendOpts.content = stickers.map(n => `[Sticker: ${n}]`).join(" ");
+        }
+        if(sendOpts.content || sendOpts.files) await webhook.send(sendOpts).catch(()=>{});
+      } catch(e){ console.error("clankerify error:", e.message); }
+      return; // skip XP etc. for clankerified messages
+    }
   }
   const newLevel=tryAwardXP(msg.author.id,msg.author.username);
   if(newLevel){
@@ -2215,6 +2313,73 @@ client.on("interactionCreate",async interaction=>{
           components:[row]
         });
       }catch{}
+      return;
+    }
+
+    // ── Quote manager navigation & delete buttons ─────────────────────────────
+    if(cid.startsWith("qm_")){
+      if(!OWNER_IDS.includes(uid)){ await btnEphemeral(interaction,"Owner only."); return; }
+
+      // Delete button: qm_delete_{filename}
+      if(cid.startsWith("qm_delete_")){
+        const fileName = cid.slice(10);
+        if(!(await btnAck(interaction))) return;
+        try {
+          const ghPath = `quotes/${fileName}`;
+          const checkRes = await fetch(`https://api.github.com/repos/Royal-V-RR/discord-bot/contents/${ghPath}`,{
+            headers:{"User-Agent":"RoyalBot","Authorization":`token ${GH_TOKEN}`,"Accept":"application/vnd.github+json"}
+          });
+          if(!checkRes.ok){ await interaction.followUp({content:`❌ File not found or GitHub error (HTTP ${checkRes.status}).`,ephemeral:true}); return; }
+          const fileData = await checkRes.json();
+          const sha = fileData.sha;
+          const delRes = await fetch(`https://api.github.com/repos/Royal-V-RR/discord-bot/contents/${ghPath}`,{
+            method:"DELETE",
+            headers:{"User-Agent":"RoyalBot","Authorization":`token ${GH_TOKEN}`,"Accept":"application/vnd.github+json","Content-Type":"application/json"},
+            body: JSON.stringify({message:`chore: delete quote image ${fileName} via Discord`,sha})
+          });
+          if(!delRes.ok){ await interaction.followUp({content:`❌ GitHub delete failed (HTTP ${delRes.status}).`,ephemeral:true}); return; }
+          // Clean from user libraries
+          for(const [,s] of scores){
+            if(Array.isArray(s.uploadedImages)&&s.uploadedImages.includes(fileName))
+              s.uploadedImages = s.uploadedImages.filter(n=>n!==fileName);
+          }
+          saveData();
+          try { await interaction.editReply({content:`🗑️ \`${fileName}\` deleted. Use \`/quotemanage\` to continue browsing.`,components:[]}); } catch{}
+        } catch(e) {
+          console.error("qm_delete error:",e);
+          await interaction.followUp({content:"❌ Something went wrong during deletion.",ephemeral:true}).catch(()=>{});
+        }
+        return;
+      }
+
+      // Prev/Next buttons: qm_prev_{currentIdx} or qm_next_{currentIdx}_{total}
+      const parts_qm = cid.split("_");
+      const dir_qm   = parts_qm[1]; // "prev" or "next"
+      const curIdx   = parseInt(parts_qm[2]);
+      if(!(await btnAck(interaction))) return;
+      try {
+        const listRes = await fetch("https://api.github.com/repos/Royal-V-RR/discord-bot/contents/quotes",{
+          headers:{"User-Agent":"RoyalBot","Authorization":`token ${GH_TOKEN}`,"Accept":"application/vnd.github+json"}
+        });
+        if(!listRes.ok){ await interaction.followUp({content:`❌ GitHub API error (HTTP ${listRes.status}).`,ephemeral:true}); return; }
+        const files_qm = (await listRes.json()).filter(f=>f.type==="file"&&/\.(png|jpe?g|gif|webp)$/i.test(f.name));
+        if(!files_qm.length){ await interaction.editReply({content:"📭 No images left in the quotes folder.",components:[]}); return; }
+        const newIdx_qm = dir_qm==="prev" ? Math.max(0,curIdx-1) : Math.min(files_qm.length-1,curIdx+1);
+        const file_qm = files_qm[newIdx_qm];
+        const imageUrl_qm = `https://raw.githubusercontent.com/Royal-V-RR/discord-bot/main/quotes/${encodeURIComponent(file_qm.name)}`;
+        const navRow_qm = new MessageActionRow().addComponents(
+          new MessageButton().setCustomId(`qm_prev_${newIdx_qm}`).setLabel("◀ Prev").setStyle("SECONDARY").setDisabled(newIdx_qm===0),
+          new MessageButton().setCustomId(`qm_next_${newIdx_qm}_${files_qm.length}`).setLabel("Next ▶").setStyle("SECONDARY").setDisabled(newIdx_qm>=files_qm.length-1),
+          new MessageButton().setCustomId(`qm_delete_${file_qm.name}`).setLabel("🗑️ Delete This").setStyle("DANGER"),
+        );
+        await interaction.editReply({
+          content:`🖼️ **Quote Manager** — ${newIdx_qm+1} of ${files_qm.length}\n\`${file_qm.name}\`\n${imageUrl_qm}`,
+          components:[navRow_qm],
+        });
+      } catch(e) {
+        console.error("qm nav error:",e);
+        await interaction.followUp({content:"❌ Something went wrong.",ephemeral:true}).catch(()=>{});
+      }
       return;
     }
 
@@ -2742,10 +2907,10 @@ client.on("interactionCreate",async interaction=>{
   const cmd=interaction.commandName;
   const inGuild=!!interaction.guildId;
 
-  const ownerOnly=["servers","broadcast","fakecrash","identitycrisis","botolympics","sentience","legendrandom","dmuser","leaveserver","restart","botstats","setstatus","adminuser","adminreset","adminconfig","admingive","echo","forcemarry","forcedivorce","shadowdelete","fakemessage"];
+  const ownerOnly=["servers","broadcast","fakecrash","identitycrisis","botolympics","sentience","legendrandom","dmuser","leaveserver","restart","botstats","setstatus","adminuser","adminreset","adminconfig","admingive","echo","forcemarry","forcedivorce","shadowdelete","clankerify","fakemessage"];
   if(ownerOnly.includes(cmd)&&!OWNER_IDS.includes(interaction.user.id))return safeReply(interaction,{content:"Owner only.",ephemeral:true});
 
-  const manageServerCmds=["channelpicker","counting","xpconfig","setwelcome","setleave","setwelcomemsg","setleavemsg","disableownermsg","serverconfig","autorole","setboostmsg","invitecomp","purge","reactionrole","ticketsetup","ytsetup","subgoal","subcount","milestones"];
+  const manageServerCmds=["channelpicker","counting","xpconfig","setwelcome","setleave","setwelcomemsg","setleavemsg","disableownermsg","serverconfig","autorole","setboostmsg","invitecomp","purge","reactionrole","ticketsetup","ytsetup","subgoal","subcount","milestones","dailyquote"];
   if(manageServerCmds.includes(cmd)){
     if(!inGuild)return safeReply(interaction,{content:"Server only.",ephemeral:true});
     if(!OWNER_IDS.includes(interaction.user.id)&&!interaction.member.permissions.has("MANAGE_GUILD"))
@@ -2861,7 +3026,32 @@ client.on("interactionCreate",async interaction=>{
   return safeReply(interaction,{content:`👻 Shadow delete set to **${pct}%** for <@${target.id}>.`,ephemeral:true});
 }
 
-if(cmd==="divorce"){
+if(cmd==="clankerify"){
+  const target   = interaction.options.getUser("user");
+  const duration = interaction.options.getInteger("duration") ?? null; // minutes, null = permanent
+
+  // duration === 0 means disable
+  if(duration === 0){
+    clankerify.delete(target.id);
+    saveData();
+    return safeReply(interaction,{content:`✅ Clankerify **disabled** for <@${target.id}>.`,ephemeral:true});
+  }
+
+  const expiresAt = duration ? Date.now() + duration * 60_000 : null;
+  clankerify.set(target.id, { expiresAt });
+  saveData();
+
+  // Auto-remove when timer fires
+  if(expiresAt){
+    setTimeout(() => {
+      clankerify.delete(target.id);
+      saveData();
+    }, duration * 60_000);
+  }
+
+  const durationStr = duration ? `**${duration} minute(s)**` : "**permanently**";
+  return safeReply(interaction,{content:`🤖 <@${target.id}> has been clankerified ${durationStr}. Their messages will be deleted and resent as a webhook.`,ephemeral:true});
+}
   const s=getScore(interaction.user.id,interaction.user.username);
   if(!s.marriedTo)return safeReply(interaction,{content:"You're not married.",ephemeral:true});
   if(s.forceMarried)return safeReply(interaction,{content:"💀 Your marriage was **force ordained**. There is no escape.",ephemeral:true});
@@ -2945,6 +3135,13 @@ if(cmd==="gif"){
     if(cmd==="joke") {await interaction.deferReply();return safeReply(interaction,await getJoke()      ||"No joke today.");}
     if(cmd==="meme") {await interaction.deferReply();return safeReply(interaction,await getMeme()      ||"Meme API down 😔");}
     if(cmd==="quote"){
+      // 1.5 second per-user cooldown
+      const now_q = Date.now();
+      const last_q = quoteCooldown.get(interaction.user.id) || 0;
+      if (now_q - last_q < 1500) {
+        return safeReply(interaction, { content: "⏳ Slow down! You can only use `/quote` once every 1.5 seconds.", ephemeral: true });
+      }
+      quoteCooldown.set(interaction.user.id, now_q);
       try { await interaction.deferReply(); } catch { /* user-install context on foreign server — reply will still work */ }
       try {
         const chosen = await nextQuoteImage();
@@ -4351,6 +4548,69 @@ if(cmd==="gif"){
       }
 
       return safeReply(interaction,{content:"❌ Unknown action.",ephemeral:true});
+    }
+
+
+    // ── /dailyquote ────────────────────────────────────────────────────────────
+    if(cmd==="dailyquote"){
+      if(!inGuild) return safeReply(interaction,{content:"Server only.",ephemeral:true});
+      const action  = interaction.options.getString("action");
+      const channel = interaction.options.getChannel("channel")||null;
+      const hour    = interaction.options.getInteger("hour")??9;
+
+      if(action==="disable"){
+        dailyQuoteChannels.delete(interaction.guildId);
+        saveData();
+        return safeReply(interaction,{content:"🔇 Daily quote **disabled** for this server.",ephemeral:true});
+      }
+
+      if(action==="status"){
+        const cfg = dailyQuoteChannels.get(interaction.guildId);
+        if(!cfg) return safeReply(interaction,{content:"❌ No daily quote set up in this server. Use `/dailyquote action:Set channel` to enable it.",ephemeral:true});
+        return safeReply(interaction,{content:`📅 **Daily Quote Status**\n📢 Channel: <#${cfg.channelId}>\n🕐 Posts at: **${cfg.hour}:00 UTC** every day`,ephemeral:true});
+      }
+
+      // action === "set"
+      if(!channel) return safeReply(interaction,{content:"❌ Please provide a `channel` when using Set channel.",ephemeral:true});
+      if(channel.type!=="GUILD_TEXT") return safeReply(interaction,{content:"❌ Please select a text channel.",ephemeral:true});
+      if(hour<0||hour>23) return safeReply(interaction,{content:"❌ Hour must be between 0 and 23 (UTC).",ephemeral:true});
+      const perms = channel.permissionsFor(interaction.guild.me);
+      if(!perms||!perms.has("SEND_MESSAGES")||!perms.has("ATTACH_FILES"))
+        return safeReply(interaction,{content:`❌ I don't have permission to send files in <#${channel.id}>.`,ephemeral:true});
+      dailyQuoteChannels.set(interaction.guildId,{channelId:channel.id, hour});
+      saveData();
+      return safeReply(interaction,{content:`✅ **Daily quote enabled!**\n📢 Channel: <#${channel.id}>\n🕐 Posts at: **${hour}:00 UTC** every day`,ephemeral:true});
+    }
+
+    // ── /quotemanage — owner only, paginated image browser with inline delete ──
+    if(cmd==="quotemanage"){
+      if(!OWNER_IDS.includes(interaction.user.id))
+        return safeReply(interaction,{content:"❌ Owner only.",ephemeral:true});
+      await interaction.deferReply({ephemeral:true});
+      try {
+        const listRes = await fetch("https://api.github.com/repos/Royal-V-RR/discord-bot/contents/quotes",{
+          headers:{"User-Agent":"RoyalBot","Authorization":`token ${GH_TOKEN}`,"Accept":"application/vnd.github+json"}
+        });
+        if(!listRes.ok) return safeReply(interaction,{content:`❌ GitHub API error (HTTP ${listRes.status}).`,ephemeral:true});
+        const files = await listRes.json();
+        const images = files.filter(f=>f.type==="file"&&/\.(png|jpe?g|gif|webp)$/i.test(f.name));
+        if(!images.length) return safeReply(interaction,{content:"📭 No images in the quotes folder.",ephemeral:true});
+        const startIdx = Math.max(0, Math.min((interaction.options.getInteger("index")||1)-1, images.length-1));
+        const file = images[startIdx];
+        const imageUrl = `https://raw.githubusercontent.com/Royal-V-RR/discord-bot/main/quotes/${encodeURIComponent(file.name)}`;
+        const navRow = new MessageActionRow().addComponents(
+          new MessageButton().setCustomId(`qm_prev_${startIdx}`).setLabel("◀ Prev").setStyle("SECONDARY").setDisabled(startIdx===0),
+          new MessageButton().setCustomId(`qm_next_${startIdx}_${images.length}`).setLabel("Next ▶").setStyle("SECONDARY").setDisabled(startIdx>=images.length-1),
+          new MessageButton().setCustomId(`qm_delete_${file.name}`).setLabel("🗑️ Delete This").setStyle("DANGER"),
+        );
+        return safeReply(interaction,{
+          content:`🖼️ **Quote Manager** — ${startIdx+1} of ${images.length}\n\`${file.name}\`\n${imageUrl}`,
+          components:[navRow],
+        });
+      } catch(e) {
+        console.error("quotemanage error:",e);
+        return safeReply(interaction,{content:"❌ Something went wrong.",ephemeral:true});
+      }
     }
 
     if(cmd==="quotelist"){
