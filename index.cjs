@@ -3052,6 +3052,8 @@ if(cmd==="clankerify"){
   const durationStr = duration ? `**${duration} minute(s)**` : "**permanently**";
   return safeReply(interaction,{content:`🤖 <@${target.id}> has been clankerified ${durationStr}. Their messages will be deleted and resent as a webhook.`,ephemeral:true});
 }
+
+if(cmd==="divorce"){
   const s=getScore(interaction.user.id,interaction.user.username);
   if(!s.marriedTo)return safeReply(interaction,{content:"You're not married.",ephemeral:true});
   if(s.forceMarried)return safeReply(interaction,{content:"💀 Your marriage was **force ordained**. There is no escape.",ephemeral:true});
