@@ -13435,7 +13435,15 @@
   ],
   "activityChecks": [],
   "scheduledChecks": [],
-  "dailyQuoteChannels": [],
+  "dailyQuoteChannels": [
+    [
+      "1408975996715139084",
+      {
+        "channelId": "1408975997272854611",
+        "hour": 9
+      }
+    ]
+  ],
   "memers": [
     "1419803002771865722",
     "1259223683826712729",
