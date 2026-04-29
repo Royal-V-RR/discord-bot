@@ -14643,6 +14643,13 @@
         "up": 1,
         "down": 0
       }
+    ],
+    [
+      "Are you a terrorist.png",
+      {
+        "up": 2,
+        "down": 0
+      }
     ]
   ],
   "quoteVoteMessages": [
@@ -15457,6 +15464,10 @@
     [
       "1499060197002448976",
       "quote_1498081154237071424.png"
+    ],
+    [
+      "1499060297820934194",
+      "Are you a terrorist.png"
     ]
   ]
 }
