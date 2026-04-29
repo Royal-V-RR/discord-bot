@@ -524,7 +524,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 87,
+        "xp": 98,
         "level": 4,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -533,7 +533,9 @@
         "inventory": [],
         "marriedTo": null,
         "pendingProposal": null,
-        "forceMarried": false
+        "forceMarried": false,
+        "imagesUploaded": 0,
+        "uploadedImages": []
       }
     ],
     [
@@ -2682,7 +2684,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 44,
+        "xp": 56,
         "level": 3,
         "lastWorkTime": 0,
         "lastBegTime": 0,
