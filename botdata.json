@@ -672,7 +672,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 99,
+        "xp": 113,
         "level": 13,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -14316,7 +14316,7 @@
       "Gil 67.png",
       {
         "up": 3,
-        "down": 2
+        "down": 3
       }
     ],
     [
@@ -15591,6 +15591,13 @@
       {
         "up": 0,
         "down": 1
+      }
+    ],
+    [
+      "quote_1496482864580006070.png",
+      {
+        "up": 1,
+        "down": 0
       }
     ]
   ],
@@ -17534,6 +17541,14 @@
     [
       "1499548403938627714",
       "I know longer know what's going on in here.png"
+    ],
+    [
+      "1499548429578276934",
+      "quote_1496482864580006070.png"
+    ],
+    [
+      "1499548446426927224",
+      "Gil 67.png"
     ]
   ]
 }
