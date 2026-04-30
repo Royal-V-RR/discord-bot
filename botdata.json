@@ -572,7 +572,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-27",
-        "xp": 1055,
+        "xp": 1068,
         "level": 10,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -15585,6 +15585,13 @@
         "up": 1,
         "down": 0
       }
+    ],
+    [
+      "I know longer know what's going on in here.png",
+      {
+        "up": 0,
+        "down": 1
+      }
     ]
   ],
   "quoteVoteMessages": [
@@ -17523,6 +17530,10 @@
     [
       "1499545383536296057",
       "quote_1498308621979615252.png"
+    ],
+    [
+      "1499548403938627714",
+      "I know longer know what's going on in here.png"
     ]
   ]
 }
