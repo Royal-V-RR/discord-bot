@@ -133,13 +133,122 @@ function weightedShuffleQuotes(images) {
   return shuffleArray(weighted);
 }
 
+// Build a shuffled array biased toward HIGH-rated images (net score > 0)
+function goodShuffleQuotes(images) {
+  const BASE = 10;
+  const weighted = [];
+  for (const img of images) {
+    const v = quoteVotes.get(img.name) || { up: 0, down: 0 };
+    const net = v.up - v.down;
+    // Only heavily favour positive-net images; neutral images get a small weight
+    const w = net > 0 ? Math.max(1, BASE + net * 3) : Math.max(1, Math.floor(BASE / 3));
+    for (let i = 0; i < w; i++) weighted.push(img);
+  }
+  return shuffleArray(weighted);
+}
+
+// Build a shuffled array biased toward LOW-rated images (net score < 0)
+function badShuffleQuotes(images) {
+  const BASE = 10;
+  const weighted = [];
+  for (const img of images) {
+    const v = quoteVotes.get(img.name) || { up: 0, down: 0 };
+    const net = v.up - v.down;
+    // Only heavily favour negative-net images; neutral images get a small weight
+    const w = net < 0 ? Math.max(1, BASE + Math.abs(net) * 3) : Math.max(1, Math.floor(BASE / 3));
+    for (let i = 0; i < w; i++) weighted.push(img);
+  }
+  return shuffleArray(weighted);
+}
+
+// Separate queues and fetch locks for goodquote and badquote
+let goodQuoteQueue    = [];
+let goodQuoteFetching = false;
+let badQuoteQueue     = [];
+let badQuoteFetching  = false;
+
+async function refillGoodQuoteQueue() {
+  if (goodQuoteFetching) return;
+  goodQuoteFetching = true;
+  try {
+    const res = await fetch("https://api.github.com/repos/Royal-V-RR/discord-bot/contents/quotes", {
+      headers: { "User-Agent": "RoyalBot", "Authorization": `token ${GH_TOKEN}` }
+    });
+    if (!res.ok) { goodQuoteFetching = false; return; }
+    const files  = await res.json();
+    const images = files.filter(f => /\.(png|jpe?g|gif|webp)$/i.test(f.name));
+    if (images.length) goodQuoteQueue = goodShuffleQuotes(images);
+  } catch(e) { console.error("Good quote queue refill failed:", e); }
+  goodQuoteFetching = false;
+}
+
+async function refillBadQuoteQueue() {
+  if (badQuoteFetching) return;
+  badQuoteFetching = true;
+  try {
+    const res = await fetch("https://api.github.com/repos/Royal-V-RR/discord-bot/contents/quotes", {
+      headers: { "User-Agent": "RoyalBot", "Authorization": `token ${GH_TOKEN}` }
+    });
+    if (!res.ok) { badQuoteFetching = false; return; }
+    const files  = await res.json();
+    const images = files.filter(f => /\.(png|jpe?g|gif|webp)$/i.test(f.name));
+    if (images.length) badQuoteQueue = badShuffleQuotes(images);
+  } catch(e) { console.error("Bad quote queue refill failed:", e); }
+  badQuoteFetching = false;
+}
+
+async function nextGoodQuoteImage() {
+  if (goodQuoteQueue.length === 0) await refillGoodQuoteQueue();
+  if (goodQuoteQueue.length === 0) return null;
+  return goodQuoteQueue.shift();
+}
+
+async function nextBadQuoteImage() {
+  if (badQuoteQueue.length === 0) await refillBadQuoteQueue();
+  if (badQuoteQueue.length === 0) return null;
+  return badQuoteQueue.shift();
+}
+
+// Occasionally pick a low-rated quote from the pool directly (no queue needed — just sample)
+async function nextLowRatedQuoteImage(allImages) {
+  const BASE = 10;
+  // Candidates: images with a negative or zero net rating
+  const candidates = allImages.filter(img => {
+    const v = quoteVotes.get(img.name) || { up: 0, down: 0 };
+    return (v.up - v.down) <= 0;
+  });
+  // Fall back to full list if somehow everything is positive
+  const pool = candidates.length ? candidates : allImages;
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
 // Returns the next image from the queue, refilling if needed.
+// ~20% of the time it pulls a lower-rated image instead to surface bad ones occasionally.
 // Returns null if the queue can't be filled (GitHub unavailable).
 async function nextQuoteImage() {
   if (quoteQueue.length === 0 || quoteQueue.length <= Math.max(1, Math.floor(quoteQueue.length * 0.1))) {
     await refillQuoteQueue();
   }
   if (quoteQueue.length === 0) return null;
+
+  // 20% chance: serve a lower-rated quote
+  if (Math.random() < 0.20) {
+    try {
+      const res = await fetch("https://api.github.com/repos/Royal-V-RR/discord-bot/contents/quotes", {
+        headers: { "User-Agent": "RoyalBot", "Authorization": `token ${GH_TOKEN}` }
+      });
+      if (res.ok) {
+        const files  = await res.json();
+        const images = files.filter(f => /\.(png|jpe?g|gif|webp)$/i.test(f.name));
+        if (images.length) {
+          const low = await nextLowRatedQuoteImage(images);
+          if (low) return low;
+        }
+      }
+    } catch {}
+    // If anything fails above, fall through to normal queue
+  }
+
   return quoteQueue.shift();
 }
 
@@ -1444,7 +1553,9 @@ function buildCommands(){
     ]}]},
     {name:"joke",   description:"Random joke 😂"},
     {name:"meme",   description:"Random meme 🐸"},
-    {name:"quote",  description:"Inspirational quote ✨"},
+    {name:"quote",  description:"Random quote image ✨"},
+    {name:"goodquote", description:"Get a higher-rated quote image ⭐"},
+    {name:"badquote",  description:"Get a lower-rated quote image 💀"},
     {name:"trivia", description:"Trivia question 🧠"},
     // Utility
     {name:"coinflip",       description:"Flip a coin 🪙"},
@@ -3226,6 +3337,66 @@ if(cmd==="gif"){
         return;
       } catch(e) {
         return safeReply(interaction, "Something went wrong fetching a quote.");
+      }
+    }
+
+    // ── /goodquote — higher-rated quote ──────────────────────────────────────
+    if(cmd==="goodquote"){
+      const now_q = Date.now();
+      const last_q = quoteCooldown.get(interaction.user.id) || 0;
+      if (now_q - last_q < 1500) {
+        return safeReply(interaction, { content: "⏳ Slow down! You can only use `/goodquote` once every 1.5 seconds.", ephemeral: true });
+      }
+      quoteCooldown.set(interaction.user.id, now_q);
+      try { await interaction.deferReply(); } catch {}
+      try {
+        const chosen = await nextGoodQuoteImage();
+        if(!chosen) return safeReply(interaction, "Couldn't load quotes right now.");
+        const sent = await safeReply(interaction, { content: "⭐ **Good Quote** — highly rated by the community!", files: [chosen.download_url] });
+        if(sent){
+          try {
+            const msg = sent.id ? sent : await interaction.fetchReply().catch(()=>null);
+            if(msg){
+              await msg.react("👍").catch(()=>{});
+              await msg.react("👎").catch(()=>{});
+              quoteVoteMessages.set(msg.id, chosen.name);
+              saveData();
+            }
+          } catch {}
+        }
+        return;
+      } catch(e) {
+        return safeReply(interaction, "Something went wrong fetching a good quote.");
+      }
+    }
+
+    // ── /badquote — lower-rated quote ────────────────────────────────────────
+    if(cmd==="badquote"){
+      const now_q = Date.now();
+      const last_q = quoteCooldown.get(interaction.user.id) || 0;
+      if (now_q - last_q < 1500) {
+        return safeReply(interaction, { content: "⏳ Slow down! You can only use `/badquote` once every 1.5 seconds.", ephemeral: true });
+      }
+      quoteCooldown.set(interaction.user.id, now_q);
+      try { await interaction.deferReply(); } catch {}
+      try {
+        const chosen = await nextBadQuoteImage();
+        if(!chosen) return safeReply(interaction, "Couldn't load quotes right now.");
+        const sent = await safeReply(interaction, { content: "💀 **Bad Quote** — the community's least favourite!", files: [chosen.download_url] });
+        if(sent){
+          try {
+            const msg = sent.id ? sent : await interaction.fetchReply().catch(()=>null);
+            if(msg){
+              await msg.react("👍").catch(()=>{});
+              await msg.react("👎").catch(()=>{});
+              quoteVoteMessages.set(msg.id, chosen.name);
+              saveData();
+            }
+          } catch {}
+        }
+        return;
+      } catch(e) {
+        return safeReply(interaction, "Something went wrong fetching a bad quote.");
       }
     }
     if(cmd==="trivia"){
