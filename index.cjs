@@ -1836,7 +1836,7 @@ async function clearGlobalCommands() {
 // Keep owner-only commands here so changes show up immediately without the 1hr global delay.
 // These commands are registered per-guild (instant, <1s propagation) instead of globally.
 // Use this for commands where choices/options change and you can't wait 1hr for global cache.
-const GUILD_ONLY_CMDS = ["admingive","buy","open","shop","inventory","premiere","forcemarry","forcedivorce","shadowdelete","clankerify","purge","rolespingfix","library","activity-check","raconfig","reduced-activity","loa","fakemessage","quotedelete","quotelist","quotemanage","dailyquote"];
+const GUILD_ONLY_CMDS = ["admingive","buy","open","shop","inventory","premiere","forcemarry","forcedivorce","shadowdelete","clankerify","purge","rolespingfix","library","activity-check","raconfig","reduced-activity","loa","fakemessage","quotedelete","quotelist","quotemanage","dailyquote","goodquote","badquote"];
 
 // Wipe stale global versions of guild-only commands.
 // When a command moves from global to guild-only, its global entry lingers until explicitly deleted.
@@ -3352,7 +3352,12 @@ if(cmd==="gif"){
       try {
         const chosen = await nextGoodQuoteImage();
         if(!chosen) return safeReply(interaction, "Couldn't load quotes right now.");
-        const sent = await safeReply(interaction, { content: "⭐ **Good Quote** — highly rated by the community!", files: [chosen.download_url] });
+        let sent;
+        if(Math.random() < 0.05){
+          sent = await safeReply(interaction, { content: "Do you want to be able to upload images to be used in /quote? Add **genuineleafy** or **royalvmusic** in discord to do so!", files: [chosen.download_url] });
+        } else {
+          sent = await safeReply(interaction, { files: [chosen.download_url] });
+        }
         if(sent){
           try {
             const msg = sent.id ? sent : await interaction.fetchReply().catch(()=>null);
@@ -3382,7 +3387,12 @@ if(cmd==="gif"){
       try {
         const chosen = await nextBadQuoteImage();
         if(!chosen) return safeReply(interaction, "Couldn't load quotes right now.");
-        const sent = await safeReply(interaction, { content: "💀 **Bad Quote** — the community's least favourite!", files: [chosen.download_url] });
+        let sent;
+        if(Math.random() < 0.05){
+          sent = await safeReply(interaction, { content: "Do you want to be able to upload images to be used in /quote? Add **genuineleafy** or **royalvmusic** in discord to do so!", files: [chosen.download_url] });
+        } else {
+          sent = await safeReply(interaction, { files: [chosen.download_url] });
+        }
         if(sent){
           try {
             const msg = sent.id ? sent : await interaction.fetchReply().catch(()=>null);
