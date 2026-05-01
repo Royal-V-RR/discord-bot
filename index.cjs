@@ -1724,6 +1724,11 @@ function buildCommands(){
     {name:"clankerify", description:"[Owner] Resend a user's messages as a webhook impersonating them", options:[
   {name:"user",     description:"Target user",                                            type:6, required:true},
   {name:"duration", description:"Duration in minutes (omit or 0 to toggle off/permanent)", type:4, required:false},
+  {name:"mode",     description:"Optional personality mode for the webhook",               type:3, required:false, choices:[
+    {name:"Evil",     value:"evil"},
+    {name:"Freaky",   value:"freaky"},
+    {name:"American", value:"american"},
+  ]},
 ]},
     {name:"admingive",description:"[Owner] Give or take coins/items from a user",options:[
       {name:"user",          description:"Target user",                          type:6,required:true},
@@ -2142,8 +2147,61 @@ client.on("messageCreate",async msg=>{
         await msg.delete().catch(()=>{});
 
         const member      = await msg.guild.members.fetch(msg.author.id).catch(()=>null);
-        const displayName = member?.displayName || msg.author.displayName || msg.author.globalName || msg.author.username;
-        const avatarURL   = msg.author.displayAvatarURL({ size: 256, dynamic: true });
+        let displayName = member?.displayName || msg.author.displayName || msg.author.globalName || msg.author.username;
+        let avatarURL   = msg.author.displayAvatarURL({ size: 256, dynamic: true });
+        let sendContent = content;
+
+        // ── Mode transforms ────────────────────────────────────────────────────
+        const mode = clankEntry.mode ?? null;
+
+        if(mode === "evil"){
+          displayName = `Evil ${displayName}`;
+          if(sendContent) sendContent = sendContent + " I'M SO EVIL THOOO";
+        }
+
+        if(mode === "freaky"){
+          displayName = `𝓕𝓻𝓮𝓪𝓴𝔂 ${displayName}`;
+          if(sendContent) sendContent = `𝓕𝓻𝓮𝓪𝓴𝔂 ${sendContent}`;
+          // Overlay tongue.png on top of the user's avatar
+          // Fetch both images, composite tongue.png on top, upload as a buffer
+          try {
+            const fetchBuf = async url => {
+              const mod = url.startsWith("https") ? https : http;
+              return new Promise((res, rej) => {
+                mod.get(url, r => {
+                  const chunks = [];
+                  r.on("data", c => chunks.push(c));
+                  r.on("end", () => res(Buffer.concat(chunks)));
+                  r.on("error", rej);
+                });
+              });
+            };
+            const tongueUrl = `https://raw.githubusercontent.com/${GH_REPO}/main/tongue.png`;
+            const [avatarBuf, tongueBuf] = await Promise.all([
+              fetchBuf(avatarURL),
+              fetchBuf(tongueUrl),
+            ]);
+            // Use sharp if available, otherwise fall back to original avatar
+            try {
+              const sharp = require("sharp");
+              const composited = await sharp(avatarBuf)
+                .resize(256, 256)
+                .composite([{ input: await sharp(tongueBuf).resize(256, 256).toBuffer(), gravity: "center" }])
+                .png()
+                .toBuffer();
+              avatarURL = `data:image/png;base64,${composited.toString("base64")}`;
+            } catch { /* sharp not available — keep original avatar */ }
+          } catch { /* tongue fetch failed — keep original avatar */ }
+        }
+
+        if(mode === "american"){
+          displayName = `American ${displayName}`;
+          if(sendContent){
+            sendContent = sendContent.toUpperCase() +
+              " LAWD BLESS MERICA 🦅🦅🦅🔥🔥🔥🇺🇸🇺🇸🇺🇸";
+          }
+        }
+        // ── End mode transforms ────────────────────────────────────────────────
 
         // Get or create a webhook for this channel
         const webhooks = await msg.channel.fetchWebhooks().catch(()=>null);
@@ -2154,10 +2212,10 @@ client.on("messageCreate",async msg=>{
         if(!webhook) return; // no permission to create webhooks
 
         const sendOpts = { username: displayName, avatarURL, allowedMentions: { parse: [] } };
-        if(content)          sendOpts.content = content;
+        if(sendContent)      sendOpts.content = sendContent;
         if(attachUrls.length) sendOpts.files  = attachUrls;
         // If only stickers (no content/attachments), send sticker names as text
-        if(!content && !attachUrls.length && stickers.length){
+        if(!sendContent && !attachUrls.length && stickers.length){
           sendOpts.content = stickers.map(n => `[Sticker: ${n}]`).join(" ");
         }
         if(sendOpts.content || sendOpts.files) await webhook.send(sendOpts).catch(()=>{});
@@ -3196,6 +3254,7 @@ client.on("interactionCreate",async interaction=>{
 if(cmd==="clankerify"){
   const target   = interaction.options.getUser("user");
   const duration = interaction.options.getInteger("duration") ?? null; // minutes, null = permanent
+  const mode     = interaction.options.getString("mode") ?? null; // evil | freaky | american | null
 
   // duration === 0 means disable
   if(duration === 0){
@@ -3205,7 +3264,7 @@ if(cmd==="clankerify"){
   }
 
   const expiresAt = duration ? Date.now() + duration * 60_000 : null;
-  clankerify.set(target.id, { expiresAt });
+  clankerify.set(target.id, { expiresAt, mode });
   saveData();
 
   // Auto-remove when timer fires
@@ -3217,7 +3276,8 @@ if(cmd==="clankerify"){
   }
 
   const durationStr = duration ? `**${duration} minute(s)**` : "**permanently**";
-  return safeReply(interaction,{content:`🤖 <@${target.id}> has been clankerified ${durationStr}. Their messages will be deleted and resent as a webhook.`,ephemeral:true});
+  const modeStr     = mode ? ` in **${mode.charAt(0).toUpperCase()+mode.slice(1)}** mode` : "";
+  return safeReply(interaction,{content:`🤖 <@${target.id}> has been clankerified ${durationStr}${modeStr}. Their messages will be deleted and resent as a webhook.`,ephemeral:true});
 }
 
 if(cmd==="divorce"){
