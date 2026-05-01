@@ -175,6 +175,13 @@
       {
         "expiresAt": null
       }
+    ],
+    [
+      "969280648667889764",
+      {
+        "expiresAt": null,
+        "mode": null
+      }
     ]
   ],
   "reactionRoles": [
@@ -572,7 +579,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-27",
-        "xp": 328,
+        "xp": 336,
         "level": 11,
         "lastWorkTime": 0,
         "lastBegTime": 0,
