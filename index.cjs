@@ -1722,16 +1722,8 @@ function buildCommands(){
   {name:"percentage", description:"Delete chance % (0 to disable)", type:4, required:true},
 ]},
     {name:"clankerify", description:"[Owner] Resend a user's messages as a webhook impersonating them", default_member_permissions:"0", options:[
-  {name:"user",     description:"Target user",                                            type:6, required:true},
-  {name:"duration", description:"Duration in minutes (omit or 0 to toggle off/permanent)", type:4, required:false},
-  {name:"mode",     description:"Optional personality mode for the webhook",               type:3, required:false, choices:[
-    {name:"Evil",     value:"evil"},
-    {name:"Freaky",   value:"freaky"},
-    {name:"American", value:"american"},
-    {name:"British",  value:"british"},
-    {name:"Stupid",   value:"stupid"},
-    {name:"Boomer",   value:"boomer"},
-  ]},
+  {name:"user",     description:"Target user",                                             type:6, required:true},
+  {name:"duration", description:"Duration in minutes (omit or 0 to disable)",              type:4, required:false},
 ]},
     {name:"admingive",description:"[Owner] Give or take coins/items from a user",options:[
       {name:"user",          description:"Target user",                          type:6,required:true},
@@ -2414,6 +2406,44 @@ client.on("interactionCreate",async interaction=>{
   if(interaction.isButton()||interaction.isSelectMenu()){
     const uid=interaction.user.id;
     const cid=interaction.customId;
+
+    // ── Clankerify mode selection ─────────────────────────────────────────────
+    if(cid.startsWith("clankerify_mode_")){
+      // Only the owner who triggered the command can use this dropdown
+      if(!OWNER_IDS.includes(uid)){
+        try{await interaction.reply({content:"Not for you.",ephemeral:true});}catch{}
+        return;
+      }
+      // customId format: clankerify_mode_{targetId}_{duration|"perm"}
+      const parts    = cid.split("_");
+      // parts: ["clankerify","mode",targetId,durKey]
+      const targetId = parts[2];
+      const durKey   = parts[3];
+      const duration = durKey === "perm" ? null : parseInt(durKey, 10);
+      const mode     = interaction.values[0] === "none" ? null : interaction.values[0];
+
+      const expiresAt = duration ? Date.now() + duration * 60_000 : null;
+      clankerify.set(targetId, { expiresAt, mode });
+      saveData();
+
+      // Auto-remove when timer fires
+      if(expiresAt){
+        setTimeout(() => {
+          clankerify.delete(targetId);
+          saveData();
+        }, duration * 60_000);
+      }
+
+      const durationStr = duration ? `**${duration} minute(s)**` : "**permanently**";
+      const modeStr     = mode ? ` in **${mode.charAt(0).toUpperCase()+mode.slice(1)}** mode` : "";
+      try{
+        await interaction.update({
+          content:`🤖 <@${targetId}> has been clankerified ${durationStr}${modeStr}. Their messages will be deleted and resent as a webhook.`,
+          components:[]
+        });
+      }catch{}
+      return;
+    }
 
     // ── Activity check role selection ─────────────────────────────────────────
     if(cid.startsWith("ac_required_")||cid.startsWith("ac_excluded_")){
@@ -3356,7 +3386,6 @@ client.on("interactionCreate",async interaction=>{
 if(cmd==="clankerify"){
   const target   = interaction.options.getUser("user");
   const duration = interaction.options.getInteger("duration") ?? null; // minutes, null = permanent
-  const mode     = interaction.options.getString("mode") ?? null; // evil | freaky | american | british | stupid | boomer | null
 
   // duration === 0 means disable
   if(duration === 0){
@@ -3365,21 +3394,29 @@ if(cmd==="clankerify"){
     return safeReply(interaction,{content:`✅ Clankerify **disabled** for <@${target.id}>.`,ephemeral:true});
   }
 
-  const expiresAt = duration ? Date.now() + duration * 60_000 : null;
-  clankerify.set(target.id, { expiresAt, mode });
-  saveData();
-
-  // Auto-remove when timer fires
-  if(expiresAt){
-    setTimeout(() => {
-      clankerify.delete(target.id);
-      saveData();
-    }, duration * 60_000);
-  }
-
+  // Encode target and duration into customId so the select handler can read them
+  // Format: clankerify_mode_{targetId}_{duration|"perm"}
+  const durKey = duration ? String(duration) : "perm";
+  const modeMenu = new MessageActionRow().addComponents(
+    new MessageSelectMenu()
+      .setCustomId(`clankerify_mode_${target.id}_${durKey}`)
+      .setPlaceholder("Pick a personality mode…")
+      .addOptions([
+        {label:"No mode (plain)",  value:"none",     emoji:"🤖"},
+        {label:"Evil",             value:"evil",     emoji:"😈"},
+        {label:"Freaky",           value:"freaky",   emoji:"😏"},
+        {label:"American",         value:"american", emoji:"🦅"},
+        {label:"British",          value:"british",  emoji:"🫖"},
+        {label:"Stupid",           value:"stupid",   emoji:"🪖"},
+        {label:"Boomer",           value:"boomer",   emoji:"📰"},
+      ])
+  );
   const durationStr = duration ? `**${duration} minute(s)**` : "**permanently**";
-  const modeStr     = mode ? ` in **${mode.charAt(0).toUpperCase()+mode.slice(1)}** mode` : "";
-  return safeReply(interaction,{content:`🤖 <@${target.id}> has been clankerified ${durationStr}${modeStr}. Their messages will be deleted and resent as a webhook.`,ephemeral:true});
+  return safeReply(interaction,{
+    content:`🤖 Clankerifying <@${target.id}> ${durationStr}. Pick a mode:`,
+    components:[modeMenu],
+    ephemeral:true
+  });
 }
 
 if(cmd==="divorce"){
