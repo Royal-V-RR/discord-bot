@@ -2234,7 +2234,7 @@ client.on("messageCreate",async msg=>{
         }
 
         if(mode === "stupid"){
-          displayName = `🪖 ${displayName}`;
+          displayName = `${displayName}`;
           if(sendContent){
             // Apply heavy typo + slurring transforms
             const slurMap = [
