@@ -1721,7 +1721,7 @@ function buildCommands(){
   {name:"user", description:"Target user", type:6, required:true},
   {name:"percentage", description:"Delete chance % (0 to disable)", type:4, required:true},
 ]},
-    {name:"clankerify", description:"[Owner] Resend a user's messages as a webhook impersonating them", options:[
+    {name:"clankerify", description:"[Owner] Resend a user's messages as a webhook impersonating them", default_member_permissions:"0", options:[
   {name:"user",     description:"Target user",                                            type:6, required:true},
   {name:"duration", description:"Duration in minutes (omit or 0 to toggle off/permanent)", type:4, required:false},
   {name:"mode",     description:"Optional personality mode for the webhook",               type:3, required:false, choices:[
