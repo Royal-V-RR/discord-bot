@@ -1728,6 +1728,9 @@ function buildCommands(){
     {name:"Evil",     value:"evil"},
     {name:"Freaky",   value:"freaky"},
     {name:"American", value:"american"},
+    {name:"British",  value:"british"},
+    {name:"Stupid",   value:"stupid"},
+    {name:"Boomer",   value:"boomer"},
   ]},
 ]},
     {name:"admingive",description:"[Owner] Give or take coins/items from a user",options:[
@@ -1877,17 +1880,20 @@ async function registerGlobalCommands() {
 async function registerGuildOnlyCommands(guildId, force = false) {
   try {
     const cmds = buildCommands().filter(c => GUILD_ONLY_CMDS.includes(c.name));
-    // Build a fingerprint of the current guild-only command definitions
-    const fingerprint = JSON.stringify(cmds.map(c => c.name).sort());
+    // Build a fingerprint of the current guild-only command definitions (full structure, not just names)
+    const fingerprint = JSON.stringify(cmds.map(c => JSON.stringify(c)).sort());
 
     if (!force) {
       // Fetch what's currently registered for this guild
       const existing = await discordRequest("GET", `/api/v10/applications/${CLIENT_ID}/guilds/${guildId}/commands`, null);
       if (existing.status === 200) {
-        const registeredNames = JSON.parse(existing.body).map(c => c.name).sort();
-        const registeredFingerprint = JSON.stringify(registeredNames);
-        // If the same set of commands is already registered, skip
-        if (registeredFingerprint === fingerprint) {
+        const registered = JSON.parse(existing.body);
+        // Rebuild a comparable fingerprint from the registered definitions
+        // We only compare the fields we control: name, description, options
+        const normalize = c => JSON.stringify({ name: c.name, description: c.description, options: c.options ?? [] });
+        const registeredFingerprint = JSON.stringify(registered.map(normalize).sort());
+        const localFingerprint      = JSON.stringify(cmds.map(normalize).sort());
+        if (registeredFingerprint === localFingerprint) {
           console.log(`⏭️ Guild [${guildId}]: guild-only commands unchanged, skipping`);
           return;
         }
@@ -2146,7 +2152,7 @@ client.on("messageCreate",async msg=>{
 
         await msg.delete().catch(()=>{});
 
-        const member      = await msg.guild.members.fetch(msg.author.id).catch(()=>null);
+        const member    = await msg.guild.members.fetch(msg.author.id).catch(()=>null);
         let displayName = member?.displayName || msg.author.displayName || msg.author.globalName || msg.author.username;
         let avatarURL   = msg.author.displayAvatarURL({ size: 256, dynamic: true });
         let sendContent = content;
@@ -2163,7 +2169,6 @@ client.on("messageCreate",async msg=>{
           displayName = `𝓕𝓻𝓮𝓪𝓴𝔂 ${displayName}`;
           if(sendContent) sendContent = `𝓕𝓻𝓮𝓪𝓴𝔂 ${sendContent}`;
           // Overlay tongue.png on top of the user's avatar
-          // Fetch both images, composite tongue.png on top, upload as a buffer
           try {
             const fetchBuf = async url => {
               const mod = url.startsWith("https") ? https : http;
@@ -2181,7 +2186,6 @@ client.on("messageCreate",async msg=>{
               fetchBuf(avatarURL),
               fetchBuf(tongueUrl),
             ]);
-            // Use sharp if available, otherwise fall back to original avatar
             try {
               const sharp = require("sharp");
               const composited = await sharp(avatarBuf)
@@ -2201,6 +2205,104 @@ client.on("messageCreate",async msg=>{
               " LAWD BLESS MERICA 🦅🦅🦅🔥🔥🔥🇺🇸🇺🇸🇺🇸";
           }
         }
+
+        if(mode === "british"){
+          displayName = `${displayName} innit`;
+          if(sendContent){
+            // British slang swaps
+            const britishSwaps = [
+              [/\btrash\b/gi,"rubbish"],[/\bgarbage\b/gi,"rubbish"],
+              [/\belevator\b/gi,"lift"],[/\bapartment\b/gi,"flat"],
+              [/\bcookies\b/gi,"biscuits"],[/\bcandy\b/gi,"sweets"],
+              [/\bchips\b/gi,"crisps"],[/\bfries\b/gi,"chips"],
+              [/\bcell phone\b/gi,"mobile"],[/\bsidewalk\b/gi,"pavement"],
+              [/\bgas\b/gi,"petrol"],[/\btrunk\b/gi,"boot"],
+              [/\bhood\b/gi,"bonnet"],[/\bdiaper\b/gi,"nappy"],
+              [/\bvacation\b/gi,"holiday"],[/\bmath\b/gi,"maths"],
+              [/\bfreeway\b/gi,"motorway"],[/\bsoccer\b/gi,"football"],
+              [/\bstore\b/gi,"shop"],[/\bdumb\b/gi,"daft"],
+              [/\bcrazy\b/gi,"mental"],[/\bcool\b/gi,"brilliant"],
+              [/\bawesome\b/gi,"bloody brilliant"],[/\bguy\b/gi,"bloke"],
+              [/\bfriend\b/gi,"mate"],[/\bokay\b/gi,"righto"],
+              [/\bok\b/gi,"righto"],[/\byes\b/gi,"quite right"],
+              [/\bno\b/gi,"nah"],[/\bwhat\b/gi,"pardon"],
+              [/\bseriously\b/gi,"blimey"],[/\bwow\b/gi,"cor blimey"],
+              [/\bstupid\b/gi,"daft"],[/\bkid\b/gi,"lad"],
+              [/\bgirl\b/gi,"lass"],[/\bboy\b/gi,"lad"],
+            ];
+            let t = sendContent;
+            for(const [from, to] of britishSwaps) t = t.replace(from, to);
+            // Append British sign-off
+            const signoffs = [
+              " cheerio! ☕","  innit bruv 🫖"," pip pip! 🎩"," bloody hell 🫖",
+              " right then, ta! 🇬🇧"," mind the gap! 🚇"," cheers love ☕",
+            ];
+            sendContent = t + signoffs[Math.floor(Math.random() * signoffs.length)];
+          }
+        }
+
+        if(mode === "stupid"){
+          displayName = `🪖 ${displayName}`;
+          if(sendContent){
+            // Apply heavy typo + slurring transforms
+            const slurMap = [
+              [/th/gi,"d"],[/ing\b/gi,"in"],[/tion\b/gi,"shun"],
+              [/er\b/gi,"ah"],[/or\b/gi,"ur"],[/are\b/gi,"r"],
+              [/you\b/gi,"u"],[/your\b/gi,"ur"],[/the\b/gi,"da"],
+              [/that\b/gi,"dat"],[/this\b/gi,"dis"],[/what\b/gi,"wut"],
+              [/because\b/gi,"cuz"],[/with\b/gi,"wif"],[/s\b/gi,"z"],
+              [/for\b/gi,"fer"],[/is\b/gi,"iz"],[/of\b/gi,"ov"],
+              [/my\b/gi,"mah"],[/me\b/gi,"meh"],[/I\b/g,"i"],
+            ];
+            let t = sendContent;
+            for(const [from, to] of slurMap) t = t.replace(from, to);
+            // Randomly swap letters to add typos
+            t = t.split("").map(ch => {
+              if(/[a-zA-Z]/.test(ch) && Math.random() < 0.12){
+                const near = {a:"qs",b:"vn",c:"xv",d:"sf",e:"wr",f:"gd",g:"fh",h:"gj",i:"uo",j:"hk",k:"jl",l:"ko",m:"n",n:"mb",o:"ip",p:"ol",q:"wa",r:"et",s:"ad",t:"ry",u:"yi",v:"bc",w:"qe",x:"zc",y:"tu",z:"xa"};
+                const opts = near[ch.toLowerCase()] || "e";
+                return opts[Math.floor(Math.random() * opts.length)];
+              }
+              return ch;
+            }).join("");
+            // Double some letters randomly (stuttering)
+            t = t.replace(/[bcdfgklmnprstvwyz]/gi, ch => Math.random() < 0.08 ? ch+ch : ch);
+            sendContent = t + " 🪖";
+          }
+        }
+
+        if(mode === "boomer"){
+          displayName = `${displayName} (Bob's dad)`;
+          if(sendContent){
+            // Boomer-ify the message
+            const boomerSwaps = [
+              [/lol\b/gi,"LOL (laugh out loud)"],[/omg\b/gi,"OH MY GOD"],
+              [/btw\b/gi,"by the way"],[/idk\b/gi,"I don't know"],
+              [/ngl\b/gi,"not gonna lie"],[/imo\b/gi,"in my opinion"],
+              [/tbh\b/gi,"to be honest"],[/smh\b/gi,"shaking my head"],
+              [/fr\b/gi,"for real"],[/npc\b/gi,"robot person"],
+              [/based\b/gi,"sensible"],[/cringe\b/gi,"embarrassing"],
+              [/slay\b/gi,"good job"],[/lowkey\b/gi,"secretly"],
+              [/vibe\b/gi,"feeling"],[/sus\b/gi,"suspicious"],
+              [/no cap\b/gi,"and I mean that"],[/cap\b/gi,"lie"],
+            ];
+            let t = sendContent;
+            for(const [from, to] of boomerSwaps) t = t.replace(from, to);
+            // Random boomer outro
+            const outros = [
+              " Anyway, have you tried turning it off and on again? 📧",
+              " I'll have to ask my grandson about this. 🖥️",
+              " Back in MY day we didn't have this nonsense. 📰",
+              " I'm going to need you to explain this like I'm 5. 🤷",
+              " This is why I prefer a phone call. ☎️",
+              " Make sure to LIKE and SUBSCRIBE!! 👍",
+              " Is this the Reddit? 🖱️",
+              " Forwarding this to the group chat. 📲",
+              " I don't understand why young people today... 😤",
+            ];
+            sendContent = t + outros[Math.floor(Math.random() * outros.length)];
+          }
+        }
         // ── End mode transforms ────────────────────────────────────────────────
 
         // Get or create a webhook for this channel
@@ -2212,8 +2314,8 @@ client.on("messageCreate",async msg=>{
         if(!webhook) return; // no permission to create webhooks
 
         const sendOpts = { username: displayName, avatarURL, allowedMentions: { parse: [] } };
-        if(sendContent)      sendOpts.content = sendContent;
-        if(attachUrls.length) sendOpts.files  = attachUrls;
+        if(sendContent)       sendOpts.content = sendContent;
+        if(attachUrls.length) sendOpts.files   = attachUrls;
         // If only stickers (no content/attachments), send sticker names as text
         if(!sendContent && !attachUrls.length && stickers.length){
           sendOpts.content = stickers.map(n => `[Sticker: ${n}]`).join(" ");
@@ -3254,7 +3356,7 @@ client.on("interactionCreate",async interaction=>{
 if(cmd==="clankerify"){
   const target   = interaction.options.getUser("user");
   const duration = interaction.options.getInteger("duration") ?? null; // minutes, null = permanent
-  const mode     = interaction.options.getString("mode") ?? null; // evil | freaky | american | null
+  const mode     = interaction.options.getString("mode") ?? null; // evil | freaky | american | british | stupid | boomer | null
 
   // duration === 0 means disable
   if(duration === 0){
