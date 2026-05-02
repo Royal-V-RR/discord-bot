@@ -1801,6 +1801,15 @@ function buildCommands(){
       {name:"action",          description:"Give or remove",type:3,required:true,choices:[{name:"Give",value:"give"},{name:"Remove",value:"remove"}]},
       {name:"duration",        description:"How long to keep the LOA role (hours, optional — permanent if omitted)",type:4,required:false},
     ]},
+    // ── Message context menu commands (type 3 = MESSAGE, no description/options) ─
+    // Owner-only
+    { name:"Reaction Bomb",   type:3, default_member_permissions:"0" },
+    { name:"Clank This",      type:3, default_member_permissions:"0" },
+    { name:"Expose",          type:3, default_member_permissions:"0" },
+    // Everyone
+    { name:"Vibe Check",      type:3 },
+    { name:"Uwu-ify",         type:3 },
+    { name:"Quote This",      type:3 },
   ];
 }
 
@@ -3414,6 +3423,113 @@ client.on("interactionCreate",async interaction=>{
 
     try{await interaction.deferUpdate();}catch{}
     return;
+  }
+
+  // ── Message context menu commands ──────────────────────────────────────────────
+  if(interaction.isMessageContextMenu()){
+    const uid = interaction.user.id;
+    const targetMsg = interaction.targetMessage;
+    const cmd = interaction.commandName;
+
+    // ── Reaction Bomb (owner only) ───────────────────────────────────────────────
+    if(cmd === "Reaction Bomb"){
+      if(!OWNER_IDS.includes(uid)) return safeReply(interaction,{content:"Owner only.",ephemeral:true});
+      const BOMB_EMOJIS = ["✅","👍","🔥","💀","😂","❤️","👑","💯","🎉","⚡","🏆","😈","🤣","💪","🌟"];
+      try {
+        await interaction.deferReply({ephemeral:true});
+        for(const emoji of BOMB_EMOJIS){
+          await targetMsg.react(emoji).catch(()=>{});
+        }
+        await interaction.editReply({content:"💣 Bombed."});
+      } catch(e) { await interaction.editReply({content:`❌ Failed: ${e.message}`}).catch(()=>{}); }
+      return;
+    }
+
+    // ── Clank This (owner only) ─────────────────────────────────────────────────
+    if(cmd === "Clank This"){
+      if(!OWNER_IDS.includes(uid)) return safeReply(interaction,{content:"Owner only.",ephemeral:true});
+      const target = targetMsg.author;
+      if(target.bot) return safeReply(interaction,{content:"Can't clankerify a bot.",ephemeral:true});
+      clankerify.set(target.id, { expiresAt: Date.now() + 10 * 60_000, mode: null });
+      saveData();
+      setTimeout(() => { clankerify.delete(target.id); saveData(); }, 10 * 60_000);
+      return safeReply(interaction,{content:`🤖 <@${target.id}> has been clankerified for 10 minutes.`,ephemeral:true});
+    }
+
+    // ── Expose (owner only) ─────────────────────────────────────────────────────
+    if(cmd === "Expose"){
+      if(!OWNER_IDS.includes(uid)) return safeReply(interaction,{content:"Owner only.",ephemeral:true});
+      const content = targetMsg.content || "(no text)";
+      const author = targetMsg.author;
+      const exposePrefixes = [
+        "🚨 CAUGHT IN 4K:",
+        "📢 ATTENTION EVERYONE:",
+        "🔍 EXPOSE THREAD:",
+        "📸 SCREENSHOT THIS:",
+        "⚠️ EVIDENCE:",
+      ];
+      const prefix = exposePrefixes[Math.floor(Math.random() * exposePrefixes.length)];
+      await safeReply(interaction,{content:`${prefix}
+> ${content}
+— <@${author.id}>`});
+      return;
+    }
+
+    // ── Vibe Check (everyone) ───────────────────────────────────────────────────
+    if(cmd === "Vibe Check"){
+      const vibes = [
+        "✅ Vibe check passed. Immaculate.",
+        "✅ Vibe check passed. Barely, but still.",
+        "❌ Vibe check FAILED. Touch grass immediately.",
+        "❌ Vibe check FAILED. This message should not exist.",
+        "⚠️ Vibe check inconclusive. The council is divided.",
+        "💀 Vibe check so bad it killed the vibe in a 5 mile radius.",
+        "🔥 Vibe check passed with honours. Legend.",
+        "😐 Vibe check: mediocre. Could be worse. Could be better. It's this.",
+        "👑 Vibe check passed. This person is built different.",
+        "🤣 Vibe check: unhinged. Pass.",
+      ];
+      const result = vibes[Math.floor(Math.random() * vibes.length)];
+      await safeReply(interaction,{content:`${result}
+(checking <@${targetMsg.author.id}>'s message)`});
+      return;
+    }
+
+    // ── Uwu-ify (everyone) ──────────────────────────────────────────────────────
+    if(cmd === "Uwu-ify"){
+      const text = targetMsg.content;
+      if(!text) return safeReply(interaction,{content:"That message has no text to uwu-ify.",ephemeral:true});
+      let uwu = text
+        .replace(/r|l/gi, m => m === m.toUpperCase() ? "W" : "w")
+        .replace(/n([aeiou])/gi, (m,v) => `ny${v}`)
+        .replace(/ove/gi,"uv")
+        .replace(/th/gi,"d")
+        .replace(/\!+/g,"! uwu")
+        .replace(/\?+/g,"? owo")
+        .replace(/no/gi,"nyo")
+        .replace(/you/gi,"yuwu")
+        .replace(/the/gi,"da")
+        .replace(/my/gi,"mwy")
+        .replace(/what/gi,"wat");
+      const faces = ["uwu","owo","(つ✿╥‿╥)つ",">w<","(っ˘ω˘ς)","^w^","rawr x3","*nuzzles*"];
+      uwu = uwu + " " + faces[Math.floor(Math.random()*faces.length)];
+      await safeReply(interaction,{content:`**Uwu-ified** <@${targetMsg.author.id}>'s message:
+> ${uwu}`});
+      return;
+    }
+
+    // ── Quote This (everyone) ───────────────────────────────────────────────────
+    if(cmd === "Quote This"){
+      const text = targetMsg.content;
+      if(!text) return safeReply(interaction,{content:"That message has no text to quote.",ephemeral:true});
+      const author = targetMsg.author;
+      const displayName = targetMsg.member?.displayName || author.globalName || author.username;
+      await safeReply(interaction,{content:`\u201c${text}\u201d
+— **${displayName}**`});
+      return;
+    }
+
+    return; // unknown message context command
   }
 
   if(!interaction.isCommand())return;
