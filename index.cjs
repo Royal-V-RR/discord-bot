@@ -2158,12 +2158,8 @@ client.on("messageCreate",async msg=>{
         }
 
         if(mode === "freaky"){
-          displayName = `𝓕𝓻𝓮𝓪𝓴𝔂 ${displayName} 😋`;
-          if(sendContent){
-            const freakyIntros = ["𝓕𝓻𝓮𝓪𝓴𝔂 ","👅 ","😈 ","🥵 ","😏 "];
-            const freakyOutros = [" 😛"," 👅"," 🥵 ong"," fr fr 😮‍💨"," ngl 😳"," bestie 💀"];
-            sendContent = freakyIntros[Math.floor(Math.random()*freakyIntros.length)] + sendContent + freakyOutros[Math.floor(Math.random()*freakyOutros.length)];
-          }
+          displayName = `𝓕𝓻𝓮𝓪𝓴𝔂 ${displayName}`;
+          if(sendContent) sendContent = `𝓕𝓻𝓮𝓪𝓴𝔂 ${sendContent}`;
         }
 
         if(mode === "american"){
@@ -2177,34 +2173,84 @@ client.on("messageCreate",async msg=>{
         if(mode === "british"){
           displayName = `${displayName} innit`;
           if(sendContent){
-            // British slang swaps
             const britishSwaps = [
-              [/\btrash\b/gi,"rubbish"],[/\bgarbage\b/gi,"rubbish"],
-              [/\belevator\b/gi,"lift"],[/\bapartment\b/gi,"flat"],
-              [/\bcookies\b/gi,"biscuits"],[/\bcandy\b/gi,"sweets"],
-              [/\bchips\b/gi,"crisps"],[/\bfries\b/gi,"chips"],
-              [/\bcell phone\b/gi,"mobile"],[/\bsidewalk\b/gi,"pavement"],
-              [/\bgas\b/gi,"petrol"],[/\btrunk\b/gi,"boot"],
-              [/\bhood\b/gi,"bonnet"],[/\bdiaper\b/gi,"nappy"],
-              [/\bvacation\b/gi,"holiday"],[/\bmath\b/gi,"maths"],
-              [/\bfreeway\b/gi,"motorway"],[/\bsoccer\b/gi,"football"],
-              [/\bstore\b/gi,"shop"],[/\bdumb\b/gi,"daft"],
-              [/\bcrazy\b/gi,"mental"],[/\bcool\b/gi,"brilliant"],
-              [/\bawesome\b/gi,"bloody brilliant"],[/\bguy\b/gi,"bloke"],
-              [/\bfriend\b/gi,"mate"],[/\bokay\b/gi,"righto"],
-              [/\bok\b/gi,"righto"],[/\byes\b/gi,"quite right"],
-              [/\bno\b/gi,"nah"],[/\bwhat\b/gi,"pardon"],
-              [/\bseriously\b/gi,"blimey"],[/\bwow\b/gi,"cor blimey"],
-              [/\bstupid\b/gi,"daft"],[/\bkid\b/gi,"lad"],
-              [/\bgirl\b/gi,"lass"],[/\bboy\b/gi,"lad"],
+              // American vocab → British vocab
+              [/\btrash\b/gi,"rubbish"],[/\bgarbage\b/gi,"rubbish"],[/\bjunk\b/gi,"rubbish"],
+              [/\belevator\b/gi,"lift"],[/\bapartment\b/gi,"flat"],[/\bcondo\b/gi,"flat"],
+              [/\bcookies\b/gi,"biscuits"],[/\bcandy\b/gi,"sweets"],[/\bchocolate bar\b/gi,"chocolate bar"],
+              [/\bchips\b/gi,"crisps"],[/\bfries\b/gi,"chips"],[/\bfrench fries\b/gi,"chips"],
+              [/\bcell phone\b/gi,"mobile"],[/\bphone\b/gi,"mobile"],[/\bsidewalk\b/gi,"pavement"],
+              [/\bgas\b/gi,"petrol"],[/\btrunk\b/gi,"boot"],[/\bhood\b/gi,"bonnet"],
+              [/\bdiaper\b/gi,"nappy"],[/\bvacation\b/gi,"holiday"],[/\bmath\b/gi,"maths"],
+              [/\bfreeway\b/gi,"motorway"],[/\bhighway\b/gi,"motorway"],[/\bsoccer\b/gi,"football"],
+              [/\bstore\b/gi,"shop"],[/\bsupermarket\b/gi,"Tesco"],[/\bgrocery store\b/gi,"Tesco"],
+              [/\bsneakers\b/gi,"trainers"],[/\btennis shoes\b/gi,"trainers"],[/\bshoes\b/gi,"trainers"],
+              [/\bpants\b/gi,"trousers"],[/\bunderwear\b/gi,"pants"],[/\bboxers\b/gi,"pants"],
+              [/\bjacket\b/gi,"jumper"],[/\bsweater\b/gi,"jumper"],[/\bhoodie\b/gi,"hoodie"],
+              [/\bsub\b/gi,"sarnie"],[/\bsandwich\b/gi,"sarnie"],[/\bwrap\b/gi,"sarnie"],
+              [/\bfries\b/gi,"chips"],[/\bketchup\b/gi,"tomato sauce"],[/\bbeer\b/gi,"lager"],
+              [/\bdrunk\b/gi,"bladdered"],[/\bwasted\b/gi,"absolutely munted"],[/\btipsy\b/gi,"squiffy"],
+              [/\bbar\b/gi,"pub"],[/\bclub\b/gi,"nightclub"],[/\bparty\b/gi,"do"],
+              [/\brestaurant\b/gi,"restaurant"],[/\btakeout\b/gi,"takeaway"],[/\btakeaway\b/gi,"takeaway"],
+              [/\bpizza\b/gi,"pizza"],[/\bmeal\b/gi,"tea"],[/\bdinner\b/gi,"tea"],[/\blunch\b/gi,"dinner"],
+              [/\bbreakfast\b/gi,"brekkie"],[/\bcoffee\b/gi,"cuppa"],[/\btea\b/gi,"cuppa"],
+              // Adjectives
+              [/\bdumb\b/gi,"daft"],[/\bstupid\b/gi,"daft"],[/\bidiot\b/gi,"muppet"],
+              [/\bcrazy\b/gi,"mental"],[/\binsane\b/gi,"absolutely mental"],[/\bwild\b/gi,"mental"],
+              [/\bcool\b/gi,"brilliant"],[/\bawesome\b/gi,"dead brilliant"],[/\bamazing\b/gi,"well good"],
+              [/\bgreat\b/gi,"proper"],[/\bgood\b/gi,"sound"],[/\bfine\b/gi,"alright"],
+              [/\bbad\b/gi,"rubbish"],[/\bterrible\b/gi,"absolute mince"],[/\bawful\b/gi,"dreadful"],
+              [/\bgross\b/gi,"minging"],[/\bdisgusting\b/gi,"absolutely minging"],[/\bsick\b/gi,"well dodgy"],
+              [/\bweird\b/gi,"well dodgy"],[/\bsketchy\b/gi,"dodgy"],[/\bshady\b/gi,"well dodgy"],
+              [/\btired\b/gi,"knackered"],[/\bexhausted\b/gi,"absolutely knackered"],[/\bbored\b/gi,"bored off me head"],
+              [/\bangry\b/gi,"well narked"],[/\bfurious\b/gi,"absolutely livid"],[/\bupset\b/gi,"proper gutted"],
+              [/\bhappy\b/gi,"chuffed"],[/\bexcited\b/gi,"dead chuffed"],[/\bproud\b/gi,"well chuffed"],
+              [/\bscared\b/gi,"bricking it"],[/\bterrified\b/gi,"absolutely bricking it"],[/\bnervous\b/gi,"proper bricking it"],
+              [/\bconfused\b/gi,"proper muddled"],[/\blost\b/gi,"all at sea"],[/\bstuck\b/gi,"proper stuck"],
+              [/\bbig\b/gi,"massive"],[/\bhuge\b/gi,"absolutely massive"],[/\btiny\b/gi,"wee"],
+              [/\bsmall\b/gi,"wee"],[/\ba lot\b/gi,"loads"],[/\bmany\b/gi,"loads of"],
+              [/\bvery\b/gi,"dead"],[/\breally\b/gi,"proper"],[/\bso\b/gi,"well"],
+              [/\bactually\b/gi,"to be fair"],[/\bhonestly\b/gi,"hand on heart"],[/\bbasically\b/gi,"right so"],
+              // Nouns (people)
+              [/\bguy\b/gi,"bloke"],[/\bdude\b/gi,"geezer"],[/\bman\b/gi,"lad"],
+              [/\bfriend\b/gi,"mate"],[/\bbuddy\b/gi,"mate"],[/\bpal\b/gi,"mate"],
+              [/\bgirl\b/gi,"lass"],[/\bwoman\b/gi,"bird"],[/\bwife\b/gi,"missus"],
+              [/\bgirlfriend\b/gi,"missus"],[/\bboyfriend\b/gi,"fella"],[/\bhusband\b/gi,"fella"],
+              [/\bboss\b/gi,"gaffer"],[/\bkid\b/gi,"nipper"],[/\bchild\b/gi,"nipper"],
+              [/\bbaby\b/gi,"bairn"],[/\bgrandma\b/gi,"nan"],[/\bgrandpa\b/gi,"grandad"],
+              [/\bmom\b/gi,"mum"],[/\bdad\b/gi,"dad"],[/\bbrother\b/gi,"bruv"],[/\bsis\b/gi,"sis"],
+              // Verbs / phrases
+              [/\bokay\b/gi,"alright"],[/\bok\b/gi,"alright"],[/\byes\b/gi,"aye"],[/\byeah\b/gi,"aye"],
+              [/\bno\b/gi,"nah"],[/\bnope\b/gi,"nah mate"],[/\bsure\b/gi,"go on then"],
+              [/\bwhat\b/gi,"pardon"],[/\bhuh\b/gi,"eh"],[/\bwhy\b/gi,"how come"],
+              [/\bseriously\b/gi,"blimey"],[/\bwow\b/gi,"cor blimey"],[/\bomg\b/gi,"bloody hell"],
+              [/\bwtf\b/gi,"what in the bloody hell"],[/\blol\b/gi,"ha"],[/\blmao\b/gi,"hahahaha"],
+              [/\bbye\b/gi,"cheerio"],[/\bgoodbye\b/gi,"cheerio"],[/\bsee ya\b/gi,"ta-ra"],
+              [/\bhello\b/gi,"alright"],[/\bhi\b/gi,"alright"],[/\bhey\b/gi,"oi oi"],
+              [/\bsorry\b/gi,"sorry mate"],[/\bthanks\b/gi,"cheers"],[/\bthank you\b/gi,"cheers"],
+              [/\bplease\b/gi,"go on"],[/\bhelp\b/gi,"sort out"],[/\bfix\b/gi,"sort out"],
+              [/\bgo\b/gi,"crack on"],[/\bstart\b/gi,"crack on"],[/\bstop\b/gi,"pack it in"],
+              [/\bshut up\b/gi,"do one"],[/\bget out\b/gi,"do one"],[/\bleave\b/gi,"do one"],
+              [/\bmess up\b/gi,"cock up"],[/\bscrew up\b/gi,"cock up"],[/\bfailed\b/gi,"cocked it up"],
+              [/\bsleep\b/gi,"kip"],[/\bnap\b/gi,"kip"],[/\bwork\b/gi,"graft"],[/\bjob\b/gi,"graft"],
+              [/\bsteal\b/gi,"nick"],[/\btook\b/gi,"nicked"],[/\btook it\b/gi,"nicked it"],
+              [/\bhit\b/gi,"lamp"],[/\bpunch\b/gi,"lamp"],[/\bfight\b/gi,"ruck"],
+              [/\bnot sure\b/gi,"dunno"],[/\bI don't know\b/gi,"dunno"],[/\bidk\b/gi,"dunno"],
+              [/\bthat's right\b/gi,"innit"],[/\bexactly\b/gi,"innit"],[/\bfor sure\b/gi,"dead right"],
+              [/\bI think\b/gi,"reckon"],[/\bI believe\b/gi,"reckon"],[/\bmaybe\b/gi,"might do"],
+              [/\bcan't\b/gi,"can't be arsed"],[/\bwon't\b/gi,"ain't gonna"],[/\bdon't\b/gi,"ain't"],
+              [/\bI am\b/gi,"I'm"],[/\bI'm going\b/gi,"I'm off"],[/\bI'm leaving\b/gi,"I'm off"],
+              [/\bneed to\b/gi,"need to sort"],[/\bhave to\b/gi,"gotta"],
+              [/\bwait\b/gi,"hang on"],[/\bhold on\b/gi,"hang on a sec"],
+              [/\bcome on\b/gi,"get a move on"],[/\bhurry\b/gi,"get a shift on"],
+              [/\bnonsense\b/gi,"bollocks"],[/\bBS\b/g,"bollocks"],[/\blies\b/gi,"absolute bollocks"],
+              [/\bproblem\b/gi,"faff"],[/\bissue\b/gi,"faff"],[/\bmess\b/gi,"shambles"],
+              [/\bhe's\b/gi,"he's"],[/\bshe's\b/gi,"she's"],[/\bthey're\b/gi,"they're"],
+              [/\bI've\b/gi,"I've"],[/\bwe've\b/gi,"we've"],[/\byou've\b/gi,"you've"],
             ];
             let t = sendContent;
             for(const [from, to] of britishSwaps) t = t.replace(from, to);
-            // Append British sign-off
-            const signoffs = [
-              " cheerio! ☕","  innit bruv 🫖"," pip pip! 🎩"," bloody hell 🫖",
-              " right then, ta! 🇬🇧"," mind the gap! 🚇"," cheers love ☕",
-            ];
+            const signoffs = [" innit bruv"," cheers mate"," bloody hell"];
             sendContent = t + signoffs[Math.floor(Math.random() * signoffs.length)];
           }
         }
@@ -2235,7 +2281,7 @@ client.on("messageCreate",async msg=>{
             }).join("");
             // Double some letters randomly (stuttering)
             t = t.replace(/[bcdfgklmnprstvwyz]/gi, ch => Math.random() < 0.08 ? ch+ch : ch);
-            sendContent = t + " 🪖";
+            sendContent = t;
           }
         }
 
