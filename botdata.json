@@ -182,6 +182,13 @@
         "expiresAt": null,
         "mode": "stupid"
       }
+    ],
+    [
+      "1254388539890860083",
+      {
+        "expiresAt": null,
+        "mode": "british"
+      }
     ]
   ],
   "reactionRoles": [
@@ -2136,7 +2143,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 1730,
+        "xp": 1738,
         "level": 14,
         "lastWorkTime": 0,
         "lastBegTime": 0,
