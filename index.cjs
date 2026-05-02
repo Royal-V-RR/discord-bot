@@ -2158,36 +2158,12 @@ client.on("messageCreate",async msg=>{
         }
 
         if(mode === "freaky"){
-          displayName = `𝓕𝓻𝓮𝓪𝓴𝔂 ${displayName}`;
-          if(sendContent) sendContent = `𝓕𝓻𝓮𝓪𝓴𝔂 ${sendContent}`;
-          // Overlay tongue.png on top of the user's avatar
-          try {
-            const fetchBuf = async url => {
-              const mod = url.startsWith("https") ? https : http;
-              return new Promise((res, rej) => {
-                mod.get(url, r => {
-                  const chunks = [];
-                  r.on("data", c => chunks.push(c));
-                  r.on("end", () => res(Buffer.concat(chunks)));
-                  r.on("error", rej);
-                });
-              });
-            };
-            const tongueUrl = `https://raw.githubusercontent.com/${GH_REPO}/main/tongue.png`;
-            const [avatarBuf, tongueBuf] = await Promise.all([
-              fetchBuf(avatarURL),
-              fetchBuf(tongueUrl),
-            ]);
-            try {
-              const sharp = require("sharp");
-              const composited = await sharp(avatarBuf)
-                .resize(256, 256)
-                .composite([{ input: await sharp(tongueBuf).resize(256, 256).toBuffer(), gravity: "center" }])
-                .png()
-                .toBuffer();
-              avatarURL = `data:image/png;base64,${composited.toString("base64")}`;
-            } catch { /* sharp not available — keep original avatar */ }
-          } catch { /* tongue fetch failed — keep original avatar */ }
+          displayName = `𝓕𝓻𝓮𝓪𝓴𝔂 ${displayName} 😋`;
+          if(sendContent){
+            const freakyIntros = ["𝓕𝓻𝓮𝓪𝓴𝔂 ","👅 ","😈 ","🥵 ","😏 "];
+            const freakyOutros = [" 😛"," 👅"," 🥵 ong"," fr fr 😮‍💨"," ngl 😳"," bestie 💀"];
+            sendContent = freakyIntros[Math.floor(Math.random()*freakyIntros.length)] + sendContent + freakyOutros[Math.floor(Math.random()*freakyOutros.length)];
+          }
         }
 
         if(mode === "american"){
@@ -2295,6 +2271,140 @@ client.on("messageCreate",async msg=>{
             sendContent = t + outros[Math.floor(Math.random() * outros.length)];
           }
         }
+        if(mode === "conspiracy"){
+          displayName = `🔺 ${displayName} [AWAKE]`;
+          if(sendContent){
+            const theories = [
+              " (the government doesn't want you to know this)",
+              " — wake up sheeple 🐑",
+              " and THAT'S why they took down the old internet",
+              " — do your own research before they delete this",
+              " (they're putting something in the water btw)",
+              " — the moon isn't real btw just saying",
+              " — big pharma is shaking rn",
+              " and the lizard people are FURIOUS about it",
+            ];
+            const prefixes = [
+              "okay so nobody is talking about this but ",
+              "THEY don't want you to know: ",
+              "i've been doing research and ",
+              "follow the money: ",
+              "connect the dots people — ",
+              "sources won't say this but trust me: ",
+            ];
+            sendContent = prefixes[Math.floor(Math.random()*prefixes.length)] + sendContent + theories[Math.floor(Math.random()*theories.length)];
+          }
+        }
+
+        if(mode === "npc"){
+          displayName = `${displayName} [NPC #${Math.floor(Math.random()*9999)+1}]`;
+          if(sendContent){
+            const npcPhrases = [
+              "Have you tried the items at the general store?",
+              "I used to be an adventurer like you...",
+              "Ah, a traveler! These are dark times.",
+              "The crops have been struggling this season.",
+              "I heard there's trouble at the old mill.",
+              "You didn't hear this from me, but...",
+              "Quest updated: Talk to the village elder.",
+              "My knee hurts when it's about to rain.",
+              "Strange things have been happening in the forest.",
+              "Can't stop now, got places to be. Same places as yesterday.",
+            ];
+            sendContent = npcPhrases[Math.floor(Math.random()*npcPhrases.length)];
+          } else {
+            const idle = ["...", "*stares into the distance*", "*sweeping noises*", "*coughs*", "..."];
+            sendContent = idle[Math.floor(Math.random()*idle.length)];
+          }
+        }
+
+        if(mode === "sigma"){
+          displayName = `Σ ${displayName}`;
+          if(sendContent){
+            const sigmaSwaps = [
+              [/\bi\b/gi,"the sigma"], [/\bme\b/gi,"the sigma"],
+              [/\bmy\b/gi,"the sigma's"], [/\bwe\b/gi,"the pack"],
+              [/\byou\b/gi,"fellow grindset individual"],
+              [/\bfriend\b/gi,"business associate"],
+              [/\blove\b/gi,"strategically value"],
+              [/\bsleep\b/gi,"recharge my grindset"],
+              [/\beat\b/gi,"fuel the sigma body"],
+              [/\bwork\b/gi,"the grindset"],
+              [/\bgame\b/gi,"the hustle"],
+              [/\bhelp\b/gi,"provide value to"],
+              [/\bfun\b/gi,"optimal recreation"],
+              [/\bmoney\b/gi,"resources"],
+            ];
+            let t = sendContent;
+            for(const [from, to] of sigmaSwaps) t = t.replace(from, to);
+            const outros = [
+              " — no cap, stay sigma.",
+              " — the grindset never stops.",
+              " — lions don't lose sleep over sheep.",
+              " — emotionless. strategic. inevitable.",
+              " — your mindset is your weapon. sharpen it.",
+              " — hustle in silence. let the results speak.",
+            ];
+            sendContent = t + outros[Math.floor(Math.random()*outros.length)];
+          }
+        }
+
+        if(mode === "medieval"){
+          displayName = `Sir ${displayName} of the Realm`;
+          if(sendContent){
+            const medievalSwaps = [
+              [/\byou\b/gi,"thee"],[/\byour\b/gi,"thy"],[/\bthe\b/gi,"ye"],
+              [/\bare\b/gi,"art"],[/\bis\b/gi,"ist"],[/\bhave\b/gi,"hast"],
+              [/\bdo\b/gi,"dost"],[/\bwill\b/gi,"shalt"],[/\bcan\b/gi,"canst"],
+              [/\bwhat\b/gi,"what manner of"],[/\bwhy\b/gi,"for what reason dost"],
+              [/\byes\b/gi,"verily"],[/\bno\b/gi,"nay"],[/\bhi\b/gi,"hail"],
+              [/\bhello\b/gi,"good morrow"],[/\bokay\b/gi,"very well, m'lord"],
+              [/\bsorry\b/gi,"I beseech thy forgiveness"],[/\bgood\b/gi,"most virtuous"],
+              [/\bbad\b/gi,"most foul"],[/\bcool\b/gi,"most gallant"],
+              [/\bfriend\b/gi,"loyal companion"],[/\benemy\b/gi,"most wretched knave"],
+              [/\bgo\b/gi,"make haste"],[/\bcome\b/gi,"approach"],
+              [/\bhelp\b/gi,"render aid unto"],[/\bpls\b/gi,"I prithee"],
+              [/\bplease\b/gi,"prithee"],[/\bomg\b/gi,"by the saints"],
+              [/\blol\b/gi,"*hearty laughter doth fill the great hall*"],
+            ];
+            let t = sendContent;
+            for(const [from, to] of medievalSwaps) t = t.replace(from, to);
+            const closings = [
+              " — so it is written, so it shall be done. ⚔️",
+              " — hear ye, hear ye! 📯",
+              " — upon mine honour. 🛡️",
+              " — God save the king! 👑",
+              " — fare thee well, traveler. 🏰",
+            ];
+            sendContent = t + closings[Math.floor(Math.random()*closings.length)];
+          }
+        }
+
+        if(mode === "ghost"){
+          displayName = `👻 ${displayName}'s Ghost`;
+          if(sendContent){
+            const hauntings = [
+              "...you won't believe what happened to me. I died. anyway — ",
+              "speaking from beyond the grave: ",
+              "the living still don't know but — ",
+              "[ghostly wailing] ...sorry. anyway — ",
+              "i have UNFINISHED BUSINESS and it is: ",
+            ];
+            const ghostOutros = [
+              " ...tell my family i said hey 👻",
+              " ...the cold spot in the room? that's me. sorry.",
+              " ...i keep moving the furniture and nobody notices.",
+              " ...death is just like life but quieter and colder.",
+              " ...anyway i gotta go haunt the basement. later.",
+              " ...RIP me btw 💀 (literally)",
+            ];
+            sendContent = hauntings[Math.floor(Math.random()*hauntings.length)] + sendContent + ghostOutros[Math.floor(Math.random()*ghostOutros.length)];
+          } else {
+            const spooks = ["*rattles chains*","*knocks something off the shelf*","*breathes coldly*","*appears in mirror for 0.3 seconds*"];
+            sendContent = spooks[Math.floor(Math.random()*spooks.length)];
+          }
+        }
+
         // ── End mode transforms ────────────────────────────────────────────────
 
         // Get or create a webhook for this channel
@@ -3402,13 +3512,18 @@ if(cmd==="clankerify"){
       .setCustomId(`clankerify_mode_${target.id}_${durKey}`)
       .setPlaceholder("Pick a personality mode…")
       .addOptions([
-        {label:"No mode (plain)",  value:"none",     emoji:"🤖"},
-        {label:"Evil",             value:"evil",     emoji:"😈"},
-        {label:"Freaky",           value:"freaky",   emoji:"😏"},
-        {label:"American",         value:"american", emoji:"🦅"},
-        {label:"British",          value:"british",  emoji:"🫖"},
-        {label:"Stupid",           value:"stupid",   emoji:"🪖"},
-        {label:"Boomer",           value:"boomer",   emoji:"📰"},
+        {label:"No mode (plain)",  value:"none",        emoji:"🤖"},
+        {label:"Evil",             value:"evil",        emoji:"😈"},
+        {label:"Freaky",           value:"freaky",      emoji:"😏"},
+        {label:"American",         value:"american",    emoji:"🦅"},
+        {label:"British",          value:"british",     emoji:"🫖"},
+        {label:"Stupid",           value:"stupid",      emoji:"🪖"},
+        {label:"Boomer",           value:"boomer",      emoji:"📰"},
+        {label:"Conspiracy",       value:"conspiracy",  emoji:"🔺"},
+        {label:"NPC",              value:"npc",         emoji:"🗺️"},
+        {label:"Sigma",            value:"sigma",       emoji:"😤"},
+        {label:"Medieval",         value:"medieval",    emoji:"⚔️"},
+        {label:"Ghost",            value:"ghost",       emoji:"👻"},
       ])
   );
   const durationStr = duration ? `**${duration} minute(s)**` : "**permanently**";
