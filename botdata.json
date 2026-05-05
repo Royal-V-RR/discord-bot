@@ -3680,7 +3680,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 326,
+        "xp": 335,
         "level": 4,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -18399,7 +18399,7 @@
     [
       "Tank the Thomas engine.png",
       {
-        "up": 1,
+        "up": 2,
         "down": 1
       }
     ],
@@ -23424,6 +23424,10 @@
     [
       "1501341026739290267",
       "Thomas walk.png"
+    ],
+    [
+      "1501341062264918026",
+      "Tank the Thomas engine.png"
     ]
   ]
 }
