@@ -309,7 +309,17 @@
     ]
   ],
   "ytConfig": [],
-  "countingChannels": [],
+  "countingChannels": [
+    [
+      "1474877301794541598",
+      {
+        "guildId": "1474518386099749075",
+        "count": 0,
+        "lastUserId": null,
+        "highScore": 0
+      }
+    ]
+  ],
   "userInstalls": [],
   "scores": [
     [
