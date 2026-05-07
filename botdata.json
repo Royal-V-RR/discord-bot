@@ -663,7 +663,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-27",
-        "xp": 691,
+        "xp": 698,
         "level": 13,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -801,7 +801,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 1253,
+        "xp": 1269,
         "level": 15,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -1547,7 +1547,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 726,
+        "xp": 744,
         "level": 12,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -3400,7 +3400,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 28,
+        "xp": 40,
         "level": 2,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -3409,7 +3409,9 @@
         "inventory": [],
         "marriedTo": null,
         "pendingProposal": null,
-        "forceMarried": false
+        "forceMarried": false,
+        "imagesUploaded": 0,
+        "uploadedImages": []
       }
     ],
     [
