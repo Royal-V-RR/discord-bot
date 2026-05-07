@@ -157,7 +157,10 @@
         "channelId": "1502067031326064732",
         "subject": "",
         "openedAt": 1778191087429,
-        "status": "open"
+        "status": "closed",
+        "claimedBy": "1497930579126259795",
+        "closedBy": "1497930579126259795",
+        "closedAt": 1778191093174
       }
     ]
   ],
