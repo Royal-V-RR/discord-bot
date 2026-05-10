@@ -96,7 +96,7 @@ let quoteFetching = false; // true while a refill fetch is in flight
 const quoteVotes = new Map();
 // quoteVoteMessages: messageId -> filename  (tracks which quote a message shows)
 const quoteVoteMessages = new Map();
-const reviewChannel = new Map(); // guildId -> channelId for quote review
+let reviewChannelId = null; // global channel ID for quote review submissions
 
 function shuffleArray(arr) {
   for (let i = arr.length - 1; i > 0; i--) {
@@ -506,7 +506,7 @@ function buildDataObject() {
     memers:               [...MEMERS],
     quoteVotes:           [...quoteVotes.entries()],
     quoteVoteMessages:    [...quoteVoteMessages.entries()],
-    reviewChannel:        [...reviewChannel.entries()],
+    reviewChannelId:      reviewChannelId,
   };
 }
 
@@ -684,7 +684,7 @@ function loadData() {
 
 
     if (data.dailyQuoteChannels) data.dailyQuoteChannels.forEach(([k,v]) => dailyQuoteChannels.set(k, v));
-    if (data.reviewChannel)      data.reviewChannel.forEach(([k,v]) => reviewChannel.set(k, v));
+    if (data.reviewChannelId)    reviewChannelId = data.reviewChannelId;
     if (data.quoteVotes)         data.quoteVotes.forEach(([k,v]) => quoteVotes.set(k, v));
     if (data.quoteVoteMessages)  data.quoteVoteMessages.forEach(([k,v]) => quoteVoteMessages.set(k, v));
 
@@ -5810,17 +5810,16 @@ if(cmd==="gif"){
     if(cmd==="requester"){
       const ch = interaction.options.getChannel("channel");
       if(ch.type!=="GUILD_TEXT") return safeReply(interaction,{content:"❌ Please select a text channel.",ephemeral:true});
-      reviewChannel.set(interaction.guildId, ch.id);
+      reviewChannelId = ch.id;
       saveData();
-      return safeReply(interaction,{content:`✅ Quote review channel set to <#${ch.id}>. Submissions from \`/requestupload\` will be sent there.`,ephemeral:true});
+      return safeReply(interaction,{content:`✅ Global quote review channel set to <#${ch.id}>. All \`/requestupload\` submissions will go there.`,ephemeral:true});
     }
 
     // ── /requestupload — anyone submits an image for review ────────────────────
     if(cmd==="requestupload"){
       if(!inGuild) return safeReply(interaction,{content:"❌ Server only.",ephemeral:true});
-      const reviewChId = reviewChannel.get(interaction.guildId);
-      if(!reviewChId) return safeReply(interaction,{content:"❌ No review channel has been set up yet. Ask an owner to use \`/requester\`.",ephemeral:true});
-      const reviewCh = interaction.guild.channels.cache.get(reviewChId);
+      if(!reviewChannelId) return safeReply(interaction,{content:"❌ No global review channel has been set up yet. Ask an owner to use \`/requester\`.",ephemeral:true});
+      const reviewCh = await client.channels.fetch(reviewChannelId).catch(()=>null);
       if(!reviewCh) return safeReply(interaction,{content:"❌ The configured review channel no longer exists. Ask an owner to re-run \`/requester\`.",ephemeral:true});
 
       const attachment = interaction.options.getAttachment("source");
