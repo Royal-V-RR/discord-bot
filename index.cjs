@@ -2626,33 +2626,33 @@ client.on("interactionCreate",async interaction=>{
 
       try{
         const res = await fetch(imageUrl);
-        if(!res.ok) throw new Error(\`HTTP \${res.status}\`);
+        if(!res.ok) throw new Error(`HTTP ${res.status}`);
         const fileBuffer = Buffer.from(await res.arrayBuffer());
 
         if(fileBuffer.length > 1_000_000){
-          await interaction.followUp({content:\`❌ File too large (\${(fileBuffer.length/1024/1024).toFixed(1)} MB). GitHub only accepts under 1 MB.\`,ephemeral:true}).catch(()=>{});
+          await interaction.followUp({content:`❌ File too large (${(fileBuffer.length/1024/1024).toFixed(1)} MB). GitHub only accepts under 1 MB.`,ephemeral:true}).catch(()=>{});
           return;
         }
 
-        const ghPath  = \`quotes/\${fileName}\`;
+        const ghPath  = `quotes/${fileName}`;
         const encoded = fileBuffer.toString("base64");
 
-        const checkRes = await fetch(\`https://api.github.com/repos/\${GH_REPO}/contents/\${ghPath}\`,{
-          headers:{"User-Agent":"RoyalBot","Authorization":\`token \${GH_TOKEN}\`,"Accept":"application/vnd.github+json"}
+        const checkRes = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/${ghPath}`,{
+          headers:{"User-Agent":"RoyalBot","Authorization":`token ${GH_TOKEN}`,"Accept":"application/vnd.github+json"}
         });
         let sha = null;
         if(checkRes.ok){ const j=await checkRes.json(); sha=j.sha||null; }
 
-        const putRes = await fetch(\`https://api.github.com/repos/\${GH_REPO}/contents/\${ghPath}\`,{
+        const putRes = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/${ghPath}`,{
           method:"PUT",
-          headers:{"User-Agent":"RoyalBot","Authorization":\`token \${GH_TOKEN}\`,"Accept":"application/vnd.github+json","Content-Type":"application/json"},
-          body: JSON.stringify({message:\`feat: approve quote submission \${fileName}\`,content:encoded,...(sha?{sha}:{})})
+          headers:{"User-Agent":"RoyalBot","Authorization":`token ${GH_TOKEN}`,"Accept":"application/vnd.github+json","Content-Type":"application/json"},
+          body: JSON.stringify({message:`feat: approve quote submission ${fileName}`,content:encoded,...(sha?{sha}:{})})
         });
 
         if(!putRes.ok){
           const err = await putRes.text();
           console.error("qr_accept GitHub error:",err);
-          await interaction.followUp({content:\`❌ GitHub upload failed (HTTP \${putRes.status}).\`,ephemeral:true}).catch(()=>{});
+          await interaction.followUp({content:`❌ GitHub upload failed (HTTP ${putRes.status}).`,ephemeral:true}).catch(()=>{});
           return;
         }
 
@@ -2677,7 +2677,7 @@ client.on("interactionCreate",async interaction=>{
         }catch{}
       }catch(e){
         console.error("qr_accept error:",e.message);
-        try{await interaction.followUp({content:\`❌ Something went wrong: \${e.message}\`,ephemeral:true});}catch{}
+        try{await interaction.followUp({content:`❌ Something went wrong: ${e.message}`,ephemeral:true});}catch{}
       }
       return;
     }
@@ -5830,12 +5830,12 @@ if(cmd==="gif"){
       // Build a safe filename: submitter_id + original name
       let rawName = attachment.name.replace(/[^a-zA-Z0-9._-]/g,"_");
       if(!/\.(png|jpe?g|gif|webp)$/i.test(rawName)) rawName += ".jpg";
-      const fileName = \`\${interaction.user.id}_\${rawName}\`;
+      const fileName = `${interaction.user.id}_${rawName}`;
 
       // Validate size before even sending to review
       const fileSizeMB = (attachment.size/1024/1024).toFixed(1);
       if(attachment.size > 1_000_000)
-        return safeReply(interaction,{content:\`❌ File too large (\${fileSizeMB} MB). Max is 1 MB.\`,ephemeral:true});
+        return safeReply(interaction,{content:`❌ File too large (${fileSizeMB} MB). Max is 1 MB.`,ephemeral:true});
 
       await interaction.deferReply({ephemeral:true});
 
@@ -5845,11 +5845,11 @@ if(cmd==="gif"){
 
       const reviewRow = new MessageActionRow().addComponents(
         new MessageButton()
-          .setCustomId(\`qr_accept_\${submitter.id}_\${fileName}\`)
+          .setCustomId(`qr_accept_${submitter.id}_${fileName}`)
           .setLabel("✅ Upload to Quotes")
           .setStyle("SUCCESS"),
         new MessageButton()
-          .setCustomId(\`qr_reject_\${submitter.id}_\${fileName}\`)
+          .setCustomId(`qr_reject_${submitter.id}_${fileName}`)
           .setLabel("❌ Reject")
           .setStyle("DANGER"),
       );
@@ -5858,10 +5858,10 @@ if(cmd==="gif"){
         await reviewCh.send({
           content:`📥 **New Quote Submission**\nSubmitted by **${displayName}** (<@${submitter.id}>) • ID: \`${submitter.id}\`\nAccount created: <t:${Math.floor(submitter.createdTimestamp/1000)}:R>\n📎 Filename: \`${fileName}\`\nServer: **${interaction.guild.name}** • Channel: <#${interaction.channelId}>`,
           embeds:[{
-            author:{name:\`\${submitter.username} — quote submission\`,icon_url:submitter.displayAvatarURL({size:64,dynamic:true})},
+            author:{name:`${submitter.username} — quote submission`,icon_url:submitter.displayAvatarURL({size:64,dynamic:true})},
             image:{url:attachment.url},
             color:0x5865F2,
-            footer:{text:\`Submitted from: \${interaction.guild.name} • \${fileSizeMB} MB\`},
+            footer:{text:`Submitted from: ${interaction.guild.name} • ${fileSizeMB} MB`},
             timestamp:new Date().toISOString(),
           }],
           components:[reviewRow],
@@ -5869,7 +5869,7 @@ if(cmd==="gif"){
         return safeReply(interaction,{content:"✅ Your image has been submitted for review! You'll get a DM once it's been approved or rejected.",ephemeral:true});
       }catch(e){
         console.error("requestupload send error:",e.message);
-        return safeReply(interaction,{content:\`❌ Failed to send to review channel: \${e.message}\`,ephemeral:true});
+        return safeReply(interaction,{content:`❌ Failed to send to review channel: ${e.message}`,ephemeral:true});
       }
     }
 
