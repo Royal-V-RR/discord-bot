@@ -2610,7 +2610,7 @@ client.on("interactionCreate",async interaction=>{
         // Notify submitter
         try{
           const submitter = await client.users.fetch(submitterId).catch(()=>null);
-          if(submitter) await submitter.send(\`❌ Your quote submission \\`\${fileName}\\` was **rejected** by a reviewer. It won't be added to the quotes folder.\`).catch(()=>{});
+          if(submitter) await submitter.send(`❌ Your quote submission \\`\${fileName}\\` was **rejected** by a reviewer. It won't be added to the quotes folder.\`).catch(()=>{});
         }catch{}
         return;
       }
