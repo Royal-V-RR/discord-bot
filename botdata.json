@@ -13045,7 +13045,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 590,
+        "xp": 601,
         "level": 7,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -13165,7 +13165,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-05-07",
-        "xp": 904,
+        "xp": 912,
         "level": 13,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -22658,6 +22658,30 @@
         "forceMarried": false,
         "uploadedImages": []
       }
+    ],
+    [
+      "1481677691886244014",
+      {
+        "username": "zutni.",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 15,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
     ]
   ],
   "activeEffects": [],
@@ -23893,7 +23917,7 @@
     [
       "quote_1497983020345589811.png",
       {
-        "up": 6,
+        "up": 7,
         "down": 0
       }
     ],
