@@ -696,7 +696,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 1188,
+        "xp": 1194,
         "level": 10,
         "lastWorkTime": 0,
         "lastBegTime": 1777202794743,
@@ -707,7 +707,15 @@
         "pendingProposal": null,
         "forceMarried": false,
         "imagesUploaded": 690000,
-        "uploadedImages": []
+        "uploadedImages": [],
+        "lastFishTime": 0,
+        "lastMineTime": 0,
+        "bio": "",
+        "badges": [],
+        "profileBackground": "default",
+        "fishedItems": [],
+        "minedItems": [],
+        "achievements": []
       }
     ],
     [
@@ -13107,7 +13115,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 194,
+        "xp": 208,
         "level": 8,
         "lastWorkTime": 0,
         "lastBegTime": 0,
