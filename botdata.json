@@ -3700,7 +3700,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 1889,
+        "xp": 1896,
         "level": 13,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -3711,7 +3711,15 @@
         "pendingProposal": null,
         "forceMarried": false,
         "imagesUploaded": 0,
-        "uploadedImages": []
+        "uploadedImages": [],
+        "lastFishTime": 0,
+        "lastMineTime": 0,
+        "bio": "",
+        "badges": [],
+        "profileBackground": "default",
+        "fishedItems": [],
+        "minedItems": [],
+        "achievements": []
       }
     ],
     [
