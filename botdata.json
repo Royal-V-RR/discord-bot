@@ -740,7 +740,7 @@
         "username": "royalvmusic",
         "wins": 1,
         "gamesPlayed": 2,
-        "coins": 6039,
+        "coins": 5989,
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-27",
@@ -24166,11 +24166,16 @@
   "reminders": [],
   "bankAccounts": [],
   "lottery": {
-    "tickets": [],
-    "jackpot": 500,
+    "tickets": [
+      [
+        "969280648667889764",
+        1
+      ]
+    ],
+    "jackpot": 550,
     "lastDraw": 0,
     "drawMessageId": null,
-    "drawChannelId": null
+    "drawChannelId": "1477294439180537980"
   },
   "inviteComps": [],
   "premieres": [],
