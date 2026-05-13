@@ -12211,7 +12211,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 117,
+        "xp": 130,
         "level": 4,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -12265,7 +12265,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 226,
+        "xp": 237,
         "level": 5,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -12276,7 +12276,15 @@
         "pendingProposal": null,
         "forceMarried": false,
         "imagesUploaded": 0,
-        "uploadedImages": []
+        "uploadedImages": [],
+        "lastFishTime": 0,
+        "lastMineTime": 0,
+        "bio": "",
+        "badges": [],
+        "profileBackground": "default",
+        "fishedItems": [],
+        "minedItems": [],
+        "achievements": []
       }
     ],
     [
