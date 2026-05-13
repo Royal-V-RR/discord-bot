@@ -704,7 +704,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 1225,
+        "xp": 1235,
         "level": 10,
         "lastWorkTime": 0,
         "lastBegTime": 1777202794743,
@@ -24039,6 +24039,38 @@
         "imagesUploaded": 0,
         "forceMarried": false,
         "uploadedImages": []
+      }
+    ],
+    [
+      "1045902079362859019",
+      {
+        "username": "troupemastergim",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 13,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "lastFishTime": 0,
+        "lastMineTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "uploadedImages": [],
+        "bio": "",
+        "badges": [],
+        "profileBackground": "default",
+        "fishedItems": [],
+        "minedItems": [],
+        "achievements": [],
+        "forceMarried": false
       }
     ]
   ],
