@@ -734,7 +734,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-27",
-        "xp": 1438,
+        "xp": 1446,
         "level": 15,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -3739,8 +3739,10 @@
         "marriedTo": null,
         "pendingProposal": null,
         "forceMarried": false,
-        "imagesUploaded": 0,
-        "uploadedImages": [],
+        "imagesUploaded": 1,
+        "uploadedImages": [
+          "1057320311453913149_Screenshot_20260515_221602_Discord.jpg"
+        ],
         "lastFishTime": 0,
         "lastMineTime": 0,
         "bio": "",
