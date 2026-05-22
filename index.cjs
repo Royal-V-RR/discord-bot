@@ -116,7 +116,7 @@ async function refillQuoteQueue() {
     if (!res.ok) { quoteFetching = false; return; }
     const files  = await res.json();
     const images = files.filter(f => /\.(png|jpe?g|gif|webp)$/i.test(f.name));
-    if (images.length) quoteQueue = weightedShuffleQuotes(images);
+    if (images.length) quoteQueue = shuffleArray([...images]);
   } catch(e) { console.error("Quote queue refill failed:", e); }
   quoteFetching = false;
 }
@@ -224,32 +224,11 @@ async function nextLowRatedQuoteImage(allImages) {
 }
 
 // Returns the next image from the queue, refilling if needed.
-// ~20% of the time it pulls a lower-rated image instead to surface bad ones occasionally.
+// Pure shuffle — no weighting. Weights only apply to /goodquote and /badquote.
 // Returns null if the queue can't be filled (GitHub unavailable).
 async function nextQuoteImage() {
-  if (quoteQueue.length === 0 || quoteQueue.length <= Math.max(1, Math.floor(quoteQueue.length * 0.1))) {
-    await refillQuoteQueue();
-  }
+  if (quoteQueue.length === 0) await refillQuoteQueue();
   if (quoteQueue.length === 0) return null;
-
-  // 20% chance: serve a lower-rated quote
-  if (Math.random() < 0.20) {
-    try {
-      const res = await fetch("https://api.github.com/repos/Royal-V-RR/discord-bot/contents/quotes", {
-        headers: { "User-Agent": "RoyalBot", "Authorization": `token ${GH_TOKEN}` }
-      });
-      if (res.ok) {
-        const files  = await res.json();
-        const images = files.filter(f => /\.(png|jpe?g|gif|webp)$/i.test(f.name));
-        if (images.length) {
-          const low = await nextLowRatedQuoteImage(images);
-          if (low) return low;
-        }
-      }
-    } catch {}
-    // If anything fails above, fall through to normal queue
-  }
-
   return quoteQueue.shift();
 }
 
@@ -2028,12 +2007,14 @@ function emojiKey(reaction){
 
 client.on("messageReactionAdd", async (reaction, user) => {
   if(user.bot) return;
+
+  // Fetch partials so we have full objects
   try {
     if(reaction.partial) await reaction.fetch();
+  } catch(e) { console.error("[RR] reaction fetch failed:", e.message); return; }
+  try {
     if(reaction.message.partial) await reaction.message.fetch();
-  } catch { return; }
-  const guildId = reaction.message.guildId;
-  if(!guildId) return;
+  } catch(e) { console.error("[RR] message fetch failed:", e.message); return; }
 
   // ── Quote vote tracking ──────────────────────────────────────────────────────
   const quoteName = quoteVoteMessages.get(reaction.message.id);
@@ -2046,30 +2027,40 @@ client.on("messageReactionAdd", async (reaction, user) => {
       quoteVotes.set(quoteName, v);
       saveData();
     }
-    return; // don't fall through to reaction-role logic
+    // Don't return — fall through so reaction roles still work on quote messages
   }
 
-  const key = `${guildId}:${reaction.message.id}:${emojiKey(reaction)}`;
+  const guildId = reaction.message.guildId;
+  if(!guildId) return;
+
+  // ── Reaction roles ────────────────────────────────────────────────────────────
+  const eKey = emojiKey(reaction);
+  const key = `${guildId}:${reaction.message.id}:${eKey}`;
   const roleId = reactionRoles.get(key);
   if(!roleId) return;
+
+  console.log(`[RR] add: key=${key} roleId=${roleId} user=${user.id}`);
   try {
-    const guild  = reaction.message.guild;
-    const member = await guild.members.fetch(user.id).catch(()=>null);
+    const guild = client.guilds.cache.get(guildId);
+    if(!guild) { console.error("[RR] guild not in cache:", guildId); return; }
+    const member = await guild.members.fetch(user.id).catch(e => { console.error("[RR] member fetch failed:", e.message); return null; });
     if(!member) return;
-    const role = guild.roles.cache.get(roleId);
-    if(!role) return;
+    const role = guild.roles.cache.get(roleId) || await guild.roles.fetch(roleId).catch(()=>null);
+    if(!role) { console.error("[RR] role not found:", roleId); return; }
     await member.roles.add(role);
-  } catch(e) { console.error("reactionRoleAdd error:", e.message); }
+    console.log(`[RR] ✅ Added role ${role.name} to ${user.tag||user.id}`);
+  } catch(e) { console.error("[RR] reactionRoleAdd error:", e.message); }
 });
 
 client.on("messageReactionRemove", async (reaction, user) => {
   if(user.bot) return;
+
   try {
     if(reaction.partial) await reaction.fetch();
+  } catch(e) { console.error("[RR] reaction fetch failed:", e.message); return; }
+  try {
     if(reaction.message.partial) await reaction.message.fetch();
-  } catch { return; }
-  const guildId = reaction.message.guildId;
-  if(!guildId) return;
+  } catch(e) { console.error("[RR] message fetch failed:", e.message); return; }
 
   // ── Quote vote removal ───────────────────────────────────────────────────────
   const quoteName = quoteVoteMessages.get(reaction.message.id);
@@ -2082,20 +2073,29 @@ client.on("messageReactionRemove", async (reaction, user) => {
       quoteVotes.set(quoteName, v);
       saveData();
     }
-    return;
+    // Don't return — fall through so reaction roles still work on quote messages
   }
 
-  const key = `${guildId}:${reaction.message.id}:${emojiKey(reaction)}`;
+  const guildId = reaction.message.guildId;
+  if(!guildId) return;
+
+  // ── Reaction roles ────────────────────────────────────────────────────────────
+  const eKey = emojiKey(reaction);
+  const key = `${guildId}:${reaction.message.id}:${eKey}`;
   const roleId = reactionRoles.get(key);
   if(!roleId) return;
+
+  console.log(`[RR] remove: key=${key} roleId=${roleId} user=${user.id}`);
   try {
-    const guild  = reaction.message.guild;
-    const member = await guild.members.fetch(user.id).catch(()=>null);
+    const guild = client.guilds.cache.get(guildId);
+    if(!guild) { console.error("[RR] guild not in cache:", guildId); return; }
+    const member = await guild.members.fetch(user.id).catch(e => { console.error("[RR] member fetch failed:", e.message); return null; });
     if(!member) return;
-    const role = guild.roles.cache.get(roleId);
-    if(!role) return;
+    const role = guild.roles.cache.get(roleId) || await guild.roles.fetch(roleId).catch(()=>null);
+    if(!role) { console.error("[RR] role not found:", roleId); return; }
     await member.roles.remove(role);
-  } catch(e) { console.error("reactionRoleRemove error:", e.message); }
+    console.log(`[RR] ✅ Removed role ${role.name} from ${user.tag||user.id}`);
+  } catch(e) { console.error("[RR] reactionRoleRemove error:", e.message); }
 });
 
 // ── DM forwarding ──────────────────────────────────────────────────────────────
@@ -5089,29 +5089,54 @@ if(cmd==="gif"){
         const prefix=`${interaction.guildId}:`;
         const entries=[...reactionRoles.entries()].filter(([k])=>k.startsWith(prefix));
         if(!entries.length)return safeReply(interaction,{content:"No reaction roles set up yet.",ephemeral:true});
-        const lines=entries.map(([key,roleId])=>{const[,msgId,...emojiParts]=key.split(":");const emojiPart=emojiParts.join(":");const display=emojiPart.includes(":")?`<:${emojiPart}>`:emojiPart;return`${display} → <@&${roleId}> (msg \`${msgId}\`)`;});
+        const lines=entries.map(([key,roleId])=>{
+          const parts=key.split(":");
+          // key format: guildId:msgId:emojiName  OR  guildId:msgId:emojiName:emojiId
+          const msgId=parts[1];
+          const emojiPart=parts.slice(2).join(":");
+          const display=emojiPart.includes(":")?`<:${emojiPart}>`:emojiPart;
+          return`${display} → <@&${roleId}> (msg \`${msgId}\`)`;
+        });
         return safeReply(interaction,{content:`🎭 **Reaction Roles — ${interaction.guild.name}**\n\n${lines.join("\n")}`,ephemeral:true});
       }
       if(action==="remove"){
-        const messageId=interaction.options.getString("messageid")?.trim(),emoji=interaction.options.getString("emoji")?.trim();
-        if(!messageId||!emoji)return safeReply(interaction,{content:"❌ Provide `messageid` and `emoji`.",ephemeral:true});
-        const norm=emoji.replace(/^<a?:([^:]+:\d+)>$/,"$1");
+        const messageId=interaction.options.getString("messageid")?.trim();
+        const emojiRaw=interaction.options.getString("emoji")?.trim();
+        if(!messageId||!emojiRaw)return safeReply(interaction,{content:"❌ Provide `messageid` and `emoji`.",ephemeral:true});
+        // Normalize: strip discord emoji wrapper <:name:id> or <a:name:id> → name:id
+        const norm=emojiRaw.replace(/^<a?:([^:]+:\d+)>$/,"$1");
         const key=`${interaction.guildId}:${messageId}:${norm}`;
         if(!reactionRoles.has(key))return safeReply(interaction,{content:"❌ No reaction role found for that message + emoji.",ephemeral:true});
         const roleId=reactionRoles.get(key);reactionRoles.delete(key);saveData();
-        return safeReply(interaction,{content:`✅ Removed: ${emoji} → <@&${roleId}>`,ephemeral:true});
+        return safeReply(interaction,{content:`✅ Removed: ${emojiRaw} → <@&${roleId}>`,ephemeral:true});
       }
-      const messageId=interaction.options.getString("messageid")?.trim(),emoji=interaction.options.getString("emoji")?.trim(),role=interaction.options.getRole("role");
-      if(!messageId||!emoji||!role)return safeReply(interaction,{content:"❌ Provide `messageid`, `emoji`, and `role`.",ephemeral:true});
+      // add
+      const messageId=interaction.options.getString("messageid")?.trim();
+      const emojiRaw=interaction.options.getString("emoji")?.trim();
+      const role=interaction.options.getRole("role");
+      if(!messageId||!emojiRaw||!role)return safeReply(interaction,{content:"❌ Provide `messageid`, `emoji`, and `role`.",ephemeral:true});
       await interaction.deferReply({ephemeral:true});
+
+      // Find the message across all text channels
       let targetMsg=null;
-      for(const ch of interaction.guild.channels.cache.filter(c=>c.type==="GUILD_TEXT").values()){targetMsg=await ch.messages.fetch(messageId).catch(()=>null);if(targetMsg)break;}
-      if(!targetMsg)return safeReply(interaction,{content:"❌ Message not found.",ephemeral:true});
-      const norm=emoji.replace(/^<a?:([^:]+:\d+)>$/,"$1");
+      for(const ch of interaction.guild.channels.cache.filter(c=>c.isText&&c.isText()||c.type==="GUILD_TEXT").values()){
+        targetMsg=await ch.messages.fetch(messageId).catch(()=>null);
+        if(targetMsg)break;
+      }
+      if(!targetMsg)return safeReply(interaction,{content:"❌ Message not found. Make sure the message ID is correct and the bot can see the channel.",ephemeral:true});
+
+      // Normalize emoji key to match what emojiKey() produces in the reaction event
+      // Custom emoji: <:name:id> or <a:name:id> → name:id
+      // Unicode emoji: stored as-is (the raw character/name)
+      const norm=emojiRaw.replace(/^<a?:([^:]+:\d+)>$/,"$1");
       const key=`${interaction.guildId}:${messageId}:${norm}`;
-      reactionRoles.set(key,role.id);saveData();
-      try{await targetMsg.react(emoji);}catch{}
-      return safeReply(interaction,{content:`✅ **Reaction role added!**\n📨 [Jump to message](${targetMsg.url})\n${emoji} → <@&${role.id}>`,ephemeral:true});
+      reactionRoles.set(key,role.id);
+      saveData();
+
+      // React on the message so users can see what to click
+      try{ await targetMsg.react(emojiRaw); }catch(e){ console.warn("reactionrole react failed:",e.message); }
+
+      return safeReply(interaction,{content:`✅ **Reaction role added!**\n📨 [Jump to message](${targetMsg.url})\n${emojiRaw} → <@&${role.id}>\n\n> Tip: users must be able to see and react to that message. Bot needs \`Manage Roles\` and its role must be above <@&${role.id}> in the role list.`,ephemeral:true});
     }
     if(cmd==="setboostmsg"){
       const ch=interaction.options.getChannel("channel");
