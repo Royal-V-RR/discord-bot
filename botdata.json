@@ -212,7 +212,12 @@
       "1377073493752938526"
     ]
   ],
-  "shadowDelete": [],
+  "shadowDelete": [
+    [
+      "1158278135339561001",
+      25
+    ]
+  ],
   "clankerify": [],
   "reactionRoles": [
     [
@@ -819,7 +824,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-27",
-        "xp": 760,
+        "xp": 785,
         "level": 18,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -1053,7 +1058,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 3760,
+        "xp": 3769,
         "level": 19,
         "lastWorkTime": 1778752522595,
         "lastBegTime": 0,
@@ -4435,7 +4440,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 1879,
+        "xp": 1887,
         "level": 16,
         "lastWorkTime": 0,
         "lastBegTime": 0,
