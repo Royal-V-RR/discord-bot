@@ -1806,6 +1806,9 @@ function buildCommands(){
     ]},
     {name:"vcjoin",          description:"[Owner] Join the VC you're currently in"},
     {name:"playsound",       description:"[Owner] Play a random audio file from the GitHub audios folder in VC"},
+    {name:"soundupload",     description:"[Owner] Upload an audio file to the audios folder in the GitHub repo",options:[
+      {name:"source",        description:"Audio file to upload (mp3, wav, ogg, flac, aac, opus)",type:11,required:true},
+    ]},
   ];
 }
 
@@ -1837,61 +1840,42 @@ async function clearGlobalCommands() {
   } catch(e) { console.warn("clearGlobalCommands error:", e.message); }
 }
 
-// Commands that should ONLY be guild-registered (instant propagation, no global cache lag).
-// Keep owner-only commands here so changes show up immediately without the 1hr global delay.
-// These commands are registered per-guild (instant, <1s propagation) instead of globally.
-// Use this for commands where choices/options change and you can't wait 1hr for global cache.
-const GUILD_ONLY_CMDS = ["admingive","buy","open","shop","inventory","premiere","forcemarry","forcedivorce","shadowdelete","clankerify","purge","rolespingfix","library","activity-check","raconfig","reduced-activity","loa","fakemessage","quotedelete","quotelist","quotemanage","dailyquote","goodquote","badquote","requestupload","requester","Fetch Emoji","Reaction Bomb","Clank This","Expose","Vibe Check","Uwu-ify","Quote This"];
+// ── ALL commands are registered per-guild for instant propagation (<1s vs 1hr global cache lag).
+// Global commands are wiped on startup so there are no duplicates.
+// registerGuildCommands() uses a full structural fingerprint — only re-PUTs when something changed.
 
-// Wipe stale global versions of guild-only commands.
-// When a command moves from global to guild-only, its global entry lingers until explicitly deleted.
-async function wipeStaleGlobalCmds() {
+async function wipeAllGlobalCmds() {
   try {
-    // Fetch all currently registered global commands
-    const r = await discordRequest("GET", `/api/v10/applications/${CLIENT_ID}/commands`, null);
-    if (r.status !== 200) return;
-    const global = JSON.parse(r.body);
-    // Delete any that are now guild-only
-    for (const cmd of global) {
-      if (GUILD_ONLY_CMDS.includes(cmd.name)) {
-        await discordRequest("DELETE", `/api/v10/applications/${CLIENT_ID}/commands/${cmd.id}`, null);
-        console.log(`🗑️ Deleted stale global command: ${cmd.name}`);
-      }
-    }
-  } catch(e) { console.warn("wipeStaleGlobalCmds error:", e.message); }
+    const r = await discordRequest("PUT", `/api/v10/applications/${CLIENT_ID}/commands`, []);
+    if (r.status === 200) console.log("✅ Global commands wiped (all guild-only now)");
+    else console.warn(`⚠️ wipeAllGlobalCmds HTTP ${r.status}: ${r.body.slice(0,200)}`);
+  } catch(e) { console.warn("wipeAllGlobalCmds error:", e.message); }
 }
 
-async function registerGlobalCommands() {
-  try {
-    const cmds = buildCommands().filter(c => !GUILD_ONLY_CMDS.includes(c.name));
-    const r = await discordRequest("PUT", `/api/v10/applications/${CLIENT_ID}/commands`, cmds);
-    if (r.status === 200) {
-      const registered = JSON.parse(r.body);
-      console.log(`✅ Global: ${registered.length} commands registered`);
-    } else {
-      console.error(`❌ Global commands HTTP ${r.status}: ${r.body.slice(0,300)}`);
-    }
-  } catch(e) { console.error("registerGlobalCommands error:", e.message); }
+// Normalize a command definition to a comparable string (ignores Discord-added fields like id/version)
+function normalizeCmd(c) {
+  return JSON.stringify({
+    name:        c.name,
+    type:        c.type ?? 1,
+    description: c.description ?? "",
+    options:     c.options ?? [],
+    default_member_permissions: c.default_member_permissions ?? null,
+  });
 }
 
-async function registerGuildOnlyCommands(guildId, force = false) {
+async function registerGuildCommands(guildId, force = false) {
   try {
-    const cmds = buildCommands().filter(c => GUILD_ONLY_CMDS.includes(c.name));
-    // Build a fingerprint of the current guild-only command definitions (full structure, not just names)
-    const fingerprint = JSON.stringify(cmds.map(c => JSON.stringify(c)).sort());
+    const cmds = buildCommands();
 
     if (!force) {
       // Fetch what's currently registered for this guild
       const existing = await discordRequest("GET", `/api/v10/applications/${CLIENT_ID}/guilds/${guildId}/commands`, null);
       if (existing.status === 200) {
         const registered = JSON.parse(existing.body);
-        // Rebuild a comparable fingerprint from the registered definitions
-        // We only compare the fields we control: name, description, options
-        const normalize = c => JSON.stringify({ name: c.name, description: c.description, options: c.options ?? [] });
-        const registeredFingerprint = JSON.stringify(registered.map(normalize).sort());
-        const localFingerprint      = JSON.stringify(cmds.map(normalize).sort());
-        if (registeredFingerprint === localFingerprint) {
-          console.log(`⏭️ Guild [${guildId}]: guild-only commands unchanged, skipping`);
+        const localFP      = JSON.stringify(cmds.map(normalizeCmd).sort());
+        const registeredFP = JSON.stringify(registered.map(normalizeCmd).sort());
+        if (localFP === registeredFP) {
+          console.log(`⏭️ Guild [${guildId}]: commands unchanged, skipping`);
           return;
         }
       }
@@ -1899,51 +1883,24 @@ async function registerGuildOnlyCommands(guildId, force = false) {
 
     const r = await discordRequest("PUT", `/api/v10/applications/${CLIENT_ID}/guilds/${guildId}/commands`, cmds);
     if (r.status === 200) {
-      console.log(`✅ Guild [${guildId}]: ${JSON.parse(r.body).length} guild-only commands registered`);
-    } else {
-      console.warn(`⚠️ Guild-only commands [${guildId}] HTTP ${r.status}: ${r.body.slice(0,200)}`);
-    }
-  } catch(e) { console.warn(`registerGuildOnlyCommands [${guildId}]:`, e.message); }
-}
-
-
-// Wipe ALL guild-level commands for a server — used to clear old stale registrations
-// that would cause doubling alongside global commands.
-// Pass skipGuildOnly=true to wipe everything; false to re-register guild-only after wipe.
-async function clearGuildCommands(guildId, andReregister = true) {
-  try {
-    // Check what's currently registered before wiping
-    const existing = await discordRequest("GET", `/api/v10/applications/${CLIENT_ID}/guilds/${guildId}/commands`, null);
-    if (existing.status === 200) {
-      const registered = JSON.parse(existing.body);
-      const guildOnlyNames = buildCommands().filter(c => GUILD_ONLY_CMDS.includes(c.name)).map(c => c.name).sort();
-      const registeredNames = registered.map(c => c.name).sort();
-      // Only wipe+reregister if there are stale/extra commands or the set differs
-      const hasStale = registered.some(c => !GUILD_ONLY_CMDS.includes(c.name));
-      const sameSet = JSON.stringify(registeredNames) === JSON.stringify(guildOnlyNames);
-      if (!hasStale && sameSet) {
-        console.log(`⏭️ Guild [${guildId}]: commands already clean, skipping wipe`);
-        return;
-      }
-    }
-    // Wipe and reregister only if needed
-const r = await discordRequest("PUT", `/api/v10/applications/${CLIENT_ID}/guilds/${guildId}/commands`, []);
-    if (r.status === 200) {
-      if (andReregister) {
-        await registerGuildOnlyCommands(guildId, true);
-      } else {
-        console.log(`✅ Guild commands wiped: ${guildId}`);
-      }
-    } else if (r.status === 400 && r.body.includes("30034")) {
-      const retryAfter = JSON.parse(r.body).retry_after || 60;
-      console.warn(`⚠️ Guild [${guildId}]: hit 200/day limit. Retrying in ${Math.ceil(retryAfter)}s…`);
+      console.log(`✅ Guild [${guildId}]: ${JSON.parse(r.body).length} commands registered`);
+    } else if (r.status === 429 || (r.body && r.body.includes("30034"))) {
+      let retryAfter = 60;
+      try { retryAfter = JSON.parse(r.body).retry_after || 60; } catch {}
+      console.warn(`⚠️ Guild [${guildId}]: rate limited — retrying in ${Math.ceil(retryAfter)}s…`);
       await new Promise(res => setTimeout(res, (retryAfter + 2) * 1000));
-      await registerGuildOnlyCommands(guildId, true);
-} else {
-      console.warn(`⚠️ clearGuildCommands [${guildId}] HTTP ${r.status}`);
+      // One retry
+      const r2 = await discordRequest("PUT", `/api/v10/applications/${CLIENT_ID}/guilds/${guildId}/commands`, cmds);
+      if (r2.status === 200) console.log(`✅ Guild [${guildId}] (retry): ${JSON.parse(r2.body).length} commands registered`);
+      else console.warn(`⚠️ Guild [${guildId}] retry HTTP ${r2.status}: ${r2.body.slice(0,200)}`);
+    } else {
+      console.warn(`⚠️ registerGuildCommands [${guildId}] HTTP ${r.status}: ${r.body.slice(0,200)}`);
     }
-  } catch(e) { console.warn(`clearGuildCommands [${guildId}]:`, e.message); }
+  } catch(e) { console.warn(`registerGuildCommands [${guildId}]:`, e.message); }
 }
+
+// Keep old name as alias so guildCreate still works
+const registerGuildOnlyCommands = registerGuildCommands;
 
 // ── Bot events ────────────────────────────────────────────────────────────────
 client.once("ready", async () => {
@@ -1954,17 +1911,14 @@ client.once("ready", async () => {
   // Don't register commands if this instance lost the lock and is about to exit
   if (!instanceLocked) return;
 
-  // Step 0: Delete any stale global versions of guild-only commands.
-  await wipeStaleGlobalCmds();
+  // Step 0: Wipe any lingering global commands (all commands are now guild-only for instant propagation).
+  await wipeAllGlobalCmds();
 
-  // Step 1: Register global commands (all except guild-only ones).
-  await registerGlobalCommands();
-
-  // Step 2: For every guild — register guild-only commands (skips if already registered).
+  // Step 1: Register all commands per-guild (fingerprint-checked — skips guilds where nothing changed).
   const guilds = [...client.guilds.cache.values()];
   for (let i = 0; i < guilds.length; i++) {
-    await new Promise(res => setTimeout(res, i === 0 ? 0 : 1000));
-    await clearGuildCommands(guilds[i].id, true);
+    if (i > 0) await new Promise(res => setTimeout(res, 500)); // small spacing to avoid bursting
+    await registerGuildCommands(guilds[i].id);
   }
 
   // Snapshot invites for invite competitions
@@ -3775,7 +3729,7 @@ client.on("interactionCreate",async interaction=>{
   const cmd=interaction.commandName;
   const inGuild=!!interaction.guildId;
 
-  const ownerOnly=["servers","broadcast","requester","fakecrash","identitycrisis","botolympics","sentience","legendrandom","dmuser","leaveserver","restart","botstats","setstatus","adminuser","adminreset","adminconfig","admingive","echo","forcemarry","forcedivorce","shadowdelete","clankerify","fakemessage","vcjoin","playsound"];
+  const ownerOnly=["servers","broadcast","requester","fakecrash","identitycrisis","botolympics","sentience","legendrandom","dmuser","leaveserver","restart","botstats","setstatus","adminuser","adminreset","adminconfig","admingive","echo","forcemarry","forcedivorce","shadowdelete","clankerify","fakemessage","vcjoin","playsound","soundupload"];
   if(ownerOnly.includes(cmd)&&!OWNER_IDS.includes(interaction.user.id))return safeReply(interaction,{content:"Owner only.",ephemeral:true});
 
   const manageServerCmds=["channelpicker","counting","xpconfig","setwelcome","setleave","setwelcomemsg","setleavemsg","disableownermsg","serverconfig","autorole","setboostmsg","invitecomp","purge","reactionrole","ticketsetup","ytsetup","subgoal","subcount","milestones","dailyquote"];
@@ -5999,6 +5953,64 @@ if(cmd==="gif"){
       }catch(e){
         console.error("playsound error:",e);
         return safeReply(interaction,{content:`❌ Failed to play audio: ${e.message}`,ephemeral:true});
+      }
+    }
+
+    // ── /soundupload — owner uploads an audio file to GitHub audios/ ─────────
+    if(cmd==="soundupload"){
+      const attachment = interaction.options.getAttachment("source");
+      const ct = attachment.contentType || "";
+      // Accept audio/* content types and common audio extensions as a fallback
+      const validAudioExt = /\.(mp3|wav|ogg|flac|aac|opus|m4a)$/i.test(attachment.name || "");
+      if(!/^audio\//i.test(ct) && !validAudioExt)
+        return safeReply(interaction,{content:"❌ Attachment must be an audio file (mp3, wav, ogg, flac, aac, opus).",ephemeral:true});
+
+      await interaction.deferReply({ephemeral:true});
+
+      try {
+        const res = await fetch(attachment.url);
+        if(!res.ok) return safeReply(interaction,{content:"❌ Failed to download the attachment.",ephemeral:true});
+        const fileBuffer = Buffer.from(await res.arrayBuffer());
+
+        const fileSizeMB = (fileBuffer.length / 1024 / 1024).toFixed(2);
+        if(fileBuffer.length > 25_000_000)
+          return safeReply(interaction,{content:`❌ File is too large (${fileSizeMB} MB). GitHub's API only accepts files under 25 MB.`,ephemeral:true});
+
+        // Sanitize filename
+        let fileName = (attachment.name || "audio.mp3").replace(/[^a-zA-Z0-9._-]/g, "_");
+        const ghPath  = `audios/${fileName}`;
+        const encoded = fileBuffer.toString("base64");
+
+        // Check if it already exists (need SHA for upsert)
+        const checkRes = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/${ghPath}`,{
+          headers:{"User-Agent":"RoyalBot","Authorization":`token ${GH_TOKEN}`,"Accept":"application/vnd.github+json"}
+        });
+        let sha = null;
+        if(checkRes.ok){ const j = await checkRes.json(); sha = j.sha || null; }
+
+        const putRes = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/${ghPath}`,{
+          method:"PUT",
+          headers:{
+            "User-Agent":"RoyalBot","Authorization":`token ${GH_TOKEN}`,
+            "Accept":"application/vnd.github+json","Content-Type":"application/json"
+          },
+          body: JSON.stringify({
+            message:`feat: upload audio file ${fileName} via Discord`,
+            content: encoded,
+            ...(sha ? {sha} : {})
+          })
+        });
+
+        if(!putRes.ok){
+          const err = await putRes.text();
+          console.error("soundupload GitHub error:", err);
+          return safeReply(interaction,{content:`❌ GitHub upload failed (HTTP ${putRes.status}).`,ephemeral:true});
+        }
+
+        return safeReply(interaction,{content:`✅ **\`${fileName}\`** (${fileSizeMB} MB) uploaded to the \`audios/\` folder! Use \`/playsound\` to play it.`,ephemeral:true});
+      } catch(e) {
+        console.error("soundupload error:", e);
+        return safeReply(interaction,{content:`❌ Something went wrong: ${e.message}`,ephemeral:true});
       }
     }
 
