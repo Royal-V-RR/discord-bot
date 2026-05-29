@@ -3,6 +3,9 @@ const { Client, Intents, MessageActionRow, MessageButton, MessageSelectMenu } = 
 const https = require("https");
 const http  = require("http");
 const fs    = require("fs");
+// Voice support — optional: bot works fine without it if the package isn't installed
+let voice = null;
+try { voice = require("@discordjs/voice"); } catch { console.warn("[voice] @discordjs/voice not installed — /vcjoin and /playsound will be unavailable."); }
 
 const TOKEN     = process.env.TOKEN;
 const CLIENT_ID = "1480592876684706064";
@@ -1756,6 +1759,7 @@ function buildCommands(){
     ]},
     {name:"library",           description:"Browse images a user has uploaded to the quotes folder",options:[
       {name:"user",            description:"User whose uploads to browse",type:6,required:true},
+      {name:"page",            description:"Image number to jump to (default: 1)",type:4,required:false},
     ]},
     {name:"activity-check",   description:"Send an activity check (Manage Server)",options:[
       {name:"channel",         description:"Channel to send the activity check in",type:7,required:true},
@@ -1800,6 +1804,8 @@ function buildCommands(){
     {name:"requester",       description:"[Owner] Set the channel where quote submissions are sent for review",options:[
       {name:"channel",description:"Review channel",type:7,required:true},
     ]},
+    {name:"vcjoin",          description:"[Owner] Join the VC you're currently in"},
+    {name:"playsound",       description:"[Owner] Play a random audio file from the GitHub audios folder in VC"},
   ];
 }
 
@@ -2365,21 +2371,29 @@ client.on("messageCreate",async msg=>{
         if(mode === "npc"){
           displayName = `${displayName} [NPC #${Math.floor(Math.random()*9999)+1}]`;
           if(sendContent){
-            const npcPhrases = [
-              "Have you tried the items at the general store?",
-              "I used to be an adventurer like you...",
-              "Ah, a traveler! These are dark times.",
-              "The crops have been struggling this season.",
-              "I heard there's trouble at the old mill.",
-              "You didn't hear this from me, but...",
-              "Quest updated: Talk to the village elder.",
-              "My knee hurts when it's about to rain.",
-              "Strange things have been happening in the forest.",
-              "Can't stop now, got places to be. Same places as yesterday.",
+            const npcPrefixes = [
+              "Ah, a traveler! Anyway — ",
+              "Quest updated: ",
+              "I used to be an adventurer like you, but then — ",
+              "Strange things have been happening. Also, ",
+              "You didn't hear this from me, but ",
+              "My knee hurts when it rains. Anyway, ",
+              "The crops have been struggling, but ",
+              "I heard there's trouble at the old mill. Still — ",
+              "Can't stop now. Same places as yesterday. But — ",
+              "These are dark times, traveler. But anyway, ",
             ];
-            sendContent = npcPhrases[Math.floor(Math.random()*npcPhrases.length)];
+            const npcSuffixes = [
+              " Have you tried the items at the general store?",
+              " Talk to the village elder when you get a chance.",
+              " I don't want any trouble.",
+              " ...I need to get back to sweeping.",
+              " Good luck out there, traveler.",
+              " [NPC wanders off]",
+            ];
+            sendContent = npcPrefixes[Math.floor(Math.random()*npcPrefixes.length)] + sendContent + npcSuffixes[Math.floor(Math.random()*npcSuffixes.length)];
           } else {
-            const idle = ["...", "*stares into the distance*", "*sweeping noises*", "*coughs*", "..."];
+            const idle = ["...", "*stares into the distance*", "*sweeping noises*", "*coughs*", "*wanders off*"];
             sendContent = idle[Math.floor(Math.random()*idle.length)];
           }
         }
@@ -2471,7 +2485,51 @@ client.on("messageCreate",async msg=>{
           }
         }
 
-        // ── End mode transforms ────────────────────────────────────────────────
+        if(mode === "karafy"){
+          displayName = `🎤 ${displayName} (karafy'd)`;
+          if(sendContent){
+            const joeMamaJokes = [
+              " — joe mama",
+              " (joe mama reference)",
+              " — that's what joe mama said",
+              " joe mama called and she agrees",
+              " — joe mama wants to know your location",
+              " btw joe mama said hi",
+              " (joe mama has entered the chat)",
+            ];
+            const sixtySevenRefs = [
+              " 🎵 (67 in the building)",
+              " — still waiting on that 67 feature 🎶",
+              " 67! 67! 67!",
+              " (67 approves this message)",
+              " — as 67 once said, sheesh",
+              " 🎤 (67 reference, you wouldn't get it)",
+            ];
+            // Randomly mix in joe mama jokes and 67 refs
+            const extras = [...joeMamaJokes, ...sixtySevenRefs];
+            const extra1 = extras[Math.floor(Math.random()*extras.length)];
+            let extra2 = extras[Math.floor(Math.random()*extras.length)];
+            while(extra2 === extra1) extra2 = extras[Math.floor(Math.random()*extras.length)];
+            // Also do some karaoke-style word emphasis
+            const words = sendContent.split(" ");
+            const karaWords = words.map((w,i) => {
+              if(i % 4 === 0 && w.length > 3) return w.toUpperCase();
+              if(i % 7 === 0) return `*${w}*`;
+              return w;
+            });
+            sendContent = karaWords.join(" ") + extra1;
+            if(Math.random() < 0.4) sendContent += extra2;
+          } else {
+            const karaIdles = [
+              "🎤 *drops mic*",
+              "🎶 la la la... joe mama",
+              "67!!! 🎵",
+              "*beatboxing* joe mama joe mama",
+              "🎤 (no lyrics, just vibes and joe mama)",
+            ];
+            sendContent = karaIdles[Math.floor(Math.random()*karaIdles.length)];
+          }
+        }
 
         // Get or create a webhook for this channel
         const webhooks = await msg.channel.fetchWebhooks().catch(()=>null);
@@ -2921,22 +2979,54 @@ client.on("interactionCreate",async interaction=>{
     }
     // ── Library navigation ────────────────────────────────────────────────────
     if(cid.startsWith("lib_")){
-      // customId: lib_prev_{targetUserId}_{currentIndex} or lib_next_{...}
-      const parts = cid.split("_"); // ["lib","prev"|"next", userId, index]
+      // customId: lib_prev_{targetUserId}_{currentIndex} or lib_next_{...} or lib_goto_{...}
+      const parts = cid.split("_"); // ["lib","prev"|"next"|"goto", userId, index]
       const dir = parts[1];
       const targetUserId = parts[2];
       const currentIdx = parseInt(parts[3]);
       const targetScore = getScore(targetUserId, null);
       const files = targetScore.uploadedImages || [];
       if(!files.length){ try{await interaction.reply({content:"No images found.",ephemeral:true});}catch{}return; }
+      const targetUser = await client.users.fetch(targetUserId).catch(()=>null);
+      const displayName = targetUser?.username || "Unknown";
+
+      // ── Go-to page prompt ─────────────────────────────────────────────────
+      if(dir === "goto"){
+        try{ await interaction.reply({content:`🔢 **Jump to image #** — Type a number between **1** and **${files.length}** in chat (30s):`,ephemeral:true}); }catch{}
+        const collector = interaction.channel.createMessageCollector({
+          filter: m => m.author.id === uid && !isNaN(m.content.trim()),
+          max: 1, time: 30000
+        });
+        collector.on("collect", async m => {
+          try{ await m.delete(); }catch{}
+          const gotoIdx = Math.max(0, Math.min(parseInt(m.content.trim()) - 1, files.length - 1));
+          const fileName = files[gotoIdx];
+          const imageUrl = `https://raw.githubusercontent.com/Royal-V-RR/discord-bot/main/quotes/${encodeURIComponent(fileName)}`;
+          const row = new MessageActionRow().addComponents(
+            new MessageButton().setCustomId(`lib_prev_${targetUserId}_${gotoIdx}`).setLabel("◀ Prev").setStyle("SECONDARY").setDisabled(gotoIdx===0),
+            new MessageButton().setCustomId(`lib_goto_${targetUserId}_${gotoIdx}`).setLabel("🔢 Go to #").setStyle("PRIMARY"),
+            new MessageButton().setCustomId(`lib_next_${targetUserId}_${gotoIdx}`).setLabel("Next ▶").setStyle("SECONDARY").setDisabled(gotoIdx>=files.length-1),
+          );
+          try{
+            await interaction.message.edit({
+              content:`🖼️ **${displayName}'s Library** — Image ${gotoIdx+1} of ${files.length}\n**\`${fileName}\`**\n${imageUrl}`,
+              components:[row]
+            });
+          }catch{}
+          try{ await interaction.followUp({content:`✅ Jumped to image **#${gotoIdx+1}**.`,ephemeral:true}); }catch{}
+        });
+        collector.on("end",(_,reason)=>{ if(reason==="time") interaction.followUp({content:"⏰ Timed out.",ephemeral:true}).catch(()=>{}); });
+        return;
+      }
+
+      // ── Prev / Next ───────────────────────────────────────────────────────
       const newIdx = dir==="prev" ? Math.max(0,currentIdx-1) : Math.min(files.length-1,currentIdx+1);
       const fileName = files[newIdx];
       const imageUrl = `https://raw.githubusercontent.com/Royal-V-RR/discord-bot/main/quotes/${encodeURIComponent(fileName)}`;
-      const targetUser = await client.users.fetch(targetUserId).catch(()=>null);
-      const displayName = targetUser?.username || "Unknown";
       const row = new MessageActionRow().addComponents(
         new MessageButton().setCustomId(`lib_prev_${targetUserId}_${newIdx}`).setLabel("◀ Prev").setStyle("SECONDARY").setDisabled(newIdx===0),
-        new MessageButton().setCustomId(`lib_next_${targetUserId}_${newIdx}`).setLabel("Next ▶").setStyle("SECONDARY").setDisabled(newIdx===files.length-1),
+        new MessageButton().setCustomId(`lib_goto_${targetUserId}_${newIdx}`).setLabel("🔢 Go to #").setStyle("PRIMARY"),
+        new MessageButton().setCustomId(`lib_next_${targetUserId}_${newIdx}`).setLabel("Next ▶").setStyle("SECONDARY").setDisabled(newIdx>=files.length-1),
       );
       try{
         await interaction.update({
@@ -3685,7 +3775,7 @@ client.on("interactionCreate",async interaction=>{
   const cmd=interaction.commandName;
   const inGuild=!!interaction.guildId;
 
-  const ownerOnly=["servers","broadcast","requester","fakecrash","identitycrisis","botolympics","sentience","legendrandom","dmuser","leaveserver","restart","botstats","setstatus","adminuser","adminreset","adminconfig","admingive","echo","forcemarry","forcedivorce","shadowdelete","clankerify","fakemessage"];
+  const ownerOnly=["servers","broadcast","requester","fakecrash","identitycrisis","botolympics","sentience","legendrandom","dmuser","leaveserver","restart","botstats","setstatus","adminuser","adminreset","adminconfig","admingive","echo","forcemarry","forcedivorce","shadowdelete","clankerify","fakemessage","vcjoin","playsound"];
   if(ownerOnly.includes(cmd)&&!OWNER_IDS.includes(interaction.user.id))return safeReply(interaction,{content:"Owner only.",ephemeral:true});
 
   const manageServerCmds=["channelpicker","counting","xpconfig","setwelcome","setleave","setwelcomemsg","setleavemsg","disableownermsg","serverconfig","autorole","setboostmsg","invitecomp","purge","reactionrole","ticketsetup","ytsetup","subgoal","subcount","milestones","dailyquote"];
@@ -3835,6 +3925,7 @@ if(cmd==="clankerify"){
         {label:"Sigma",            value:"sigma",       emoji:"😤"},
         {label:"Medieval",         value:"medieval",    emoji:"⚔️"},
         {label:"Ghost",            value:"ghost",       emoji:"👻"},
+        {label:"Karafy",           value:"karafy",      emoji:"🎤"},
       ])
   );
   const durationStr = duration ? `**${duration} minute(s)**` : "**permanently**";
@@ -5408,12 +5499,14 @@ if(cmd==="gif"){
       const files = targetScore.uploadedImages || [];
       if(!files.length)
         return safeReply(interaction,{content:`📭 **${targetUser.username}** hasn't uploaded any images yet.`,ephemeral:true});
-      const idx = 0;
+      const pageArg = interaction.options.getInteger("page") ?? 1;
+      const idx = Math.max(0, Math.min(pageArg - 1, files.length - 1));
       const fileName = files[idx];
       const imageUrl = `https://raw.githubusercontent.com/Royal-V-RR/discord-bot/main/quotes/${encodeURIComponent(fileName)}`;
       const row = new MessageActionRow().addComponents(
-        new MessageButton().setCustomId(`lib_prev_${targetUser.id}_${idx}`).setLabel("◀ Prev").setStyle("SECONDARY").setDisabled(true),
-        new MessageButton().setCustomId(`lib_next_${targetUser.id}_${idx}`).setLabel("Next ▶").setStyle("SECONDARY").setDisabled(files.length<=1),
+        new MessageButton().setCustomId(`lib_prev_${targetUser.id}_${idx}`).setLabel("◀ Prev").setStyle("SECONDARY").setDisabled(idx===0),
+        new MessageButton().setCustomId(`lib_goto_${targetUser.id}_${idx}`).setLabel("🔢 Go to #").setStyle("PRIMARY"),
+        new MessageButton().setCustomId(`lib_next_${targetUser.id}_${idx}`).setLabel("Next ▶").setStyle("SECONDARY").setDisabled(files.length<=1||idx>=files.length-1),
       );
       return safeReply(interaction,{
         content:`🖼️ **${targetUser.username}'s Library** — Image ${idx+1} of ${files.length}\n**\`${fileName}\`**\n${imageUrl}`,
@@ -5829,6 +5922,84 @@ if(cmd==="gif"){
       }
 
       return safeReply(interaction,{content:"❌ Unknown action.",ephemeral:true});
+    }
+
+    // ── /vcjoin — owner joins the VC the command user is in ──────────────────
+    if(cmd==="vcjoin"){
+      if(!inGuild) return safeReply(interaction,{content:"❌ Server only.",ephemeral:true});
+      if(!voice) return safeReply(interaction,{content:"❌ Voice support is not installed on this bot instance (`@discordjs/voice` missing).",ephemeral:true});
+      const member = await interaction.guild.members.fetch(interaction.user.id).catch(()=>null);
+      const vc = member?.voice?.channel;
+      if(!vc) return safeReply(interaction,{content:"❌ You're not in a voice channel.",ephemeral:true});
+      if(vc.type !== "GUILD_VOICE") return safeReply(interaction,{content:"❌ That channel type isn't supported.",ephemeral:true});
+      try{
+        const conn = voice.joinVoiceChannel({
+          channelId: vc.id,
+          guildId: vc.guild.id,
+          adapterCreator: vc.guild.voiceAdapterCreator,
+          selfDeaf: false,
+          selfMute: false,
+        });
+        // Store so /playsound can use it
+        if(!client._voiceConnections) client._voiceConnections = new Map();
+        client._voiceConnections.set(interaction.guildId, conn);
+        return safeReply(interaction,{content:`✅ Joined **${vc.name}**!`,ephemeral:true});
+      }catch(e){
+        return safeReply(interaction,{content:`❌ Failed to join VC: ${e.message}`,ephemeral:true});
+      }
+    }
+
+    // ── /playsound — owner plays a random audio from GitHub audios/ in VC ────
+    if(cmd==="playsound"){
+      if(!inGuild) return safeReply(interaction,{content:"❌ Server only.",ephemeral:true});
+      if(!voice) return safeReply(interaction,{content:"❌ Voice support is not installed on this bot instance (`@discordjs/voice` missing).",ephemeral:true});
+      // Get or create a connection
+      let conn = client._voiceConnections?.get(interaction.guildId) ?? null;
+      if(!conn || conn.state.status === voice.VoiceConnectionStatus.Destroyed){
+        // Auto-join if the user is in a VC
+        const member = await interaction.guild.members.fetch(interaction.user.id).catch(()=>null);
+        const vc = member?.voice?.channel;
+        if(!vc) return safeReply(interaction,{content:"❌ No active VC connection. Use `/vcjoin` first, or join a VC yourself.",ephemeral:true});
+        try{
+          conn = voice.joinVoiceChannel({
+            channelId: vc.id,
+            guildId: vc.guild.id,
+            adapterCreator: vc.guild.voiceAdapterCreator,
+            selfDeaf: false, selfMute: false,
+          });
+          if(!client._voiceConnections) client._voiceConnections = new Map();
+          client._voiceConnections.set(interaction.guildId, conn);
+        }catch(e){
+          return safeReply(interaction,{content:`❌ Couldn't join your VC: ${e.message}`,ephemeral:true});
+        }
+      }
+      await interaction.deferReply({ephemeral:true});
+      try{
+        // Fetch the list of audio files from GitHub
+        const listRes = await fetch("https://api.github.com/repos/Royal-V-RR/discord-bot/contents/audios",{
+          headers:{"User-Agent":"RoyalBot","Authorization":`token ${GH_TOKEN}`,"Accept":"application/vnd.github+json"}
+        });
+        if(!listRes.ok) return safeReply(interaction,{content:`❌ GitHub API error (HTTP ${listRes.status}) — make sure an \`audios\` folder exists in the repo.`,ephemeral:true});
+        const files = await listRes.json();
+        const audioFiles = files.filter(f=>f.type==="file"&&/\.(mp3|wav|ogg|flac|aac|opus)$/i.test(f.name));
+        if(!audioFiles.length) return safeReply(interaction,{content:"❌ No audio files found in the `audios` folder.",ephemeral:true});
+        const chosen = audioFiles[Math.floor(Math.random()*audioFiles.length)];
+        const audioUrl = chosen.download_url;
+        // Create and play the audio resource
+        const { createAudioPlayer, createAudioResource, AudioPlayerStatus, NoSubscriberBehavior } = voice;
+        const player = createAudioPlayer({ behaviors: { noSubscriber: NoSubscriberBehavior.Pause } });
+        const resource = createAudioResource(audioUrl);
+        conn.subscribe(player);
+        player.play(resource);
+        player.once(AudioPlayerStatus.Idle, () => {
+          // Leave on idle (optional — comment out to stay in VC)
+          // conn.destroy();
+        });
+        return safeReply(interaction,{content:`🎵 Playing **\`${chosen.name}\`** in VC!`,ephemeral:true});
+      }catch(e){
+        console.error("playsound error:",e);
+        return safeReply(interaction,{content:`❌ Failed to play audio: ${e.message}`,ephemeral:true});
+      }
     }
 
     // ── /requester — owner sets the review channel ────────────────────────────
