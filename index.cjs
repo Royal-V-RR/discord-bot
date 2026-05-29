@@ -1840,47 +1840,19 @@ async function clearGlobalCommands() {
   } catch(e) { console.warn("clearGlobalCommands error:", e.message); }
 }
 
-// ── ALL commands are registered per-guild for instant propagation (<1s vs 1hr global cache lag).
-// Global commands are wiped on startup so there are no duplicates.
-// registerGuildCommands() uses a full structural fingerprint — only re-PUTs when something changed.
+// ── ALL commands registered per-guild for instant propagation (<1s vs 1hr global cache lag).
 
 async function wipeAllGlobalCmds() {
   try {
     const r = await discordRequest("PUT", `/api/v10/applications/${CLIENT_ID}/commands`, []);
-    if (r.status === 200) console.log("✅ Global commands wiped (all guild-only now)");
+    if (r.status === 200) console.log("✅ Global commands wiped");
     else console.warn(`⚠️ wipeAllGlobalCmds HTTP ${r.status}: ${r.body.slice(0,200)}`);
   } catch(e) { console.warn("wipeAllGlobalCmds error:", e.message); }
 }
 
-// Normalize a command definition to a comparable string (ignores Discord-added fields like id/version)
-function normalizeCmd(c) {
-  return JSON.stringify({
-    name:        c.name,
-    type:        c.type ?? 1,
-    description: c.description ?? "",
-    options:     c.options ?? [],
-    default_member_permissions: c.default_member_permissions ?? null,
-  });
-}
-
-async function registerGuildCommands(guildId, force = false) {
+async function registerGuildCommands(guildId) {
   try {
     const cmds = buildCommands();
-
-    if (!force) {
-      // Fetch what's currently registered for this guild
-      const existing = await discordRequest("GET", `/api/v10/applications/${CLIENT_ID}/guilds/${guildId}/commands`, null);
-      if (existing.status === 200) {
-        const registered = JSON.parse(existing.body);
-        const localFP      = JSON.stringify(cmds.map(normalizeCmd).sort());
-        const registeredFP = JSON.stringify(registered.map(normalizeCmd).sort());
-        if (localFP === registeredFP) {
-          console.log(`⏭️ Guild [${guildId}]: commands unchanged, skipping`);
-          return;
-        }
-      }
-    }
-
     const r = await discordRequest("PUT", `/api/v10/applications/${CLIENT_ID}/guilds/${guildId}/commands`, cmds);
     if (r.status === 200) {
       console.log(`✅ Guild [${guildId}]: ${JSON.parse(r.body).length} commands registered`);
@@ -1889,7 +1861,6 @@ async function registerGuildCommands(guildId, force = false) {
       try { retryAfter = JSON.parse(r.body).retry_after || 60; } catch {}
       console.warn(`⚠️ Guild [${guildId}]: rate limited — retrying in ${Math.ceil(retryAfter)}s…`);
       await new Promise(res => setTimeout(res, (retryAfter + 2) * 1000));
-      // One retry
       const r2 = await discordRequest("PUT", `/api/v10/applications/${CLIENT_ID}/guilds/${guildId}/commands`, cmds);
       if (r2.status === 200) console.log(`✅ Guild [${guildId}] (retry): ${JSON.parse(r2.body).length} commands registered`);
       else console.warn(`⚠️ Guild [${guildId}] retry HTTP ${r2.status}: ${r2.body.slice(0,200)}`);
@@ -1899,7 +1870,6 @@ async function registerGuildCommands(guildId, force = false) {
   } catch(e) { console.warn(`registerGuildCommands [${guildId}]:`, e.message); }
 }
 
-// Keep old name as alias so guildCreate still works
 const registerGuildOnlyCommands = registerGuildCommands;
 
 // ── Bot events ────────────────────────────────────────────────────────────────
@@ -1914,7 +1884,7 @@ client.once("ready", async () => {
   // Step 0: Wipe any lingering global commands (all commands are now guild-only for instant propagation).
   await wipeAllGlobalCmds();
 
-  // Step 1: Register all commands per-guild (fingerprint-checked — skips guilds where nothing changed).
+  // Step 1: Register all commands per-guild (instant, no 1hr global cache lag).
   const guilds = [...client.guilds.cache.values()];
   for (let i = 0; i < guilds.length; i++) {
     if (i > 0) await new Promise(res => setTimeout(res, 500)); // small spacing to avoid bursting
