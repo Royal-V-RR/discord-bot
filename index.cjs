@@ -1509,18 +1509,15 @@ function buildCommands(){
     // Fun / social
     {name:"ping",        description:"Check latency 🏓"},
     {name:"avatar",      description:"Get a user's avatar",options:uReq()},
-    {name:"punch",       description:"Punch someone",options:uReq()},
-    {name:"hug",         description:"Hug someone",options:uReq()},
-    {name:"kiss",        description:"Kiss someone",options:uReq()},
-    {name:"slap",        description:"Slap someone",options:uReq()},
-    {name:"throw",       description:"Throw something at someone 🎯",options:uReq()},
-    {name:"marry",       description:"Propose to someone 💍",options:uReq()},
-    {name:"divorce",     description:"Divorce your partner 💔"},
-    {name:"forcedivorce", description:"[Owner] Force divorce two users", options:[{name:"user",description:"User to divorce",type:6,required:true}]},
-    {name:"forcemarry",  description:"[Owner] Force marry two users",options:[{name:"user1",description:"First user",type:6,required:true},{name:"user2",description:"Second user",type:6,required:true}]},
-    {name:"partner",     description:"Check who you're married to 💑",options:uReq(false)},
+    {name:"marriage",    description:"Marriage commands 💍",options:[
+      {name:"propose",   description:"Propose to someone",type:1,options:uReq()},
+      {name:"divorce",   description:"Divorce your partner 💔",type:1},
+      {name:"partner",   description:"Check who you're married to 💑",type:1,options:uReq(false)},
+      {name:"forcemarry",description:"[Owner] Force marry two users",type:1,options:[{name:"user1",description:"First user",type:6,required:true},{name:"user2",description:"Second user",type:6,required:true}]},
+      {name:"forcedivorce",description:"[Owner] Force divorce a user",type:1,options:[{name:"user",description:"User to divorce",type:6,required:true}]},
+    ]},
     // Meters / actions
-    {name:"action",      description:"Do an action to someone",options:[{name:"type",description:"Action",type:3,required:true,choices:[{name:"Hug",value:"hug"},{name:"Pat",value:"pat"},{name:"Poke",value:"poke"},{name:"Stare",value:"stare"},{name:"Wave",value:"wave"},{name:"High five",value:"highfive"},{name:"Boop",value:"boop"},{name:"Oil up",value:"oil"},{name:"Diddle",value:"diddle"},{name:"Kill",value:"kill"}]},{name:"user",description:"Target",type:6,required:true}]},
+    {name:"action",      description:"Do an action to someone",options:[{name:"type",description:"Action",type:3,required:true,choices:[{name:"Hug",value:"hug"},{name:"Pat",value:"pat"},{name:"Poke",value:"poke"},{name:"Stare",value:"stare"},{name:"Wave",value:"wave"},{name:"High five",value:"highfive"},{name:"Boop",value:"boop"},{name:"Oil up",value:"oil"},{name:"Diddle",value:"diddle"},{name:"Kill",value:"kill"},{name:"Punch",value:"punch"},{name:"Kiss",value:"kiss"},{name:"Slap",value:"slap"},{name:"Throw",value:"throw"}]},{name:"user",description:"Target",type:6,required:true}]},
     {name:"rate",        description:"Rate someone on various meters",options:[{name:"type",description:"What to rate",type:3,required:true,choices:[{name:"Gay rate",value:"gayrate"},{name:"Autism meter",value:"howautistic"},{name:"Simp level",value:"simp"},{name:"Cursed energy",value:"cursed"},{name:"NPC %",value:"npc"},{name:"Villain arc",value:"villain"},{name:"Sigma rating",value:"sigma"}]},{name:"user",description:"Target",type:6,required:true}]},
     {name:"party",       description:"Party games: truth, dare, never have I ever",options:[{name:"type",description:"Game type",type:3,required:true,choices:[{name:"Truth",value:"truth"},{name:"Dare",value:"dare"},{name:"Never Have I Ever",value:"neverhavei"}]}]},
     {name:"ppsize",      description:"Check pp size",options:uReq()},
@@ -1538,9 +1535,7 @@ function buildCommands(){
     ]}]},
     {name:"joke",   description:"Random joke 😂"},
     {name:"meme",   description:"Random meme 🐸"},
-    {name:"quote",  description:"Random quote image ✨"},
-    {name:"goodquote", description:"Get a higher-rated quote image ⭐"},
-    {name:"badquote",  description:"Get a lower-rated quote image 💀"},
+    {name:"quote",  description:"Get a quote image ✨",options:[{name:"type",description:"Which kind (default: random)",type:3,required:false,choices:[{name:"Random ✨",value:"random"},{name:"Top-rated ⭐",value:"good"},{name:"Bottom-rated 💀",value:"bad"}]}]},
     {name:"trivia", description:"Trivia question 🧠"},
     // Utility
     {name:"coinflip",       description:"Flip a coin 🪙"},
@@ -1699,36 +1694,27 @@ function buildCommands(){
     {name:"restart",        description:"[Owner] Restart"},
     {name:"botstats",       description:"[Owner] Bot stats"},
     {name:"setstatus",      description:"[Owner] Set status",options:[{name:"text",description:"Text",type:3,required:true},{name:"type",description:"Type",type:3,required:false,choices:[{name:"Playing",value:"PLAYING"},{name:"Watching",value:"WATCHING"},{name:"Listening",value:"LISTENING"},{name:"Competing",value:"COMPETING"}]}]},
-    {name:"adminuser",      description:"[Owner] Edit user stats",options:[{name:"user",description:"User",type:6,required:true},{name:"field",description:"Field",type:3,required:true,choices:[{name:"Coins",value:"coins"},{name:"Wins",value:"wins"},{name:"Games Played",value:"gamesPlayed"},{name:"Daily Streak",value:"dailyStreak"},{name:"Best Streak",value:"bestStreak"},{name:"XP",value:"xp"},{name:"Level",value:"level"},{name:"Images Uploaded",value:"imagesUploaded"}]},{name:"value",description:"New integer value",type:4,required:true}]},
-    {name:"adminreset",     description:"[Owner] Reset all stats for user",options:[{name:"user",description:"User",type:6,required:true}]},
-    {name:"adminconfig",    description:"[Owner] View/edit global config values",options:[{name:"key",description:"Config key to view or edit (leave blank to list all keys)",type:3,required:false},{name:"value",description:"New integer value",type:4,required:false}]},
-    {name:"shadowdelete", description:"[Owner] Randomly delete a % of a user's messages", options:[
-  {name:"user", description:"Target user", type:6, required:true},
-  {name:"percentage", description:"Delete chance % (0 to disable)", type:4, required:true},
-]},
-    {name:"clankerify", description:"[Owner] Resend a user's messages as a webhook impersonating them", default_member_permissions:"0", options:[
-  {name:"user",     description:"Target user",                                             type:6, required:true},
-  {name:"duration", description:"Duration in minutes (omit or 0 to disable)",              type:4, required:false},
-]},
-    {name:"admingive",description:"[Owner] Give or take coins/items from a user",options:[
-      {name:"user",          description:"Target user",                          type:6,required:true},
-      {name:"action",        description:"Give or take (default: give)",         type:3,required:false,choices:[
-        {name:"Give",value:"give"},
-        {name:"Take",value:"take"},
-      ]},
-      {name:"amount",        description:"Coins to give or take",                type:4,required:false},
-      {name:"item",          description:"Item to give or take",                 type:3,required:false,choices:[
-        {name:"Lucky Charm 🍀",       value:"lucky_charm"},
-        {name:"XP Boost ⚡",          value:"xp_boost"},
-        {name:"Shield 🛡️",           value:"shield"},
-        {name:"Coin Magnet 🧲",       value:"coin_magnet"},
-        {name:"Mystery Box 📦",       value:"mystery_box"},
-        {name:"Item Mystery Box 🎲",  value:"item_mystery_box"},
-        {name:"Rob Insurance 📋",     value:"rob_insurance"},
-      ]},
-{name:"item_quantity", description:"How many of the item (default: 1)",    type:4,required:false},
+    {name:"admin",            description:"[Owner] Admin tools",options:[
+      {name:"user",           description:"Edit a user's stats",type:1,options:[{name:"user",description:"User",type:6,required:true},{name:"field",description:"Field",type:3,required:true,choices:[{name:"Coins",value:"coins"},{name:"Wins",value:"wins"},{name:"Games Played",value:"gamesPlayed"},{name:"Daily Streak",value:"dailyStreak"},{name:"Best Streak",value:"bestStreak"},{name:"XP",value:"xp"},{name:"Level",value:"level"},{name:"Images Uploaded",value:"imagesUploaded"}]},{name:"value",description:"New integer value",type:4,required:true}]},
+      {name:"reset",          description:"Reset all stats for a user",type:1,options:[{name:"user",description:"User",type:6,required:true}]},
+      {name:"config",         description:"View/edit global config values",type:1,options:[{name:"key",description:"Config key (leave blank to list all)",type:3,required:false},{name:"value",description:"New integer value",type:4,required:false}]},
+      {name:"give",           description:"Give or take coins/items from a user",type:1,options:[{name:"user",description:"Target user",type:6,required:true},{name:"action",description:"Give or take",type:3,required:false,choices:[{name:"Give",value:"give"},{name:"Take",value:"take"}]},{name:"amount",description:"Coins",type:4,required:false},{name:"item",description:"Item",type:3,required:false,choices:[{name:"Lucky Charm 🍀",value:"lucky_charm"},{name:"XP Boost ⚡",value:"xp_boost"},{name:"Shield 🛡️",value:"shield"},{name:"Coin Magnet 🧲",value:"coin_magnet"},{name:"Mystery Box 📦",value:"mystery_box"},{name:"Item Mystery Box 🎲",value:"item_mystery_box"},{name:"Rob Insurance 📋",value:"rob_insurance"}]},{name:"item_quantity",description:"Quantity (default 1)",type:4,required:false}]},
+    ]},
+    {name:"staffrole",        description:"Manage RA and LOA roles for a member",options:[
+      {name:"type",           description:"Which role",type:3,required:true,choices:[{name:"Reduced Activity",value:"ra"},{name:"Leave of Absence",value:"loa"}]},
+      {name:"user",           description:"Member",type:6,required:true},
+      {name:"action",         description:"Give or remove",type:3,required:true,choices:[{name:"Give",value:"give"},{name:"Remove",value:"remove"}]},
+      {name:"duration",       description:"Hours (optional — permanent if omitted)",type:4,required:false},
     ]},
     {name:"rolespingfix", description:"List roles that can @everyone and fix them (Manage Server)"},
+    {name:"shadowdelete", description:"[Owner] Randomly delete a % of a user's messages", options:[
+      {name:"user", description:"Target user", type:6, required:true},
+      {name:"percentage", description:"Delete chance % (0 to disable)", type:4, required:true},
+    ]},
+    {name:"clankerify", description:"[Owner] Resend a user's messages as a webhook impersonating them", default_member_permissions:"0", options:[
+      {name:"user",     description:"Target user",                                             type:6, required:true},
+      {name:"duration", description:"Duration in minutes (omit or 0 to disable)",              type:4, required:false},
+    ]},
     {name:"upload",            description:"Upload an image to the quotes folder",options:[
       {name:"source",          description:"[Memers only] Upload a file directly from your device",type:11,required:false},
       {name:"link",            description:"[Memers only] Submit an image via URL link",type:3,required:false},
@@ -1741,12 +1727,14 @@ function buildCommands(){
       ]},
       {name:"user",            description:"User to add or remove (not needed for list)",type:6,required:false},
     ]},
-    {name:"quotelist",         description:"[Owner] List all images in the quotes folder"},
-    {name:"quotedelete",       description:"[Owner] Delete an image from the quotes folder",options:[
-      {name:"filename",        description:"Exact filename to delete (use /quotelist to find it)",type:3,required:true},
-    ]},
-    {name:"quotemanage",       description:"[Owner] Browse and delete quotes with image preview",options:[
-      {name:"index",           description:"Start at a specific image number (default: 1)",type:4,required:false},
+    {name:"quotemanage",       description:"[Owner] Manage quotes folder",options:[
+      {name:"action",          description:"What to do",type:3,required:true,choices:[
+        {name:"List all images",      value:"list"},
+        {name:"Delete an image",      value:"delete"},
+        {name:"Browse with preview",  value:"browse"},
+      ]},
+      {name:"filename",        description:"Exact filename (for delete)",type:3,required:false},
+      {name:"index",           description:"Start at image number (for browse, default: 1)",type:4,required:false},
     ]},
     {name:"dailyquote",        description:"Set up a daily quote post in a channel (Manage Server)",options:[
       {name:"action",          description:"What to do",type:3,required:true,choices:[
@@ -1777,16 +1765,6 @@ function buildCommands(){
       ]},
       {name:"role",            description:"Existing role to use (for set_ra / set_loa)",type:8,required:false},
     ]},
-    {name:"reduced-activity", description:"Give or remove the Reduced Activity role from a member",options:[
-      {name:"user",            description:"Member to apply RA to",type:6,required:true},
-      {name:"action",          description:"Give or remove",type:3,required:true,choices:[{name:"Give",value:"give"},{name:"Remove",value:"remove"}]},
-      {name:"duration",        description:"How long to keep the RA role (hours, optional — permanent if omitted)",type:4,required:false},
-    ]},
-    {name:"loa",              description:"Give or remove the LOA role from a member",options:[
-      {name:"user",            description:"Member to apply LOA to",type:6,required:true},
-      {name:"action",          description:"Give or remove",type:3,required:true,choices:[{name:"Give",value:"give"},{name:"Remove",value:"remove"}]},
-      {name:"duration",        description:"How long to keep the LOA role (hours, optional — permanent if omitted)",type:4,required:false},
-    ]},
     // ── Message context menu commands (type 3 = MESSAGE, no description/options) ─
     // Owner-only
     { name:"Reaction Bomb",   type:3, default_member_permissions:"0" },
@@ -1804,10 +1782,12 @@ function buildCommands(){
     {name:"requester",       description:"[Owner] Set the channel where quote submissions are sent for review",options:[
       {name:"channel",description:"Review channel",type:7,required:true},
     ]},
-    {name:"vcjoin",          description:"[Owner] Join the VC you're currently in"},
-    {name:"playsound",       description:"[Owner] Play a random audio file from the GitHub audios folder in VC"},
-    {name:"soundupload",     description:"[Owner] Upload an audio file to the audios folder in the GitHub repo",options:[
-      {name:"source",        description:"Audio file to upload (mp3, wav, ogg, flac, aac, opus)",type:11,required:true},
+    {name:"vc",               description:"[Owner] Voice channel tools",options:[
+      {name:"join",           description:"Join the VC you're currently in",type:1},
+      {name:"play",           description:"Play a random audio file from the GitHub audios folder",type:1},
+      {name:"upload",         description:"Upload an audio file to the audios folder",type:1,options:[
+        {name:"source",       description:"Audio file (mp3, wav, ogg, flac, aac, opus)",type:11,required:true},
+      ]},
     ]},
   ];
 }
@@ -2412,29 +2392,35 @@ client.on("messageCreate",async msg=>{
         if(mode === "karafy"){
           displayName = `🎤 ${displayName} (karafy'd)`;
           if(sendContent){
-            const joeMamaJokes = [
-              " — joe mama",
-              " (joe mama reference)",
-              " — that's what joe mama said",
-              " joe mama called and she agrees",
-              " — joe mama wants to know your location",
-              " btw joe mama said hi",
-              " (joe mama has entered the chat)",
+            const adlibs = [
+              " 🎶",
+              " (ad lib)",
+              " woooah-oh-oh",
+              " yeah yeah YEAH",
+              " 🎤 *drops mic*",
+              " baby",
+              " oh oh oh",
+              " *key change*",
+              " (bridge)",
+              " uh huh",
+              " *runs it back*",
+              " sing it!",
+              " that's the hook right there",
+              " this is my MOMENT",
+              " 🎵 mmmmm",
+              " *voice cracks*",
+              " (unplugged version)",
+              " ft. nobody because I carry this",
             ];
-            const sixtySevenRefs = [
-              " 🎵 (67 in the building)",
-              " — still waiting on that 67 feature 🎶",
-              " 67! 67! 67!",
-              " (67 approves this message)",
-              " — as 67 once said, sheesh",
-              " 🎤 (67 reference, you wouldn't get it)",
+            const pirateAdlibs = [ // only used in karafy+pirate overlap if ever added
+              " (acapella)",
+              " *beatbox solo*",
+              " (Grammy-worthy)",
             ];
-            // Randomly mix in joe mama jokes and 67 refs
-            const extras = [...joeMamaJokes, ...sixtySevenRefs];
-            const extra1 = extras[Math.floor(Math.random()*extras.length)];
-            let extra2 = extras[Math.floor(Math.random()*extras.length)];
-            while(extra2 === extra1) extra2 = extras[Math.floor(Math.random()*extras.length)];
-            // Also do some karaoke-style word emphasis
+            const extra1 = adlibs[Math.floor(Math.random()*adlibs.length)];
+            let extra2 = adlibs[Math.floor(Math.random()*adlibs.length)];
+            while(extra2 === extra1) extra2 = adlibs[Math.floor(Math.random()*adlibs.length)];
+            // Karaoke-style word emphasis
             const words = sendContent.split(" ");
             const karaWords = words.map((w,i) => {
               if(i % 4 === 0 && w.length > 3) return w.toUpperCase();
@@ -2446,12 +2432,85 @@ client.on("messageCreate",async msg=>{
           } else {
             const karaIdles = [
               "🎤 *drops mic*",
-              "🎶 la la la... joe mama",
-              "67!!! 🎵",
-              "*beatboxing* joe mama joe mama",
-              "🎤 (no lyrics, just vibes and joe mama)",
+              "🎶 *just vibing in the key of F*",
+              "🎵 *warming up the vocals*",
+              "*beatboxes for 4 seconds then stops*",
+              "🎤 *taps mic* is this thing on",
+              "*long sustained note that wasn't asked for*",
+              "🎵 *hums the chorus to something nobody knows*",
+              "🎤 thank you, thank you, hold your applause",
             ];
             sendContent = karaIdles[Math.floor(Math.random()*karaIdles.length)];
+          }
+        }
+
+        // ── Pirate mode ───────────────────────────────────────────────────────
+        if(mode === "pirate"){
+          displayName = `🏴‍☠️ ${displayName} (the Pirate)`;
+          if(sendContent){
+            // Core pirate word substitutions
+            const subs = [
+              [/\bmy\b/gi,"me"],
+              [/\byou\b/gi,"ye"],
+              [/\byour\b/gi,"yer"],
+              [/\bthe\b/gi,"th'"],
+              [/\bis\b/gi,"be"],
+              [/\bare\b/gi,"be"],
+              [/\bam\b/gi,"be"],
+              [/\bfriend\b/gi,"matey"],
+              [/\bfriends\b/gi,"mateys"],
+              [/\bhey\b/gi,"ahoy"],
+              [/\bhi\b/gi,"ahoy"],
+              [/\bhello\b/gi,"ahoy"],
+              [/\byes\b/gi,"aye"],
+              [/\byeah\b/gi,"aye"],
+              [/\byep\b/gi,"aye"],
+              [/\bno\b/gi,"nay"],
+              [/\bnope\b/gi,"nay"],
+              [/\bman\b/gi,"landlubber"],
+              [/\bdude\b/gi,"scallywag"],
+              [/\bguy\b/gi,"bilge rat"],
+              [/\bgoing\b/gi,"sailin'"],
+              [/\bcome\b/gi,"come aboard"],
+              [/\bstop\b/gi,"belay that"],
+              [/\bwant\b/gi,"be wantin'"],
+              [/\bthink\b/gi,"reckon"],
+              [/\bthat\b/gi,"that there"],
+              [/\bvery\b/gi,"mightily"],
+              [/\breally\b/gi,"truly"],
+              [/\bgood\b/gi,"fine"],
+              [/\bbad\b/gi,"foul"],
+              [/\bokay\b/gi,"arr, fine"],
+              [/\bok\b/gi,"arr"],
+            ];
+            for(const [pattern, replacement] of subs){
+              sendContent = sendContent.replace(pattern, replacement);
+            }
+            // Random pirate interjections appended
+            const interjections = [
+              " arr!",
+              " shiver me timbers!",
+              " by Davy Jones!",
+              " yo ho!",
+              " says I!",
+              " blast ye!",
+              " ARRR!",
+              " avast!",
+              ", says this here pirate",
+            ];
+            if(Math.random() < 0.7){
+              sendContent += interjections[Math.floor(Math.random()*interjections.length)];
+            }
+          } else {
+            const pirateIdles = [
+              "🏴‍☠️ *stares into the horizon and says nothing*",
+              "arr... *spits overboard*",
+              "🦜 *the parrot speaks instead*",
+              "*sharpens cutlass ominously*",
+              "arr, this pirate has nothin' to say to ye",
+              "*waves a flag and drinks rum*",
+            ];
+            sendContent = pirateIdles[Math.floor(Math.random()*pirateIdles.length)];
           }
         }
 
@@ -3699,7 +3758,7 @@ client.on("interactionCreate",async interaction=>{
   const cmd=interaction.commandName;
   const inGuild=!!interaction.guildId;
 
-  const ownerOnly=["servers","broadcast","requester","fakecrash","identitycrisis","botolympics","sentience","legendrandom","dmuser","leaveserver","restart","botstats","setstatus","adminuser","adminreset","adminconfig","admingive","echo","forcemarry","forcedivorce","shadowdelete","clankerify","fakemessage","vcjoin","playsound","soundupload"];
+  const ownerOnly=["servers","broadcast","requester","fakecrash","identitycrisis","botolympics","sentience","legendrandom","dmuser","leaveserver","restart","botstats","setstatus","admin","echo","marriage","shadowdelete","clankerify","fakemessage","vc"];
   if(ownerOnly.includes(cmd)&&!OWNER_IDS.includes(interaction.user.id))return safeReply(interaction,{content:"Owner only.",ephemeral:true});
 
   const manageServerCmds=["channelpicker","counting","xpconfig","setwelcome","setleave","setwelcomemsg","setleavemsg","disableownermsg","serverconfig","autorole","setboostmsg","invitecomp","purge","reactionrole","ticketsetup","ytsetup","subgoal","subcount","milestones","dailyquote"];
@@ -3716,13 +3775,17 @@ client.on("interactionCreate",async interaction=>{
     if(cmd==="ping")return safeReply(interaction,`🏓 Pong! Latency: **${client.ws.ping}ms**`);
     if(cmd==="avatar"){const u=await client.users.fetch(interaction.options.getUser("user").id);return safeReply(interaction,u.displayAvatarURL({size:1024,dynamic:true}));}
 
-    if(cmd==="punch")    return safeReply(interaction,`${au()} punched ${bu()}`);
-    if(cmd==="hug")      return safeReply(interaction,`${au()} hugged ${bu()}`);
-    if(cmd==="kiss")     return safeReply(interaction,`${au()} kissed ${bu()}`);
-    if(cmd==="slap")     return safeReply(interaction,`${au()} slapped ${bu()}`);
-    if(cmd==="throw")    return safeReply(interaction,`${au()} threw ${pick(THROW_ITEMS)} at ${bu()}!`);
+
 
     // ── /marry — persistent proposal stored in botdata.json ──────────────────
+    if(cmd==="marriage"){
+      const sub = interaction.options.getSubcommand();
+      if(sub==="propose") cmd="marry";
+      else if(sub==="divorce") cmd="divorce";
+      else if(sub==="partner") cmd="partner";
+      else if(sub==="forcemarry") cmd="forcemarry";
+      else if(sub==="forcedivorce") cmd="forcedivorce";
+    }
     if(cmd==="marry"){
       const target=interaction.options.getUser("user");
       if(target.id===interaction.user.id)return safeReply(interaction,{content:"You can't marry yourself.",ephemeral:true});
@@ -3850,6 +3913,7 @@ if(cmd==="clankerify"){
         {label:"Medieval",         value:"medieval",    emoji:"⚔️"},
         {label:"Ghost",            value:"ghost",       emoji:"👻"},
         {label:"Karafy",           value:"karafy",      emoji:"🎤"},
+        {label:"Pirate",           value:"pirate",      emoji:"🏴‍☠️"},
       ])
   );
   const durationStr = duration ? `**${duration} minute(s)**` : "**permanently**";
@@ -3903,6 +3967,10 @@ if(cmd==="divorce"){
         oil:`${au2} oiled up ${bu2}`,
         diddle:`${bu2} was diddled`,
         kill:pick(KILL_MESSAGES),
+        punch:`${au2} punched ${bu2} 🥊`,
+        kiss:`${au2} kissed ${bu2} 💋`,
+        slap:`${au2} slapped ${bu2} 👋`,
+        throw:`${au2} threw ${pick(THROW_ITEMS)} at ${bu2}!`,
       };
       return safeReply(interaction,msgs[t]||`${au2} did something to ${bu2}`);
     }
@@ -3943,6 +4011,12 @@ if(cmd==="gif"){
     }
     if(cmd==="joke") {await interaction.deferReply();return safeReply(interaction,await getJoke()      ||"No joke today.");}
     if(cmd==="meme") {await interaction.deferReply();return safeReply(interaction,await getMeme()      ||"Meme API down 😔");}
+    if(cmd==="quote"){
+      const qtype=interaction.options.getString("type")||"random";
+      if(qtype==="good") cmd="goodquote";
+      else if(qtype==="bad") cmd="badquote";
+      // else: fall through to existing quote handler
+    }
     if(cmd==="quote"){
       // 1.5 second per-user cooldown
       const now_q = Date.now();
@@ -4909,6 +4983,13 @@ if(cmd==="gif"){
     if(cmd==="leaveserver"){const guild=client.guilds.cache.get(interaction.options.getString("server"));if(!guild)return safeReply(interaction,{content:"Server not found.",ephemeral:true});const name=guild.name;await guild.leave();return safeReply(interaction,{content:`Left ${name}`,ephemeral:true});}
     if(cmd==="restart"){await safeReply(interaction,{content:"Restarting…",ephemeral:true});process.exit(0);}
     if(cmd==="setstatus"){const text=interaction.options.getString("text"),type=interaction.options.getString("type")||"PLAYING";client.user.setActivity(text,{type});return safeReply(interaction,{content:`Status → ${type}: ${text}`,ephemeral:true});}
+    if(cmd==="admin"){
+      const sub=interaction.options.getSubcommand();
+      if(sub==="user") cmd="adminuser";
+      else if(sub==="reset") cmd="adminreset";
+      else if(sub==="config") cmd="adminconfig";
+      else if(sub==="give") cmd="admingive";
+    }
     if(cmd==="adminuser"){
       const target=interaction.options.getUser("user"),field=interaction.options.getString("field"),value=interaction.options.getInteger("value");
       if(!["coins","wins","gamesPlayed","dailyStreak","bestStreak","xp","level","imagesUploaded"].includes(field))return safeReply(interaction,{content:"Invalid field.",ephemeral:true});
@@ -5505,6 +5586,11 @@ if(cmd==="gif"){
 
     // ── /quotemanage — owner only, paginated image browser with inline delete ──
     if(cmd==="quotemanage"){
+      const action=interaction.options.getString("action");
+      if(action==="list"){ cmd="quotelist"; }
+      else if(action==="delete"){ cmd="quotedelete"; }
+      // "browse" falls through to existing quotemanage handler below
+      else {
       if(!OWNER_IDS.includes(interaction.user.id))
         return safeReply(interaction,{content:"❌ Owner only.",ephemeral:true});
       await interaction.deferReply({ephemeral:true});
@@ -5532,6 +5618,7 @@ if(cmd==="gif"){
         console.error("quotemanage error:",e);
         return safeReply(interaction,{content:"❌ Something went wrong.",ephemeral:true});
       }
+      } // end else (browse)
     }
 
     if(cmd==="quotelist"){
@@ -5797,6 +5884,10 @@ if(cmd==="gif"){
       return safeReply(interaction,{content:"❌ Unknown action.",ephemeral:true});
     }
 
+    if(cmd==="staffrole"){
+      const roleType = interaction.options.getString("type");
+      cmd = roleType === "ra" ? "reduced-activity" : "loa";
+    }
     if(cmd==="reduced-activity"||cmd==="loa"){
       if(!inGuild) return safeReply(interaction,{content:"Server only.",ephemeral:true});
       const hasPerms = OWNER_IDS.includes(interaction.user.id)||interaction.member.permissions.has("MANAGE_ROLES");
@@ -5849,6 +5940,12 @@ if(cmd==="gif"){
     }
 
     // ── /vcjoin — owner joins the VC the command user is in ──────────────────
+    if(cmd==="vc"){
+      const sub=interaction.options.getSubcommand();
+      if(sub==="join") cmd="vcjoin";
+      else if(sub==="play") cmd="playsound";
+      else if(sub==="upload") cmd="soundupload";
+    }
     if(cmd==="vcjoin"){
       if(!inGuild) return safeReply(interaction,{content:"❌ Server only.",ephemeral:true});
       if(!voice) return safeReply(interaction,{content:"❌ Voice support is not installed on this bot instance (`@discordjs/voice` missing).",ephemeral:true});
