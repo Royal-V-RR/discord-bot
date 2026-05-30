@@ -213,7 +213,15 @@
     ]
   ],
   "shadowDelete": [],
-  "clankerify": [],
+  "clankerify": [
+    [
+      "690219723472109616",
+      {
+        "expiresAt": 1780169964228,
+        "mode": "pirate"
+      }
+    ]
+  ],
   "reactionRoles": [
     [
       "1408975996715139084:1483218332005175427:🤖",
@@ -819,7 +827,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-27",
-        "xp": 2227,
+        "xp": 2232,
         "level": 19,
         "lastWorkTime": 0,
         "lastBegTime": 0,
