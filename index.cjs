@@ -6163,10 +6163,11 @@ if(cmd==="gif"){
     if(cmd==="vcjoin"){
       if(!inGuild) return safeReply(interaction,{content:"❌ Server only.",ephemeral:true});
       if(!voice) return safeReply(interaction,{content:"❌ Voice support is not installed on this bot instance (`@discordjs/voice` missing).",ephemeral:true});
+      // Defer immediately — member.fetch() is a network call that can exceed Discord's 3s window
+      await interaction.deferReply({ephemeral:true});
       const member = await interaction.guild.members.fetch(interaction.user.id).catch(()=>null);
       const vc = member?.voice?.channel;
       if(!vc) return safeReply(interaction,{content:"❌ You're not in a voice channel.",ephemeral:true});
-      await interaction.deferReply({ephemeral:true});
       try{
         const conn = voice.joinVoiceChannel({
           channelId: vc.id,
