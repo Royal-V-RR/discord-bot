@@ -1538,15 +1538,13 @@ function buildCommands(){
     {name:"quote",  description:"Get a quote image ✨",options:[{name:"type",description:"Which kind (default: random)",type:3,required:false,choices:[{name:"Random ✨",value:"random"},{name:"Top-rated ⭐",value:"good"},{name:"Bottom-rated 💀",value:"bad"}]}]},
     {name:"trivia", description:"Trivia question 🧠"},
     // Utility
-    {name:"coinflip",       description:"Flip a coin 🪙"},
+    {name:"coin",description:"Flip a coin — add a bet to wager 🪙",options:[{name:"bet",description:"Coins to wager (optional)",type:4,required:false},{name:"side",description:"Call it (required if betting)",type:3,required:false,choices:[{name:"Heads",value:"heads"},{name:"Tails",value:"tails"}]}]},
     {name:"roll",           description:"Roll a dice 🎲",options:[{name:"sides",description:"Sides (default 6)",type:4,required:false}]},
     {name:"choose",         description:"Choose between options 🤔",options:[{name:"options",description:"Comma-separated options",type:3,required:true}]},
     {name:"roast",          description:"Roast someone 🔥",options:uReq(false)},
     {name:"compliment",     description:"Compliment someone 💖",options:uReq()},
     {name:"ship",           description:"Ship two users 💘",options:[{name:"user1",description:"User 1",type:6,required:true},{name:"user2",description:"User 2",type:6,required:true}]},
-    {name:"topic",          description:"Conversation starter 💬"},
-    {name:"advice",         description:"Life advice 🧙"},
-    {name:"fact",           description:"Fun fact 📚"},
+    {name:"random",         description:"Random topic, advice, or fact",options:[{name:"type",description:"What to get (default: topic)",type:3,required:false,choices:[{name:"Conversation topic 💬",value:"topic"},{name:"Life advice 🧙",value:"advice"},{name:"Fun fact 📚",value:"fact"}]}]},
     {name:"echo",           description:"Make the bot say something 📢",options:[
   {name:"message",     description:"The text to send",                          type:3, required:false},
   {name:"embed",       description:"Turn the message into a rich embed",         type:5, required:false},
@@ -1570,7 +1568,6 @@ function buildCommands(){
     // Economy
     {name:"coins",    description:"Check coin balance 💰",options:uReq(false)},
     {name:"slots",    description:"Slot machine 🎰",options:[{name:"bet",description:"Coins to bet (default 10)",type:4,required:false}]},
-    {name:"coinbet",  description:"Bet on a coin flip 🪙",options:[{name:"bet",description:"Coins",type:4,required:true},{name:"side",description:"heads or tails",type:3,required:true,choices:[{name:"Heads",value:"heads"},{name:"Tails",value:"tails"}]}]},
     {name:"blackjack",description:"Blackjack 🃏",options:[{name:"bet",description:"Coins to bet",type:4,required:true}]},
     {name:"givecoin", description:"Give coins to someone 💸",options:[{name:"user",description:"User",type:6,required:true},{name:"amount",description:"Amount",type:4,required:true}]},
     {name:"beg",      description:"Beg for coins 🙏"},
@@ -1594,11 +1591,19 @@ function buildCommands(){
     {name:"inventory",description:"Check your inventory 🎒",options:uReq(false)},
     // XP
     {name:"xp",           description:"Check XP and level 📈",options:uReq(false)},
-    {name:"xpleaderboard",description:"XP leaderboard 🏆",options:[{name:"scope",description:"global or server",type:3,required:false,choices:[{name:"Global",value:"global"},{name:"Server",value:"server"}]}]},
+    {name:"leaderboard",description:"Leaderboard 🏆",options:[
+      {name:"type",description:"Stat to rank by (default: wins)",type:3,required:false,choices:[
+        {name:"Wins",value:"wins"},{name:"Coins",value:"coins"},{name:"Streak",value:"streak"},
+        {name:"Best Streak",value:"beststreak"},{name:"Games Played",value:"games"},
+        {name:"Win Rate",value:"winrate"},{name:"Images Uploaded",value:"images"},
+        {name:"XP / Level",value:"xp"},
+      ]},
+      {name:"scope",description:"Global or this server only (default: global)",type:3,required:false,choices:[
+        {name:"Global",value:"global"},{name:"Server",value:"server"},
+      ]},
+    ]},
     // Scores
     {name:"score",            description:"Check game stats 🏆",options:uReq(false)},
-    {name:"leaderboard",      description:"Global leaderboard 🌍",options:[{name:"type",description:"Type",type:3,required:false,choices:[{name:"Wins",value:"wins"},{name:"Coins",value:"coins"},{name:"Streak",value:"streak"},{name:"Best Streak",value:"beststreak"},{name:"Games Played",value:"games"},{name:"Win Rate",value:"winrate"},{name:"Images Uploaded",value:"images"}]}]},
-    {name:"serverleaderboard",description:"Server leaderboard 🏠",options:[{name:"type",description:"Type",type:3,required:false,choices:[{name:"Wins",value:"wins"},{name:"Coins",value:"coins"},{name:"Streak",value:"streak"},{name:"Best Streak",value:"beststreak"},{name:"Games Played",value:"games"},{name:"Win Rate",value:"winrate"},{name:"Images Uploaded",value:"images"}]}]},
     // Games — solo
     {name:"games",        description:"Play a solo game 🎮",options:[{name:"game",description:"Which game",type:3,required:true,choices:[
       {name:"Hangman 🪢",          value:"hangman"},
@@ -1641,13 +1646,19 @@ function buildCommands(){
       ]},
       {name:"channel",description:"Channel to send level-up messages to (only used with set_channel)",type:7,required:false},
     ]},
-    {name:"setwelcome",      description:"Set welcome message (Manage Server)",options:[{name:"channel",description:"Channel",type:7,required:true},{name:"message",description:"Use {user} {server} {count}",type:3,required:false}]},
-    {name:"setleave",        description:"Set leave message (Manage Server)",options:[{name:"channel",description:"Channel",type:7,required:true},{name:"message",description:"Use {user} {server}",type:3,required:false}]},
+    {name:"servermsg",       description:"Set welcome, leave, or boost messages (Manage Server)",options:[
+      {name:"type",          description:"Which message to configure",type:3,required:true,choices:[
+        {name:"Welcome",value:"welcome"},
+        {name:"Leave",  value:"leave"},
+        {name:"Boost",  value:"boost"},
+      ]},
+      {name:"channel",       description:"Channel to post the message in",type:7,required:true},
+      {name:"message",       description:"Message text (use {user} {server} {count})",type:3,required:false},
+    ]},
     {name:"disableownermsg", description:"Toggle bot owner broadcasts in this server (Manage Server)",options:[{name:"enabled",description:"Enable?",type:5,required:true}]},
     {name:"serverconfig",    description:"View this server's current bot config (Manage Server)"},
     {name:"autorole",        description:"Auto-assign a role when someone joins (Manage Server)",options:[{name:"role",description:"Role to give (leave blank to disable)",type:8,required:false}]},
     {name:"reactionrole",     description:"Manage reaction roles (Manage Server)",options:[{name:"action",description:"What to do",type:3,required:true,choices:[{name:"Add",value:"add"},{name:"Remove",value:"remove"},{name:"List",value:"list"}]},{name:"messageid",description:"Message ID (for add/remove)",type:3,required:false},{name:"emoji",description:"Emoji (for add/remove)",type:3,required:false},{name:"role",description:"Role to give (for add)",type:8,required:false}]},
-    {name:"setboostmsg",     description:"Set a server boost announcement message (Manage Server)",options:[{name:"channel",description:"Channel",type:7,required:true},{name:"message",description:"Use {user} {server}",type:3,required:false}]},
     {name:"invitecomp",      description:"Start an invite competition (Manage Server)",options:[{name:"hours",description:"Duration in hours (1-720)",type:4,required:true}]},
     {name:"purge",           description:"Delete messages in bulk (Manage Messages)",options:[
       {name:"amount",      description:"Number of messages to scan (1-100)",  type:4,required:true},
@@ -1659,9 +1670,14 @@ function buildCommands(){
     ]},
     // Tickets
     {name:"ticketsetup",     description:"Open the ticket system setup dashboard (Manage Server)"},
-    {name:"closeticket",     description:"Close this ticket"},
-    {name:"addtoticket",     description:"Add a user to this ticket",options:[{name:"user",description:"User to add",type:6,required:true}]},
-    {name:"removefromticket",description:"Remove a user from this ticket",options:[{name:"user",description:"User to remove",type:6,required:true}]},
+    {name:"ticket",          description:"Manage a ticket",options:[
+      {name:"action",        description:"What to do",type:3,required:true,choices:[
+        {name:"Close this ticket",value:"close"},
+        {name:"Add a user",value:"add"},
+        {name:"Remove a user",value:"remove"},
+      ]},
+      {name:"user",          description:"User to add/remove",type:6,required:false},
+    ]},
     // YouTube
     {name:"ytsetup",         description:"Connect a YouTube channel to this server (Manage Server)",options:[
       {name:"channel",       description:"YouTube handle (@name), channel URL, or channel ID (UC…)", type:3,required:true},
@@ -3281,11 +3297,11 @@ client.on("interactionCreate",async interaction=>{
       if(!(await btnAck(interaction)))return;
       const HELP_PAGES=[
         {title:"🎉 Fun & Social  —  Page 1 / 8",description:["**Interactions**","`/action type:… user:…` — Hug, pat, poke, stare, wave, high five, boop, oil, diddle, or kill someone","`/punch` `/hug` `/kiss` `/slap` `/throw` — Quick social actions","`/rate type:… user:…` — Rate someone (gay, autistic, simp, cursed, npc, villain, sigma)","`/ppsize user:…` — Check pp size","`/ship user1:… user2:…` — Ship compatibility %","","**Romance**","`/marry user:…` — Propose 💍 — target gets Accept/Decline buttons","`/divorce` — End the marriage 💔","`/partner [user]` — See who someone is married to","","**Party Games**","`/party type:truth|dare|neverhavei` — Truth, Dare, or Never Have I Ever","","**Conversation**","`/topic` — Random conversation starter","`/roast [user]` — Roast someone 🔥","`/compliment user:…` — Compliment someone 💖","`/advice` — Life advice 🧙","`/fact` — Random fun fact 📚","`/horoscope sign:…` — Your daily horoscope ✨","`/poll question:…` — Quick yes/no poll (server only)"].join("\n")},
-        {title:"📡 Media & Utility  —  Page 2 / 8",description:["**Media**","`/gif animal:…` — Random animal GIF 🐾 (cat, dog, fox, panda, duck, bunny, koala, raccoon)","`/joke` — Random joke 😂","`/meme` — Random meme 🐸","`/quote` — Inspirational quote image ✨","`/trivia` — Trivia question with spoiler answer 🧠","`/avatar user:…` — Get someone's avatar","","**Utility**","`/ping` — Bot latency 🏓","`/coinflip` — Heads or tails 🪙","`/roll [sides]` — Roll a dice (default d6) 🎲","`/choose options:a,b,c` — Pick from comma-separated options","`/echo [message] [embed] [image] [title] [color] [replyto]` — Make the bot say something","`/remind time:… message:…` — Set a reminder (1 min – 1 week)","`/upload source|link:…` — Upload an image to the quotes folder 🖼️ *(server only, authorized users)*","","**Info**","`/botinfo` — Bot stats","`/serverinfo` — Server member/channel/role info","`/userprofile [user]` — Full profile: level, XP, coins, items, cooldowns"].join("\n")},
-        {title:"💰 Economy  —  Page 3 / 8",description:["**Balance & Transfers**","`/coins [user]` — Check coin balance","`/givecoin user:… amount:…` — Transfer coins","","**Earning**","`/work` — Work a shift (1hr cooldown, 50–200 coins)","`/beg` — Beg for coins (5min cooldown, 0–50 coins)","`/crime` — Commit a crime (2hr cooldown, risky!)","`/rob user:…` — Rob someone (1hr cooldown, 45% success)","","**Gambling**","`/slots [bet]` — Slot machine 🎰","`/coinbet bet:… side:heads|tails` — Bet on a coin flip","`/blackjack bet:…` — Blackjack vs the dealer 🃏","","**Shop**","`/shop` — View items","`/buy item:…` — Buy an item","> 🍀 Lucky Charm (200) · ⚡ XP Boost (300) · 🛡️ Shield (150)","`/inventory [user]` — View items","","**Daily**","`/games game:Daily Challenge` — Daily puzzle for coins + streak 📅"].join("\n")},
-        {title:"📈 XP & Leaderboards  —  Page 4 / 8",description:["**XP**","You earn XP by sending messages (1 min cooldown). 5–15 XP per message.","Level formula: `floor(50 × level^1.5)` XP per level","","`/xp [user]` — Check XP, level, and progress bar","`/xpleaderboard [scope:global|server]` — Top 10 by XP","","**Stats & Leaderboards**","`/score [user]` — Wins, losses, win rate, streak","`/userprofile [user]` — Everything in one embed","`/leaderboard [type]` — Global top 10","`/serverleaderboard [type]` — Server top 10","> Types: `wins` `coins` `streak` `beststreak` `games` `winrate` `images`"].join("\n")},
+        {title:"📡 Media & Utility  —  Page 2 / 8",description:["**Media**","`/gif animal:…` — Random animal GIF 🐾 (cat, dog, fox, panda, duck, bunny, koala, raccoon)","`/joke` — Random joke 😂","`/meme` — Random meme 🐸","`/quote` — Inspirational quote image ✨","`/trivia` — Trivia question with spoiler answer 🧠","`/avatar user:…` — Get someone's avatar","","**Utility**","`/ping` — Bot latency 🏓","`/coin [bet] [side]` — Flip a coin or bet on it 🪙","`/roll [sides]` — Roll a dice (default d6) 🎲","`/choose options:a,b,c` — Pick from comma-separated options","`/echo [message] [embed] [image] [title] [color] [replyto]` — Make the bot say something","`/remind time:… message:…` — Set a reminder (1 min – 1 week)","`/upload source|link:…` — Upload an image to the quotes folder 🖼️ *(server only, authorized users)*","","**Info**","`/botinfo` — Bot stats","`/serverinfo` — Server member/channel/role info","`/userprofile [user]` — Full profile: level, XP, coins, items, cooldowns"].join("\n")},
+        {title:"💰 Economy  —  Page 3 / 8",description:["**Balance & Transfers**","`/coins [user]` — Check coin balance","`/givecoin user:… amount:…` — Transfer coins","","**Earning**","`/work` — Work a shift (1hr cooldown, 50–200 coins)","`/beg` — Beg for coins (5min cooldown, 0–50 coins)","`/crime` — Commit a crime (2hr cooldown, risky!)","`/rob user:…` — Rob someone (1hr cooldown, 45% success)","","**Gambling**","`/slots [bet]` — Slot machine 🎰","`/coin bet:… side:heads|tails` — Bet on a coin flip","`/blackjack bet:…` — Blackjack vs the dealer 🃏","","**Shop**","`/shop` — View items","`/buy item:…` — Buy an item","> 🍀 Lucky Charm (200) · ⚡ XP Boost (300) · 🛡️ Shield (150)","`/inventory [user]` — View items","","**Daily**","`/games game:Daily Challenge` — Daily puzzle for coins + streak 📅"].join("\n")},
+        {title:"📈 XP & Leaderboards  —  Page 4 / 8",description:["**XP**","You earn XP by sending messages (1 min cooldown). 5–15 XP per message.","Level formula: `floor(50 × level^1.5)` XP per level","","`/xp [user]` — Check XP, level, and progress bar","","**Stats & Leaderboards**","`/score [user]` — Wins, losses, win rate, streak","`/userprofile [user]` — Everything in one embed","`/leaderboard [type] [scope:global|server]` — Leaderboard","> Types: `wins` `coins` `streak` `beststreak` `games` `winrate` `images` `xp`"].join("\n")},
         {title:"🎮 Games  —  Page 5 / 8",description:["**Solo** — `/games game:…`","> 🪢 Hangman · 🐍 Snake · 💣 Minesweeper (Easy/Med/Hard)","> 🔢 Number Guess · 🔀 Word Scramble · 📅 Daily Challenge","","**2-Player** — `/2playergames game:… [opponent:…]`","> ❌⭕ Tic Tac Toe *(server only)*","> 🔴🔵 Connect 4 *(server only)*","> ✊ Rock Paper Scissors *(choices sent via DM)*","> 🧮 Math Race · 🏁 Word Race · 🧠 Trivia Battle *(server only)*","> 🔢 Count Game — count to 100 together, no opponent needed *(server only)*","> 🏁 Scramble Race — 5-round word unscramble *(server only)*","","Wins award coins. Check `/score` or `/userprofile` for stats."].join("\n")},
-        {title:"⚙️ Server Config  —  Page 6 / 8",description:["Most commands here require **Manage Server** permission.","","**Channels & Messages**","`/channelpicker channel:… [levelup]` — Set the bot's main channel","`/xpconfig setting:…` — Level-up messages (on/off, ping toggle, channel)","`/setwelcome channel:… [message]` — Welcome message (`{user}` `{server}` `{count}`)","`/setleave channel:… [message]` — Leave message","`/setboostmsg channel:… [message]` — Boost announcement","`/disableownermsg enabled:…` — Toggle bot owner broadcasts","`/purge amount:…` — Bulk delete (needs Manage Messages)","`/counting action:set|remove|status` — Set a permanent counting channel","","**Roles**","`/autorole [role]` — Auto-assign role on join (blank to disable)","`/reactionrole action:add|remove|list …` — Emoji reaction roles","`/rolespingfix` — List & fix roles that can @everyone","","**Competitions & Tickets**","`/invitecomp hours:…` — Invite competition with coin rewards","`/ticketsetup` · `/closeticket` · `/addtoticket` · `/removefromticket`","","**Overview**","`/serverconfig` — View all current settings"].join("\n")},
+        {title:"⚙️ Server Config  —  Page 6 / 8",description:["Most commands here require **Manage Server** permission.","","**Channels & Messages**","`/channelpicker channel:… [levelup]` — Set the bot's main channel","`/xpconfig setting:…` — Level-up messages (on/off, ping toggle, channel)","`/servermsg type:welcome|leave|boost channel:… [message]` — Welcome, leave & boost messages","`/disableownermsg enabled:…` — Toggle bot owner broadcasts","`/purge amount:…` — Bulk delete (needs Manage Messages)","`/counting action:set|remove|status` — Set a permanent counting channel","","**Roles**","`/autorole [role]` — Auto-assign role on join (blank to disable)","`/reactionrole action:add|remove|list …` — Emoji reaction roles","`/rolespingfix` — List & fix roles that can @everyone","","**Competitions & Tickets**","`/invitecomp hours:…` — Invite competition with coin rewards","`/ticketsetup` · `/ticket action:close|add|remove [user]`","","**Overview**","`/serverconfig` — View all current settings"].join("\n")},
         {title:"🛡️ Activity & RA/LOA  —  Page 7 / 8",description:["**Activity Checks** *(Manage Server)*","`/activity-check channel:… [deadline] [message] [ping] [schedule]` — Send a check-in to staff","> Specify which roles must respond and who is excluded","> Auto-closes after the deadline and reports who didn't check in","> Add `schedule:Monday 09:00` (UTC) to repeat it weekly automatically","","**RA / LOA Setup** *(Manage Server)*","`/raconfig action:create` — Auto-create Reduced Activity + LOA roles","`/raconfig action:set_ra|set_loa role:…` — Use existing roles","`/raconfig action:view` — See current config","","**Assigning Roles** *(Manage Roles)*","`/reduced-activity user:… action:give|remove [duration]` — Give/remove RA role","`/loa user:… action:give|remove [duration]` — Give/remove LOA role","> `duration` is in hours — omit for permanent"].join("\n")},
         {title:"📺 YouTube Tracking  —  Page 8 / 8",description:["Track a YouTube channel's subscriber count live in Discord.","All commands require **Manage Server** permission.","","**Setup (do this first)**","`/ytsetup channel:… discord_channel:… [apikey:…]` — Connect a YouTube channel","> Accepts `@handle`, full URL, or channel ID starting with UC","> Provide your YouTube Data API v3 key on first use — it's saved to botdata","> Get a free key at console.cloud.google.com → enable YouTube Data API v3","","**Live Sub Count**","`/subcount threshold:1K|10K` — Post an embed that edits itself every 5 min","","**Sub Goal**","`/subgoal goal:N [message]` — Live progress bar towards a target sub count","> Fires a custom or default message when the goal is reached","","**Milestones**","`/milestones action:add subs:N [message]` — Announce when a sub count is crossed","`/milestones action:remove subs:N` — Remove a milestone","`/milestones action:list` — View all milestones and their status"].join("\n")},
       ];
@@ -3761,7 +3777,7 @@ client.on("interactionCreate",async interaction=>{
   const ownerOnly=["servers","broadcast","requester","fakecrash","identitycrisis","botolympics","sentience","legendrandom","dmuser","leaveserver","restart","botstats","setstatus","admin","echo","marriage","shadowdelete","clankerify","fakemessage","vc"];
   if(ownerOnly.includes(cmd)&&!OWNER_IDS.includes(interaction.user.id))return safeReply(interaction,{content:"Owner only.",ephemeral:true});
 
-  const manageServerCmds=["channelpicker","counting","xpconfig","setwelcome","setleave","setwelcomemsg","setleavemsg","disableownermsg","serverconfig","autorole","setboostmsg","invitecomp","purge","reactionrole","ticketsetup","ytsetup","subgoal","subcount","milestones","dailyquote"];
+  const manageServerCmds=["channelpicker","counting","xpconfig","servermsg","disableownermsg","serverconfig","autorole","invitecomp","purge","reactionrole","ticketsetup","ytsetup","subgoal","subcount","milestones","dailyquote"];
   if(manageServerCmds.includes(cmd)){
     if(!inGuild)return safeReply(interaction,{content:"Server only.",ephemeral:true});
     if(!OWNER_IDS.includes(interaction.user.id)&&!interaction.member.permissions.has("MANAGE_GUILD"))
@@ -4015,7 +4031,6 @@ if(cmd==="gif"){
       const qtype=interaction.options.getString("type")||"random";
       if(qtype==="good") cmd="goodquote";
       else if(qtype==="bad") cmd="badquote";
-      // else: fall through to existing quote handler
     }
     if(cmd==="quote"){
       // 1.5 second per-user cooldown
@@ -4129,16 +4144,36 @@ if(cmd==="gif"){
       return safeReply(interaction,`**${t.question}**\n\n${t.answers.map((a,i)=>`${["🇦","🇧","🇨","🇩"][i]} ${a}`).join("\n")}\n\n||✅ Answer: ${t.correct}||`);
     }
 
-    if(cmd==="coinflip")      return safeReply(interaction,`🪙 **${Math.random()<0.5?"Heads":"Tails"}!**`);
+    if(cmd==="coin"){
+      const bet=interaction.options.getInteger("bet")||0;
+      const side=interaction.options.getString("side");
+      const result=Math.random()<0.5?"heads":"tails";
+      if(bet>0){
+        if(!side)return safeReply(interaction,{content:"Pick heads or tails when betting.",ephemeral:true});
+        if(bet<1)return safeReply(interaction,{content:"Min bet is 1.",ephemeral:true});
+        const s=getScore(interaction.user.id,interaction.user.username);
+        if(s.coins<bet)return safeReply(interaction,{content:`You only have **${s.coins}** coins.`,ephemeral:true});
+        const winChance=CONFIG.coinbet_win_chance!=null?CONFIG.coinbet_win_chance/100:0.5;
+        const won=(Math.random()<winChance)?(result===side?"heads":"tails")===result?result===side:result===side:result===side;
+        // Simpler: just reuse the original coinbet logic
+        const betResult=Math.random()<(CONFIG.coinbet_win_chance/100)?"heads":"tails",betWon=betResult===side;
+        s.coins+=betWon?bet:-bet;saveData();
+        return safeReply(interaction,`🪙 **${betResult.charAt(0).toUpperCase()+betResult.slice(1)}**\n`+(betWon?`✅ Won **${bet}** coins!`:`❌ Lost **${bet}** coins.`)+`\n💰 Balance: **${s.coins}**`);
+      }
+      return safeReply(interaction,`🪙 **${result.charAt(0).toUpperCase()+result.slice(1)}!**`);
+    }
+    if(cmd==="coinflip") cmd="coin"; // legacy compat
     if(cmd==="roll")          {const sides=interaction.options.getInteger("sides")||6;if(sides<2)return safeReply(interaction,{content:"Need at least 2 sides.",ephemeral:true});return safeReply(interaction,`🎲 You rolled **${r(1,sides)}** on a d${sides}!`);}
     if(cmd==="choose")        {const opts=interaction.options.getString("options").split(",").map(s=>s.trim()).filter(Boolean);if(opts.length<2)return safeReply(interaction,{content:"Give at least 2 options.",ephemeral:true});return safeReply(interaction,`🤔 I choose... **${pick(opts)}**`);}
     if(cmd==="roast")         {const u=interaction.options.getUser("user");return safeReply(interaction,`🔥 ${u?`<@${u.id}>`:au()}: ${pick(ROASTS)}`);}
     if(cmd==="compliment")    return safeReply(interaction,`💖 ${bu()}: ${pick(COMPLIMENTS)}`);
     if(cmd==="ship")          {const u1=interaction.options.getUser("user1"),u2=interaction.options.getUser("user2"),pct=r(0,100),bar="█".repeat(Math.floor(pct/10))+"░".repeat(10-Math.floor(pct/10));return safeReply(interaction,`💘 **${u1.username}** + **${u2.username}**\n\n${bar} **${pct}%**\n\n${pct>=80?"Soulmates 💕":pct>=50?"There's potential 👀":pct>=30?"It's complicated 😬":"Maybe just friends 😅"}`);}
-    if(cmd==="topic")         return safeReply(interaction,`💬 ${pick(TOPICS)}`);
-
-    if(cmd==="advice")        return safeReply(interaction,`🧙 ${pick(ADVICE)}`);
-    if(cmd==="fact")          return safeReply(interaction,`📚 ${pick(FACTS)}`);
+    if(cmd==="random"||cmd==="topic"||cmd==="advice"||cmd==="fact"){
+      const type=cmd!=="random"?cmd:(interaction.options.getString("type")||"topic");
+      if(type==="advice") return safeReply(interaction,`🧙 ${pick(ADVICE)}`);
+      if(type==="fact")   return safeReply(interaction,`📚 ${pick(FACTS)}`);
+      return safeReply(interaction,`💬 ${pick(TOPICS)}`);
+    }
     if(cmd==="horoscope")     return safeReply(interaction,HOROSCOPES[interaction.options.getString("sign")]||"Unknown sign.");
 
 
@@ -4303,11 +4338,11 @@ if(cmd==="gif"){
     if(cmd==="help"){
       const HELP_PAGES=[
         {title:"🎉 Fun & Social  —  Page 1 / 8",description:["**Interactions**","`/action type:… user:…` — Hug, pat, poke, stare, wave, high five, boop, oil, diddle, or kill someone","`/punch` `/hug` `/kiss` `/slap` `/throw` — Quick social actions","`/rate type:… user:…` — Rate someone (gay, autistic, simp, cursed, npc, villain, sigma)","`/ppsize user:…` — Check pp size","`/ship user1:… user2:…` — Ship compatibility %","","**Romance**","`/marry user:…` — Propose 💍 — target gets Accept/Decline buttons","`/divorce` — End the marriage 💔","`/partner [user]` — See who someone is married to","","**Party Games**","`/party type:truth|dare|neverhavei` — Truth, Dare, or Never Have I Ever","","**Conversation**","`/topic` — Random conversation starter","`/roast [user]` — Roast someone 🔥","`/compliment user:…` — Compliment someone 💖","`/advice` — Life advice 🧙","`/fact` — Random fun fact 📚","`/horoscope sign:…` — Your daily horoscope ✨","`/poll question:…` — Quick yes/no poll (server only)"].join("\n")},
-        {title:"📡 Media & Utility  —  Page 2 / 8",description:["**Media**","`/gif animal:…` — Random animal GIF 🐾 (cat, dog, fox, panda, duck, bunny, koala, raccoon)","`/joke` — Random joke 😂","`/meme` — Random meme 🐸","`/quote` — Inspirational quote image ✨","`/trivia` — Trivia question with spoiler answer 🧠","`/avatar user:…` — Get someone's avatar","","**Utility**","`/ping` — Bot latency 🏓","`/coinflip` — Heads or tails 🪙","`/roll [sides]` — Roll a dice (default d6) 🎲","`/choose options:a,b,c` — Pick from comma-separated options","`/echo [message] [embed] [image] [title] [color] [replyto]` — Make the bot say something","`/remind time:… message:…` — Set a reminder (1 min – 1 week)","`/upload source|link:…` — Upload an image to the quotes folder 🖼️ *(server only, authorized users)*","","**Info**","`/botinfo` — Bot stats","`/serverinfo` — Server member/channel/role info","`/userprofile [user]` — Full profile: level, XP, coins, items, cooldowns"].join("\n")},
-        {title:"💰 Economy  —  Page 3 / 8",description:["**Balance & Transfers**","`/coins [user]` — Check coin balance","`/givecoin user:… amount:…` — Transfer coins","","**Earning**","`/work` — Work a shift (1hr cooldown, 50–200 coins)","`/beg` — Beg for coins (5min cooldown, 0–50 coins)","`/crime` — Commit a crime (2hr cooldown, risky!)","`/rob user:…` — Rob someone (1hr cooldown, 45% success)","","**Gambling**","`/slots [bet]` — Slot machine 🎰","`/coinbet bet:… side:heads|tails` — Bet on a coin flip","`/blackjack bet:…` — Blackjack vs the dealer 🃏","","**Shop**","`/shop` — View items","`/buy item:…` — Buy an item","> 🍀 Lucky Charm (200) · ⚡ XP Boost (300) · 🛡️ Shield (150)","`/inventory [user]` — View items","","**Daily**","`/games game:Daily Challenge` — Daily puzzle for coins + streak 📅"].join("\n")},
-        {title:"📈 XP & Leaderboards  —  Page 4 / 8",description:["**XP**","You earn XP by sending messages (1 min cooldown). 5–15 XP per message.","Level formula: `floor(50 × level^1.5)` XP per level","","`/xp [user]` — Check XP, level, and progress bar","`/xpleaderboard [scope:global|server]` — Top 10 by XP","","**Stats & Leaderboards**","`/score [user]` — Wins, losses, win rate, streak","`/userprofile [user]` — Everything in one embed","`/leaderboard [type]` — Global top 10","`/serverleaderboard [type]` — Server top 10","> Types: `wins` `coins` `streak` `beststreak` `games` `winrate` `images`"].join("\n")},
+        {title:"📡 Media & Utility  —  Page 2 / 8",description:["**Media**","`/gif animal:…` — Random animal GIF 🐾 (cat, dog, fox, panda, duck, bunny, koala, raccoon)","`/joke` — Random joke 😂","`/meme` — Random meme 🐸","`/quote` — Inspirational quote image ✨","`/trivia` — Trivia question with spoiler answer 🧠","`/avatar user:…` — Get someone's avatar","","**Utility**","`/ping` — Bot latency 🏓","`/coin [bet] [side]` — Flip a coin or bet on it 🪙","`/roll [sides]` — Roll a dice (default d6) 🎲","`/choose options:a,b,c` — Pick from comma-separated options","`/echo [message] [embed] [image] [title] [color] [replyto]` — Make the bot say something","`/remind time:… message:…` — Set a reminder (1 min – 1 week)","`/upload source|link:…` — Upload an image to the quotes folder 🖼️ *(server only, authorized users)*","","**Info**","`/botinfo` — Bot stats","`/serverinfo` — Server member/channel/role info","`/userprofile [user]` — Full profile: level, XP, coins, items, cooldowns"].join("\n")},
+        {title:"💰 Economy  —  Page 3 / 8",description:["**Balance & Transfers**","`/coins [user]` — Check coin balance","`/givecoin user:… amount:…` — Transfer coins","","**Earning**","`/work` — Work a shift (1hr cooldown, 50–200 coins)","`/beg` — Beg for coins (5min cooldown, 0–50 coins)","`/crime` — Commit a crime (2hr cooldown, risky!)","`/rob user:…` — Rob someone (1hr cooldown, 45% success)","","**Gambling**","`/slots [bet]` — Slot machine 🎰","`/coin bet:… side:heads|tails` — Bet on a coin flip","`/blackjack bet:…` — Blackjack vs the dealer 🃏","","**Shop**","`/shop` — View items","`/buy item:…` — Buy an item","> 🍀 Lucky Charm (200) · ⚡ XP Boost (300) · 🛡️ Shield (150)","`/inventory [user]` — View items","","**Daily**","`/games game:Daily Challenge` — Daily puzzle for coins + streak 📅"].join("\n")},
+        {title:"📈 XP & Leaderboards  —  Page 4 / 8",description:["**XP**","You earn XP by sending messages (1 min cooldown). 5–15 XP per message.","Level formula: `floor(50 × level^1.5)` XP per level","","`/xp [user]` — Check XP, level, and progress bar","","**Stats & Leaderboards**","`/score [user]` — Wins, losses, win rate, streak","`/userprofile [user]` — Everything in one embed","`/leaderboard [type] [scope:global|server]` — Leaderboard","> Types: `wins` `coins` `streak` `beststreak` `games` `winrate` `images` `xp`"].join("\n")},
         {title:"🎮 Games  —  Page 5 / 8",description:["**Solo** — `/games game:…`","> 🪢 Hangman · 🐍 Snake · 💣 Minesweeper (Easy/Med/Hard)","> 🔢 Number Guess · 🔀 Word Scramble · 📅 Daily Challenge","","**2-Player** — `/2playergames game:… [opponent:…]`","> ❌⭕ Tic Tac Toe *(server only)*","> 🔴🔵 Connect 4 *(server only)*","> ✊ Rock Paper Scissors *(choices sent via DM)*","> 🧮 Math Race · 🏁 Word Race · 🧠 Trivia Battle *(server only)*","> 🔢 Count Game — count to 100 together, no opponent needed *(server only)*","> 🏁 Scramble Race — 5-round word unscramble *(server only)*","","Wins award coins. Check `/score` or `/userprofile` for stats."].join("\n")},
-        {title:"⚙️ Server Config  —  Page 6 / 8",description:["Most commands here require **Manage Server** permission.","","**Channels & Messages**","`/channelpicker channel:… [levelup]` — Set the bot's main channel","`/xpconfig setting:…` — Level-up messages (on/off, ping toggle, channel)","`/setwelcome channel:… [message]` — Welcome message (`{user}` `{server}` `{count}`)","`/setleave channel:… [message]` — Leave message","`/setboostmsg channel:… [message]` — Boost announcement","`/disableownermsg enabled:…` — Toggle bot owner broadcasts","`/purge amount:…` — Bulk delete (needs Manage Messages)","`/counting action:set|remove|status` — Set a permanent counting channel","","**Roles**","`/autorole [role]` — Auto-assign role on join (blank to disable)","`/reactionrole action:add|remove|list …` — Emoji reaction roles","`/rolespingfix` — List & fix roles that can @everyone","","**Competitions & Tickets**","`/invitecomp hours:…` — Invite competition with coin rewards","`/ticketsetup` · `/closeticket` · `/addtoticket` · `/removefromticket`","","**Overview**","`/serverconfig` — View all current settings"].join("\n")},
+        {title:"⚙️ Server Config  —  Page 6 / 8",description:["Most commands here require **Manage Server** permission.","","**Channels & Messages**","`/channelpicker channel:… [levelup]` — Set the bot's main channel","`/xpconfig setting:…` — Level-up messages (on/off, ping toggle, channel)","`/servermsg type:welcome|leave|boost channel:… [message]` — Welcome, leave & boost messages","`/disableownermsg enabled:…` — Toggle bot owner broadcasts","`/purge amount:…` — Bulk delete (needs Manage Messages)","`/counting action:set|remove|status` — Set a permanent counting channel","","**Roles**","`/autorole [role]` — Auto-assign role on join (blank to disable)","`/reactionrole action:add|remove|list …` — Emoji reaction roles","`/rolespingfix` — List & fix roles that can @everyone","","**Competitions & Tickets**","`/invitecomp hours:…` — Invite competition with coin rewards","`/ticketsetup` · `/ticket action:close|add|remove [user]`","","**Overview**","`/serverconfig` — View all current settings"].join("\n")},
         {title:"🛡️ Activity & RA/LOA  —  Page 7 / 8",description:["**Activity Checks** *(Manage Server)*","`/activity-check channel:… [deadline] [message] [ping] [schedule]` — Send a check-in to staff","> Specify which roles must respond and who is excluded","> Auto-closes after the deadline and reports who didn't check in","> Add `schedule:Monday 09:00` (UTC) to repeat it weekly automatically","","**RA / LOA Setup** *(Manage Server)*","`/raconfig action:create` — Auto-create Reduced Activity + LOA roles","`/raconfig action:set_ra|set_loa role:…` — Use existing roles","`/raconfig action:view` — See current config","","**Assigning Roles** *(Manage Roles)*","`/reduced-activity user:… action:give|remove [duration]` — Give/remove RA role","`/loa user:… action:give|remove [duration]` — Give/remove LOA role","> `duration` is in hours — omit for permanent"].join("\n")},
         {title:"📺 YouTube Tracking  —  Page 8 / 8",description:["Track a YouTube channel's subscriber count live in Discord.","All commands require **Manage Server** permission.","","**Setup (do this first)**","`/ytsetup channel:… discord_channel:… [apikey:…]` — Connect a YouTube channel","> Accepts `@handle`, full URL, or channel ID starting with UC","> Provide your YouTube Data API v3 key on first use — it's saved to botdata","> Get a free key at console.cloud.google.com → enable YouTube Data API v3","","**Live Sub Count**","`/subcount threshold:1K|10K` — Post an embed that edits itself every 5 min","","**Sub Goal**","`/subgoal goal:N [message]` — Live progress bar towards a target sub count","> Fires a custom or default message when the goal is reached","","**Milestones**","`/milestones action:add subs:N [message]` — Announce when a sub count is crossed","`/milestones action:remove subs:N` — Remove a milestone","`/milestones action:list` — View all milestones and their status"].join("\n")},
       ];
@@ -4355,15 +4390,6 @@ if(cmd==="gif"){
       saveData();
       const charmTag=hasCharm&&winnings>0?" 🍀 +"+CONFIG.lucky_charm_bonus+"%":"";
       return safeReply(interaction,`🎰 | ${reels.join(" | ")} |\n\n**${label}**\n`+(mult>=1?`✅ Won **${winnings}** coins! (+${winnings-bet})`:`❌ Lost **${bet}** coins.`)+`\n💰 Balance: **${s.coins}**`+charmTag);
-    }
-    if(cmd==="coinbet"){
-      const bet=interaction.options.getInteger("bet"),side=interaction.options.getString("side");
-      if(bet<1)return safeReply(interaction,{content:"Min bet is 1.",ephemeral:true});
-      const s=getScore(interaction.user.id,interaction.user.username);
-      if(s.coins<bet)return safeReply(interaction,{content:`You only have **${s.coins}** coins.`,ephemeral:true});
-      const result=Math.random()<(CONFIG.coinbet_win_chance/100)?"heads":"tails",won=result===side;s.coins+=won?bet:-bet;
-      saveData();
-      return safeReply(interaction,`🪙 **${result.charAt(0).toUpperCase()+result.slice(1)}**\n`+(won?`✅ Won **${bet}** coins!`:`❌ Lost **${bet}** coins.`)+`\n💰 Balance: **${s.coins}**`);
     }
     if(cmd==="blackjack"){
       const cid=interaction.channelId;
@@ -4549,15 +4575,26 @@ if(cmd==="gif"){
       const filled=Math.floor((xp/needed)*20);
       return safeReply(interaction,`📈 **${u.username}'s XP**\n🏅 Level: **${level}**\n✨ XP: **${xp}** / **${needed}**\n[${"█".repeat(filled)}${"░".repeat(20-filled)}]`);
     }
-    if(cmd==="xpleaderboard"){
+    if(cmd==="leaderboard"){
+      const type=interaction.options.getString("type")||"wins";
       const scope=interaction.options.getString("scope")||"global";
       let entries=[...scores.entries()];
-      if(scope==="server"){if(!inGuild)return safeReply(interaction,{content:"Server only.",ephemeral:true});await interaction.guild.members.fetch();const mids=new Set(interaction.guild.members.cache.filter(m=>!m.user.bot).map(m=>m.id));entries=entries.filter(([id])=>mids.has(id));}
-      if(!entries.length)return safeReply(interaction,"No XP data yet!");
-      const totalXP=([,s])=>{let t=0,lv=s.level||1;for(let i=1;i<lv;i++)t+=Math.floor(50*Math.pow(i,1.5));return t+(s.xp||0);};
-      const sorted=[...entries].sort((a,b)=>totalXP(b)-totalXP(a)).slice(0,10);
-      const medals=["🥇","🥈","🥉"];
-      return safeReply(interaction,`**${scope==="server"?`🏠 ${interaction.guild?.name}`:"🌍 Global"} — XP Leaderboard**\n\n${sorted.map((e,i)=>`${medals[i]||`${i+1}.`} **${e[1].username}** — Level **${e[1].level||1}** (${e[1].xp||0} XP)`).join("\n")}`);
+      let titlePrefix="🌍 Global";
+      if(scope==="server"){
+        if(!inGuild)return safeReply(interaction,{content:"Server only.",ephemeral:true});
+        await interaction.guild.members.fetch();
+        const mids=new Set(interaction.guild.members.cache.filter(m=>!m.user.bot).map(m=>m.id));
+        entries=entries.filter(([id])=>mids.has(id));
+        titlePrefix=`🏠 ${interaction.guild.name}`;
+      }
+      if(!entries.length)return safeReply(interaction,"No data yet!");
+      if(type==="xp"){
+        const totalXP=([,s])=>{let t=0,lv=s.level||1;for(let i=1;i<lv;i++)t+=Math.floor(50*Math.pow(i,1.5));return t+(s.xp||0);};
+        const sorted=[...entries].sort((a,b)=>totalXP(b)-totalXP(a)).slice(0,10);
+        const medals=["🥇","🥈","🥉"];
+        return safeReply(interaction,`**${titlePrefix} — XP Leaderboard**\n\n${sorted.map((e,i)=>`${medals[i]||`${i+1}.`} **${e[1].username}** — Level **${e[1].level||1}** (${e[1].xp||0} XP)`).join("\n")}`);
+      }
+      return safeReply(interaction,buildLeaderboard(entries,type,titlePrefix));
     }
 
     // Scores
@@ -4579,16 +4616,6 @@ if(cmd==="gif"){
       if(!top.length)return"Not enough data yet.";
       return`**${title}**\n\n${top.map((e,i)=>`${medals[i]||`${i+1}.`} **${e[1].username}** — ${fmt(e)}`).join("\n")}`;
     }
-    if(cmd==="leaderboard"){const type=interaction.options.getString("type")||"wins";const entries=[...scores.entries()];if(!entries.length)return safeReply(interaction,"No scores yet!");return safeReply(interaction,buildLeaderboard(entries,type,"🌍 Global"));}
-    if(cmd==="serverleaderboard"){
-      if(!inGuild)return safeReply(interaction,{content:"Server only.",ephemeral:true});
-      await interaction.guild.members.fetch();
-      const mids=new Set(interaction.guild.members.cache.filter(m=>!m.user.bot).map(m=>m.id));
-      const entries=[...scores.entries()].filter(([id])=>mids.has(id));
-      if(!entries.length)return safeReply(interaction,"No scores in this server yet!");
-      return safeReply(interaction,buildLeaderboard(entries,interaction.options.getString("type")||"wins",`🏠 ${interaction.guild.name}`));
-    }
-
     // Daily challenge
     // ── /games — solo game launcher ───────────────────────────────────────────
     if(cmd==="games"){
@@ -4859,6 +4886,10 @@ if(cmd==="gif"){
         });
       }
       return safeReply(interaction,{content:"Unknown setting.",ephemeral:true});
+    }
+    if(cmd==="servermsg"){
+      const type=interaction.options.getString("type");
+      cmd=type==="welcome"?"setwelcome":type==="leave"?"setleave":"setboostmsg";
     }
     if(cmd==="setwelcome"){
       const ch=interaction.options.getChannel("channel");
@@ -5425,6 +5456,10 @@ if(cmd==="gif"){
         return{content:header,components};
       }
       return safeReply(interaction,buildStep());
+    }
+    if(cmd==="ticket"){
+      const action=interaction.options.getString("action");
+      cmd=action==="close"?"closeticket":action==="add"?"addtoticket":"removefromticket";
     }
     if(cmd==="closeticket"){
       if(!inGuild)return safeReply(interaction,{content:"Server only.",ephemeral:true});
