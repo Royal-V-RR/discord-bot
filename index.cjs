@@ -6166,7 +6166,7 @@ if(cmd==="gif"){
       const member = await interaction.guild.members.fetch(interaction.user.id).catch(()=>null);
       const vc = member?.voice?.channel;
       if(!vc) return safeReply(interaction,{content:"❌ You're not in a voice channel.",ephemeral:true});
-      if(vc.type !== "GUILD_VOICE") return safeReply(interaction,{content:"❌ That channel type isn't supported.",ephemeral:true});
+      if(vc.type !== 2) return safeReply(interaction,{content:"❌ That channel type isn't supported.",ephemeral:true});
       await interaction.deferReply({ephemeral:true});
       try{
         const conn = voice.joinVoiceChannel({
