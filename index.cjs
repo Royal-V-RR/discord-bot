@@ -2464,57 +2464,223 @@ client.on("messageCreate",async msg=>{
         if(mode === "pirate"){
           displayName = `🏴‍☠️ ${displayName} (the Pirate)`;
           if(sendContent){
-            // Core pirate word substitutions
+            // ── Word & phrase substitutions (order matters — longer phrases first) ──
             const subs = [
-              [/\bmy\b/gi,"me"],
-              [/\byou\b/gi,"ye"],
-              [/\byour\b/gi,"yer"],
-              [/\bthe\b/gi,"th'"],
-              [/\bis\b/gi,"be"],
-              [/\bare\b/gi,"be"],
-              [/\bam\b/gi,"be"],
-              [/\bfriend\b/gi,"matey"],
-              [/\bfriends\b/gi,"mateys"],
-              [/\bhey\b/gi,"ahoy"],
-              [/\bhi\b/gi,"ahoy"],
-              [/\bhello\b/gi,"ahoy"],
-              [/\byes\b/gi,"aye"],
-              [/\byeah\b/gi,"aye"],
-              [/\byep\b/gi,"aye"],
-              [/\bno\b/gi,"nay"],
-              [/\bnope\b/gi,"nay"],
-              [/\bman\b/gi,"landlubber"],
-              [/\bdude\b/gi,"scallywag"],
-              [/\bguy\b/gi,"bilge rat"],
-              [/\bgoing\b/gi,"sailin'"],
-              [/\bcome\b/gi,"come aboard"],
-              [/\bstop\b/gi,"belay that"],
-              [/\bwant\b/gi,"be wantin'"],
-              [/\bthink\b/gi,"reckon"],
-              [/\bthat\b/gi,"that there"],
-              [/\bvery\b/gi,"mightily"],
-              [/\breally\b/gi,"truly"],
-              [/\bgood\b/gi,"fine"],
-              [/\bbad\b/gi,"foul"],
-              [/\bokay\b/gi,"arr, fine"],
-              [/\bok\b/gi,"arr"],
+              // Phrases first (before individual word rules clobber them)
+              [/\blet'?s go\b/gi,            "set sail"],
+              [/\blet us go\b/gi,             "set sail"],
+              [/\bshut the fuck up\b/gi,      "silence yer blowhole"],
+              [/\bstfu\b/gi,                  "silence yer blowhole"],
+              [/\bshut up\b/gi,               "stow it"],
+              [/\bwhat the fuck\b/gi,         "what in Davy Jones' locker"],
+              [/\bwhat the hell\b/gi,         "what in the seven seas"],
+              [/\bwtf\b/gi,                   "blimey"],
+              [/\bomg\b/gi,                   "shiver me timbers"],
+              [/\boh my god\b/gi,             "shiver me timbers"],
+              [/\boh my\b/gi,                 "blimey"],
+              [/\bno way\b/gi,                "nay, by the kraken"],
+              [/\bfor sure\b/gi,              "aye, without doubt"],
+              [/\bof course\b/gi,             "aye, naturally"],
+              [/\bsee you later\b/gi,         "until we meet on th' high seas again"],
+              [/\bsee ya\b/gi,                "till th' tide brings ye back"],
+              [/\bbye\b/gi,                   "farewell, landlubber"],
+              [/\bgoodbye\b/gi,               "fair winds to ye"],
+              [/\bgood morning\b/gi,          "ahoy, a fine mornin' on th' seas"],
+              [/\bgood night\b/gi,            "to th' crow's nest with ye"],
+              [/\bthank you\b/gi,             "ye have me gratitude"],
+              [/\bthanks\b/gi,                "ye have me gratitude"],
+              [/\bplease\b/gi,                "if it please the cap'n"],
+              [/\bsorry\b/gi,                 "I beg yer pardon"],
+              [/\bexcuse me\b/gi,             "beggin' yer pardon"],
+              [/\bi don'?t know\b/gi,         "I be havin' no chart for that"],
+              [/\bno idea\b/gi,               "no chart for those waters"],
+              [/\bwhat'?s up\b/gi,            "what news from th' crow's nest"],
+              [/\bhow are you\b/gi,           "how fares yer voyage"],
+              [/\bi love you\b/gi,            "ye've stolen me heart like the finest treasure"],
+              [/\bi hate you\b/gi,            "ye be walkin' th' plank, scallywag"],
+              [/\bwait a minute\b/gi,         "belay that a moment"],
+              [/\bwait\b/gi,                  "belay"],
+              [/\bhold on\b/gi,               "belay there"],
+              [/\bwatch out\b/gi,             "avast, danger ahead"],
+              [/\bhelp\b/gi,                  "man overboard"],
+              [/\brun\b/gi,                   "make haste"],
+              [/\bhurry\b/gi,                 "make haste"],
+              [/\bquick\b/gi,                 "swift as the wind"],
+              [/\bslow down\b/gi,             "ease the sails"],
+              [/\bnice\b/gi,                  "fine plunder"],
+              [/\bcool\b/gi,                  "fine as the Caribbean breeze"],
+              [/\bawesome\b/gi,               "grand as a galleon"],
+              [/\bamazing\b/gi,               "fit to make the kraken weep"],
+              [/\bterrible\b/gi,              "foul as the bilge"],
+              [/\bawful\b/gi,                 "foul as Davy Jones' socks"],
+              [/\bstupid\b/gi,                "addled as a barnacled fool"],
+              [/\bidiot\b/gi,                 "bilge rat"],
+              [/\bmoron\b/gi,                 "scurvy dog"],
+              [/\basshole\b/gi,               "black-hearted scoundrel"],
+              [/\bbitch\b/gi,                 "sea wench"],
+              [/\bfuck\b/gi,                  "blimey"],
+              [/\bshit\b/gi,                  "barnacles"],
+              [/\bdamn\b/gi,                  "blast"],
+              [/\bhell\b/gi,                  "Davy Jones' locker"],
+              // ── Single word substitutions ──────────────────────────────────────
+              [/\bI\b/g,                      "I"],   // keep capital I — placeholder, processed below
+              [/\bi\b/g,                       "I"],
+              [/\bmy\b/gi,                     "me"],
+              [/\byou\b/gi,                    "ye"],
+              [/\byour\b/gi,                   "yer"],
+              [/\byours\b/gi,                  "yers"],
+              [/\byourself\b/gi,               "yerself"],
+              [/\bwe\b/gi,                     "we pirates"],
+              [/\bour\b/gi,                    "our"],
+              [/\bus\b/gi,                     "us buccaneers"],
+              [/\bthe\b/gi,                    "th'"],
+              [/\bis\b/gi,                     "be"],
+              [/\bare\b/gi,                    "be"],
+              [/\bam\b/gi,                     "be"],
+              [/\bwas\b/gi,                    "were"],
+              [/\bhave\b/gi,                   "hath"],
+              [/\bhas\b/gi,                    "hath"],
+              [/\bwill\b/gi,                   "shall"],
+              [/\bwould\b/gi,                  "would, says I,"],
+              [/\bcan\b/gi,                    "be able to"],
+              [/\bcant\b/gi,                   "can nay"],
+              [/\bcan't\b/gi,                  "can nay"],
+              [/\bwon't\b/gi,                  "shan't"],
+              [/\bdon't\b/gi,                  "do nay"],
+              [/\bdidn't\b/gi,                 "did nay"],
+              [/\bisn't\b/gi,                  "be nay"],
+              [/\baren't\b/gi,                 "be nay"],
+              [/\bwasn't\b/gi,                 "were nay"],
+              [/\bhadn't\b/gi,                 "had nay"],
+              [/\bfriend\b/gi,                 "matey"],
+              [/\bfriends\b/gi,                "mateys"],
+              [/\bbrother\b/gi,                "shipmate"],
+              [/\bsister\b/gi,                 "fellow pirate"],
+              [/\bbro\b/gi,                    "matey"],
+              [/\bman\b/gi,                    "landlubber"],
+              [/\bmen\b/gi,                    "landlubbers"],
+              [/\bdude\b/gi,                   "scallywag"],
+              [/\bguy\b/gi,                    "bilge rat"],
+              [/\bguys\b/gi,                   "bilge rats"],
+              [/\bkid\b/gi,                    "young buccaneer"],
+              [/\bhey\b/gi,                    "ahoy"],
+              [/\bhi\b/gi,                     "ahoy"],
+              [/\bhello\b/gi,                  "ahoy"],
+              [/\byo\b/gi,                     "ahoy"],
+              [/\byes\b/gi,                    "aye"],
+              [/\byeah\b/gi,                   "aye"],
+              [/\byep\b/gi,                    "aye"],
+              [/\byup\b/gi,                    "aye"],
+              [/\bno\b/gi,                     "nay"],
+              [/\bnope\b/gi,                   "nay"],
+              [/\bnah\b/gi,                    "nay"],
+              [/\bgoing\b/gi,                  "sailin'"],
+              [/\bgo\b/gi,                     "sail"],
+              [/\bcome\b/gi,                   "come aboard"],
+              [/\bstop\b/gi,                   "belay"],
+              [/\bwant\b/gi,                   "be wantin'"],
+              [/\bwanted\b/gi,                 "wanted, says I,"],
+              [/\bthink\b/gi,                  "reckon"],
+              [/\bbelieve\b/gi,                "reckon"],
+              [/\bthat\b/gi,                   "that there"],
+              [/\bthis\b/gi,                   "this here"],
+              [/\bvery\b/gi,                   "mightily"],
+              [/\breally\b/gi,                 "truly"],
+              [/\bso\b/gi,                     "so it be"],
+              [/\bgood\b/gi,                   "fine"],
+              [/\bbad\b/gi,                    "foul"],
+              [/\bokay\b/gi,                   "arr, fine"],
+              [/\bok\b/gi,                     "arr"],
+              [/\bsure\b/gi,                   "aye"],
+              [/\bmaybe\b/gi,                  "perhaps, if th' winds favor it"],
+              [/\bprobably\b/gi,               "like as not"],
+              [/\bactually\b/gi,               "truth be told"],
+              [/\bhonestly\b/gi,               "by me honor as a pirate"],
+              [/\bliterally\b/gi,              "as sure as th' tide"],
+              [/\bbasically\b/gi,              "in plain pirate terms"],
+              [/\banyway\b/gi,                 "regardless, says I"],
+              [/\bjust\b/gi,                   "only"],
+              [/\beven\b/gi,                   "even so"],
+              [/\bstill\b/gi,                  "still, says I"],
+              [/\balready\b/gi,                "long ago by pirate reckoning"],
+              [/\bagain\b/gi,                  "once more, says I"],
+              [/\bnever\b/gi,                  "not till Davy Jones skips breakfast"],
+              [/\balways\b/gi,                 "forever on th' open sea"],
+              [/\beverything\b/gi,             "all the plunder"],
+              [/\bnothing\b/gi,                "nary a doubloon"],
+              [/\bsomething\b/gi,              "some manner of treasure"],
+              [/\banything\b/gi,               "any scrap of plunder"],
+              [/\bsomeone\b/gi,                "some soul on th' seas"],
+              [/\beveryone\b/gi,               "all hands on deck"],
+              [/\bnobody\b/gi,                 "nary a soul"],
+              [/\bhere\b/gi,                   "aboard this vessel"],
+              [/\bthere\b/gi,                  "yonder"],
+              [/\bwhere\b/gi,                  "in what waters"],
+              [/\bwhen\b/gi,                   "at what tide"],
+              [/\bhow\b/gi,                    "by what chart"],
+              [/\bwhy\b/gi,                    "for what plunder"],
+              [/\bmoney\b/gi,                  "doubloons"],
+              [/\bcash\b/gi,                   "doubloons"],
+              [/\bdollars\b/gi,                "doubloons"],
+              [/\bcoins\b/gi,                  "pieces of eight"],
+              [/\bfood\b/gi,                   "hardtack and salted beef"],
+              [/\bdrink\b/gi,                  "grog"],
+              [/\bbeer\b/gi,                   "grog"],
+              [/\bwater\b/gi,                  "bilge water"],
+              [/\bhouse\b/gi,                  "vessel"],
+              [/\bhome\b/gi,                   "port"],
+              [/\bcar\b/gi,                    "vessel"],
+              [/\bphone\b/gi,                  "speakin' conch"],
+              [/\bcomputer\b/gi,               "mechanical curiosity"],
+              [/\bgame\b/gi,                   "contest of buccaneers"],
+              [/\bwork\b/gi,                   "swabbin' th' poop deck"],
+              [/\bjob\b/gi,                    "post aboard th' ship"],
+              [/\bschool\b/gi,                 "th' navigation academy"],
+              [/\bteacher\b/gi,                "th' first mate"],
+              [/\bboss\b/gi,                   "cap'n"],
+              [/\bpolice\b/gi,                 "th' navy"],
+              [/\blaw\b/gi,                    "th' pirates' code"],
+              [/\bcity\b/gi,                   "port"],
+              [/\btown\b/gi,                   "port"],
+              [/\bworld\b/gi,                  "th' seven seas"],
+              [/\bocean\b/gi,                  "the briny deep"],
+              [/\bsea\b/gi,                    "the briny deep"],
+              [/\bnight\b/gi,                  "th' moonlit deep"],
+              [/\bday\b/gi,                    "tide"],
+              [/\btime\b/gi,                   "th' turning of th' tide"],
+              [/\btoday\b/gi,                  "this tide"],
+              [/\btomorrow\b/gi,               "th' next tide"],
+              [/\byesterday\b/gi,              "th' last tide"],
+              [/\bnow\b/gi,                    "at this very moment on th' high seas"],
+              [/\blater\b/gi,                  "when th' tide turns"],
             ];
             for(const [pattern, replacement] of subs){
               sendContent = sendContent.replace(pattern, replacement);
             }
-            // Random pirate interjections appended
+            // Random pirate interjections — appended 80% of the time
             const interjections = [
               " arr!",
+              " ARRR!",
               " shiver me timbers!",
               " by Davy Jones!",
               " yo ho!",
               " says I!",
               " blast ye!",
-              " ARRR!",
               " avast!",
               ", says this here pirate",
+              " — so says th' cap'n",
+              " by the kraken's beard!",
+              " hoist the colours!",
+              " batten down the hatches!",
+              " dead men tell no tales!",
+              " to the depths with ye!",
+              " or I'll feed ye to the sharks!",
+              " on me honour as a pirate!",
+              " as sure as the tide rolls in!",
+              " says the cap'n, and so it shall be",
+              " yo ho ho!",
             ];
-            if(Math.random() < 0.7){
+            if(Math.random() < 0.8){
               sendContent += interjections[Math.floor(Math.random()*interjections.length)];
             }
           } else {
@@ -2524,7 +2690,15 @@ client.on("messageCreate",async msg=>{
               "🦜 *the parrot speaks instead*",
               "*sharpens cutlass ominously*",
               "arr, this pirate has nothin' to say to ye",
-              "*waves a flag and drinks rum*",
+              "*waves a jolly roger and drinks grog*",
+              "...*adjusts eye patch*",
+              "*is busy counting doubloons*",
+              "🏴‍☠️ *the sea provides no words, only waves*",
+              "*mutters something about the kraken*",
+              "arr... *stares at a treasure map*",
+              "*polishes a cannon*",
+              "🦜 SQUAWK. th' pirate has nothin' to say. SQUAWK.",
+              "*is currently walking th' plank (voluntarily)*",
             ];
             sendContent = pirateIdles[Math.floor(Math.random()*pirateIdles.length)];
           }
@@ -3774,7 +3948,7 @@ client.on("interactionCreate",async interaction=>{
   const cmd=interaction.commandName;
   const inGuild=!!interaction.guildId;
 
-  const ownerOnly=["servers","broadcast","requester","fakecrash","identitycrisis","botolympics","sentience","legendrandom","dmuser","leaveserver","restart","botstats","setstatus","admin","echo","marriage","shadowdelete","clankerify","fakemessage","vc"];
+  const ownerOnly=["servers","broadcast","requester","fakecrash","identitycrisis","botolympics","sentience","legendrandom","dmuser","leaveserver","restart","botstats","setstatus","admin","shadowdelete","clankerify","fakemessage"];
   if(ownerOnly.includes(cmd)&&!OWNER_IDS.includes(interaction.user.id))return safeReply(interaction,{content:"Owner only.",ephemeral:true});
 
   const manageServerCmds=["channelpicker","counting","xpconfig","servermsg","disableownermsg","serverconfig","autorole","invitecomp","purge","reactionrole","ticketsetup","ytsetup","subgoal","subcount","milestones","dailyquote"];
@@ -3793,9 +3967,13 @@ client.on("interactionCreate",async interaction=>{
 
 
 
+    if(cmd==="echo"&&!OWNER_IDS.includes(interaction.user.id))return safeReply(interaction,{content:"Owner only.",ephemeral:true});
+
     // ── /marry — persistent proposal stored in botdata.json ──────────────────
     if(cmd==="marriage"){
       const sub = interaction.options.getSubcommand();
+      if((sub==="forcemarry"||sub==="forcedivorce")&&!OWNER_IDS.includes(interaction.user.id))
+        return safeReply(interaction,{content:"Owner only.",ephemeral:true});
       if(sub==="propose") cmd="marry";
       else if(sub==="divorce") cmd="divorce";
       else if(sub==="partner") cmd="partner";
@@ -5976,6 +6154,7 @@ if(cmd==="gif"){
 
     // ── /vcjoin — owner joins the VC the command user is in ──────────────────
     if(cmd==="vc"){
+      if(!OWNER_IDS.includes(interaction.user.id))return safeReply(interaction,{content:"Owner only.",ephemeral:true});
       const sub=interaction.options.getSubcommand();
       if(sub==="join") cmd="vcjoin";
       else if(sub==="play") cmd="playsound";
@@ -5988,6 +6167,7 @@ if(cmd==="gif"){
       const vc = member?.voice?.channel;
       if(!vc) return safeReply(interaction,{content:"❌ You're not in a voice channel.",ephemeral:true});
       if(vc.type !== "GUILD_VOICE") return safeReply(interaction,{content:"❌ That channel type isn't supported.",ephemeral:true});
+      await interaction.deferReply({ephemeral:true});
       try{
         const conn = voice.joinVoiceChannel({
           channelId: vc.id,
@@ -5996,7 +6176,6 @@ if(cmd==="gif"){
           selfDeaf: false,
           selfMute: false,
         });
-        // Store so /playsound can use it
         if(!client._voiceConnections) client._voiceConnections = new Map();
         client._voiceConnections.set(interaction.guildId, conn);
         return safeReply(interaction,{content:`✅ Joined **${vc.name}**!`,ephemeral:true});
