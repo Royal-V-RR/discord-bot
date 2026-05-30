@@ -213,7 +213,15 @@
     ]
   ],
   "shadowDelete": [],
-  "clankerify": [],
+  "clankerify": [
+    [
+      "1175412449520930866",
+      {
+        "expiresAt": 1780169890845,
+        "mode": "stupid"
+      }
+    ]
+  ],
   "reactionRoles": [
     [
       "1408975996715139084:1483218332005175427:🤖",
@@ -1646,7 +1654,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 850,
+        "xp": 867,
         "level": 11,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -25327,7 +25335,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 788,
+        "xp": 814,
         "level": 7,
         "lastWorkTime": 0,
         "lastBegTime": 0,
