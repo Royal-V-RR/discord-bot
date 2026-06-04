@@ -41745,7 +41745,7 @@
   ],
   "reviewChannelId": "1503045026866004071",
   "deleterChannelId": null,
-  "trashcanThreshold": 3,
+  "trashcanThreshold": 2,
   "trashcanVotes": [
     [
       "1512201398538735848",
@@ -41761,9 +41761,7 @@
   "selfClankUsers": [
     [
       "1048053656035020911",
-      [
-        "1193150033864949811"
-      ]
+      []
     ]
   ]
 }
