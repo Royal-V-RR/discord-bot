@@ -100,6 +100,13 @@ const quoteVotes = new Map();
 // quoteVoteMessages: messageId -> filename  (tracks which quote a message shows)
 const quoteVoteMessages = new Map();
 let reviewChannelId = null; // global channel ID for quote review submissions
+let deleterChannelId = null; // global channel ID where trashcan-flagged quotes are sent for reevaluation
+// trashcanVotes: messageId -> { filename, voters: Set<userId>, guildId, channelId, sentToDeleter: bool }
+const trashcanVotes = new Map();
+// Configurable threshold for trashcan reactions (default: 3)
+let trashcanThreshold = 3;
+// selfClank: per-guild tracking — guildId -> Set of userIds currently self-clanked
+const selfClankUsers = new Map(); // guildId -> Set<userId>
 
 function shuffleArray(arr) {
   for (let i = arr.length - 1; i > 0; i--) {
@@ -489,6 +496,10 @@ function buildDataObject() {
     quoteVotes:           [...quoteVotes.entries()],
     quoteVoteMessages:    [...quoteVoteMessages.entries()],
     reviewChannelId:      reviewChannelId,
+    deleterChannelId:     deleterChannelId,
+    trashcanThreshold:    trashcanThreshold,
+    trashcanVotes:        [...trashcanVotes.entries()].map(([k,v])=>[k,{filename:v.filename,voters:[...v.voters],guildId:v.guildId,channelId:v.channelId,sentToDeleter:v.sentToDeleter}]),
+    selfClankUsers:       [...selfClankUsers.entries()].map(([guildId,set])=>[guildId,[...set]]),
   };
 }
 
@@ -667,6 +678,10 @@ function loadData() {
 
     if (data.dailyQuoteChannels) data.dailyQuoteChannels.forEach(([k,v]) => dailyQuoteChannels.set(k, v));
     if (data.reviewChannelId)    reviewChannelId = data.reviewChannelId;
+    if (data.deleterChannelId)   deleterChannelId = data.deleterChannelId;
+    if (typeof data.trashcanThreshold === "number") trashcanThreshold = data.trashcanThreshold;
+    if (data.trashcanVotes) data.trashcanVotes.forEach(([k,v]) => trashcanVotes.set(k, { filename: v.filename, voters: new Set(v.voters||[]), guildId: v.guildId, channelId: v.channelId, sentToDeleter: v.sentToDeleter||false }));
+    if (data.selfClankUsers) data.selfClankUsers.forEach(([guildId, arr]) => selfClankUsers.set(guildId, new Set(arr)));
     if (data.quoteVotes)         data.quoteVotes.forEach(([k,v]) => quoteVotes.set(k, v));
     if (data.quoteVoteMessages)  data.quoteVoteMessages.forEach(([k,v]) => quoteVoteMessages.set(k, v));
 
@@ -703,7 +718,9 @@ setInterval(async () => {
       if (sent) {
         await sent.react("👍").catch(()=>{});
         await sent.react("👎").catch(()=>{});
+        await sent.react("🗑️").catch(()=>{});
         quoteVoteMessages.set(sent.id, chosen.name);
+        trashcanVotes.set(sent.id, { filename: chosen.name, voters: new Set(), guildId, channelId: cfg.channelId, sentToDeleter: false });
         saveData();
       }
     } catch(e) { console.error(`Daily quote tick error [${guildId}]:`, e.message); }
@@ -1715,6 +1732,12 @@ function buildCommands(){
       {name:"user",     description:"Target user",                                             type:6, required:true},
       {name:"duration", description:"Duration in minutes (omit or 0 to disable)",              type:4, required:false},
     ]},
+    {name:"selfclank",  description:"Self-clankerify yourself for 1–5 minutes (2 people per server at a time)",options:[
+      {name:"duration", description:"Duration in minutes (1–5)",type:4,required:true},
+    ]},
+    {name:"deleter",    description:"[Owner] Set the channel where trashcan-flagged quotes are sent for review",options:[
+      {name:"channel",  description:"Channel to receive flagged quotes",type:7,required:true},
+    ]},
     {name:"upload",            description:"Upload an image to the quotes folder",options:[
       {name:"source",          description:"[Memers only] Upload a file directly from your device",type:11,required:false},
       {name:"link",            description:"[Memers only] Submit an image via URL link",type:3,required:false},
@@ -1727,14 +1750,19 @@ function buildCommands(){
       ]},
       {name:"user",            description:"User to add or remove (not needed for list)",type:6,required:false},
     ]},
-    {name:"quotemanage",       description:"[Owner] Manage quotes folder",options:[
-      {name:"action",          description:"What to do",type:3,required:true,choices:[
-        {name:"List all images",      value:"list"},
-        {name:"Delete an image",      value:"delete"},
-        {name:"Browse with preview",  value:"browse"},
+    {name:"quotemanage",       description:"[Owner] Manage quotes folder and settings",options:[
+      {name:"library",         description:"Browse, list, or delete quote images",type:1,options:[
+        {name:"action",        description:"What to do",type:3,required:true,choices:[
+          {name:"List all images",      value:"list"},
+          {name:"Delete an image",      value:"delete"},
+          {name:"Browse with preview",  value:"browse"},
+        ]},
+        {name:"filename",      description:"Exact filename (for delete)",type:3,required:false},
+        {name:"index",         description:"Start at image number (for browse, default: 1)",type:4,required:false},
       ]},
-      {name:"filename",        description:"Exact filename (for delete)",type:3,required:false},
-      {name:"index",           description:"Start at image number (for browse, default: 1)",type:4,required:false},
+      {name:"trash-threshold", description:"Set how many 🗑️ reactions trigger a flag (default: 3)",type:1,options:[
+        {name:"amount",        description:"Number of reactions required (1–25)",type:4,required:true},
+      ]},
     ]},
     {name:"dailyquote",        description:"Set up a daily quote post in a channel (Manage Server)",options:[
       {name:"action",          description:"What to do",type:3,required:true,choices:[
@@ -1937,6 +1965,48 @@ client.on("messageReactionAdd", async (reaction, user) => {
       quoteVotes.set(quoteName, v);
       saveData();
     }
+    // ── Trashcan vote ──────────────────────────────────────────────────────────
+    if (emoji === "🗑️") {
+      const tv = trashcanVotes.get(reaction.message.id);
+      if (tv && !tv.sentToDeleter) {
+        tv.voters.add(user.id);
+        if (tv.voters.size >= trashcanThreshold && deleterChannelId) {
+          tv.sentToDeleter = true;
+          saveData();
+          // Send to deleter channel
+          (async () => {
+            try {
+              const deleterCh = await client.channels.fetch(deleterChannelId).catch(()=>null);
+              if (!deleterCh) return;
+              const msgLink = `https://discord.com/channels/${tv.guildId||"@me"}/${tv.channelId||"?"}/${reaction.message.id}`;
+              const imageUrl = `https://raw.githubusercontent.com/Royal-V-RR/discord-bot/main/quotes/${encodeURIComponent(tv.filename)}`;
+              const row = new MessageActionRow().addComponents(
+                new MessageButton()
+                  .setCustomId(`del_keep_${reaction.message.id}`)
+                  .setLabel("✅ Keep")
+                  .setStyle("SUCCESS"),
+                new MessageButton()
+                  .setCustomId(`del_delete_${tv.filename}`)
+                  .setLabel("🗑️ Delete")
+                  .setStyle("DANGER"),
+              );
+              await deleterCh.send({
+                content: [
+                  `🗑️ **Quote Flagged for Reevaluation**`,
+                  `📎 Filename: \`${tv.filename}\``,
+                  `🔗 [Jump to message](${msgLink})`,
+                  `👥 Flagged by **${tv.voters.size}** user(s) (threshold: ${trashcanThreshold})`,
+                  `🖼️ ${imageUrl}`,
+                ].join("\n"),
+                components: [row],
+              });
+            } catch(e) { console.error("[trashcan] send to deleter error:", e.message); }
+          })();
+        } else {
+          saveData();
+        }
+      }
+    }
     // Don't return — fall through so reaction roles still work on quote messages
   }
 
@@ -1982,6 +2052,13 @@ client.on("messageReactionRemove", async (reaction, user) => {
       else                v.down = Math.max(0, v.down - 1);
       quoteVotes.set(quoteName, v);
       saveData();
+    }
+    if (emoji === "🗑️") {
+      const tv = trashcanVotes.get(reaction.message.id);
+      if (tv && !tv.sentToDeleter) {
+        tv.voters.delete(user.id);
+        saveData();
+      }
     }
     // Don't return — fall through so reaction roles still work on quote messages
   }
@@ -2723,6 +2800,66 @@ client.on("interactionCreate",async interaction=>{
       return;
     }
 
+    // ── Deleter: keep or delete a trashcan-flagged quote ─────────────────────
+    if(cid.startsWith("del_keep_")||cid.startsWith("del_delete_")){
+      if(!OWNER_IDS.includes(uid)){
+        try{await interaction.reply({content:"❌ Only owners can action flagged quotes.",ephemeral:true});}catch{}
+        return;
+      }
+      if(!(await btnAck(interaction))) return;
+
+      if(cid.startsWith("del_keep_")){
+        // Just mark as resolved, disable the buttons
+        try{
+          await interaction.editReply({
+            content: interaction.message.content + `\n\n✅ **Kept** by <@${uid}>`,
+            components: []
+          });
+        }catch{}
+        return;
+      }
+
+      // del_delete_{filename}
+      const fileName = cid.slice(11);
+      try {
+        const ghPath = `quotes/${fileName}`;
+        const checkRes = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/${ghPath}`,{
+          headers:{"User-Agent":"RoyalBot","Authorization":`token ${GH_TOKEN}`,"Accept":"application/vnd.github+json"}
+        });
+        if(!checkRes.ok){
+          await interaction.followUp({content:`❌ File not found or GitHub error (HTTP ${checkRes.status}).`,ephemeral:true});
+          return;
+        }
+        const fileData = await checkRes.json();
+        const sha = fileData.sha;
+        const delRes = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/${ghPath}`,{
+          method:"DELETE",
+          headers:{"User-Agent":"RoyalBot","Authorization":`token ${GH_TOKEN}`,"Accept":"application/vnd.github+json","Content-Type":"application/json"},
+          body: JSON.stringify({message:`chore: delete flagged quote ${fileName} via trashcan review`,sha})
+        });
+        if(!delRes.ok){
+          await interaction.followUp({content:`❌ GitHub delete failed (HTTP ${delRes.status}).`,ephemeral:true});
+          return;
+        }
+        // Clean from user libraries
+        for(const [,s] of scores){
+          if(Array.isArray(s.uploadedImages)&&s.uploadedImages.includes(fileName))
+            s.uploadedImages = s.uploadedImages.filter(n=>n!==fileName);
+        }
+        saveData();
+        try{
+          await interaction.editReply({
+            content: interaction.message.content + `\n\n🗑️ **Deleted** by <@${uid}>`,
+            components: []
+          });
+        }catch{}
+      }catch(e){
+        console.error("del_delete error:",e);
+        await interaction.followUp({content:"❌ Something went wrong during deletion.",ephemeral:true}).catch(()=>{});
+      }
+      return;
+    }
+
     if(cid.startsWith("clankerify_mode_")){
       // Only the owner who triggered the command can use this dropdown
       if(!OWNER_IDS.includes(uid)){
@@ -2754,6 +2891,46 @@ client.on("interactionCreate",async interaction=>{
       try{
         await interaction.update({
           content:`🤖 <@${targetId}> has been clankerified ${durationStr}${modeStr}. Their messages will be deleted and resent as a webhook.`,
+          components:[]
+        });
+      }catch{}
+      return;
+    }
+
+    // ── Self-clank mode selection ─────────────────────────────────────────────
+    if(cid.startsWith("selfclank_mode_")){
+      // Only the user themselves can use their own mode menu
+      // customId: selfclank_mode_{userId}_{duration}
+      const parts = cid.split("_");
+      const targetUserId = parts[2];
+      const durKey       = parts[3];
+      if(uid !== targetUserId){
+        try{await interaction.reply({content:"Not your self-clank menu.",ephemeral:true});}catch{}
+        return;
+      }
+      const duration = parseInt(durKey, 10); // minutes, always 1–5
+      const mode = interaction.values[0] === "none" ? null : interaction.values[0];
+      const expiresAt = Date.now() + duration * 60_000;
+      clankerify.set(uid, { expiresAt, mode });
+      // Track in selfClankUsers for guild limit
+      if(interaction.guildId){
+        if(!selfClankUsers.has(interaction.guildId)) selfClankUsers.set(interaction.guildId, new Set());
+        selfClankUsers.get(interaction.guildId).add(uid);
+      }
+      saveData();
+      // Auto-remove
+      setTimeout(() => {
+        clankerify.delete(uid);
+        if(interaction.guildId){
+          const gs = selfClankUsers.get(interaction.guildId);
+          if(gs) gs.delete(uid);
+        }
+        saveData();
+      }, duration * 60_000);
+      const modeStr = mode ? ` in **${mode.charAt(0).toUpperCase()+mode.slice(1)}** mode` : "";
+      try{
+        await interaction.update({
+          content:`🤖 You've self-clankerified yourself for **${duration} minute(s)**${modeStr}! Your messages will be deleted and resent as a webhook until it expires.`,
           components:[]
         });
       }catch{}
@@ -3758,7 +3935,7 @@ client.on("interactionCreate",async interaction=>{
   const cmd=interaction.commandName;
   const inGuild=!!interaction.guildId;
 
-  const ownerOnly=["servers","broadcast","requester","fakecrash","identitycrisis","botolympics","sentience","legendrandom","dmuser","leaveserver","restart","botstats","setstatus","admin","echo","marriage","shadowdelete","clankerify","fakemessage","vc"];
+  const ownerOnly=["servers","broadcast","requester","deleter","fakecrash","identitycrisis","botolympics","sentience","legendrandom","dmuser","leaveserver","restart","botstats","setstatus","admin","echo","marriage","shadowdelete","clankerify","fakemessage","vc"];
   if(ownerOnly.includes(cmd)&&!OWNER_IDS.includes(interaction.user.id))return safeReply(interaction,{content:"Owner only.",ephemeral:true});
 
   const manageServerCmds=["channelpicker","counting","xpconfig","setwelcome","setleave","setwelcomemsg","setleavemsg","disableownermsg","serverconfig","autorole","setboostmsg","invitecomp","purge","reactionrole","ticketsetup","ytsetup","subgoal","subcount","milestones","dailyquote"];
@@ -4043,7 +4220,9 @@ if(cmd==="gif"){
             if(msg){
               await msg.react("👍").catch(()=>{});
               await msg.react("👎").catch(()=>{});
+              await msg.react("🗑️").catch(()=>{});
               quoteVoteMessages.set(msg.id, chosen.name);
+              trashcanVotes.set(msg.id, { filename: chosen.name, voters: new Set(), guildId: interaction.guildId||null, channelId: interaction.channelId||null, sentToDeleter: false });
               saveData();
             }
           } catch {}
@@ -4078,7 +4257,9 @@ if(cmd==="gif"){
             if(msg){
               await msg.react("👍").catch(()=>{});
               await msg.react("👎").catch(()=>{});
+              await msg.react("🗑️").catch(()=>{});
               quoteVoteMessages.set(msg.id, chosen.name);
+              trashcanVotes.set(msg.id, { filename: chosen.name, voters: new Set(), guildId: interaction.guildId||null, channelId: interaction.channelId||null, sentToDeleter: false });
               saveData();
             }
           } catch {}
@@ -4113,7 +4294,9 @@ if(cmd==="gif"){
             if(msg){
               await msg.react("👍").catch(()=>{});
               await msg.react("👎").catch(()=>{});
+              await msg.react("🗑️").catch(()=>{});
               quoteVoteMessages.set(msg.id, chosen.name);
+              trashcanVotes.set(msg.id, { filename: chosen.name, voters: new Set(), guildId: interaction.guildId||null, channelId: interaction.channelId||null, sentToDeleter: false });
               saveData();
             }
           } catch {}
@@ -5584,41 +5767,53 @@ if(cmd==="gif"){
       return safeReply(interaction,{content:`✅ **Daily quote enabled!**\n📢 Channel: <#${channel.id}>\n🕐 Posts at: **${hour}:00 UTC** every day`,ephemeral:true});
     }
 
-    // ── /quotemanage — owner only, paginated image browser with inline delete ──
+    // ── /quotemanage — owner only, subcommands: library | trash-threshold ──────
     if(cmd==="quotemanage"){
-      const action=interaction.options.getString("action");
-      if(action==="list"){ cmd="quotelist"; }
-      else if(action==="delete"){ cmd="quotedelete"; }
-      // "browse" falls through to existing quotemanage handler below
-      else {
       if(!OWNER_IDS.includes(interaction.user.id))
         return safeReply(interaction,{content:"❌ Owner only.",ephemeral:true});
-      await interaction.deferReply({ephemeral:true});
-      try {
-        const listRes = await fetch("https://api.github.com/repos/Royal-V-RR/discord-bot/contents/quotes",{
-          headers:{"User-Agent":"RoyalBot","Authorization":`token ${GH_TOKEN}`,"Accept":"application/vnd.github+json"}
-        });
-        if(!listRes.ok) return safeReply(interaction,{content:`❌ GitHub API error (HTTP ${listRes.status}).`,ephemeral:true});
-        const files = await listRes.json();
-        const images = files.filter(f=>f.type==="file"&&/\.(png|jpe?g|gif|webp)$/i.test(f.name));
-        if(!images.length) return safeReply(interaction,{content:"📭 No images in the quotes folder.",ephemeral:true});
-        const startIdx = Math.max(0, Math.min((interaction.options.getInteger("index")||1)-1, images.length-1));
-        const file = images[startIdx];
-        const imageUrl = `https://raw.githubusercontent.com/Royal-V-RR/discord-bot/main/quotes/${encodeURIComponent(file.name)}`;
-        const navRow = new MessageActionRow().addComponents(
-          new MessageButton().setCustomId(`qm_prev_${startIdx}`).setLabel("◀ Prev").setStyle("SECONDARY").setDisabled(startIdx===0),
-          new MessageButton().setCustomId(`qm_next_${startIdx}_${images.length}`).setLabel("Next ▶").setStyle("SECONDARY").setDisabled(startIdx>=images.length-1),
-          new MessageButton().setCustomId(`qm_delete_${file.name}`).setLabel("🗑️ Delete This").setStyle("DANGER"),
-        );
-        return safeReply(interaction,{
-          content:`🖼️ **Quote Manager** — ${startIdx+1} of ${images.length}\n\`${file.name}\`\n${imageUrl}`,
-          components:[navRow],
-        });
-      } catch(e) {
-        console.error("quotemanage error:",e);
-        return safeReply(interaction,{content:"❌ Something went wrong.",ephemeral:true});
+      const sub = interaction.options.getSubcommand();
+
+      // ── trash-threshold subcommand ─────────────────────────────────────────
+      if(sub==="trash-threshold"){
+        const amount = interaction.options.getInteger("amount");
+        if(amount<1||amount>25) return safeReply(interaction,{content:"❌ Amount must be between 1 and 25.",ephemeral:true});
+        trashcanThreshold = amount;
+        saveData();
+        return safeReply(interaction,{content:`✅ Trashcan reaction threshold set to **${amount}**. A quote needs **${amount}** 🗑️ reaction${amount!==1?"s":""} to be sent for review.`,ephemeral:true});
       }
-      } // end else (browse)
+
+      // ── library subcommand ────────────────────────────────────────────────
+      const action = interaction.options.getString("action");
+      if(action==="list"){ cmd="quotelist"; }
+      else if(action==="delete"){ cmd="quotedelete"; }
+      // "browse" falls through to existing browse handler below
+      else {
+        await interaction.deferReply({ephemeral:true});
+        try {
+          const listRes = await fetch("https://api.github.com/repos/Royal-V-RR/discord-bot/contents/quotes",{
+            headers:{"User-Agent":"RoyalBot","Authorization":`token ${GH_TOKEN}`,"Accept":"application/vnd.github+json"}
+          });
+          if(!listRes.ok) return safeReply(interaction,{content:`❌ GitHub API error (HTTP ${listRes.status}).`,ephemeral:true});
+          const files = await listRes.json();
+          const images = files.filter(f=>f.type==="file"&&/\.(png|jpe?g|gif|webp)$/i.test(f.name));
+          if(!images.length) return safeReply(interaction,{content:"📭 No images in the quotes folder.",ephemeral:true});
+          const startIdx = Math.max(0, Math.min((interaction.options.getInteger("index")||1)-1, images.length-1));
+          const file = images[startIdx];
+          const imageUrl = `https://raw.githubusercontent.com/Royal-V-RR/discord-bot/main/quotes/${encodeURIComponent(file.name)}`;
+          const navRow = new MessageActionRow().addComponents(
+            new MessageButton().setCustomId(`qm_prev_${startIdx}`).setLabel("◀ Prev").setStyle("SECONDARY").setDisabled(startIdx===0),
+            new MessageButton().setCustomId(`qm_next_${startIdx}_${images.length}`).setLabel("Next ▶").setStyle("SECONDARY").setDisabled(startIdx>=images.length-1),
+            new MessageButton().setCustomId(`qm_delete_${file.name}`).setLabel("🗑️ Delete This").setStyle("DANGER"),
+          );
+          return safeReply(interaction,{
+            content:`🖼️ **Quote Manager** — ${startIdx+1} of ${images.length}\n\`${file.name}\`\n${imageUrl}`,
+            components:[navRow],
+          });
+        } catch(e) {
+          console.error("quotemanage error:",e);
+          return safeReply(interaction,{content:"❌ Something went wrong.",ephemeral:true});
+        }
+      }
     }
 
     if(cmd==="quotelist"){
@@ -6079,6 +6274,67 @@ if(cmd==="gif"){
         console.error("soundupload error:", e);
         return safeReply(interaction,{content:`❌ Something went wrong: ${e.message}`,ephemeral:true});
       }
+    }
+
+    // ── /deleter — owner sets the flagged-quote review channel ───────────────
+    if(cmd==="deleter"){
+      const ch = interaction.options.getChannel("channel");
+      if(ch.type!=="GUILD_TEXT") return safeReply(interaction,{content:"❌ Please select a text channel.",ephemeral:true});
+      deleterChannelId = ch.id;
+      saveData();
+      return safeReply(interaction,{content:`✅ Global quote deleter channel set to <#${ch.id}>. All 🗑️-flagged quotes will be sent there for owner review.`,ephemeral:true});
+    }
+
+    // ── /selfclank — self-clankerify yourself (1–5 min, max 2 per server) ────
+    if(cmd==="selfclank"){
+      if(!inGuild) return safeReply(interaction,{content:"❌ Server only.",ephemeral:true});
+      const duration = interaction.options.getInteger("duration");
+      if(duration<1||duration>5) return safeReply(interaction,{content:"❌ Duration must be between **1** and **5** minutes.",ephemeral:true});
+      // Check if already self-clanked
+      if(clankerify.has(interaction.user.id)){
+        const entry = clankerify.get(interaction.user.id);
+        const remainMs = entry.expiresAt ? entry.expiresAt - Date.now() : 0;
+        const remainMin = Math.ceil(remainMs/60000);
+        return safeReply(interaction,{content:`❌ You're already clankerified! It expires in **${remainMin}** minute(s).`,ephemeral:true});
+      }
+      // Check per-server limit of 2
+      if(!selfClankUsers.has(interaction.guildId)) selfClankUsers.set(interaction.guildId, new Set());
+      const guildSelfClanks = selfClankUsers.get(interaction.guildId);
+      // Clean expired entries first
+      for(const uid2 of [...guildSelfClanks]){
+        const entry = clankerify.get(uid2);
+        if(!entry || (entry.expiresAt && entry.expiresAt <= Date.now())) guildSelfClanks.delete(uid2);
+      }
+      if(guildSelfClanks.size >= 2){
+        return safeReply(interaction,{content:`❌ There are already **2** self-clanked users in this server (the maximum). Wait for one to expire.`,ephemeral:true});
+      }
+      // Build mode selection menu
+      const modeMenu = new MessageActionRow().addComponents(
+        new MessageSelectMenu()
+          .setCustomId(`selfclank_mode_${interaction.user.id}_${duration}`)
+          .setPlaceholder("Pick a personality mode…")
+          .addOptions([
+            {label:"No mode (plain)",  value:"none",        emoji:"🤖"},
+            {label:"Evil",             value:"evil",        emoji:"😈"},
+            {label:"Freaky",           value:"freaky",      emoji:"😏"},
+            {label:"American",         value:"american",    emoji:"🦅"},
+            {label:"British",          value:"british",     emoji:"🫖"},
+            {label:"Stupid",           value:"stupid",      emoji:"🪖"},
+            {label:"Boomer",           value:"boomer",      emoji:"📰"},
+            {label:"Conspiracy",       value:"conspiracy",  emoji:"🔺"},
+            {label:"NPC",              value:"npc",         emoji:"🗺️"},
+            {label:"Sigma",            value:"sigma",       emoji:"😤"},
+            {label:"Medieval",         value:"medieval",    emoji:"⚔️"},
+            {label:"Ghost",            value:"ghost",       emoji:"👻"},
+            {label:"Karafy",           value:"karafy",      emoji:"🎤"},
+            {label:"Pirate",           value:"pirate",      emoji:"🏴‍☠️"},
+          ])
+      );
+      return safeReply(interaction,{
+        content:`🤖 Self-clankerifying yourself for **${duration} minute(s)**. Pick a mode:`,
+        components:[modeMenu],
+        ephemeral:true
+      });
     }
 
     // ── /requester — owner sets the review channel ────────────────────────────
