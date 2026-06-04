@@ -41749,6 +41749,10 @@
     [
       "1512201398538735848",
       "quote_1493675864918069550.png"
+    ],
+    [
+      "1512201682661019748",
+      "Are you a terrorist.png"
     ]
   ],
   "reviewChannelId": "1503045026866004071",
@@ -41760,6 +41764,18 @@
       {
         "filename": "quote_1493675864918069550.png",
         "voters": [],
+        "guildId": "1048053656035020911",
+        "channelId": "1095775702416097414",
+        "sentToDeleter": false
+      }
+    ],
+    [
+      "1512201682661019748",
+      {
+        "filename": "Are you a terrorist.png",
+        "voters": [
+          "969280648667889764"
+        ],
         "guildId": "1048053656035020911",
         "channelId": "1095775702416097414",
         "sentToDeleter": false
