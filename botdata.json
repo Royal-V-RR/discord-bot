@@ -217,15 +217,7 @@
     ]
   ],
   "shadowDelete": [],
-  "clankerify": [
-    [
-      "1193150033864949811",
-      {
-        "expiresAt": 1780607205189,
-        "mode": "karafy"
-      }
-    ]
-  ],
+  "clankerify": [],
   "reactionRoles": [
     [
       "1408975996715139084:1483218332005175427:🤖",
@@ -839,7 +831,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-27",
-        "xp": 3366,
+        "xp": 3388,
         "level": 20,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -1492,7 +1484,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 864,
+        "xp": 885,
         "level": 15,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -1899,7 +1891,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 3276,
+        "xp": 3281,
         "level": 17,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -4119,7 +4111,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 519,
+        "xp": 528,
         "level": 6,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -30699,7 +30691,7 @@
     [
       "quote_1493675864918069550.png",
       {
-        "up": 4,
+        "up": 5,
         "down": 0
       }
     ],
@@ -41745,12 +41737,27 @@
     [
       "1512198550845521990",
       "quote_1509934535519768688.png"
+    ],
+    [
+      "1512201398538735848",
+      "quote_1493675864918069550.png"
     ]
   ],
   "reviewChannelId": "1503045026866004071",
   "deleterChannelId": null,
   "trashcanThreshold": 3,
-  "trashcanVotes": [],
+  "trashcanVotes": [
+    [
+      "1512201398538735848",
+      {
+        "filename": "quote_1493675864918069550.png",
+        "voters": [],
+        "guildId": "1048053656035020911",
+        "channelId": "1095775702416097414",
+        "sentToDeleter": false
+      }
+    ]
+  ],
   "selfClankUsers": [
     [
       "1048053656035020911",
