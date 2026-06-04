@@ -107,6 +107,8 @@ const trashcanVotes = new Map();
 let trashcanThreshold = 3;
 // selfClank: per-guild tracking — guildId -> Set of userIds currently self-clanked
 const selfClankUsers = new Map(); // guildId -> Set<userId>
+// selfClankCooldown: userId -> timestamp when cooldown expires
+const selfClankCooldown = new Map();
 
 function shuffleArray(arr) {
   for (let i = arr.length - 1; i > 0; i--) {
@@ -500,6 +502,7 @@ function buildDataObject() {
     trashcanThreshold:    trashcanThreshold,
     trashcanVotes:        [...trashcanVotes.entries()].map(([k,v])=>[k,{filename:v.filename,voters:[...v.voters],guildId:v.guildId,channelId:v.channelId,sentToDeleter:v.sentToDeleter}]),
     selfClankUsers:       [...selfClankUsers.entries()].map(([guildId,set])=>[guildId,[...set]]),
+    selfClankCooldown:    [...selfClankCooldown.entries()],
   };
 }
 
@@ -682,6 +685,10 @@ function loadData() {
     if (typeof data.trashcanThreshold === "number") trashcanThreshold = data.trashcanThreshold;
     if (data.trashcanVotes) data.trashcanVotes.forEach(([k,v]) => trashcanVotes.set(k, { filename: v.filename, voters: new Set(v.voters||[]), guildId: v.guildId, channelId: v.channelId, sentToDeleter: v.sentToDeleter||false }));
     if (data.selfClankUsers) data.selfClankUsers.forEach(([guildId, arr]) => selfClankUsers.set(guildId, new Set(arr)));
+    if (data.selfClankCooldown) {
+      const now = Date.now();
+      data.selfClankCooldown.forEach(([k,v]) => { if(v > now) selfClankCooldown.set(k, v); });
+    }
     if (data.quoteVotes)         data.quoteVotes.forEach(([k,v]) => quoteVotes.set(k, v));
     if (data.quoteVoteMessages)  data.quoteVoteMessages.forEach(([k,v]) => quoteVoteMessages.set(k, v));
 
@@ -1732,8 +1739,8 @@ function buildCommands(){
       {name:"user",     description:"Target user",                                             type:6, required:true},
       {name:"duration", description:"Duration in minutes (omit or 0 to disable)",              type:4, required:false},
     ]},
-    {name:"selfclank",  description:"Self-clankerify yourself for 1–5 minutes (2 people per server at a time)",options:[
-      {name:"duration", description:"Duration in minutes (1–5)",type:4,required:true},
+    {name:"selfclank",  description:"Self-clankerify yourself for 1–5 minutes (0 to cancel, 2 people per server at a time)",options:[
+      {name:"duration", description:"Duration in minutes (1–5), or 0 to cancel early",type:4,required:true},
     ]},
     {name:"deleter",    description:"[Owner] Set the channel where trashcan-flagged quotes are sent for review",options:[
       {name:"channel",  description:"Channel to receive flagged quotes",type:7,required:true},
@@ -2466,61 +2473,6 @@ client.on("messageCreate",async msg=>{
           }
         }
 
-        if(mode === "karafy"){
-          displayName = `🎤 ${displayName} (karafy'd)`;
-          if(sendContent){
-            const adlibs = [
-              " 🎶",
-              " (ad lib)",
-              " woooah-oh-oh",
-              " yeah yeah YEAH",
-              " 🎤 *drops mic*",
-              " baby",
-              " oh oh oh",
-              " *key change*",
-              " (bridge)",
-              " uh huh",
-              " *runs it back*",
-              " sing it!",
-              " that's the hook right there",
-              " this is my MOMENT",
-              " 🎵 mmmmm",
-              " *voice cracks*",
-              " (unplugged version)",
-              " ft. nobody because I carry this",
-            ];
-            const pirateAdlibs = [ // only used in karafy+pirate overlap if ever added
-              " (acapella)",
-              " *beatbox solo*",
-              " (Grammy-worthy)",
-            ];
-            const extra1 = adlibs[Math.floor(Math.random()*adlibs.length)];
-            let extra2 = adlibs[Math.floor(Math.random()*adlibs.length)];
-            while(extra2 === extra1) extra2 = adlibs[Math.floor(Math.random()*adlibs.length)];
-            // Karaoke-style word emphasis
-            const words = sendContent.split(" ");
-            const karaWords = words.map((w,i) => {
-              if(i % 4 === 0 && w.length > 3) return w.toUpperCase();
-              if(i % 7 === 0) return `*${w}*`;
-              return w;
-            });
-            sendContent = karaWords.join(" ") + extra1;
-            if(Math.random() < 0.4) sendContent += extra2;
-          } else {
-            const karaIdles = [
-              "🎤 *drops mic*",
-              "🎶 *just vibing in the key of F*",
-              "🎵 *warming up the vocals*",
-              "*beatboxes for 4 seconds then stops*",
-              "🎤 *taps mic* is this thing on",
-              "*long sustained note that wasn't asked for*",
-              "🎵 *hums the chorus to something nobody knows*",
-              "🎤 thank you, thank you, hold your applause",
-            ];
-            sendContent = karaIdles[Math.floor(Math.random()*karaIdles.length)];
-          }
-        }
-
         // ── Pirate mode ───────────────────────────────────────────────────────
         if(mode === "pirate"){
           displayName = `🏴‍☠️ ${displayName} (the Pirate)`;
@@ -2588,6 +2540,28 @@ client.on("messageCreate",async msg=>{
               "*waves a flag and drinks rum*",
             ];
             sendContent = pirateIdles[Math.floor(Math.random()*pirateIdles.length)];
+          }
+        }
+
+        // ── RespawnRaccoon Propaganda mode ────────────────────────────────────
+        if(mode === "rr_propaganda"){
+          displayName = `Martyr of the Raccoon: ${displayName}`;
+          const rrSignoffs = [
+            " By the way, go sub to RespawnRaccoon!",
+            " By the way, go sub to RespawnRaccoon! Here's his YouTube link: https://www.youtube.com/@respawnraccoon",
+            " Dude, you gotta check out this RespawnRaccoon video fr: https://youtu.be/mmcH7sIeUAc?si=gUaOMxg1ssEc3M3h",
+            " On my momma if you ain't subbed to RespawnRaccoon...",
+            " Go sub to The Raccer!",
+            " By the way, do you know RespawnRaccoon?",
+            " Dude, this video by RespawnRaccoon made me cry. It's so good: https://youtu.be/CNid5vhK9qM?si=El29KJQXHkkfF41z",
+            " By the way, do you know that this one character RespawnRaccoon made called Static503 has a #1 fan? It's insane! Here's the video of it: https://youtu.be/-FNISEDVIxc?si=3LAVYJLCzRNbHwlX",
+            " That April Fools video that Kara and RespawnRaccoon made was pretty good! Check it out here: https://youtu.be/Um_O8_ZTCHI?si=9ha39BB4IzuD6UlM",
+            " Dude, I hear that RespawnRaccoon made this guy named BLANNNK famous fr. He's in the intro of this video here: https://youtu.be/0zF9gMV--jA?si=loeY33iJvJLcx__T",
+          ];
+          if(sendContent){
+            sendContent = sendContent + rrSignoffs[Math.floor(Math.random()*rrSignoffs.length)];
+          } else {
+            sendContent = rrSignoffs[Math.floor(Math.random()*rrSignoffs.length)].trim();
           }
         }
 
@@ -2918,13 +2892,15 @@ client.on("interactionCreate",async interaction=>{
         selfClankUsers.get(interaction.guildId).add(uid);
       }
       saveData();
-      // Auto-remove
+      // Auto-remove and start 10-min cooldown
+      const guildIdSnap = interaction.guildId;
       setTimeout(() => {
         clankerify.delete(uid);
-        if(interaction.guildId){
-          const gs = selfClankUsers.get(interaction.guildId);
+        if(guildIdSnap){
+          const gs = selfClankUsers.get(guildIdSnap);
           if(gs) gs.delete(uid);
         }
+        selfClankCooldown.set(uid, Date.now() + 10 * 60_000);
         saveData();
       }, duration * 60_000);
       const modeStr = mode ? ` in **${mode.charAt(0).toUpperCase()+mode.slice(1)}** mode` : "";
@@ -4089,8 +4065,8 @@ if(cmd==="clankerify"){
         {label:"Sigma",            value:"sigma",       emoji:"😤"},
         {label:"Medieval",         value:"medieval",    emoji:"⚔️"},
         {label:"Ghost",            value:"ghost",       emoji:"👻"},
-        {label:"Karafy",           value:"karafy",      emoji:"🎤"},
         {label:"Pirate",           value:"pirate",      emoji:"🏴‍☠️"},
+        {label:"RespawnRaccoon Propaganda", value:"rr_propaganda", emoji:"🦝"},
       ])
   );
   const durationStr = duration ? `**${duration} minute(s)**` : "**permanently**";
@@ -6285,18 +6261,43 @@ if(cmd==="gif"){
       return safeReply(interaction,{content:`✅ Global quote deleter channel set to <#${ch.id}>. All 🗑️-flagged quotes will be sent there for owner review.`,ephemeral:true});
     }
 
-    // ── /selfclank — self-clankerify yourself (1–5 min, max 2 per server) ────
+    // ── /selfclank — self-clankerify yourself (0 to cancel, 1–5 min, max 2 per server) ────
     if(cmd==="selfclank"){
       if(!inGuild) return safeReply(interaction,{content:"❌ Server only.",ephemeral:true});
       const duration = interaction.options.getInteger("duration");
-      if(duration<1||duration>5) return safeReply(interaction,{content:"❌ Duration must be between **1** and **5** minutes.",ephemeral:true});
+
+      // duration === 0 → cancel and start cooldown
+      if(duration === 0){
+        if(!clankerify.has(interaction.user.id)){
+          return safeReply(interaction,{content:"❌ You're not currently self-clanked.",ephemeral:true});
+        }
+        clankerify.delete(interaction.user.id);
+        if(interaction.guildId){
+          const gs = selfClankUsers.get(interaction.guildId);
+          if(gs) gs.delete(interaction.user.id);
+        }
+        const cooldownExpiry = Date.now() + 10 * 60_000;
+        selfClankCooldown.set(interaction.user.id, cooldownExpiry);
+        saveData();
+        return safeReply(interaction,{content:`✅ Self-clank cancelled. You'll be on cooldown for **10 minutes** before you can use it again (<t:${Math.floor(cooldownExpiry/1000)}:R>).`,ephemeral:true});
+      }
+
+      if(duration<1||duration>5) return safeReply(interaction,{content:"❌ Duration must be **1–5** minutes, or **0** to cancel.",ephemeral:true});
+
+      // Check cooldown
+      const cooldownExpiry = selfClankCooldown.get(interaction.user.id) || 0;
+      if(Date.now() < cooldownExpiry){
+        return safeReply(interaction,{content:`⏳ You're on cooldown! You can self-clank again <t:${Math.floor(cooldownExpiry/1000)}:R>.`,ephemeral:true});
+      }
+
       // Check if already self-clanked
       if(clankerify.has(interaction.user.id)){
         const entry = clankerify.get(interaction.user.id);
         const remainMs = entry.expiresAt ? entry.expiresAt - Date.now() : 0;
         const remainMin = Math.ceil(remainMs/60000);
-        return safeReply(interaction,{content:`❌ You're already clankerified! It expires in **${remainMin}** minute(s).`,ephemeral:true});
+        return safeReply(interaction,{content:`❌ You're already clankerified! It expires in **${remainMin}** minute(s). Use \`/selfclank duration:0\` to cancel early.`,ephemeral:true});
       }
+
       // Check per-server limit of 2
       if(!selfClankUsers.has(interaction.guildId)) selfClankUsers.set(interaction.guildId, new Set());
       const guildSelfClanks = selfClankUsers.get(interaction.guildId);
@@ -6314,20 +6315,20 @@ if(cmd==="gif"){
           .setCustomId(`selfclank_mode_${interaction.user.id}_${duration}`)
           .setPlaceholder("Pick a personality mode…")
           .addOptions([
-            {label:"No mode (plain)",  value:"none",        emoji:"🤖"},
-            {label:"Evil",             value:"evil",        emoji:"😈"},
-            {label:"Freaky",           value:"freaky",      emoji:"😏"},
-            {label:"American",         value:"american",    emoji:"🦅"},
-            {label:"British",          value:"british",     emoji:"🫖"},
-            {label:"Stupid",           value:"stupid",      emoji:"🪖"},
-            {label:"Boomer",           value:"boomer",      emoji:"📰"},
-            {label:"Conspiracy",       value:"conspiracy",  emoji:"🔺"},
-            {label:"NPC",              value:"npc",         emoji:"🗺️"},
-            {label:"Sigma",            value:"sigma",       emoji:"😤"},
-            {label:"Medieval",         value:"medieval",    emoji:"⚔️"},
-            {label:"Ghost",            value:"ghost",       emoji:"👻"},
-            {label:"Karafy",           value:"karafy",      emoji:"🎤"},
-            {label:"Pirate",           value:"pirate",      emoji:"🏴‍☠️"},
+            {label:"No mode (plain)",           value:"none",             emoji:"🤖"},
+            {label:"Evil",                      value:"evil",             emoji:"😈"},
+            {label:"Freaky",                    value:"freaky",           emoji:"😏"},
+            {label:"American",                  value:"american",         emoji:"🦅"},
+            {label:"British",                   value:"british",          emoji:"🫖"},
+            {label:"Stupid",                    value:"stupid",           emoji:"🪖"},
+            {label:"Boomer",                    value:"boomer",           emoji:"📰"},
+            {label:"Conspiracy",                value:"conspiracy",       emoji:"🔺"},
+            {label:"NPC",                       value:"npc",              emoji:"🗺️"},
+            {label:"Sigma",                     value:"sigma",            emoji:"😤"},
+            {label:"Medieval",                  value:"medieval",         emoji:"⚔️"},
+            {label:"Ghost",                     value:"ghost",            emoji:"👻"},
+            {label:"Pirate",                    value:"pirate",           emoji:"🏴‍☠️"},
+            {label:"RespawnRaccoon Propaganda", value:"rr_propaganda",    emoji:"🦝"},
           ])
       );
       return safeReply(interaction,{
