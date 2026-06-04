@@ -32144,6 +32144,13 @@
         "up": 1,
         "down": 0
       }
+    ],
+    [
+      "Screenshot_20260509_181118_Discord.jpg",
+      {
+        "up": 0,
+        "down": 1
+      }
     ]
   ],
   "quoteVoteMessages": [
@@ -41750,6 +41757,10 @@
     [
       "1512205286322999436",
       "quote_1499783395654242407.png"
+    ],
+    [
+      "1512228066452045964",
+      "Screenshot_20260509_181118_Discord.jpg"
     ]
   ],
   "reviewChannelId": "1503045026866004071",
@@ -41788,6 +41799,18 @@
         ],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
+        "sentToDeleter": false
+      }
+    ],
+    [
+      "1512228066452045964",
+      {
+        "filename": "Screenshot_20260509_181118_Discord.jpg",
+        "voters": [
+          "690219723472109616"
+        ],
+        "guildId": "1408975996715139084",
+        "channelId": "1408975997272854611",
         "sentToDeleter": false
       }
     ]
