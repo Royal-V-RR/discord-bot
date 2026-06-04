@@ -612,7 +612,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 535,
+        "xp": 545,
         "level": 14,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -19122,7 +19122,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 1155,
+        "xp": 1160,
         "level": 9,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -41753,6 +41753,10 @@
     [
       "1512201682661019748",
       "Are you a terrorist.png"
+    ],
+    [
+      "1512205286322999436",
+      "quote_1499783395654242407.png"
     ]
   ],
   "reviewChannelId": "1503045026866004071",
@@ -41780,6 +41784,16 @@
         "guildId": "1048053656035020911",
         "channelId": "1095775702416097414",
         "sentToDeleter": true
+      }
+    ],
+    [
+      "1512205286322999436",
+      {
+        "filename": "quote_1499783395654242407.png",
+        "voters": [],
+        "guildId": "1048053656035020911",
+        "channelId": "1477294439180537980",
+        "sentToDeleter": false
       }
     ]
   ],
