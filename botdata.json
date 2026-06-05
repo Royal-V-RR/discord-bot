@@ -32240,6 +32240,13 @@
         "up": 0,
         "down": 1
       }
+    ],
+    [
+      "IMG_4154.png",
+      {
+        "up": 0,
+        "down": 1
+      }
     ]
   ],
   "quoteVoteMessages": [
@@ -43277,7 +43284,9 @@
       "1512426909450109151",
       {
         "filename": "IMG_4154.png",
-        "voters": [],
+        "voters": [
+          "1413943805203189800"
+        ],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
         "sentToDeleter": false
