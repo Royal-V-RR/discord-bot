@@ -639,7 +639,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-15",
-        "xp": 1696,
+        "xp": 1701,
         "level": 21,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -30963,7 +30963,7 @@
     [
       "IMG_8102.png",
       {
-        "up": 4,
+        "up": 5,
         "down": 0
       }
     ],
@@ -43764,7 +43764,9 @@
       "1512429660141650041",
       {
         "filename": "IMG_8102.png",
-        "voters": [],
+        "voters": [
+          "1099756603667910696"
+        ],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
         "sentToDeleter": false
