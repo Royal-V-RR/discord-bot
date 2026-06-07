@@ -224,13 +224,6 @@
         "expiresAt": 1780851580747,
         "mode": "rr_propaganda"
       }
-    ],
-    [
-      "1092897297815318618",
-      {
-        "expiresAt": 1780851481680,
-        "mode": "pirate"
-      }
     ]
   ],
   "reactionRoles": [
@@ -846,7 +839,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-27",
-        "xp": 625,
+        "xp": 633,
         "level": 21,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -45401,10 +45394,14 @@
     [
       "1048053656035020911",
       [
-        "1254388539890860083",
-        "1092897297815318618"
+        "1254388539890860083"
       ]
     ]
   ],
-  "selfClankCooldown": []
+  "selfClankCooldown": [
+    [
+      "1092897297815318618",
+      1780852081691
+    ]
+  ]
 }
