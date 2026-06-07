@@ -2543,6 +2543,187 @@ client.on("messageCreate",async msg=>{
           }
         }
 
+        // ── French mode ───────────────────────────────────────────────────────
+        if(mode === "french"){
+          displayName = `${displayName} 🇫🇷`;
+          if(sendContent){
+            const frenchSwaps = [
+              [/\bhello\b/gi,"bonjour"],[/\bhi\b/gi,"salut"],[/\bhey\b/gi,"eh alors"],
+              [/\bgoodbye\b/gi,"au revoir"],[/\bbye\b/gi,"ciao"],[/\bsee you\b/gi,"à bientôt"],
+              [/\byes\b/gi,"oui"],[/\byeah\b/gi,"oui oui"],[/\bno\b/gi,"non"],
+              [/\bnope\b/gi,"non non"],[/\bmaybe\b/gi,"peut-être"],[/\bof course\b/gi,"bien sûr"],
+              [/\bthank you\b/gi,"merci"],[/\bthanks\b/gi,"merci"],[/\bplease\b/gi,"s'il vous plaît"],
+              [/\bsorry\b/gi,"pardon"],[/\bexcuse me\b/gi,"excusez-moi"],
+              [/\bgood\b/gi,"magnifique"],[/\bbad\b/gi,"terrible"],[/\bgreat\b/gi,"formidable"],
+              [/\bcool\b/gi,"fantastique"],[/\bawesome\b/gi,"époustouflant"],
+              [/\bbeautiful\b/gi,"magnifique"],[/\blogical\b/gi,"logique"],
+              [/\bfriend\b/gi,"mon ami"],[/\bfriends\b/gi,"mes amis"],[/\bman\b/gi,"monsieur"],
+              [/\bwoman\b/gi,"madame"],[/\bboy\b/gi,"garçon"],[/\bgirl\b/gi,"fille"],
+              [/\blove\b/gi,"amour"],[/\blife\b/gi,"la vie"],[/\bdeath\b/gi,"la mort"],
+              [/\bfood\b/gi,"la cuisine"],[/\bwine\b/gi,"vin"],[/\bbread\b/gi,"baguette"],
+              [/\bcheese\b/gi,"fromage"],[/\bwater\b/gi,"l'eau"],[/\bcoffee\b/gi,"café"],
+              [/\bwork\b/gi,"le travail"],[/\bmoney\b/gi,"l'argent"],[/\btime\b/gi,"le temps"],
+              [/\bI think\b/gi,"je pense"],[/\bI know\b/gi,"je sais"],
+              [/\bI don't know\b/gi,"je ne sais pas"],[/\bwhy\b/gi,"pourquoi"],
+              [/\bwhat\b/gi,"quoi"],[/\bwhere\b/gi,"où"],[/\bwhen\b/gi,"quand"],
+            ];
+            let t = sendContent;
+            for(const [from, to] of frenchSwaps) t = t.replace(from, to);
+            const signoffs = [
+              " — c'est la vie 🥐",
+              " — hon hon hon 🥖",
+              " — sacré bleu!",
+              " — mais oui, naturellement 🇫🇷",
+              " — zut alors!",
+              " — quelle horreur!",
+              " — voilà!",
+              " — c'est magnifique 🍷",
+            ];
+            sendContent = t + signoffs[Math.floor(Math.random()*signoffs.length)];
+          } else {
+            const frenchIdles = [
+              "*takes a long drag of a cigarette*",
+              "*shrugs elaborately*",
+              "hon hon hon… 🥐",
+              "*adjusts beret*",
+              "bof…",
+            ];
+            sendContent = frenchIdles[Math.floor(Math.random()*frenchIdles.length)];
+          }
+        }
+
+        // ── UWU / LOLCAT mode ─────────────────────────────────────────────────
+        if(mode === "uwu"){
+          displayName = `${member?.displayName || msg.author.displayName || msg.author.globalName || msg.author.username} :3`;
+          if(sendContent){
+            const uwuSwaps = [
+              [/r/gi,"w"],[/l/gi,"w"],
+              [/\bno\b/gi,"nyo"],[/\byes\b/gi,"yesh"],
+              [/\bthe\b/gi,"da"],[/\bmy\b/gi,"mwy"],
+              [/\byou\b/gi,"ewe"],[/\bwhat\b/gi,"wat"],
+              [/\bthis\b/gi,"dis"],[/\bthat\b/gi,"dat"],
+              [/\bnot\b/gi,"nyot"],[/\bwhy\b/gi,"wai"],
+              [/\bhere\b/gi,"hewe"],[/\bplease\b/gi,"pwease"],
+              [/\blove\b/gi,"wuv"],[/\blike\b/gi,"wike"],
+              [/\bcute\b/gi,"kawaii"],[/\bhello\b/gi,"hewwo"],
+              [/\bhi\b/gi,"hewwo"],[/\bhey\b/gi,"heyyy~"],
+              [/\bgoodbye\b/gi,"bai bai~"],[/\bbye\b/gi,"bai~"],
+              [/\bsorry\b/gi,"sowwy"],[/\bthank you\b/gi,"thankies"],
+              [/\bthanks\b/gi,"tankies"],[/\bstop\b/gi,"stahp"],
+              [/\bcat\b/gi,"kitty"],[/\bdog\b/gi,"doggo"],
+              [/!/g,"! UwU"],[/\?/g,"? :3"],
+              [/\./g,". OwO"],
+            ];
+            let t = sendContent;
+            for(const [from, to] of uwuSwaps) t = t.replace(from, to);
+            // random nya/purr insertions
+            if(Math.random() < 0.5) t = "nyaa~ " + t;
+            const signoffs = ["mrrp","  :3","  meow meow :3","  Nyah~!"];
+            sendContent = t + "  " + signoffs[Math.floor(Math.random()*signoffs.length)];
+          } else {
+            const idlePurrs = ["*purrs*","mrrp :3","nyaa~ :3","*head boop*","meow meow :3"];
+            sendContent = idlePurrs[Math.floor(Math.random()*idlePurrs.length)];
+          }
+        }
+
+        // ── Scottish mode ─────────────────────────────────────────────────────
+        if(mode === "scottish"){
+          const rawDisplay = member?.displayName || msg.author.displayName || msg.author.globalName || msg.author.username;
+          displayName = `sco'ish ${rawDisplay} 'aye`;
+          if(sendContent){
+            const scotSwaps = [
+              [/\bhello\b/gi,"hullo"],[/\bhi\b/gi,"awright"],[/\bhey\b/gi,"haw"],
+              [/\bgoodbye\b/gi,"cheerio"],[/\bbye\b/gi,"see ye"],
+              [/\bfriend\b/gi,"pal"],[/\bfriends\b/gi,"pals"],
+              [/\bman\b/gi,"lad"],[/\bwoman\b/gi,"lass"],[/\bboy\b/gi,"laddie"],[/\bgirl\b/gi,"lassie"],
+              [/\bchild\b/gi,"bairn"],[/\bchildren\b/gi,"bairns"],
+              [/\bsmall\b/gi,"wee"],[/\bvery\b/gi,"pure"],[/\breally\b/gi,"right"],
+              [/\bbig\b/gi,"massive"],[/\bhouse\b/gi,"hoose"],[/\bhome\b/gi,"hame"],
+              [/\bfood\b/gi,"scran"],[/\beat\b/gi,"munch"],[/\bdrink\b/gi,"swally"],
+              [/\bbeer\b/gi,"pint"],[/\bwhiskey\b/gi,"whisky"],[/\bpub\b/gi,"boozer"],
+              [/\broad\b/gi,"roadie"],[/\bstreet\b/gi,"streetie"],[/\bcar\b/gi,"motor"],
+              [/\btruck\b/gi,"lorry"],[/\bbus\b/gi,"motorbus"],[/\bwalk\b/gi,"stroll"],
+              [/\brun\b/gi,"leg it"],[/\blook\b/gi,"have a keek"],[/\bsee\b/gi,"spy"],
+              [/\bwatch\b/gi,"keep an eye oan"],[/\blisten\b/gi,"haud yer lugs open"],
+              [/\bhear\b/gi,"catch"],[/\bspeak\b/gi,"blether"],[/\btalk\b/gi,"blether"],
+              [/\bsay\b/gi,"tell"],[/\btell\b/gi,"gie the word"],
+              [/\bthink\b/gi,"reckon"],[/\bknow\b/gi,"ken"],[/\bunderstand\b/gi,"get"],
+              [/\bremember\b/gi,"mind"],[/\bforget\b/gi,"mislay"],
+              [/\bfind\b/gi,"come across"],[/\blost\b/gi,"away"],
+              [/\bstupid\b/gi,"daft"],[/\bidiot\b/gi,"numpty"],[/\bmoron\b/gi,"eejit"],
+              [/\bcrazy\b/gi,"mental"],[/\bweird\b/gi,"bizarre-like"],
+              [/\bcool\b/gi,"braw"],[/\bgreat\b/gi,"grand"],[/\bgood\b/gi,"guid"],
+              [/\bbad\b/gi,"shite"],[/\bterrible\b/gi,"awful"],
+              [/\bawesome\b/gi,"pure brilliant"],[/\bamazing\b/gi,"cracking"],
+              [/\bbeautiful\b/gi,"bonnie"],[/\bugly\b/gi,"mingin"],[/\bdirty\b/gi,"clarty"],
+              [/\bclean\b/gi,"tidy"],[/\bhappy\b/gi,"chuffed"],[/\bsad\b/gi,"gutted"],
+              [/\bangry\b/gi,"ragin"],[/\bannoyed\b/gi,"scunnered"],
+              [/\btired\b/gi,"knackered"],[/\bsleep\b/gi,"kip"],[/\bbed\b/gi,"pit"],
+              [/\bmorning\b/gi,"mornin"],[/\bevening\b/gi,"nicht"],[/\bnight\b/gi,"nicht"],
+              [/\btoday\b/gi,"the day"],[/\btomorrow\b/gi,"the morn"],[/\byesterday\b/gi,"yestreen"],
+              [/\bnow\b/gi,"noo"],[/\blater\b/gi,"after"],[/\bsoon\b/gi,"shortly"],
+              [/\balways\b/gi,"aye"],[/\bnever\b/gi,"nae chance"],[/\bmaybe\b/gi,"mibbe"],
+              [/\bprobably\b/gi,"likely"],[/\byes\b/gi,"aye"],[/\byeah\b/gi,"aye"],
+              [/\bnope\b/gi,"naw"],[/\bnothing\b/gi,"naethin"],
+              [/\bsomething\b/gi,"somethin"],[/\beverything\b/gi,"awthin"],
+              [/\beveryone\b/gi,"awbody"],[/\bnobody\b/gi,"naebody"],
+              [/\bmy\b/gi,"ma"],[/\bmine\b/gi,"mines"],[/\bmyself\b/gi,"masel"],
+              [/\bthem\b/gi,"thum"],[/\btheir\b/gi,"thair"],[/\bthere\b/gi,"ower there"],
+              [/\bwhere\b/gi,"whaur"],[/\bwhy\b/gi,"how come"],[/\bwhen\b/gi,"whin"],
+              [/\bwhat\b/gi,"whit"],[/\bwho\b/gi,"wha"],[/\bhow\b/gi,"hoo"],
+              [/\bisn't\b/gi,"isnae"],[/\baren't\b/gi,"urnae"],[/\bcan't\b/gi,"cannae"],
+              [/\bwon't\b/gi,"winnae"],[/\bshouldn't\b/gi,"shouldnae"],
+              [/\bwouldn't\b/gi,"wouldnae"],[/\bcouldn't\b/gi,"couldnae"],
+              [/\bdidn't\b/gi,"didnae"],[/\bdoesn't\b/gi,"disnae"],
+              [/\bhaven't\b/gi,"havenae"],[/\bhasn't\b/gi,"hasnae"],
+              [/\bmustn't\b/gi,"maunnae"],[/\bgoing\b/gi,"gaun"],[/\bgo\b/gi,"gang"],
+              [/\bcome\b/gi,"c'mere"],[/\bleave\b/gi,"head aff"],
+              [/\bstop\b/gi,"haud up"],[/\bwait\b/gi,"haud on"],
+              [/\bsit\b/gi,"sit doon"],[/\bstand\b/gi,"staun"],
+              [/\bwork\b/gi,"graft"],[/\bjob\b/gi,"graft"],
+              [/\bmoney\b/gi,"dosh"],[/\brich\b/gi,"loaded"],[/\bpoor\b/gi,"skint"],
+              [/\bshop\b/gi,"shoap"],[/\bstore\b/gi,"shoap"],
+              [/\bbuy\b/gi,"pick up"],[/\bsell\b/gi,"shift"],
+              [/\bphone\b/gi,"mobile"],[/\bcomputer\b/gi,"pc"],[/\binternet\b/gi,"the net"],
+              [/\bdog\b/gi,"dug"],[/\bcat\b/gi,"moggie"],[/\bbird\b/gi,"burd"],
+              [/\bcow\b/gi,"coo"],[/\bsheep\b/gi,"yowe"],[/\bhorse\b/gi,"clydesdale"],
+              [/\brain\b/gi,"dreich weather"],[/\bcold\b/gi,"baltic"],[/\bhot\b/gi,"boilin"],
+              [/\bwindy\b/gi,"blawin a gale"],[/\bsnow\b/gi,"snaw"],
+              [/\bmountain\b/gi,"ben"],[/\briver\b/gi,"burn"],[/\bforest\b/gi,"woods"],
+              [/\bocean\b/gi,"sea"],[/\bbeach\b/gi,"shore"],
+              [/\bfight\b/gi,"square go"],[/\bpunch\b/gi,"clout"],[/\bhit\b/gi,"wallop"],
+              [/\blaugh\b/gi,"have a giggle"],[/\bcry\b/gi,"greet"],
+              [/\bface\b/gi,"coupon"],[/\bhead\b/gi,"heid"],[/\bmouth\b/gi,"gub"],
+              [/\bnose\b/gi,"neb"],[/\bears\b/gi,"lugs"],[/\bhands\b/gi,"hauns"],[/\bfeet\b/gi,"plates"],
+              [/\bshirt\b/gi,"tap"],[/\bpants\b/gi,"troosers"],[/\bshoes\b/gi,"trainers"],
+              [/\bpolice\b/gi,"the polis"],[/\bjail\b/gi,"the nick"],
+              [/\bteacher\b/gi,"master"],[/\bschool\b/gi,"skool"],
+              [/\buniversity\b/gi,"uni"],[/\bstudent\b/gi,"pupil"],[/\bexam\b/gi,"test"],
+              [/\bgame\b/gi,"match"],[/\bfootball\b/gi,"fitba"],[/\bsoccer\b/gi,"fitba"],
+              [/\bteam\b/gi,"side"],[/\bwinner\b/gi,"champ"],[/\bloser\b/gi,"mug"],
+            ];
+            let t = sendContent;
+            for(const [from, to] of scotSwaps) t = t.replace(from, to);
+            const signoffs = [
+              "  Where's me fockinʼ Iron Bru",
+              "  Now fack off ya wee wanker",
+              "  SCOTLAND FOREEVVVVVERRRRRRR",
+              "  Ye look schewpid readinʼ this, mate",
+              "  Royal V- is a nerd",
+            ];
+            sendContent = t + signoffs[Math.floor(Math.random()*signoffs.length)];
+          } else {
+            const scotIdles = [
+              "*takes a swig of Iron Bru*",
+              "och aye the noo…",
+              "*adjusts kilt aggressively*",
+              "SCOTLAND!!",
+              "cannae be bothered wi this",
+            ];
+            sendContent = scotIdles[Math.floor(Math.random()*scotIdles.length)];
+          }
+        }
+
         // ── RespawnRaccoon Propaganda mode ────────────────────────────────────
         if(mode === "rr_propaganda"){
           displayName = `Martyr of the Raccoon: ${displayName}`;
@@ -2580,7 +2761,13 @@ client.on("messageCreate",async msg=>{
         if(!sendContent && !attachUrls.length && stickers.length){
           sendOpts.content = stickers.map(n => `[Sticker: ${n}]`).join(" ");
         }
-        if(sendOpts.content || sendOpts.files) await webhook.send(sendOpts).catch(()=>{});
+        if(sendOpts.content || sendOpts.files){
+          const sentMsg = await webhook.send(sendOpts).catch(()=>null);
+          // For propaganda mode: delete the embed Discord auto-generates from URLs
+          if(sentMsg && mode === "rr_propaganda" && sentMsg.embeds && sentMsg.embeds.length > 0){
+            await sentMsg.suppressEmbeds(true).catch(()=>{});
+          }
+        }
       } catch(e){ console.error("clankerify error:", e.message); }
       return; // skip XP etc. for clankerified messages
     }
@@ -4067,6 +4254,9 @@ if(cmd==="clankerify"){
         {label:"Ghost",            value:"ghost",       emoji:"👻"},
         {label:"Pirate",           value:"pirate",      emoji:"🏴‍☠️"},
         {label:"RespawnRaccoon Propaganda", value:"rr_propaganda", emoji:"🦝"},
+        {label:"French",                    value:"french",       emoji:"🇫🇷"},
+        {label:"UWU / LOLCAT",              value:"uwu",          emoji:"🐱"},
+        {label:"Scottish",                  value:"scottish",     emoji:"🏴󠁧󠁢󠁳󠁣󠁴󠁿"},
       ])
   );
   const durationStr = duration ? `**${duration} minute(s)**` : "**permanently**";
@@ -6329,6 +6519,9 @@ if(cmd==="gif"){
             {label:"Ghost",                     value:"ghost",            emoji:"👻"},
             {label:"Pirate",                    value:"pirate",           emoji:"🏴‍☠️"},
             {label:"RespawnRaccoon Propaganda", value:"rr_propaganda",    emoji:"🦝"},
+            {label:"French",                    value:"french",           emoji:"🇫🇷"},
+            {label:"UWU / LOLCAT",              value:"uwu",              emoji:"🐱"},
+            {label:"Scottish",                  value:"scottish",         emoji:"🏴󠁧󠁢󠁳󠁣󠁴󠁿"},
           ])
       );
       return safeReply(interaction,{
