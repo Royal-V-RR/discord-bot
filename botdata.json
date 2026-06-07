@@ -831,7 +831,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-27",
-        "xp": 751,
+        "xp": 758,
         "level": 21,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -1041,7 +1041,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 1811,
+        "xp": 1821,
         "level": 21,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -1900,7 +1900,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 744,
+        "xp": 756,
         "level": 18,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -2632,7 +2632,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 4219,
+        "xp": 4232,
         "level": 21,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -3576,7 +3576,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 795,
+        "xp": 808,
         "level": 10,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -4559,7 +4559,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 3359,
+        "xp": 3364,
         "level": 17,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -45388,14 +45388,5 @@
       []
     ]
   ],
-  "selfClankCooldown": [
-    [
-      "1092897297815318618",
-      1780852081691
-    ],
-    [
-      "1254388539890860083",
-      1780852180756
-    ]
-  ]
+  "selfClankCooldown": []
 }
