@@ -217,15 +217,7 @@
     ]
   ],
   "shadowDelete": [],
-  "clankerify": [
-    [
-      "1460301822827692237",
-      {
-        "expiresAt": 1780847082855,
-        "mode": "stupid"
-      }
-    ]
-  ],
+  "clankerify": [],
   "reactionRoles": [
     [
       "1408975996715139084:1483218332005175427:🤖",
@@ -839,7 +831,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-27",
-        "xp": 381,
+        "xp": 391,
         "level": 21,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -1135,7 +1127,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 2669,
+        "xp": 2678,
         "level": 21,
         "lastWorkTime": 1778752522595,
         "lastBegTime": 0,
@@ -1907,7 +1899,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 604,
+        "xp": 615,
         "level": 18,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -19134,7 +19126,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 494,
+        "xp": 501,
         "level": 10,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -24600,7 +24592,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 207,
+        "xp": 214,
         "level": 3,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -45341,5 +45333,10 @@
       ]
     ]
   ],
-  "selfClankCooldown": []
+  "selfClankCooldown": [
+    [
+      "1460301822827692237",
+      1780846939592
+    ]
+  ]
 }
