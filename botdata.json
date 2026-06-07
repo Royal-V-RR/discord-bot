@@ -217,7 +217,15 @@
     ]
   ],
   "shadowDelete": [],
-  "clankerify": [],
+  "clankerify": [
+    [
+      "1193150033864949811",
+      {
+        "expiresAt": 1780846552242,
+        "mode": "rr_propaganda"
+      }
+    ]
+  ],
   "reactionRoles": [
     [
       "1408975996715139084:1483218332005175427:🤖",
@@ -45328,7 +45336,9 @@
   "selfClankUsers": [
     [
       "1048053656035020911",
-      []
+      [
+        "1193150033864949811"
+      ]
     ]
   ],
   "selfClankCooldown": [
