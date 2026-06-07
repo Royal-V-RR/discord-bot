@@ -224,6 +224,13 @@
         "expiresAt": 1780843960745,
         "mode": "sigma"
       }
+    ],
+    [
+      "690219723472109616",
+      {
+        "expiresAt": 1780844237956,
+        "mode": "pirate"
+      }
     ]
   ],
   "reactionRoles": [
@@ -839,7 +846,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-27",
-        "xp": 128,
+        "xp": 136,
         "level": 21,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -4566,7 +4573,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 3160,
+        "xp": 3175,
         "level": 17,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -45337,7 +45344,8 @@
     [
       "1048053656035020911",
       [
-        "1460301822827692237"
+        "1460301822827692237",
+        "690219723472109616"
       ]
     ]
   ],
