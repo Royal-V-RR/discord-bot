@@ -3986,7 +3986,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 20,
+        "xp": 34,
         "level": 17,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -4569,8 +4569,8 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 3497,
-        "level": 17,
+        "xp": 2,
+        "level": 18,
         "lastWorkTime": 0,
         "lastBegTime": 0,
         "lastCrimeTime": 0,
@@ -13881,7 +13881,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 874,
+        "xp": 892,
         "level": 7,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -45521,10 +45521,5 @@
       []
     ]
   ],
-  "selfClankCooldown": [
-    [
-      "1082452773787942922",
-      1780920264107
-    ]
-  ]
+  "selfClankCooldown": []
 }
