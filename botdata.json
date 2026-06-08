@@ -604,7 +604,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 2563,
+        "xp": 2569,
         "level": 14,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -639,7 +639,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-15",
-        "xp": 3806,
+        "xp": 3818,
         "level": 21,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -13448,7 +13448,7 @@
         "dailyStreak": 4,
         "bestStreak": 4,
         "lastDailyDate": "2026-06-06",
-        "xp": 849,
+        "xp": 854,
         "level": 12,
         "lastWorkTime": 1778166713164,
         "lastBegTime": 1778166374950,
@@ -45452,10 +45452,5 @@
       []
     ]
   ],
-  "selfClankCooldown": [
-    [
-      "1082452773787942922",
-      1780885024697
-    ]
-  ]
+  "selfClankCooldown": []
 }
