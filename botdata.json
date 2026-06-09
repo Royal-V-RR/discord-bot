@@ -1924,7 +1924,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 2466,
+        "xp": 2473,
         "level": 18,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -32835,7 +32835,7 @@
       "IMG_5319.jpg",
       {
         "up": 0,
-        "down": 1
+        "down": 3
       }
     ]
   ],
@@ -46552,11 +46552,12 @@
       {
         "filename": "IMG_5319.jpg",
         "voters": [
-          "1092897297815318618"
+          "1092897297815318618",
+          "1193150033864949811"
         ],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
-        "sentToDeleter": false
+        "sentToDeleter": true
       }
     ]
   ],
