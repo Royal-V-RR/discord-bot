@@ -217,15 +217,7 @@
     ]
   ],
   "shadowDelete": [],
-  "clankerify": [
-    [
-      "1413943805203189800",
-      {
-        "expiresAt": 1781011753093,
-        "mode": "rr_propaganda"
-      }
-    ]
-  ],
+  "clankerify": [],
   "reactionRoles": [
     [
       "1408975996715139084:1483218332005175427:🤖",
@@ -840,7 +832,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-27",
-        "xp": 2872,
+        "xp": 2882,
         "level": 21,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -2661,7 +2653,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 924,
+        "xp": 935,
         "level": 22,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -4592,7 +4584,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 215,
+        "xp": 224,
         "level": 18,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -5268,7 +5260,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 626,
+        "xp": 640,
         "level": 7,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -45678,9 +45670,7 @@
   "selfClankUsers": [
     [
       "1048053656035020911",
-      [
-        "1413943805203189800"
-      ]
+      []
     ],
     [
       "1408975996715139084",
@@ -45699,6 +45689,10 @@
     [
       "1158278135339561001",
       1781011316965
+    ],
+    [
+      "1413943805203189800",
+      1781012353101
     ]
   ]
 }
