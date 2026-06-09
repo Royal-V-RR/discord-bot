@@ -1050,7 +1050,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 4388,
+        "xp": 4396,
         "level": 21,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -46500,7 +46500,9 @@
       "1513964108171706601",
       {
         "filename": "Screenshot_20260510-1831032.png",
-        "voters": [],
+        "voters": [
+          "1057320311453913149"
+        ],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
         "sentToDeleter": false
