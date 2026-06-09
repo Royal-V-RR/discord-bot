@@ -30082,7 +30082,7 @@
     [
       "I bark to differ.png",
       {
-        "up": 5,
+        "up": 7,
         "down": 2
       }
     ],
@@ -43484,6 +43484,10 @@
     [
       "1513961644571627601",
       "SmartSelect_20260428_032523_Discord.jpg"
+    ],
+    [
+      "1513961731305771289",
+      "I bark to differ.png"
     ]
   ],
   "reviewChannelId": "1503045026866004071",
@@ -46280,6 +46284,16 @@
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
         "sentToDeleter": true
+      }
+    ],
+    [
+      "1513961731305771289",
+      {
+        "filename": "I bark to differ.png",
+        "voters": [],
+        "guildId": "1048053656035020911",
+        "channelId": "1477294439180537980",
+        "sentToDeleter": false
       }
     ]
   ],
