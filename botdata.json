@@ -604,7 +604,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 667,
+        "xp": 681,
         "level": 15,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -1049,7 +1049,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 417,
+        "xp": 431,
         "level": 22,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -46402,7 +46402,9 @@
       "1513961771948572832",
       {
         "filename": "IMG_4885.png",
-        "voters": [],
+        "voters": [
+          "690219723472109616"
+        ],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
         "sentToDeleter": false
