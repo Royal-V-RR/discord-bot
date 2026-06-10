@@ -217,15 +217,7 @@
     ]
   ],
   "shadowDelete": [],
-  "clankerify": [
-    [
-      "1092897297815318618",
-      {
-        "expiresAt": 1781103855876,
-        "mode": "scottish"
-      }
-    ]
-  ],
+  "clankerify": [],
   "reactionRoles": [
     [
       "1408975996715139084:1483218332005175427:🤖",
@@ -840,7 +832,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-27",
-        "xp": 3591,
+        "xp": 3603,
         "level": 21,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -46808,5 +46800,10 @@
       []
     ]
   ],
-  "selfClankCooldown": []
+  "selfClankCooldown": [
+    [
+      "1092897297815318618",
+      1781104452383
+    ]
+  ]
 }
