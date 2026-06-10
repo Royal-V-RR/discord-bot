@@ -217,7 +217,15 @@
     ]
   ],
   "shadowDelete": [],
-  "clankerify": [],
+  "clankerify": [
+    [
+      "1092897297815318618",
+      {
+        "expiresAt": 1781103855876,
+        "mode": "scottish"
+      }
+    ]
+  ],
   "reactionRoles": [
     [
       "1408975996715139084:1483218332005175427:🤖",
@@ -1051,7 +1059,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 925,
+        "xp": 936,
         "level": 22,
         "lastWorkTime": 0,
         "lastBegTime": 0,
