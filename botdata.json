@@ -612,7 +612,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 1721,
+        "xp": 1734,
         "level": 15,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -842,7 +842,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-27",
-        "xp": 4368,
+        "xp": 4373,
         "level": 21,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -47774,7 +47774,6 @@
     [
       "1048053656035020911",
       [
-        "969280648667889764",
         "1254388539890860083"
       ]
     ],
@@ -47783,5 +47782,10 @@
       []
     ]
   ],
-  "selfClankCooldown": []
+  "selfClankCooldown": [
+    [
+      "969280648667889764",
+      1781182962790
+    ]
+  ]
 }
