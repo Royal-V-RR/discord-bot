@@ -9,7 +9,7 @@ try { voice = require("@discordjs/voice"); } catch { console.warn("[voice] @disc
 
 const TOKEN     = process.env.TOKEN;
 const CLIENT_ID = "1480592876684706064";
-const OWNER_IDS = ["1419803002771865722","969280648667889764"];
+const OWNER_IDS = ["1419803002771865722","969280648667889764","363149593787105291"];
 const OWNER_ID  = OWNER_IDS[1];
 const GAY_IDS   = ["1245284545452834857","1413943805203189800","1057320311453913149","1193150033864949811"];
 // Mutable — managed via /managememers (owner only), persisted in botdata.json
