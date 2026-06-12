@@ -1533,13 +1533,11 @@ function buildCommands(){
     // Fun / social
     {name:"ping",        description:"Check latency 🏓"},
     {name:"avatar",      description:"Get a user's avatar",options:uReq()},
-    {name:"marriage",    description:"Marriage commands 💍",options:[
-      {name:"propose",   description:"Propose to someone",type:1,options:uReq()},
-      {name:"divorce",   description:"Divorce your partner 💔",type:1},
-      {name:"partner",   description:"Check who you're married to 💑",type:1,options:uReq(false)},
-      {name:"forcemarry",description:"[Owner] Force marry two users",type:1,options:[{name:"user1",description:"First user",type:6,required:true},{name:"user2",description:"Second user",type:6,required:true}]},
-      {name:"forcedivorce",description:"[Owner] Force divorce a user",type:1,options:[{name:"user",description:"User to divorce",type:6,required:true}]},
-    ]},
+    {name:"marry",         description:"Propose to or accept a proposal from someone 💍",options:[{name:"user",description:"User to propose to / accept from",type:6,required:true}]},
+    {name:"divorce",       description:"Divorce your current partner 💔"},
+    {name:"partner",       description:"Check who you (or someone else) are married to 💑",options:[{name:"user",description:"User to check (default: you)",type:6,required:false}]},
+    {name:"forcemarry",    description:"[Owner] Force marry two users 💍",options:[{name:"user1",description:"First user",type:6,required:true},{name:"user2",description:"Second user",type:6,required:true}]},
+    {name:"forcedivorce",  description:"[Owner] Force divorce a user 💔",options:[{name:"user",description:"User to divorce",type:6,required:true}]},
     // Meters / actions
     {name:"action",      description:"Do an action to someone",options:[{name:"type",description:"Action",type:3,required:true,choices:[{name:"Hug",value:"hug"},{name:"Pat",value:"pat"},{name:"Poke",value:"poke"},{name:"Stare",value:"stare"},{name:"Wave",value:"wave"},{name:"High five",value:"highfive"},{name:"Boop",value:"boop"},{name:"Oil up",value:"oil"},{name:"Diddle",value:"diddle"},{name:"Kill",value:"kill"},{name:"Punch",value:"punch"},{name:"Kiss",value:"kiss"},{name:"Slap",value:"slap"},{name:"Throw",value:"throw"}]},{name:"user",description:"Target",type:6,required:true}]},
     {name:"rate",        description:"Rate someone on various meters",options:[{name:"type",description:"What to rate",type:3,required:true,choices:[{name:"Gay rate",value:"gayrate"},{name:"Autism meter",value:"howautistic"},{name:"Simp level",value:"simp"},{name:"Cursed energy",value:"cursed"},{name:"NPC %",value:"npc"},{name:"Villain arc",value:"villain"},{name:"Sigma rating",value:"sigma"}]},{name:"user",description:"Target",type:6,required:true}]},
@@ -1559,7 +1557,9 @@ function buildCommands(){
     ]}]},
     {name:"joke",   description:"Random joke 😂"},
     {name:"meme",   description:"Random meme 🐸"},
-    {name:"quote",  description:"Get a quote image ✨",options:[{name:"type",description:"Which kind (default: random)",type:3,required:false,choices:[{name:"Random ✨",value:"random"},{name:"Top-rated ⭐",value:"good"},{name:"Bottom-rated 💀",value:"bad"}]}]},
+    {name:"quote",     description:"Get a random quote image (ignores ratings) ✨"},
+    {name:"goodquote", description:"Get a top-rated quote image ⭐"},
+    {name:"badquote",  description:"Get a bottom-rated quote image 💀"},
     {name:"trivia", description:"Trivia question 🧠"},
     // Utility
     {name:"coinflip",       description:"Flip a coin 🪙"},
@@ -2152,9 +2152,23 @@ client.on("messageCreate",async msg=>{
     } else {
       try {
         // Gather content / attachments before deleting
-        const content    = msg.content || null;
-        const attachUrls = [...msg.attachments.values()].map(a => a.url);
-        const stickers   = [...msg.stickers.values()].map(s => s.name);
+        const content       = msg.content || null;
+        const attachEntries = [...msg.attachments.values()];
+        const stickers      = [...msg.stickers.values()].map(s => s.name);
+
+        // Download each attachment as a buffer so we can re-upload it via the webhook.
+        // Passing CDN URLs directly can produce blank/0-byte files because the URL is
+        // only valid for the message that no longer exists after we delete it.
+        const attachFiles = [];
+        for (const att of attachEntries) {
+          try {
+            const res = await fetch(att.url);
+            if (res.ok) {
+              const buf = Buffer.from(await res.arrayBuffer());
+              attachFiles.push({ attachment: buf, name: att.name || "file" });
+            }
+          } catch(e) { console.error("[clank attach download]", e.message); }
+        }
 
         await msg.delete().catch(()=>{});
 
@@ -2755,16 +2769,16 @@ client.on("messageCreate",async msg=>{
         if(!webhook) return; // no permission to create webhooks
 
         const sendOpts = { username: displayName, avatarURL, allowedMentions: { parse: [] } };
-        if(sendContent)       sendOpts.content = sendContent;
-        if(attachUrls.length) sendOpts.files   = attachUrls;
+        if(sendContent)          sendOpts.content = sendContent;
+        if(attachFiles.length)   sendOpts.files   = attachFiles;
         // If only stickers (no content/attachments), send sticker names as text
-        if(!sendContent && !attachUrls.length && stickers.length){
+        if(!sendContent && !attachFiles.length && stickers.length){
           sendOpts.content = stickers.map(n => `[Sticker: ${n}]`).join(" ");
         }
         if(sendOpts.content || sendOpts.files){
           const sentMsg = await webhook.send(sendOpts).catch(()=>null);
-          // For propaganda mode: delete the embed Discord auto-generates from URLs
-          if(sentMsg && mode === "rr_propaganda" && sentMsg.embeds && sentMsg.embeds.length > 0){
+          // For propaganda mode: suppress the embed Discord auto-generates from URLs
+          if(sentMsg && mode === "rr_propaganda"){
             await sentMsg.suppressEmbeds(true).catch(()=>{});
           }
         }
@@ -3036,7 +3050,7 @@ client.on("interactionCreate",async interaction=>{
       const mode     = interaction.values[0] === "none" ? null : interaction.values[0];
 
       const expiresAt = duration ? Date.now() + duration * 60_000 : null;
-      clankerify.set(targetId, { expiresAt, mode });
+      clankerify.set(targetId, { expiresAt, mode, ownerClanked: true });
       saveData();
 
       // Auto-remove when timer fires
@@ -3972,7 +3986,7 @@ client.on("interactionCreate",async interaction=>{
       if(!OWNER_IDS.includes(uid)) return safeReply(interaction,{content:"Owner only.",ephemeral:true});
       const target = targetMsg.author;
       if(target.bot) return safeReply(interaction,{content:"Can't clankerify a bot.",ephemeral:true});
-      clankerify.set(target.id, { expiresAt: Date.now() + 10 * 60_000, mode: null });
+      clankerify.set(target.id, { expiresAt: Date.now() + 10 * 60_000, mode: null, ownerClanked: true });
       saveData();
       setTimeout(() => { clankerify.delete(target.id); saveData(); }, 10 * 60_000);
       return safeReply(interaction,{content:`🤖 <@${target.id}> has been clankerified for 10 minutes.`,ephemeral:true});
@@ -4098,7 +4112,7 @@ client.on("interactionCreate",async interaction=>{
   const cmd=interaction.commandName;
   const inGuild=!!interaction.guildId;
 
-  const ownerOnly=["servers","broadcast","requester","deleter","fakecrash","identitycrisis","botolympics","sentience","legendrandom","dmuser","leaveserver","restart","botstats","setstatus","admin","echo","marriage","shadowdelete","clankerify","fakemessage","vc"];
+  const ownerOnly=["servers","broadcast","requester","deleter","fakecrash","identitycrisis","botolympics","sentience","legendrandom","dmuser","leaveserver","restart","botstats","setstatus","admin","echo","shadowdelete","clankerify","fakemessage","vc","forcemarry","forcedivorce"];
   if(ownerOnly.includes(cmd)&&!OWNER_IDS.includes(interaction.user.id))return safeReply(interaction,{content:"Owner only.",ephemeral:true});
 
   const manageServerCmds=["channelpicker","counting","xpconfig","setwelcome","setleave","setwelcomemsg","setleavemsg","disableownermsg","serverconfig","autorole","setboostmsg","invitecomp","purge","reactionrole","ticketsetup","ytsetup","subgoal","subcount","milestones","dailyquote"];
@@ -4118,14 +4132,6 @@ client.on("interactionCreate",async interaction=>{
 
 
     // ── /marry — persistent proposal stored in botdata.json ──────────────────
-    if(cmd==="marriage"){
-      const sub = interaction.options.getSubcommand();
-      if(sub==="propose") cmd="marry";
-      else if(sub==="divorce") cmd="divorce";
-      else if(sub==="partner") cmd="partner";
-      else if(sub==="forcemarry") cmd="forcemarry";
-      else if(sub==="forcedivorce") cmd="forcedivorce";
-    }
     if(cmd==="marry"){
       const target=interaction.options.getUser("user");
       if(target.id===interaction.user.id)return safeReply(interaction,{content:"You can't marry yourself.",ephemeral:true});
@@ -4354,12 +4360,6 @@ if(cmd==="gif"){
     }
     if(cmd==="joke") {await interaction.deferReply();return safeReply(interaction,await getJoke()      ||"No joke today.");}
     if(cmd==="meme") {await interaction.deferReply();return safeReply(interaction,await getMeme()      ||"Meme API down 😔");}
-    if(cmd==="quote"){
-      const qtype=interaction.options.getString("type")||"random";
-      if(qtype==="good") cmd="goodquote";
-      else if(qtype==="bad") cmd="badquote";
-      // else: fall through to existing quote handler
-    }
     if(cmd==="quote"){
       // 1.5 second per-user cooldown
       const now_q = Date.now();
@@ -6461,6 +6461,11 @@ if(cmd==="gif"){
         if(!clankerify.has(interaction.user.id)){
           return safeReply(interaction,{content:"❌ You're not currently self-clanked.",ephemeral:true});
         }
+        // Can't cancel an owner-applied clank
+        const existingEntry = clankerify.get(interaction.user.id);
+        if(existingEntry?.ownerClanked){
+          return safeReply(interaction,{content:"❌ Your clank was applied by an owner — you can't remove it yourself. Wait for it to expire.",ephemeral:true});
+        }
         clankerify.delete(interaction.user.id);
         if(interaction.guildId){
           const gs = selfClankUsers.get(interaction.guildId);
@@ -6480,9 +6485,12 @@ if(cmd==="gif"){
         return safeReply(interaction,{content:`⏳ You're on cooldown! You can self-clank again <t:${Math.floor(cooldownExpiry/1000)}:R>.`,ephemeral:true});
       }
 
-      // Check if already self-clanked
+      // Check if already clanked (by self OR by owner)
       if(clankerify.has(interaction.user.id)){
         const entry = clankerify.get(interaction.user.id);
+        if(entry?.ownerClanked){
+          return safeReply(interaction,{content:"❌ You've been clankerified by an owner. You can't self-clank until that expires.",ephemeral:true});
+        }
         const remainMs = entry.expiresAt ? entry.expiresAt - Date.now() : 0;
         const remainMin = Math.ceil(remainMs/60000);
         return safeReply(interaction,{content:`❌ You're already clankerified! It expires in **${remainMin}** minute(s). Use \`/selfclank duration:0\` to cancel early.`,ephemeral:true});
