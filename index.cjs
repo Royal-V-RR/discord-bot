@@ -9,7 +9,7 @@ try { voice = require("@discordjs/voice"); } catch { console.warn("[voice] @disc
 
 const TOKEN     = process.env.TOKEN;
 const CLIENT_ID = "1480592876684706064";
-const OWNER_IDS = ["1419803002771865722","969280648667889764","363149593787105291"];
+const OWNER_IDS = ["1419803002771865722","969280648667889764"];
 const OWNER_ID  = OWNER_IDS[1];
 const GAY_IDS   = ["1245284545452834857","1413943805203189800","1057320311453913149","1193150033864949811"];
 // Mutable — managed via /managememers (owner only), persisted in botdata.json
@@ -723,9 +723,9 @@ setInterval(async () => {
       if (!chosen) continue;
       const sent = await safeSend(ch, { content: `🌅 **Daily Quote**`, files: [chosen.download_url] });
       if (sent) {
-        await sent.react("👍").catch(()=>{});
-        await sent.react("👎").catch(()=>{});
-        await sent.react("🗑️").catch(()=>{});
+        await sent.react("goodquote").catch(()=>{});
+        await sent.react("badquote").catch(()=>{});
+        await sent.react("raccoontrashcan").catch(()=>{});
         quoteVoteMessages.set(sent.id, chosen.name);
         trashcanVotes.set(sent.id, { filename: chosen.name, voters: new Set(), guildId, channelId: cfg.channelId, sentToDeleter: false });
         saveData();
@@ -1965,15 +1965,15 @@ client.on("messageReactionAdd", async (reaction, user) => {
   const quoteName = quoteVoteMessages.get(reaction.message.id);
   if (quoteName) {
     const emoji = reaction.emoji.name;
-    if (emoji === "👍" || emoji === "👎") {
+    if (emoji === "goodquote" || emoji === "badquote") {
       const v = quoteVotes.get(quoteName) || { up: 0, down: 0 };
-      if (emoji === "👍") v.up++;
+      if (emoji === "goodquote") v.up++;
       else                v.down++;
       quoteVotes.set(quoteName, v);
       saveData();
     }
     // ── Trashcan vote ──────────────────────────────────────────────────────────
-    if (emoji === "🗑️") {
+    if (emoji === "raccoontrashcan") {
       const tv = trashcanVotes.get(reaction.message.id);
       if (tv && !tv.sentToDeleter) {
         tv.voters.add(user.id);
@@ -2053,14 +2053,14 @@ client.on("messageReactionRemove", async (reaction, user) => {
   const quoteName = quoteVoteMessages.get(reaction.message.id);
   if (quoteName) {
     const emoji = reaction.emoji.name;
-    if (emoji === "👍" || emoji === "👎") {
+    if (emoji === "goodquote" || emoji === "badquote") {
       const v = quoteVotes.get(quoteName) || { up: 0, down: 0 };
-      if (emoji === "👍") v.up   = Math.max(0, v.up - 1);
+      if (emoji === "goodquote") v.up   = Math.max(0, v.up - 1);
       else                v.down = Math.max(0, v.down - 1);
       quoteVotes.set(quoteName, v);
       saveData();
     }
-    if (emoji === "🗑️") {
+    if (emoji === "raccoontrashcan") {
       const tv = trashcanVotes.get(reaction.message.id);
       if (tv && !tv.sentToDeleter) {
         tv.voters.delete(user.id);
@@ -4384,9 +4384,9 @@ if(cmd==="gif"){
           try {
             const msg = sent.id ? sent : await interaction.fetchReply().catch(()=>null);
             if(msg){
-              await msg.react("👍").catch(()=>{});
-              await msg.react("👎").catch(()=>{});
-              await msg.react("🗑️").catch(()=>{});
+              await msg.react("goodquote").catch(()=>{});
+              await msg.react("badquote").catch(()=>{});
+              await msg.react("raccoontrashcan").catch(()=>{});
               quoteVoteMessages.set(msg.id, chosen.name);
               trashcanVotes.set(msg.id, { filename: chosen.name, voters: new Set(), guildId: interaction.guildId||null, channelId: interaction.channelId||null, sentToDeleter: false });
               saveData();
@@ -4421,9 +4421,9 @@ if(cmd==="gif"){
           try {
             const msg = sent.id ? sent : await interaction.fetchReply().catch(()=>null);
             if(msg){
-              await msg.react("👍").catch(()=>{});
-              await msg.react("👎").catch(()=>{});
-              await msg.react("🗑️").catch(()=>{});
+              await msg.react("goodquote").catch(()=>{});
+              await msg.react("badquote").catch(()=>{});
+              await msg.react("raccoontrashcan").catch(()=>{});
               quoteVoteMessages.set(msg.id, chosen.name);
               trashcanVotes.set(msg.id, { filename: chosen.name, voters: new Set(), guildId: interaction.guildId||null, channelId: interaction.channelId||null, sentToDeleter: false });
               saveData();
@@ -4458,9 +4458,9 @@ if(cmd==="gif"){
           try {
             const msg = sent.id ? sent : await interaction.fetchReply().catch(()=>null);
             if(msg){
-              await msg.react("👍").catch(()=>{});
-              await msg.react("👎").catch(()=>{});
-              await msg.react("🗑️").catch(()=>{});
+              await msg.react("goodquote").catch(()=>{});
+              await msg.react("badquote").catch(()=>{});
+              await msg.react("raccoontrashcan").catch(()=>{});
               quoteVoteMessages.set(msg.id, chosen.name);
               trashcanVotes.set(msg.id, { filename: chosen.name, voters: new Set(), guildId: interaction.guildId||null, channelId: interaction.channelId||null, sentToDeleter: false });
               saveData();
@@ -4528,7 +4528,7 @@ if(cmd==="gif"){
       const question=interaction.options.getString("question");
       await safeReply(interaction,`📊 **Poll:** ${question}`);
       const msg=await interaction.fetchReply();
-      await msg.react("👍");await msg.react("👎");await msg.react("🤷");
+      await msg.react("goodquote");await msg.react("badquote");await msg.react("🤷");
       return;
     }
 
