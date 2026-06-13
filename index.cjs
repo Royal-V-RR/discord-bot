@@ -9,11 +9,14 @@ try { voice = require("@discordjs/voice"); } catch { console.warn("[voice] @disc
 
 const TOKEN     = process.env.TOKEN;
 const CLIENT_ID = "1480592876684706064";
-const OWNER_IDS = ["1419803002771865722","969280648667889764","363149593787105291"];
+const OWNER_IDS = ["1419803002771865722","969280648667889764"];
 const OWNER_ID  = OWNER_IDS[1];
 const GAY_IDS   = ["1245284545452834857","1413943805203189800","1057320311453913149","1193150033864949811"];
 // Mutable — managed via /managememers (owner only), persisted in botdata.json
 const MEMERS = new Set(["1419803002771865722","1259223683826712729","1254388539890860083","1082452773787942922","1193150033864949811","1413943805203189800","969280648667889764","690219723472109616"]); // Users allowed to use /upload
+
+// ── App emoji cache (populated on ready) ─────────────────────────────────────
+const appEmojiCache = new Map(); // name → { id, name, animated }
 
 // ── Instance lock ─────────────────────────────────────────────────────────────
 const INSTANCE_ID = Math.random().toString(36).slice(2, 8);
@@ -723,9 +726,9 @@ setInterval(async () => {
       if (!chosen) continue;
       const sent = await safeSend(ch, { content: `🌅 **Daily Quote**`, files: [chosen.download_url] });
       if (sent) {
-        await sent.react("goodquote").catch(()=>{});
-        await sent.react("badquote").catch(()=>{});
-        await sent.react("raccoontrashcan").catch(()=>{});
+        await sent.react(resolveEmoji("goodquote", sent)).catch(()=>{});
+        await sent.react(resolveEmoji("badquote", sent)).catch(()=>{});
+        await sent.react(resolveEmoji("raccoontrashcan", sent)).catch(()=>{});
         quoteVoteMessages.set(sent.id, chosen.name);
         trashcanVotes.set(sent.id, { filename: chosen.name, voters: new Set(), guildId, channelId: cfg.channelId, sentToDeleter: false });
         saveData();
@@ -1893,7 +1896,22 @@ client.once("ready", async () => {
   try { const owner = await client.users.fetch(OWNER_ID); await acquireInstanceLock(owner); }
   catch(e) { console.error("Lock error:", e); instanceLocked = true; }
 
-  // Don't register commands if this instance lost the lock and is about to exit
+  // Fetch app-level emojis (uploaded via Developer Portal) and cache them
+  try {
+    const emojiRes = await fetch(`https://discord.com/api/v10/applications/${CLIENT_ID}/emojis`, {
+      headers: { Authorization: `Bot ${TOKEN}` }
+    });
+    if (emojiRes.ok) {
+      const emojiData = await emojiRes.json();
+      const list = emojiData.items ?? emojiData; // API returns { items: [...] }
+      for (const e of list) appEmojiCache.set(e.name, e);
+      console.log(`[emojis] Loaded ${appEmojiCache.size} app emoji(s): ${[...appEmojiCache.keys()].join(", ")}`);
+    } else {
+      console.warn("[emojis] Failed to fetch app emojis:", emojiRes.status);
+    }
+  } catch(e) { console.warn("[emojis] App emoji fetch error:", e.message); }
+
+
   if (!instanceLocked) return;
 
   // Step 0: Wipe any lingering global commands (all commands are now guild-only for instant propagation).
@@ -1943,6 +1961,25 @@ client.on("guildMemberUpdate",async(oldMember,newMember)=>{
     await safeSend(ch,msg);
   }
 });
+
+// ── Emoji helpers ─────────────────────────────────────────────────────────────
+// Resolves an emoji name to something .react() accepts.
+// Checks app-level emojis first (uploaded via Developer Portal),
+// then guild emojis, then falls back to the raw string (unicode).
+function resolveEmoji(name, msg) {
+  // App emoji — format Discord.js react() needs is "name:id"
+  const appEmoji = appEmojiCache.get(name);
+  if (appEmoji) return `${appEmoji.name}:${appEmoji.id}`;
+  // Guild emoji fallback
+  const search = g => g.emojis.cache.find(e => e.name === name);
+  const fromGuild = msg.guild ? search(msg.guild) : null;
+  if (fromGuild) return fromGuild;
+  for (const g of client.guilds.cache.values()) {
+    const found = search(g);
+    if (found) return found;
+  }
+  return name; // unicode or last-resort fallback
+}
 
 // ── Reaction roles ────────────────────────────────────────────────────────────
 function emojiKey(reaction){
@@ -4384,9 +4421,9 @@ if(cmd==="gif"){
           try {
             const msg = sent.id ? sent : await interaction.fetchReply().catch(()=>null);
             if(msg){
-              await msg.react("goodquote").catch(()=>{});
-              await msg.react("badquote").catch(()=>{});
-              await msg.react("raccoontrashcan").catch(()=>{});
+              await msg.react(resolveEmoji("goodquote", msg)).catch(()=>{});
+              await msg.react(resolveEmoji("badquote", msg)).catch(()=>{});
+              await msg.react(resolveEmoji("raccoontrashcan", msg)).catch(()=>{});
               quoteVoteMessages.set(msg.id, chosen.name);
               trashcanVotes.set(msg.id, { filename: chosen.name, voters: new Set(), guildId: interaction.guildId||null, channelId: interaction.channelId||null, sentToDeleter: false });
               saveData();
@@ -4421,9 +4458,9 @@ if(cmd==="gif"){
           try {
             const msg = sent.id ? sent : await interaction.fetchReply().catch(()=>null);
             if(msg){
-              await msg.react("goodquote").catch(()=>{});
-              await msg.react("badquote").catch(()=>{});
-              await msg.react("raccoontrashcan").catch(()=>{});
+              await msg.react(resolveEmoji("goodquote", msg)).catch(()=>{});
+              await msg.react(resolveEmoji("badquote", msg)).catch(()=>{});
+              await msg.react(resolveEmoji("raccoontrashcan", msg)).catch(()=>{});
               quoteVoteMessages.set(msg.id, chosen.name);
               trashcanVotes.set(msg.id, { filename: chosen.name, voters: new Set(), guildId: interaction.guildId||null, channelId: interaction.channelId||null, sentToDeleter: false });
               saveData();
@@ -4458,9 +4495,9 @@ if(cmd==="gif"){
           try {
             const msg = sent.id ? sent : await interaction.fetchReply().catch(()=>null);
             if(msg){
-              await msg.react("goodquote").catch(()=>{});
-              await msg.react("badquote").catch(()=>{});
-              await msg.react("raccoontrashcan").catch(()=>{});
+              await msg.react(resolveEmoji("goodquote", msg)).catch(()=>{});
+              await msg.react(resolveEmoji("badquote", msg)).catch(()=>{});
+              await msg.react(resolveEmoji("raccoontrashcan", msg)).catch(()=>{});
               quoteVoteMessages.set(msg.id, chosen.name);
               trashcanVotes.set(msg.id, { filename: chosen.name, voters: new Set(), guildId: interaction.guildId||null, channelId: interaction.channelId||null, sentToDeleter: false });
               saveData();
@@ -4528,7 +4565,7 @@ if(cmd==="gif"){
       const question=interaction.options.getString("question");
       await safeReply(interaction,`📊 **Poll:** ${question}`);
       const msg=await interaction.fetchReply();
-      await msg.react("goodquote");await msg.react("badquote");await msg.react("🤷");
+      await msg.react(resolveEmoji("goodquote", msg));await msg.react(resolveEmoji("badquote", msg));await msg.react("🤷");
       return;
     }
 
