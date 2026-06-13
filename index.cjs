@@ -3,9 +3,6 @@ const { Client, Intents, MessageActionRow, MessageButton, MessageSelectMenu } = 
 const https = require("https");
 const http  = require("http");
 const fs    = require("fs");
-// Voice support — optional: bot works fine without it if the package isn't installed
-let voice = null;
-try { voice = require("@discordjs/voice"); } catch { console.warn("[voice] @discordjs/voice not installed — /vcjoin and /playsound will be unavailable."); }
 
 const TOKEN     = process.env.TOKEN;
 const CLIENT_ID = "1480592876684706064";
@@ -1819,13 +1816,6 @@ function buildCommands(){
     ]},
     {name:"requester",       description:"[Owner] Set the channel where quote submissions are sent for review",options:[
       {name:"channel",description:"Review channel",type:7,required:true},
-    ]},
-    {name:"vc",               description:"[Owner] Voice channel tools",options:[
-      {name:"join",           description:"Join the VC you're currently in",type:1},
-      {name:"play",           description:"Play a random audio file from the GitHub audios folder",type:1},
-      {name:"upload",         description:"Upload an audio file to the audios folder",type:1,options:[
-        {name:"source",       description:"Audio file (mp3, wav, ogg, flac, aac, opus)",type:11,required:true},
-      ]},
     ]},
   ];
 }
@@ -4149,7 +4139,7 @@ client.on("interactionCreate",async interaction=>{
   const cmd=interaction.commandName;
   const inGuild=!!interaction.guildId;
 
-  const ownerOnly=["servers","broadcast","requester","deleter","fakecrash","identitycrisis","botolympics","sentience","legendrandom","dmuser","leaveserver","restart","botstats","setstatus","admin","echo","shadowdelete","clankerify","fakemessage","vc","forcemarry","forcedivorce"];
+  const ownerOnly=["servers","broadcast","requester","deleter","fakecrash","identitycrisis","botolympics","sentience","legendrandom","dmuser","leaveserver","restart","botstats","setstatus","admin","echo","shadowdelete","clankerify","fakemessage","forcemarry","forcedivorce"];
   if(ownerOnly.includes(cmd)&&!OWNER_IDS.includes(interaction.user.id))return safeReply(interaction,{content:"Owner only.",ephemeral:true});
 
   const manageServerCmds=["channelpicker","counting","xpconfig","setwelcome","setleave","setwelcomemsg","setleavemsg","disableownermsg","serverconfig","autorole","setboostmsg","invitecomp","purge","reactionrole","ticketsetup","ytsetup","subgoal","subcount","milestones","dailyquote"];
@@ -6337,147 +6327,6 @@ if(cmd==="gif"){
       return safeReply(interaction,{content:"❌ Unknown action.",ephemeral:true});
     }
 
-    // ── /vcjoin — owner joins the VC the command user is in ──────────────────
-    if(cmd==="vc"){
-      const sub=interaction.options.getSubcommand();
-      if(sub==="join") cmd="vcjoin";
-      else if(sub==="play") cmd="playsound";
-      else if(sub==="upload") cmd="soundupload";
-    }
-    if(cmd==="vcjoin"){
-      if(!inGuild) return safeReply(interaction,{content:"❌ Server only.",ephemeral:true});
-      if(!voice) return safeReply(interaction,{content:"❌ Voice support is not installed on this bot instance (`@discordjs/voice` missing).",ephemeral:true});
-      const member = await interaction.guild.members.fetch(interaction.user.id).catch(()=>null);
-      const vc = member?.voice?.channel;
-      if(!vc) return safeReply(interaction,{content:"❌ You're not in a voice channel.",ephemeral:true});
-      if(vc.type !== "GUILD_VOICE") return safeReply(interaction,{content:"❌ That channel type isn't supported.",ephemeral:true});
-      try{
-        const conn = voice.joinVoiceChannel({
-          channelId: vc.id,
-          guildId: vc.guild.id,
-          adapterCreator: vc.guild.voiceAdapterCreator,
-          selfDeaf: false,
-          selfMute: false,
-        });
-        // Store so /playsound can use it
-        if(!client._voiceConnections) client._voiceConnections = new Map();
-        client._voiceConnections.set(interaction.guildId, conn);
-        return safeReply(interaction,{content:`✅ Joined **${vc.name}**!`,ephemeral:true});
-      }catch(e){
-        return safeReply(interaction,{content:`❌ Failed to join VC: ${e.message}`,ephemeral:true});
-      }
-    }
-
-    // ── /playsound — owner plays a random audio from GitHub audios/ in VC ────
-    if(cmd==="playsound"){
-      if(!inGuild) return safeReply(interaction,{content:"❌ Server only.",ephemeral:true});
-      if(!voice) return safeReply(interaction,{content:"❌ Voice support is not installed on this bot instance (`@discordjs/voice` missing).",ephemeral:true});
-      // Get or create a connection
-      let conn = client._voiceConnections?.get(interaction.guildId) ?? null;
-      if(!conn || conn.state.status === voice.VoiceConnectionStatus.Destroyed){
-        // Auto-join if the user is in a VC
-        const member = await interaction.guild.members.fetch(interaction.user.id).catch(()=>null);
-        const vc = member?.voice?.channel;
-        if(!vc) return safeReply(interaction,{content:"❌ No active VC connection. Use `/vcjoin` first, or join a VC yourself.",ephemeral:true});
-        try{
-          conn = voice.joinVoiceChannel({
-            channelId: vc.id,
-            guildId: vc.guild.id,
-            adapterCreator: vc.guild.voiceAdapterCreator,
-            selfDeaf: false, selfMute: false,
-          });
-          if(!client._voiceConnections) client._voiceConnections = new Map();
-          client._voiceConnections.set(interaction.guildId, conn);
-        }catch(e){
-          return safeReply(interaction,{content:`❌ Couldn't join your VC: ${e.message}`,ephemeral:true});
-        }
-      }
-      await interaction.deferReply({ephemeral:true});
-      try{
-        // Fetch the list of audio files from GitHub
-        const listRes = await fetch("https://api.github.com/repos/Royal-V-RR/discord-bot/contents/audios",{
-          headers:{"User-Agent":"RoyalBot","Authorization":`token ${GH_TOKEN}`,"Accept":"application/vnd.github+json"}
-        });
-        if(!listRes.ok) return safeReply(interaction,{content:`❌ GitHub API error (HTTP ${listRes.status}) — make sure an \`audios\` folder exists in the repo.`,ephemeral:true});
-        const files = await listRes.json();
-        const audioFiles = files.filter(f=>f.type==="file"&&/\.(mp3|wav|ogg|flac|aac|opus)$/i.test(f.name));
-        if(!audioFiles.length) return safeReply(interaction,{content:"❌ No audio files found in the `audios` folder.",ephemeral:true});
-        const chosen = audioFiles[Math.floor(Math.random()*audioFiles.length)];
-        const audioUrl = chosen.download_url;
-        // Create and play the audio resource
-        const { createAudioPlayer, createAudioResource, AudioPlayerStatus, NoSubscriberBehavior } = voice;
-        const player = createAudioPlayer({ behaviors: { noSubscriber: NoSubscriberBehavior.Pause } });
-        const resource = createAudioResource(audioUrl);
-        conn.subscribe(player);
-        player.play(resource);
-        player.once(AudioPlayerStatus.Idle, () => {
-          // Leave on idle (optional — comment out to stay in VC)
-          // conn.destroy();
-        });
-        return safeReply(interaction,{content:`🎵 Playing **\`${chosen.name}\`** in VC!`,ephemeral:true});
-      }catch(e){
-        console.error("playsound error:",e);
-        return safeReply(interaction,{content:`❌ Failed to play audio: ${e.message}`,ephemeral:true});
-      }
-    }
-
-    // ── /soundupload — owner uploads an audio file to GitHub audios/ ─────────
-    if(cmd==="soundupload"){
-      const attachment = interaction.options.getAttachment("source");
-      const ct = attachment.contentType || "";
-      // Accept audio/* content types and common audio extensions as a fallback
-      const validAudioExt = /\.(mp3|wav|ogg|flac|aac|opus|m4a)$/i.test(attachment.name || "");
-      if(!/^audio\//i.test(ct) && !validAudioExt)
-        return safeReply(interaction,{content:"❌ Attachment must be an audio file (mp3, wav, ogg, flac, aac, opus).",ephemeral:true});
-
-      await interaction.deferReply({ephemeral:true});
-
-      try {
-        const res = await fetch(attachment.url);
-        if(!res.ok) return safeReply(interaction,{content:"❌ Failed to download the attachment.",ephemeral:true});
-        const fileBuffer = Buffer.from(await res.arrayBuffer());
-
-        const fileSizeMB = (fileBuffer.length / 1024 / 1024).toFixed(2);
-        if(fileBuffer.length > 25_000_000)
-          return safeReply(interaction,{content:`❌ File is too large (${fileSizeMB} MB). GitHub's API only accepts files under 25 MB.`,ephemeral:true});
-
-        // Sanitize filename
-        let fileName = (attachment.name || "audio.mp3").replace(/[^a-zA-Z0-9._-]/g, "_");
-        const ghPath  = `audios/${fileName}`;
-        const encoded = fileBuffer.toString("base64");
-
-        // Check if it already exists (need SHA for upsert)
-        const checkRes = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/${ghPath}`,{
-          headers:{"User-Agent":"RoyalBot","Authorization":`token ${GH_TOKEN}`,"Accept":"application/vnd.github+json"}
-        });
-        let sha = null;
-        if(checkRes.ok){ const j = await checkRes.json(); sha = j.sha || null; }
-
-        const putRes = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/${ghPath}`,{
-          method:"PUT",
-          headers:{
-            "User-Agent":"RoyalBot","Authorization":`token ${GH_TOKEN}`,
-            "Accept":"application/vnd.github+json","Content-Type":"application/json"
-          },
-          body: JSON.stringify({
-            message:`feat: upload audio file ${fileName} via Discord`,
-            content: encoded,
-            ...(sha ? {sha} : {})
-          })
-        });
-
-        if(!putRes.ok){
-          const err = await putRes.text();
-          console.error("soundupload GitHub error:", err);
-          return safeReply(interaction,{content:`❌ GitHub upload failed (HTTP ${putRes.status}).`,ephemeral:true});
-        }
-
-        return safeReply(interaction,{content:`✅ **\`${fileName}\`** (${fileSizeMB} MB) uploaded to the \`audios/\` folder! Use \`/playsound\` to play it.`,ephemeral:true});
-      } catch(e) {
-        console.error("soundupload error:", e);
-        return safeReply(interaction,{content:`❌ Something went wrong: ${e.message}`,ephemeral:true});
-      }
-    }
 
     // ── /deleter — owner sets the flagged-quote review channel ───────────────
     if(cmd==="deleter"){
