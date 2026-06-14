@@ -1712,10 +1712,11 @@ function buildCommands(){
     {name:"botolympics",    description:"[Owner] Start Olympics",options:[{name:"event",description:"Event",type:3,required:true,choices:OLYMPICS_EVENTS.map((e,i)=>({name:e.name,value:String(i)}))}]},
     {name:"sentience",      description:"[Owner] Trigger sentience"},
     {name:"legendrandom",   description:"[Owner] Random legend"},
-    {name:"fakemessage",    description:"[Owner] Send a message as another user via webhook",options:[{name:"user",description:"User to impersonate",type:6,required:true},{name:"message",description:"Message text to send",type:3,required:false},{name:"file",description:"File to send",type:11,required:false}]},
+    {name:"fakemessage",    description:"[Owner] Send a message as another user via webhook",options:[{name:"user",description:"User to impersonate",type:6,required:true},{name:"message",description:"Message text to send",type:3,required:false},{name:"file",description:"File to send",type:11,required:false},{name:"mode",description:"Clankerify mode to apply to the message",type:3,required:false,choices:[{name:"No mode (plain)",value:"none"},{name:"Evil",value:"evil"},{name:"Freaky",value:"freaky"},{name:"American",value:"american"},{name:"British",value:"british"},{name:"Stupid",value:"stupid"},{name:"Boomer",value:"boomer"},{name:"Conspiracy",value:"conspiracy"},{name:"NPC",value:"npc"},{name:"Sigma",value:"sigma"},{name:"Medieval",value:"medieval"},{name:"Ghost",value:"ghost"},{name:"Pirate",value:"pirate"},{name:"RespawnRaccoon Propaganda",value:"rr_propaganda"},{name:"French",value:"french"},{name:"UWU / LOLCAT",value:"uwu"},{name:"Scottish",value:"scottish"},{name:"Random",value:"random"}]}]},
     {name:"dmuser",         description:"[Owner] DM a user",options:[{name:"user",description:"User",type:6,required:true},{name:"message",description:"Message",type:3,required:true}]},
     {name:"leaveserver",    description:"[Owner] Leave a server",options:[{name:"server",description:"Server ID",type:3,required:true}]},
     {name:"restart",        description:"[Owner] Restart"},
+    {name:"refreshcmds",    description:"[Owner] Force re-register slash commands in this guild"},
     {name:"botstats",       description:"[Owner] Bot stats"},
     {name:"setstatus",      description:"[Owner] Set status",options:[{name:"text",description:"Text",type:3,required:true},{name:"type",description:"Type",type:3,required:false,choices:[{name:"Playing",value:"PLAYING"},{name:"Watching",value:"WATCHING"},{name:"Listening",value:"LISTENING"},{name:"Competing",value:"COMPETING"}]}]},
     {name:"admin",            description:"[Owner] Admin tools",options:[
@@ -1742,9 +1743,7 @@ function buildCommands(){
     {name:"selfclank",  description:"Self-clankerify yourself for 1–5 minutes (0 to cancel, 2 people per server at a time)",options:[
       {name:"duration", description:"Duration in minutes (1–5), or 0 to cancel early",type:4,required:true},
     ]},
-    {name:"deleter",    description:"[Owner] Set the channel where trashcan-flagged quotes are sent for review",options:[
-      {name:"channel",  description:"Channel to receive flagged quotes",type:7,required:true},
-    ]},
+
     {name:"upload",            description:"Upload an image to the quotes folder",options:[
       {name:"source",          description:"[Memers only] Upload a file directly from your device",type:11,required:false},
       {name:"link",            description:"[Memers only] Submit an image via URL link",type:3,required:false},
@@ -1769,6 +1768,12 @@ function buildCommands(){
       ]},
       {name:"trash-threshold", description:"Set how many 🗑️ reactions trigger a flag (default: 3)",type:1,options:[
         {name:"amount",        description:"Number of reactions required (1–25)",type:4,required:true},
+      ]},
+      {name:"set-review-channel", description:"Set the channel where quote submissions are sent for review",type:1,options:[
+        {name:"channel",       description:"Channel to receive submissions",type:7,required:true},
+      ]},
+      {name:"set-delete-channel", description:"Set the channel where trashcan-flagged quotes are sent for review",type:1,options:[
+        {name:"channel",       description:"Channel to receive flagged quotes",type:7,required:true},
       ]},
     ]},
     {name:"dailyquote",        description:"Set up a daily quote post in a channel (Manage Server)",options:[
@@ -1814,9 +1819,7 @@ function buildCommands(){
     {name:"requestupload",   description:"Submit an image to be reviewed for the quotes folder",options:[
       {name:"source",description:"Image file to submit",type:11,required:true},
     ]},
-    {name:"requester",       description:"[Owner] Set the channel where quote submissions are sent for review",options:[
-      {name:"channel",description:"Review channel",type:7,required:true},
-    ]},
+
   ];
 }
 
@@ -2762,6 +2765,80 @@ client.on("messageCreate",async msg=>{
               "cannae be bothered wi this",
             ];
             sendContent = scotIdles[Math.floor(Math.random()*scotIdles.length)];
+          }
+        }
+
+
+        // ── Random mode — pick a random real mode each message ────────────────
+        if(mode === "random"){
+          const RANDOM_MODES = ["evil","freaky","american","british","stupid","boomer","conspiracy","npc","sigma","medieval","ghost","pirate","rr_propaganda","french","uwu","scottish"];
+          const pickedMode = RANDOM_MODES[Math.floor(Math.random()*RANDOM_MODES.length)];
+          displayName = `Randomized ${member?.displayName || msg.author.displayName || msg.author.globalName || msg.author.username}`;
+          // Re-run through the handler by temporarily overriding mode (we replicate the block inline)
+          // Instead, we use a flag approach: set a local variable and fall through each mode block
+          // We store the picked mode and apply it using the same switch logic below
+          Object.defineProperty(clankEntry, '_resolvedMode', { value: pickedMode, writable: true, configurable: true });
+          // Apply picked mode — reuse mode var
+          const _rm = pickedMode;
+          // We manually apply just the content transforms for the picked mode:
+          if(_rm === "evil"){
+            if(sendContent) sendContent = sendContent + " I'M SO EVIL THOOO";
+          } else if(_rm === "freaky"){
+            if(sendContent) sendContent = `𝓕𝓻𝓮𝓪𝓴𝔂 ${sendContent}`;
+          } else if(_rm === "american"){
+            if(sendContent) sendContent = sendContent.toUpperCase() + " LAWD BLESS MERICA 🦅🦅🦅🔥🔥🔥🇺🇸🇺🇸🇺🇸";
+          } else if(_rm === "british"){
+            const britishSwaps2=[[/\btrash\b/gi,"rubbish"],[/\bgarbage\b/gi,"rubbish"],[/\belevator\b/gi,"lift"],[/\bapartment\b/gi,"flat"],[/\bcookies\b/gi,"biscuits"],[/\bcandy\b/gi,"sweets"],[/\bchips\b/gi,"crisps"],[/\bfries\b/gi,"chips"],[/\bcell phone\b/gi,"mobile"],[/\bphone\b/gi,"mobile"],[/\bsidewalk\b/gi,"pavement"],[/\bgas\b/gi,"petrol"],[/\btrunk\b/gi,"boot"],[/\bhood\b/gi,"bonnet"],[/\bdiaper\b/gi,"nappy"],[/\bvacation\b/gi,"holiday"],[/\bmath\b/gi,"maths"],[/\bsoccer\b/gi,"football"],[/\bstore\b/gi,"shop"],[/\bsneakers\b/gi,"trainers"],[/\bpants\b/gi,"trousers"],[/\bbeer\b/gi,"lager"],[/\bdrunk\b/gi,"bladdered"],[/\bbar\b/gi,"pub"],[/\bfriend\b/gi,"mate"],[/\bguy\b/gi,"bloke"],[/\bdude\b/gi,"geezer"],[/\bman\b/gi,"lad"],[/\bgirl\b/gi,"lass"],[/\bokay\b/gi,"alright"],[/\byes\b/gi,"aye"],[/\byeah\b/gi,"aye"],[/\bno\b/gi,"nah"],[/\bthanks\b/gi,"cheers"],[/\bthank you\b/gi,"cheers"],[/\bsorry\b/gi,"sorry mate"]];
+            if(sendContent){ let t=sendContent; for(const [f,r] of britishSwaps2) t=t.replace(f,r); sendContent=t+" innit bruv"; }
+          } else if(_rm === "stupid"){
+            const slurMap2=[[/th/gi,"d"],[/ing\b/gi,"in"],[/you\b/gi,"u"],[/your\b/gi,"ur"],[/the\b/gi,"da"],[/that\b/gi,"dat"],[/this\b/gi,"dis"],[/what\b/gi,"wut"],[/because\b/gi,"cuz"],[/s\b/gi,"z"],[/I\b/g,"i"]];
+            if(sendContent){ let t=sendContent; for(const [f,r] of slurMap2) t=t.replace(f,r); sendContent=t; }
+          } else if(_rm === "boomer"){
+            const outros2=[" Anyway, have you tried turning it off and on again? 📧"," Back in MY day we didn't have this nonsense. 📰"," Is this the Reddit? 🖱️"," Make sure to LIKE and SUBSCRIBE!! 👍"];
+            if(sendContent) sendContent=sendContent+outros2[Math.floor(Math.random()*outros2.length)];
+          } else if(_rm === "conspiracy"){
+            const theories2=[" (the government doesn't want you to know this)"," — wake up sheeple 🐑"," — do your own research before they delete this"," (they're putting something in the water btw)"];
+            const prefixes2=["okay so nobody is talking about this but ","THEY don't want you to know: ","i've been doing research and ","connect the dots people — "];
+            if(sendContent) sendContent=prefixes2[Math.floor(Math.random()*prefixes2.length)]+sendContent+theories2[Math.floor(Math.random()*theories2.length)];
+          } else if(_rm === "npc"){
+            const npcPre2=["Ah, a traveler! Anyway — ","Quest updated: ","Strange things have been happening. Also, ","These are dark times, traveler. But anyway, "];
+            const npcSuf2=[" Have you tried the items at the general store?"," I don't want any trouble."," Good luck out there, traveler."];
+            if(sendContent) sendContent=npcPre2[Math.floor(Math.random()*npcPre2.length)]+sendContent+npcSuf2[Math.floor(Math.random()*npcSuf2.length)];
+          } else if(_rm === "sigma"){
+            const sigmaSwaps2=[[/\bi\b/gi,"the sigma"],[/\bme\b/gi,"the sigma"],[/\bmy\b/gi,"the sigma's"],[/\byou\b/gi,"fellow grindset individual"],[/\bfriend\b/gi,"business associate"],[/\blove\b/gi,"strategically value"],[/\bwork\b/gi,"the grindset"],[/\bmoney\b/gi,"resources"]];
+            const sigmaOut2=[" — no cap, stay sigma."," — the grindset never stops."," — lions don't lose sleep over sheep."];
+            if(sendContent){ let t=sendContent; for(const [f,r] of sigmaSwaps2) t=t.replace(f,r); sendContent=t+sigmaOut2[Math.floor(Math.random()*sigmaOut2.length)]; }
+          } else if(_rm === "medieval"){
+            const medSwaps2=[[/\byou\b/gi,"thee"],[/\byour\b/gi,"thy"],[/\bthe\b/gi,"ye"],[/\bare\b/gi,"art"],[/\bis\b/gi,"ist"],[/\byes\b/gi,"verily"],[/\bno\b/gi,"nay"],[/\bhi\b/gi,"hail"],[/\bhello\b/gi,"good morrow"],[/\bsorry\b/gi,"I beseech thy forgiveness"],[/\bgood\b/gi,"most virtuous"],[/\bbad\b/gi,"most foul"],[/\bfriend\b/gi,"loyal companion"]];
+            const medClose2=[" — so it is written, so it shall be done. ⚔️"," — hear ye, hear ye! 📯"," — upon mine honour. 🛡️"];
+            if(sendContent){ let t=sendContent; for(const [f,r] of medSwaps2) t=t.replace(f,r); sendContent=t+medClose2[Math.floor(Math.random()*medClose2.length)]; }
+          } else if(_rm === "ghost"){
+            const hauntings2=["...you won't believe what happened to me. I died. anyway — ","speaking from beyond the grave: ","i have UNFINISHED BUSINESS and it is: "];
+            const ghostOut2=[" ...tell my family i said hey 👻"," ...i keep moving the furniture and nobody notices."," ...RIP me btw 💀 (literally)"];
+            if(sendContent) sendContent=hauntings2[Math.floor(Math.random()*hauntings2.length)]+sendContent+ghostOut2[Math.floor(Math.random()*ghostOut2.length)];
+            else sendContent="*rattles chains*";
+          } else if(_rm === "pirate"){
+            const pirSubs2=[[/\bmy\b/gi,"me"],[/\byou\b/gi,"ye"],[/\byour\b/gi,"yer"],[/\bthe\b/gi,"th'"],[/\bis\b/gi,"be"],[/\bfriend\b/gi,"matey"],[/\bhey\b/gi,"ahoy"],[/\bhi\b/gi,"ahoy"],[/\bhello\b/gi,"ahoy"],[/\byes\b/gi,"aye"],[/\byeah\b/gi,"aye"],[/\bno\b/gi,"nay"],[/\bman\b/gi,"landlubber"],[/\bgood\b/gi,"fine"],[/\bbad\b/gi,"foul"]];
+            const pirInter2=[" arr!"," shiver me timbers!"," by Davy Jones!"," yo ho!"];
+            if(sendContent){ let t=sendContent; for(const [f,r] of pirSubs2) t=t.replace(f,r); if(Math.random()<0.7) t+=pirInter2[Math.floor(Math.random()*pirInter2.length)]; sendContent=t; }
+            else sendContent="arr... *stares into the horizon*";
+          } else if(_rm === "rr_propaganda"){
+            const rrSig2=[" By the way, go sub to RespawnRaccoon!"," On my momma if you ain't subbed to RespawnRaccoon..."," By the way, do you know RespawnRaccoon?"," Dude, you gotta check out RespawnRaccoon fr: https://www.youtube.com/@respawnraccoon"];
+            sendContent=(sendContent||"")+rrSig2[Math.floor(Math.random()*rrSig2.length)];
+          } else if(_rm === "french"){
+            const frSwaps2=[[/\bhello\b/gi,"bonjour"],[/\bhi\b/gi,"salut"],[/\byes\b/gi,"oui"],[/\byeah\b/gi,"oui oui"],[/\bno\b/gi,"non"],[/\bthanks\b/gi,"merci"],[/\bsorry\b/gi,"pardon"],[/\bgood\b/gi,"magnifique"],[/\bfriend\b/gi,"mon ami"],[/\blove\b/gi,"amour"]];
+            const frOut2=[" — c'est la vie 🥐"," — hon hon hon 🥖"," — sacré bleu!"," — voilà!"];
+            if(sendContent){ let t=sendContent; for(const [f,r] of frSwaps2) t=t.replace(f,r); sendContent=t+frOut2[Math.floor(Math.random()*frOut2.length)]; }
+            else sendContent="*shrugs elaborately* bof…";
+          } else if(_rm === "uwu"){
+            const uwuSwaps2=[[/r/gi,"w"],[/l/gi,"w"],[/\bno\b/gi,"nyo"],[/\byes\b/gi,"yesh"],[/\bthe\b/gi,"da"],[/\byou\b/gi,"ewe"],[/\bwhat\b/gi,"wat"],[/\bhello\b/gi,"hewwo"],[/\bhi\b/gi,"hewwo"],[/\bsorry\b/gi,"sowwy"],[/!/g,"! UwU"],[/\?/g,"? :3"]];
+            const uwuOut2=["mrrp","  :3","  meow meow :3","  Nyah~!"];
+            if(sendContent){ let t=sendContent; for(const [f,r] of uwuSwaps2) t=t.replace(f,r); sendContent=t+"  "+uwuOut2[Math.floor(Math.random()*uwuOut2.length)]; }
+            else sendContent="*purrs* mrrp :3";
+          } else if(_rm === "scottish"){
+            const scotOut2=["  Where's me fockinʼ Iron Bru","  SCOTLAND FOREEVVVVVERRRRRRR","  Now fack off ya wee wanker"];
+            if(sendContent){ let t=sendContent.replace(/\byes\b/gi,"aye").replace(/\bno\b/gi,"naw").replace(/\bfriend\b/gi,"pal").replace(/\bman\b/gi,"lad").replace(/\bsmall\b/gi,"wee").replace(/\bvery\b/gi,"pure").replace(/\bgood\b/gi,"guid").replace(/\bbad\b/gi,"shite").replace(/\bcool\b/gi,"braw"); sendContent=t+scotOut2[Math.floor(Math.random()*scotOut2.length)]; }
+            else sendContent="och aye the noo… *adjusts kilt*";
           }
         }
 
@@ -4139,7 +4216,7 @@ client.on("interactionCreate",async interaction=>{
   const cmd=interaction.commandName;
   const inGuild=!!interaction.guildId;
 
-  const ownerOnly=["servers","broadcast","requester","deleter","fakecrash","identitycrisis","botolympics","sentience","legendrandom","dmuser","leaveserver","restart","botstats","setstatus","admin","echo","shadowdelete","clankerify","fakemessage","forcemarry","forcedivorce"];
+  const ownerOnly=["servers","broadcast","requester","deleter","fakecrash","identitycrisis","botolympics","sentience","legendrandom","dmuser","leaveserver","restart","refreshcmds","botstats","setstatus","admin","echo","shadowdelete","clankerify","fakemessage","forcemarry","forcedivorce"];
   if(ownerOnly.includes(cmd)&&!OWNER_IDS.includes(interaction.user.id))return safeReply(interaction,{content:"Owner only.",ephemeral:true});
 
   const manageServerCmds=["channelpicker","counting","xpconfig","setwelcome","setleave","setwelcomemsg","setleavemsg","disableownermsg","serverconfig","autorole","setboostmsg","invitecomp","purge","reactionrole","ticketsetup","ytsetup","subgoal","subcount","milestones","dailyquote"];
@@ -4290,6 +4367,7 @@ if(cmd==="clankerify"){
         {label:"French",                    value:"french",       emoji:"🇫🇷"},
         {label:"UWU / LOLCAT",              value:"uwu",          emoji:"🐱"},
         {label:"Scottish",                  value:"scottish",     emoji:"🏴󠁧󠁢󠁳󠁣󠁴󠁿"},
+        {label:"Random (picks a random mode each message)", value:"random",   emoji:"🎲"},
       ])
   );
   const durationStr = duration ? `**${duration} minute(s)**` : "**permanently**";
@@ -5341,23 +5419,62 @@ if(cmd==="gif"){
       const target=interaction.options.getUser("user");
       const msgText=interaction.options.getString("message");
       const fileAttach=interaction.options.getAttachment("file");
+      const fakeMode=interaction.options.getString("mode")||null;
       if(!msgText&&!fileAttach)return safeReply(interaction,{content:"❌ Provide a message and/or a file.",ephemeral:true});
       try{
         const member=await interaction.guild.members.fetch(target.id).catch(()=>null);
-        const displayName=member?.displayName||target.username;
+        let fakeDisplayName=member?.displayName||target.username;
         const avatarURL=target.displayAvatarURL({size:256,dynamic:true});
+        let fakeContent=msgText||null;
+
+        // ── Apply clankerify mode transforms ──────────────────────────────────
+        const FAKE_ALL_MODES=["evil","freaky","american","british","stupid","boomer","conspiracy","npc","sigma","medieval","ghost","pirate","rr_propaganda","french","uwu","scottish"];
+        const resolvedFakeMode=(fakeMode==="random"||fakeMode==="none"||!fakeMode)
+          ? (fakeMode==="random" ? FAKE_ALL_MODES[Math.floor(Math.random()*FAKE_ALL_MODES.length)] : null)
+          : fakeMode;
+
+        if(resolvedFakeMode==="random") fakeDisplayName=`Randomized ${fakeDisplayName}`;
+
+        if(resolvedFakeMode==="evil"){ fakeDisplayName=`Evil ${fakeDisplayName}`; if(fakeContent) fakeContent=fakeContent+" I'M SO EVIL THOOO"; }
+        else if(resolvedFakeMode==="freaky"){ fakeDisplayName=`𝓕𝓻𝓮𝓪𝓴𝔂 ${fakeDisplayName}`; if(fakeContent) fakeContent=`𝓕𝓻𝓮𝓪𝓴𝔂 ${fakeContent}`; }
+        else if(resolvedFakeMode==="american"){ fakeDisplayName=`American ${fakeDisplayName}`; if(fakeContent) fakeContent=fakeContent.toUpperCase()+" LAWD BLESS MERICA 🦅🦅🦅🔥🔥🔥🇺🇸🇺🇸🇺🇸"; }
+        else if(resolvedFakeMode==="british"){ fakeDisplayName=`${fakeDisplayName} innit`; if(fakeContent){ const bs=[[/trash/gi,"rubbish"],[/elevator/gi,"lift"],[/apartment/gi,"flat"],[/cookies/gi,"biscuits"],[/candy/gi,"sweets"],[/chips/gi,"crisps"],[/fries/gi,"chips"],[/phone/gi,"mobile"],[/sidewalk/gi,"pavement"],[/gas/gi,"petrol"],[/vacation/gi,"holiday"],[/soccer/gi,"football"],[/store/gi,"shop"],[/pants/gi,"trousers"],[/beer/gi,"lager"],[/drunk/gi,"bladdered"],[/bar/gi,"pub"],[/friend/gi,"mate"],[/guy/gi,"bloke"],[/dude/gi,"geezer"],[/man/gi,"lad"],[/girl/gi,"lass"],[/okay/gi,"alright"],[/yes/gi,"aye"],[/yeah/gi,"aye"],[/no/gi,"nah"],[/thanks/gi,"cheers"],[/sorry/gi,"sorry mate"]]; let t=fakeContent; for(const [f,r] of bs) t=t.replace(f,r); fakeContent=t+" innit bruv"; } }
+        else if(resolvedFakeMode==="stupid"){ if(fakeContent){ const sl=[[/th/gi,"d"],[/ing/gi,"in"],[/you/gi,"u"],[/your/gi,"ur"],[/the/gi,"da"],[/that/gi,"dat"],[/this/gi,"dis"],[/what/gi,"wut"],[/because/gi,"cuz"],[/s/gi,"z"],[/I/g,"i"]]; let t=fakeContent; for(const [f,r] of sl) t=t.replace(f,r); fakeContent=t; } }
+        else if(resolvedFakeMode==="boomer"){ fakeDisplayName=`${fakeDisplayName} (Bob's dad)`; if(fakeContent){ const bo=[[/lol/gi,"LOL (laugh out loud)"],[/omg/gi,"OH MY GOD"],[/btw/gi,"by the way"],[/idk/gi,"I don't know"],[/tbh/gi,"to be honest"],[/smh/gi,"shaking my head"],[/fr/gi,"for real"],[/based/gi,"sensible"],[/cringe/gi,"embarrassing"],[/slay/gi,"good job"],[/vibe/gi,"feeling"],[/sus/gi,"suspicious"]]; let t=fakeContent; for(const [f,r] of bo) t=t.replace(f,r); const out=[" Anyway, have you tried turning it off and on again? 📧"," Back in MY day we didn't have this nonsense. 📰"," Is this the Reddit? 🖱️"," Make sure to LIKE and SUBSCRIBE!! 👍"]; fakeContent=t+out[Math.floor(Math.random()*out.length)]; } }
+        else if(resolvedFakeMode==="conspiracy"){ fakeDisplayName=`🔺 ${fakeDisplayName} [AWAKE]`; if(fakeContent){ const th=[" (the government doesn't want you to know this)"," — wake up sheeple 🐑"," — do your own research before they delete this"," (they're putting something in the water btw)"," — the lizard people are FURIOUS about it"]; const pr=["okay so nobody is talking about this but ","THEY don't want you to know: ","i've been doing research and ","connect the dots people — "]; fakeContent=pr[Math.floor(Math.random()*pr.length)]+fakeContent+th[Math.floor(Math.random()*th.length)]; } }
+        else if(resolvedFakeMode==="npc"){ fakeDisplayName=`${fakeDisplayName} [NPC #${Math.floor(Math.random()*9999)+1}]`; if(fakeContent){ const np=["Ah, a traveler! Anyway — ","Quest updated: ","Strange things have been happening. Also, ","You didn't hear this from me, but "]; const ns=[" Have you tried the items at the general store?"," I don't want any trouble."," Good luck out there, traveler."," [NPC wanders off]"]; fakeContent=np[Math.floor(Math.random()*np.length)]+fakeContent+ns[Math.floor(Math.random()*ns.length)]; } else fakeContent="...*stares into the distance*"; }
+        else if(resolvedFakeMode==="sigma"){ fakeDisplayName=`Σ ${fakeDisplayName}`; if(fakeContent){ const ss=[[/i/gi,"the sigma"],[/me/gi,"the sigma"],[/my/gi,"the sigma's"],[/you/gi,"fellow grindset individual"],[/friend/gi,"business associate"],[/love/gi,"strategically value"],[/work/gi,"the grindset"],[/money/gi,"resources"]]; let t=fakeContent; for(const [f,r] of ss) t=t.replace(f,r); const so=[" — no cap, stay sigma."," — the grindset never stops."," — lions don't lose sleep over sheep."]; fakeContent=t+so[Math.floor(Math.random()*so.length)]; } }
+        else if(resolvedFakeMode==="medieval"){ fakeDisplayName=`Sir ${fakeDisplayName} of the Realm`; if(fakeContent){ const ms=[[/you/gi,"thee"],[/your/gi,"thy"],[/the/gi,"ye"],[/are/gi,"art"],[/is/gi,"ist"],[/yes/gi,"verily"],[/no/gi,"nay"],[/hi/gi,"hail"],[/hello/gi,"good morrow"],[/sorry/gi,"I beseech thy forgiveness"],[/good/gi,"most virtuous"],[/bad/gi,"most foul"],[/friend/gi,"loyal companion"],[/omg/gi,"by the saints"]]; let t=fakeContent; for(const [f,r] of ms) t=t.replace(f,r); const mc=[" — so it is written, so it shall be done. ⚔️"," — hear ye, hear ye! 📯"," — upon mine honour. 🛡️"]; fakeContent=t+mc[Math.floor(Math.random()*mc.length)]; } }
+        else if(resolvedFakeMode==="ghost"){ fakeDisplayName=`👻 ${fakeDisplayName}'s Ghost`; if(fakeContent){ const gh=["...you won't believe what happened to me. I died. anyway — ","speaking from beyond the grave: ","i have UNFINISHED BUSINESS and it is: "]; const go=[" ...tell my family i said hey 👻"," ...i keep moving the furniture and nobody notices."," ...RIP me btw 💀 (literally)"]; fakeContent=gh[Math.floor(Math.random()*gh.length)]+fakeContent+go[Math.floor(Math.random()*go.length)]; } else fakeContent="*rattles chains*"; }
+        else if(resolvedFakeMode==="pirate"){ fakeDisplayName=`🏴‍☠️ ${fakeDisplayName} (the Pirate)`; if(fakeContent){ const ps=[[/my/gi,"me"],[/you/gi,"ye"],[/your/gi,"yer"],[/the/gi,"th'"],[/is/gi,"be"],[/friend/gi,"matey"],[/hey/gi,"ahoy"],[/hi/gi,"ahoy"],[/hello/gi,"ahoy"],[/yes/gi,"aye"],[/yeah/gi,"aye"],[/no/gi,"nay"],[/man/gi,"landlubber"],[/good/gi,"fine"],[/bad/gi,"foul"]]; let t=fakeContent; for(const [f,r] of ps) t=t.replace(f,r); const pi=[" arr!"," shiver me timbers!"," by Davy Jones!"," yo ho!"]; if(Math.random()<0.7) t+=pi[Math.floor(Math.random()*pi.length)]; fakeContent=t; } else fakeContent="arr... *stares into the horizon*"; }
+        else if(resolvedFakeMode==="rr_propaganda"){ const rs=[" By the way, go sub to RespawnRaccoon!"," By the way, go sub to RespawnRaccoon! Here's his YouTube link: https://www.youtube.com/@respawnraccoon"," On my momma if you ain't subbed to RespawnRaccoon..."," By the way, do you know RespawnRaccoon?"]; fakeContent=(fakeContent||"")+rs[Math.floor(Math.random()*rs.length)]; }
+        else if(resolvedFakeMode==="french"){ fakeDisplayName=`${fakeDisplayName} 🇫🇷`; if(fakeContent){ const fs=[[/hello/gi,"bonjour"],[/hi/gi,"salut"],[/yes/gi,"oui"],[/yeah/gi,"oui oui"],[/no/gi,"non"],[/thanks/gi,"merci"],[/sorry/gi,"pardon"],[/good/gi,"magnifique"],[/friend/gi,"mon ami"],[/love/gi,"amour"],[/food/gi,"la cuisine"],[/wine/gi,"vin"]]; let t=fakeContent; for(const [f,r] of fs) t=t.replace(f,r); const fo=[" — c'est la vie 🥐"," — hon hon hon 🥖"," — sacré bleu!"," — voilà!"]; fakeContent=t+fo[Math.floor(Math.random()*fo.length)]; } else fakeContent="*shrugs elaborately* bof…"; }
+        else if(resolvedFakeMode==="uwu"){ fakeDisplayName=`${fakeDisplayName} :3`; if(fakeContent){ const uw=[[/r/gi,"w"],[/l/gi,"w"],[/no/gi,"nyo"],[/yes/gi,"yesh"],[/the/gi,"da"],[/you/gi,"ewe"],[/what/gi,"wat"],[/hello/gi,"hewwo"],[/hi/gi,"hewwo"],[/sorry/gi,"sowwy"],[/!/g,"! UwU"],[/\?/g,"? :3"]]; let t=fakeContent; for(const [f,r] of uw) t=t.replace(f,r); const uo=["mrrp","  :3","  meow meow :3","  Nyah~!"]; fakeContent=t+"  "+uo[Math.floor(Math.random()*uo.length)]; } else fakeContent="*purrs* mrrp :3"; }
+        else if(resolvedFakeMode==="scottish"){ fakeDisplayName=`sco'ish ${fakeDisplayName} 'aye`; if(fakeContent){ let t=fakeContent.replace(/yes/gi,"aye").replace(/no/gi,"naw").replace(/friend/gi,"pal").replace(/man/gi,"lad").replace(/small/gi,"wee").replace(/very/gi,"pure").replace(/good/gi,"guid").replace(/bad/gi,"shite").replace(/cool/gi,"braw").replace(/hello/gi,"hullo").replace(/hi/gi,"awright").replace(/stupid/gi,"daft").replace(/crazy/gi,"mental"); const so=["  Where's me fockinʼ Iron Bru","  SCOTLAND FOREEVVVVVERRRRRRR","  Now fack off ya wee wanker"]; fakeContent=t+so[Math.floor(Math.random()*so.length)]; } else fakeContent="och aye the noo… *adjusts kilt*"; }
+
         const webhooks=await interaction.channel.fetchWebhooks();
         let webhook=webhooks.find(w=>w.owner?.id===CLIENT_ID);
         if(!webhook)webhook=await interaction.channel.createWebhook("RoyalBot Proxy",{avatar:avatarURL});
-        const sendOpts={username:displayName,avatarURL};
-        if(msgText)sendOpts.content=msgText;
+        const sendOpts={username:fakeDisplayName,avatarURL,allowedMentions:{parse:[]}};
+        if(fakeContent)sendOpts.content=fakeContent;
         if(fileAttach)sendOpts.files=[{attachment:fileAttach.url,name:fileAttach.name}];
         await webhook.send(sendOpts);
-        return safeReply(interaction,{content:"✅ Message sent.",ephemeral:true});
+        const modeLabel=resolvedFakeMode?` in **${resolvedFakeMode}** mode`:"";
+        return safeReply(interaction,{content:`✅ Message sent as **${fakeDisplayName}**${modeLabel}.`,ephemeral:true});
       }catch(e){return safeReply(interaction,{content:`❌ Failed: ${e.message}`,ephemeral:true});}
     }
     if(cmd==="leaveserver"){const guild=client.guilds.cache.get(interaction.options.getString("server"));if(!guild)return safeReply(interaction,{content:"Server not found.",ephemeral:true});const name=guild.name;await guild.leave();return safeReply(interaction,{content:`Left ${name}`,ephemeral:true});}
     if(cmd==="restart"){await safeReply(interaction,{content:"Restarting…",ephemeral:true});process.exit(0);}
+    if(cmd==="refreshcmds"){
+      if(!interaction.guildId) return safeReply(interaction,{content:"Server only.",ephemeral:true});
+      await safeReply(interaction,{content:"🔄 Re-registering slash commands for this guild…",ephemeral:true});
+      try{
+        await registerGuildCommands(interaction.guildId);
+        return safeReply(interaction,{content:`✅ Slash commands re-registered for **${interaction.guild.name}**. New commands should appear within a few seconds.`,ephemeral:true});
+      }catch(e){
+        return safeReply(interaction,{content:`❌ Failed to re-register: ${e.message}`,ephemeral:true});
+      }
+    }
     if(cmd==="setstatus"){const text=interaction.options.getString("text"),type=interaction.options.getString("type")||"PLAYING";client.user.setActivity(text,{type});return safeReply(interaction,{content:`Status → ${type}: ${text}`,ephemeral:true});}
     if(cmd==="admin"){
       const sub=interaction.options.getSubcommand();
@@ -6329,7 +6446,7 @@ if(cmd==="gif"){
 
 
     // ── /deleter — owner sets the flagged-quote review channel ───────────────
-    if(cmd==="deleter"){
+    if(cmd==="deleter"||((cmd==="quotemanage")&&interaction.options.getSubcommand(false)==="set-delete-channel")){
       const ch = interaction.options.getChannel("channel");
       if(ch.type!=="GUILD_TEXT") return safeReply(interaction,{content:"❌ Please select a text channel.",ephemeral:true});
       deleterChannelId = ch.id;
@@ -6416,6 +6533,7 @@ if(cmd==="gif"){
             {label:"French",                    value:"french",           emoji:"🇫🇷"},
             {label:"UWU / LOLCAT",              value:"uwu",              emoji:"🐱"},
             {label:"Scottish",                  value:"scottish",         emoji:"🏴󠁧󠁢󠁳󠁣󠁴󠁿"},
+            {label:"Random (picks a random mode each message)", value:"random",   emoji:"🎲"},
           ])
       );
       return safeReply(interaction,{
@@ -6426,7 +6544,7 @@ if(cmd==="gif"){
     }
 
     // ── /requester — owner sets the review channel ────────────────────────────
-    if(cmd==="requester"){
+    if(cmd==="requester"||((cmd==="quotemanage")&&interaction.options.getSubcommand(false)==="set-review-channel")){
       const ch = interaction.options.getChannel("channel");
       if(ch.type!=="GUILD_TEXT") return safeReply(interaction,{content:"❌ Please select a text channel.",ephemeral:true});
       reviewChannelId = ch.id;
