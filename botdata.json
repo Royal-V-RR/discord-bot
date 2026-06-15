@@ -3128,7 +3128,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 4875,
+        "xp": 4888,
         "level": 22,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -29411,7 +29411,7 @@
       "skibidi toilet.png",
       {
         "up": 6,
-        "down": 9
+        "down": 10
       }
     ],
     [
@@ -50641,11 +50641,12 @@
       {
         "filename": "skibidi toilet.png",
         "voters": [
-          "969280648667889764"
+          "969280648667889764",
+          "1460301822827692237"
         ],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
-        "sentToDeleter": false
+        "sentToDeleter": true
       }
     ]
   ],
