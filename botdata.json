@@ -467,7 +467,12 @@
         ],
         "subcountDiscordId": "1483595393999700080",
         "subcountMessageId": "1515968940793139300",
-        "subcountThreshold": 1000
+        "subcountThreshold": 1000,
+        "goal": 15000,
+        "goalMessage": null,
+        "goalReached": false,
+        "goalDiscordId": "1483595393999700080",
+        "goalMessageId": "1515968978432823417"
       }
     ]
   ],
