@@ -217,16 +217,7 @@
     ]
   ],
   "shadowDelete": [],
-  "clankerify": [
-    [
-      "1460301822827692237",
-      {
-        "expiresAt": 1781527865895,
-        "mode": "random",
-        "ownerClanked": true
-      }
-    ]
-  ],
+  "clankerify": [],
   "reactionRoles": [
     [
       "1408975996715139084:1483218332005175427:🤖",
@@ -800,9 +791,9 @@
       "1515972755424673902",
       {
         "guildId": "1048053656035020911",
-        "count": 2,
-        "lastUserId": "363149593787105291",
-        "highScore": 2
+        "count": 3,
+        "lastUserId": "690219723472109616",
+        "highScore": 3
       }
     ]
   ],
@@ -1511,7 +1502,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 1670,
+        "xp": 1681,
         "level": 22,
         "lastWorkTime": 1778752522595,
         "lastBegTime": 0,
@@ -28804,6 +28795,30 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 5,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1513966078819172356",
+      {
+        "username": "theodoremaria770",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 8,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
