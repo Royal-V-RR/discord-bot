@@ -1527,6 +1527,18 @@ const client=new Client({
 });
 
 // ── Command list ──────────────────────────────────────────────────────────────
+// ── Owner-only command names — registered globally so they don't count toward the
+//    per-guild limits (100 chat_input + 5 context_menu).  They still show default_member_permissions:"0"
+//    so only the bot owner can see/use them.
+const OWNER_ONLY_CMDS = new Set([
+  "servers","broadcast","fakecrash","identitycrisis","botolympics","sentience",
+  "legendrandom","fakemessage","dmuser","leaveserver","restart","refreshcmds",
+  "botstats","setstatus","admin","echo","shadowdelete","clankerify",
+  "forcemarry","forcedivorce",
+  // Owner context-menu commands
+  "Reaction Bomb","Clank This","Expose",
+]);
+
 function buildCommands(){
   const uReq=(req=true)=>[{name:"user",description:"User",type:6,required:req}];
   return[
@@ -1823,6 +1835,11 @@ function buildCommands(){
   ];
 }
 
+// Commands sent to every guild (non-owner, within guild limits: 100 chat_input + 5 context_menu)
+function buildGuildCommands()  { return buildCommands().filter(c => !OWNER_ONLY_CMDS.has(c.name)); }
+// Commands registered globally once (owner-only; hidden via default_member_permissions:'0')
+function buildGlobalCommands() { return buildCommands().filter(c =>  OWNER_ONLY_CMDS.has(c.name)); }
+
 
 
 // ── Command registration ──────────────────────────────────────────────────────
@@ -1843,42 +1860,80 @@ function discordRequest(method, path, body) {
   });
 }
 
-async function clearGlobalCommands() {
-  try {
-    const r = await discordRequest("PUT", `/api/v10/applications/${CLIENT_ID}/commands`, []);
-    if (r.status === 200) console.log("✅ Global commands wiped");
-    else console.warn(`⚠️ clearGlobalCommands HTTP ${r.status}: ${r.body.slice(0,200)}`);
-  } catch(e) { console.warn("clearGlobalCommands error:", e.message); }
+// ── Command fingerprinting — skip re-registration if nothing changed (prevents 30034 daily limit) ──
+const crypto = require("crypto");
+const GUILD_CMD_HASH_FILE  = "./guild_cmd_hash.json";
+const GLOBAL_CMD_HASH_FILE = "./global_cmd_hash.json";
+
+function cmdHash(cmds) {
+  return crypto.createHash("sha1").update(JSON.stringify(cmds)).digest("hex");
+}
+function loadHashFile(file) {
+  try { return JSON.parse(fs.readFileSync(file, "utf8")); } catch { return {}; }
+}
+function saveHashFile(file, data) {
+  try { fs.writeFileSync(file, JSON.stringify(data)); } catch {} 
 }
 
-// ── ALL commands registered per-guild for instant propagation (<1s vs 1hr global cache lag).
-
-async function wipeAllGlobalCmds() {
+// ── Guild commands: non-owner only (keeps counts under guild limits: 100 chat_input, 5 context_menu) ──
+async function registerGuildCommands(guildId, force = false) {
   try {
-    const r = await discordRequest("PUT", `/api/v10/applications/${CLIENT_ID}/commands`, []);
-    if (r.status === 200) console.log("✅ Global commands wiped");
-    else console.warn(`⚠️ wipeAllGlobalCmds HTTP ${r.status}: ${r.body.slice(0,200)}`);
-  } catch(e) { console.warn("wipeAllGlobalCmds error:", e.message); }
-}
-
-async function registerGuildCommands(guildId) {
-  try {
-    const cmds = buildCommands();
+    const cmds  = buildGuildCommands();
+    const hash  = cmdHash(cmds);
+    const store = loadHashFile(GUILD_CMD_HASH_FILE);
+    if (!force && store[guildId] === hash) {
+      console.log(`✅ Guild [${guildId}]: commands unchanged, skipping registration`);
+      return;
+    }
     const r = await discordRequest("PUT", `/api/v10/applications/${CLIENT_ID}/guilds/${guildId}/commands`, cmds);
     if (r.status === 200) {
+      store[guildId] = hash;
+      saveHashFile(GUILD_CMD_HASH_FILE, store);
       console.log(`✅ Guild [${guildId}]: ${JSON.parse(r.body).length} commands registered`);
-    } else if (r.status === 429 || (r.body && r.body.includes("30034"))) {
-      let retryAfter = 60;
-      try { retryAfter = JSON.parse(r.body).retry_after || 60; } catch {}
-      console.warn(`⚠️ Guild [${guildId}]: rate limited — retrying in ${Math.ceil(retryAfter)}s…`);
-      await new Promise(res => setTimeout(res, (retryAfter + 2) * 1000));
+    } else if (r.status === 429) {
+      // True HTTP rate limit — brief retry makes sense
+      let retryAfter = 5;
+      try { retryAfter = JSON.parse(r.body).retry_after || 5; } catch {}
+      console.warn(`⚠️ Guild [${guildId}]: HTTP 429, retrying in ${Math.ceil(retryAfter)}s…`);
+      await new Promise(res => setTimeout(res, (retryAfter + 1) * 1000));
       const r2 = await discordRequest("PUT", `/api/v10/applications/${CLIENT_ID}/guilds/${guildId}/commands`, cmds);
-      if (r2.status === 200) console.log(`✅ Guild [${guildId}] (retry): ${JSON.parse(r2.body).length} commands registered`);
-      else console.warn(`⚠️ Guild [${guildId}] retry HTTP ${r2.status}: ${r2.body.slice(0,200)}`);
+      if (r2.status === 200) {
+        store[guildId] = hash;
+        saveHashFile(GUILD_CMD_HASH_FILE, store);
+        console.log(`✅ Guild [${guildId}] (retry): ${JSON.parse(r2.body).length} commands registered`);
+      } else {
+        console.warn(`⚠️ Guild [${guildId}] retry HTTP ${r2.status}: ${r2.body.slice(0,300)}`);
+      }
+    } else if (r.body && r.body.includes("30034")) {
+      // Daily application command creates limit hit — no point retrying until tomorrow
+      console.error(`❌ Guild [${guildId}]: daily command-create limit reached (30034). Will retry on next restart after midnight UTC.`);
     } else {
-      console.warn(`⚠️ registerGuildCommands [${guildId}] HTTP ${r.status}: ${r.body.slice(0,200)}`);
+      console.warn(`⚠️ registerGuildCommands [${guildId}] HTTP ${r.status}: ${r.body.slice(0,300)}`);
     }
   } catch(e) { console.warn(`registerGuildCommands [${guildId}]:`, e.message); }
+}
+
+// ── Global commands: owner-only (registered once; ~1hr propagation, but only need re-registering when changed) ──
+async function registerGlobalCommands(force = false) {
+  try {
+    const cmds  = buildGlobalCommands();
+    const hash  = cmdHash(cmds);
+    const store = loadHashFile(GLOBAL_CMD_HASH_FILE);
+    if (!force && store["global"] === hash) {
+      console.log("✅ Global commands unchanged, skipping registration");
+      return;
+    }
+    const r = await discordRequest("PUT", `/api/v10/applications/${CLIENT_ID}/commands`, cmds);
+    if (r.status === 200) {
+      store["global"] = hash;
+      saveHashFile(GLOBAL_CMD_HASH_FILE, store);
+      console.log(`✅ Global: ${JSON.parse(r.body).length} commands registered`);
+    } else if (r.body && r.body.includes("30034")) {
+      console.error("❌ Global commands: daily command-create limit reached (30034). Will retry on next restart after midnight UTC.");
+    } else {
+      console.warn(`⚠️ registerGlobalCommands HTTP ${r.status}: ${r.body.slice(0,300)}`);
+    }
+  } catch(e) { console.warn("registerGlobalCommands:", e.message); }
 }
 
 const registerGuildOnlyCommands = registerGuildCommands;
@@ -1907,10 +1962,11 @@ client.once("ready", async () => {
 
   if (!instanceLocked) return;
 
-  // Step 0: Wipe any lingering global commands (all commands are now guild-only for instant propagation).
-  await wipeAllGlobalCmds();
+  // Step 0: Register global (owner-only) commands once — only sends to Discord if hashes differ.
+  await registerGlobalCommands();
 
-  // Step 1: Register all commands per-guild (instant, no 1hr global cache lag).
+  // Step 1: Register guild commands per-guild (instant propagation, <1s vs 1hr global cache lag).
+  //         Fingerprint check skips guilds whose command list hasn't changed, preventing 30034 daily limit.
   const guilds = [...client.guilds.cache.values()];
   for (let i = 0; i < guilds.length; i++) {
     if (i > 0) await new Promise(res => setTimeout(res, 500)); // small spacing to avoid bursting
@@ -5467,10 +5523,11 @@ if(cmd==="gif"){
     if(cmd==="restart"){await safeReply(interaction,{content:"Restarting…",ephemeral:true});process.exit(0);}
     if(cmd==="refreshcmds"){
       if(!interaction.guildId) return safeReply(interaction,{content:"Server only.",ephemeral:true});
-      await safeReply(interaction,{content:"🔄 Re-registering slash commands for this guild…",ephemeral:true});
+      await safeReply(interaction,{content:"🔄 Re-registering slash commands (guild + global)…",ephemeral:true});
       try{
-        await registerGuildCommands(interaction.guildId);
-        return safeReply(interaction,{content:`✅ Slash commands re-registered for **${interaction.guild.name}**. New commands should appear within a few seconds.`,ephemeral:true});
+        await registerGuildCommands(interaction.guildId, true);
+        await registerGlobalCommands(true);
+        return safeReply(interaction,{content:`✅ Commands re-registered for **${interaction.guild.name}** and globally. Guild commands update instantly; global (owner) commands may take up to 1hr to propagate.`,ephemeral:true});
       }catch(e){
         return safeReply(interaction,{content:`❌ Failed to re-register: ${e.message}`,ephemeral:true});
       }
