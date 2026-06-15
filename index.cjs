@@ -1533,8 +1533,8 @@ const client=new Client({
 const OWNER_ONLY_CMDS = new Set([
   "servers","broadcast","fakecrash","identitycrisis","botolympics","sentience",
   "legendrandom","fakemessage","dmuser","leaveserver","restart","refreshcmds",
-  "botstats","setstatus","admin","echo","shadowdelete","clankerify",
-  "forcemarry","forcedivorce",
+  "botstats","setstatus","adminuser","adminreset","adminconfig","admingive",
+  "shadowdelete","clankerify","forcemarry","forcedivorce","echo",
   // Owner context-menu commands
   "Reaction Bomb","Clank This","Expose",
 ]);
@@ -1731,12 +1731,10 @@ function buildCommands(){
     {name:"refreshcmds",    description:"[Owner] Force re-register slash commands in this guild"},
     {name:"botstats",       description:"[Owner] Bot stats"},
     {name:"setstatus",      description:"[Owner] Set status",options:[{name:"text",description:"Text",type:3,required:true},{name:"type",description:"Type",type:3,required:false,choices:[{name:"Playing",value:"PLAYING"},{name:"Watching",value:"WATCHING"},{name:"Listening",value:"LISTENING"},{name:"Competing",value:"COMPETING"}]}]},
-    {name:"admin",            description:"[Owner] Admin tools",options:[
-      {name:"user",           description:"Edit a user's stats",type:1,options:[{name:"user",description:"User",type:6,required:true},{name:"field",description:"Field",type:3,required:true,choices:[{name:"Coins",value:"coins"},{name:"Wins",value:"wins"},{name:"Games Played",value:"gamesPlayed"},{name:"Daily Streak",value:"dailyStreak"},{name:"Best Streak",value:"bestStreak"},{name:"XP",value:"xp"},{name:"Level",value:"level"},{name:"Images Uploaded",value:"imagesUploaded"}]},{name:"value",description:"New integer value",type:4,required:true}]},
-      {name:"reset",          description:"Reset all stats for a user",type:1,options:[{name:"user",description:"User",type:6,required:true}]},
-      {name:"config",         description:"View/edit global config values",type:1,options:[{name:"key",description:"Config key (leave blank to list all)",type:3,required:false},{name:"value",description:"New integer value",type:4,required:false}]},
-      {name:"give",           description:"Give or take coins/items from a user",type:1,options:[{name:"user",description:"Target user",type:6,required:true},{name:"action",description:"Give or take",type:3,required:false,choices:[{name:"Give",value:"give"},{name:"Take",value:"take"}]},{name:"amount",description:"Coins",type:4,required:false},{name:"item",description:"Item",type:3,required:false,choices:[{name:"Lucky Charm 🍀",value:"lucky_charm"},{name:"XP Boost ⚡",value:"xp_boost"},{name:"Shield 🛡️",value:"shield"},{name:"Coin Magnet 🧲",value:"coin_magnet"},{name:"Mystery Box 📦",value:"mystery_box"},{name:"Item Mystery Box 🎲",value:"item_mystery_box"},{name:"Rob Insurance 📋",value:"rob_insurance"}]},{name:"item_quantity",description:"Quantity (default 1)",type:4,required:false}]},
-    ]},
+    {name:"adminuser",        description:"[Owner] Edit a user's stats",options:[{name:"user",description:"User",type:6,required:true},{name:"field",description:"Field",type:3,required:true,choices:[{name:"Coins",value:"coins"},{name:"Wins",value:"wins"},{name:"Games Played",value:"gamesPlayed"},{name:"Daily Streak",value:"dailyStreak"},{name:"Best Streak",value:"bestStreak"},{name:"XP",value:"xp"},{name:"Level",value:"level"},{name:"Images Uploaded",value:"imagesUploaded"}]},{name:"value",description:"New integer value",type:4,required:true}]},
+    {name:"adminreset",       description:"[Owner] Reset all stats for a user",options:[{name:"user",description:"User",type:6,required:true}]},
+    {name:"adminconfig",      description:"[Owner] View/edit global config values",options:[{name:"key",description:"Config key (leave blank to list all)",type:3,required:false},{name:"value",description:"New integer value",type:4,required:false}]},
+    {name:"admingive",        description:"[Owner] Give or take coins/items from a user",options:[{name:"user",description:"Target user",type:6,required:true},{name:"action",description:"Give or take",type:3,required:false,choices:[{name:"Give",value:"give"},{name:"Take",value:"take"}]},{name:"amount",description:"Coins",type:4,required:false},{name:"item",description:"Item",type:3,required:false,choices:[{name:"Lucky Charm 🍀",value:"lucky_charm"},{name:"XP Boost ⚡",value:"xp_boost"},{name:"Shield 🛡️",value:"shield"},{name:"Coin Magnet 🧲",value:"coin_magnet"},{name:"Mystery Box 📦",value:"mystery_box"},{name:"Item Mystery Box 🎲",value:"item_mystery_box"},{name:"Rob Insurance 📋",value:"rob_insurance"}]},{name:"item_quantity",description:"Quantity (default 1)",type:4,required:false}]},
     {name:"staffrole",        description:"Manage RA and LOA roles for a member",options:[
       {name:"type",           description:"Which role",type:3,required:true,choices:[{name:"Reduced Activity",value:"ra"},{name:"Leave of Absence",value:"loa"}]},
       {name:"user",           description:"Member",type:6,required:true},
@@ -4272,7 +4270,7 @@ client.on("interactionCreate",async interaction=>{
   const cmd=interaction.commandName;
   const inGuild=!!interaction.guildId;
 
-  const ownerOnly=["servers","broadcast","requester","deleter","fakecrash","identitycrisis","botolympics","sentience","legendrandom","dmuser","leaveserver","restart","refreshcmds","botstats","setstatus","admin","echo","shadowdelete","clankerify","fakemessage","forcemarry","forcedivorce"];
+  const ownerOnly=["servers","broadcast","requester","deleter","fakecrash","identitycrisis","botolympics","sentience","legendrandom","dmuser","leaveserver","restart","refreshcmds","botstats","setstatus","adminuser","adminreset","adminconfig","admingive","echo","shadowdelete","clankerify","fakemessage","forcemarry","forcedivorce"];
   if(ownerOnly.includes(cmd)&&!OWNER_IDS.includes(interaction.user.id))return safeReply(interaction,{content:"Owner only.",ephemeral:true});
 
   const manageServerCmds=["channelpicker","counting","xpconfig","setwelcome","setleave","setwelcomemsg","setleavemsg","disableownermsg","serverconfig","autorole","setboostmsg","invitecomp","purge","reactionrole","ticketsetup","ytsetup","subgoal","subcount","milestones","dailyquote"];
@@ -5533,13 +5531,6 @@ if(cmd==="gif"){
       }
     }
     if(cmd==="setstatus"){const text=interaction.options.getString("text"),type=interaction.options.getString("type")||"PLAYING";client.user.setActivity(text,{type});return safeReply(interaction,{content:`Status → ${type}: ${text}`,ephemeral:true});}
-    if(cmd==="admin"){
-      const sub=interaction.options.getSubcommand();
-      if(sub==="user") cmd="adminuser";
-      else if(sub==="reset") cmd="adminreset";
-      else if(sub==="config") cmd="adminconfig";
-      else if(sub==="give") cmd="admingive";
-    }
     if(cmd==="adminuser"){
       const target=interaction.options.getUser("user"),field=interaction.options.getString("field"),value=interaction.options.getInteger("value");
       if(!["coins","wins","gamesPlayed","dailyStreak","bestStreak","xp","level","imagesUploaded"].includes(field))return safeReply(interaction,{content:"Invalid field.",ephemeral:true});
@@ -6147,6 +6138,24 @@ if(cmd==="gif"){
         trashcanThreshold = amount;
         saveData();
         return safeReply(interaction,{content:`✅ Trashcan reaction threshold set to **${amount}**. A quote needs **${amount}** 🗑️ reaction${amount!==1?"s":""} to be sent for review.`,ephemeral:true});
+      }
+
+      // ── set-review-channel subcommand ─────────────────────────────────────
+      if(sub==="set-review-channel"){
+        const ch = interaction.options.getChannel("channel");
+        if(ch.type!=="GUILD_TEXT") return safeReply(interaction,{content:"❌ Please select a text channel.",ephemeral:true});
+        reviewChannelId = ch.id;
+        saveData();
+        return safeReply(interaction,{content:`✅ Global quote review channel set to <#${ch.id}>. All \`/requestupload\` submissions will go there.`,ephemeral:true});
+      }
+
+      // ── set-delete-channel subcommand ─────────────────────────────────────
+      if(sub==="set-delete-channel"){
+        const ch = interaction.options.getChannel("channel");
+        if(ch.type!=="GUILD_TEXT") return safeReply(interaction,{content:"❌ Please select a text channel.",ephemeral:true});
+        deleterChannelId = ch.id;
+        saveData();
+        return safeReply(interaction,{content:`✅ Global quote deleter channel set to <#${ch.id}>. All 🗑️-flagged quotes will be sent there for owner review.`,ephemeral:true});
       }
 
       // ── library subcommand ────────────────────────────────────────────────
