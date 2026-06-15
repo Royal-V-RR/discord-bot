@@ -5076,7 +5076,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 1523,
+        "xp": 1536,
         "level": 18,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -45381,6 +45381,10 @@
     [
       "1516091347449282731",
       "skibidi toilet.png"
+    ],
+    [
+      "1516106511762460672",
+      "quote_1499341815344664657.png"
     ]
   ],
   "reviewChannelId": "1503045026866004071",
@@ -50655,6 +50659,16 @@
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
         "sentToDeleter": true
+      }
+    ],
+    [
+      "1516106511762460672",
+      {
+        "filename": "quote_1499341815344664657.png",
+        "voters": [],
+        "guildId": "1048053656035020911",
+        "channelId": "1477294439180537980",
+        "sentToDeleter": false
       }
     ]
   ],
