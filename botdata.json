@@ -225,6 +225,14 @@
         "mode": "random",
         "ownerClanked": true
       }
+    ],
+    [
+      "969280648667889764",
+      {
+        "expiresAt": 1781527908492,
+        "mode": "random",
+        "ownerClanked": true
+      }
     ]
   ],
   "reactionRoles": [
@@ -463,7 +471,7 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 14600,
-        "lastSubsTimestamp": 1781526705793,
+        "lastSubsTimestamp": 1781527005768,
         "history": [
           {
             "ts": 1781505120799,
@@ -735,6 +743,10 @@
           },
           {
             "ts": 1781526705793,
+            "subs": 14600
+          },
+          {
+            "ts": 1781527005768,
             "subs": 14600
           }
         ],
