@@ -471,7 +471,7 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 14700,
-        "lastSubsTimestamp": 1781628320353,
+        "lastSubsTimestamp": 1781628620357,
         "history": [
           {
             "ts": 1781505120799,
@@ -2015,6 +2015,10 @@
           },
           {
             "ts": 1781628320353,
+            "subs": 14700
+          },
+          {
+            "ts": 1781628620357,
             "subs": 14700
           }
         ],
@@ -5803,7 +5807,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 385,
+        "xp": 391,
         "level": 7,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -30125,6 +30129,30 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 5,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1510850557047341126",
+      {
+        "username": "klaytoncoolzalt",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 7,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
