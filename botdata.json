@@ -30624,6 +30624,30 @@
         "forceMarried": false,
         "uploadedImages": []
       }
+    ],
+    [
+      "1352742168841945180",
+      {
+        "username": "blue094890",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 5,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
     ]
   ],
   "activeEffects": [],
@@ -47223,6 +47247,10 @@
     [
       "1516587151377174618",
       "Screenshot_20260616-2202022.png"
+    ],
+    [
+      "1516587325079949462",
+      "quote_1497959559526875247.png"
     ]
   ],
   "reviewChannelId": "1503045026866004071",
@@ -52869,6 +52897,16 @@
       "1516587151377174618",
       {
         "filename": "Screenshot_20260616-2202022.png",
+        "voters": [],
+        "guildId": "1048053656035020911",
+        "channelId": "1477294439180537980",
+        "sentToDeleter": false
+      }
+    ],
+    [
+      "1516587325079949462",
+      {
+        "filename": "quote_1497959559526875247.png",
         "voters": [],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
