@@ -4572,7 +4572,7 @@ if(cmd==="gif"){
         if(!chosen) return safeReply(interaction, "Couldn't load quotes right now.");
         let sent;
         if(Math.random() < 0.05){
-          sent = await safeReply(interaction, { content: "Do you want to be able to upload images to be used in /quote? Add **genuineleafy** or **royalvmusic** in discord to do so!", files: [chosen.download_url] });
+          sent = await safeReply(interaction, { content: "Do you wish to contribute to /quote? run /requestupload to send in your best quotes, screenshots or memes!", files: [chosen.download_url] });
         } else {
           sent = await safeReply(interaction, { files: [chosen.download_url] });
         }
