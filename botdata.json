@@ -2332,8 +2332,8 @@
       "1515972755424673902",
       {
         "guildId": "1048053656035020911",
-        "count": 9,
-        "lastUserId": "363149593787105291",
+        "count": 10,
+        "lastUserId": "690219723472109616",
         "highScore": 66
       }
     ]
@@ -3062,7 +3062,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 2659,
+        "xp": 2669,
         "level": 22,
         "lastWorkTime": 1778752522595,
         "lastBegTime": 0,
@@ -32214,7 +32214,7 @@
       "never know what come back to.png",
       {
         "up": 1,
-        "down": 1
+        "down": 2
       }
     ],
     [
@@ -52624,7 +52624,9 @@
       "1516579261061009608",
       {
         "filename": "never know what come back to.png",
-        "voters": [],
+        "voters": [
+          "1099756603667910696"
+        ],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
         "sentToDeleter": false
