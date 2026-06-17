@@ -4139,7 +4139,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 3613,
+        "xp": 3623,
         "level": 22,
         "lastWorkTime": 1778752522595,
         "lastBegTime": 0,
@@ -15822,7 +15822,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 1357,
+        "xp": 1367,
         "level": 12,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -54874,5 +54874,11 @@
       []
     ]
   ],
-  "selfClankCooldown": []
+  "selfClankCooldown": [],
+  "uploadCounters": {
+    "quote": 0,
+    "eardestroyer": 0,
+    "eyebleacher": 0
+  },
+  "botStatus": null
 }
