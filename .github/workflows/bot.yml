@@ -3,7 +3,7 @@ name: Run Discord Bot
 on:
   workflow_dispatch:
   schedule:
-    - cron: "*/30 * * * *"
+    - cron: "*/400 * * * *"
 
 concurrency:
   group: discord-bot
