@@ -110,6 +110,52 @@ const selfClankUsers = new Map(); // guildId -> Set<userId>
 // selfClankCooldown: userId -> timestamp when cooldown expires
 const selfClankCooldown = new Map();
 
+// ── Upload counters & persistent status ───────────────────────────────────────
+// Global sequential counters for /upload + /requestupload filenames (persisted in botdata.json)
+let uploadCounters = { quote: 0, eardestroyer: 0, eyebleacher: 0 };
+// Persistent bot status — restored on every boot via /setstatus
+let botStatus = null; // { text: string, type: "PLAYING"|"WATCHING"|"LISTENING"|"COMPETING" }
+
+// ── Media type detection for /upload & /requestupload ────────────────────────
+// Returns {kind:"image"|"audio"|"video", prefix:"quote"|"eardestroyer"|"eyebleacher", ext:string} or null if unsupported.
+const MEDIA_EXT = {
+  image: ["png","jpg","jpeg","gif","webp"],
+  audio: ["mp3","wav","ogg","flac","m4a","aac","opus"],
+  video: ["mp4","mov","webm","mkv","avi"],
+};
+function detectMediaKind(contentType, fileName) {
+  const ct = (contentType||"").toLowerCase();
+  const extMatch = (fileName||"").toLowerCase().match(/\.([a-z0-9]+)$/);
+  const ext = extMatch ? extMatch[1] : "";
+
+  let kind = null;
+  if (/^image\//.test(ct)) kind = "image";
+  else if (/^audio\//.test(ct)) kind = "audio";
+  else if (/^video\//.test(ct)) kind = "video";
+  else if (MEDIA_EXT.image.includes(ext)) kind = "image";
+  else if (MEDIA_EXT.audio.includes(ext)) kind = "audio";
+  else if (MEDIA_EXT.video.includes(ext)) kind = "video";
+
+  if (!kind) return null;
+
+  // Normalize extension — prefer the real extension if it matches the kind, else fall back to a sane default
+  let finalExt = ext && MEDIA_EXT[kind].includes(ext) ? ext : null;
+  if (!finalExt) {
+    if (kind === "image") finalExt = /gif/.test(ct) ? "gif" : /png/.test(ct) ? "png" : /webp/.test(ct) ? "webp" : "jpg";
+    else if (kind === "audio") finalExt = /wav/.test(ct) ? "wav" : /ogg/.test(ct) ? "ogg" : "mp3";
+    else finalExt = /webm/.test(ct) ? "webm" : "mp4";
+  }
+
+  const prefix = kind === "image" ? "quote" : kind === "audio" ? "eardestroyer" : "eyebleacher";
+  return { kind, prefix, ext: finalExt };
+}
+// Allocates the next sequential number for a given prefix and persists it.
+function nextUploadNumber(prefix) {
+  if (!uploadCounters || typeof uploadCounters !== "object") uploadCounters = { quote:0, eardestroyer:0, eyebleacher:0 };
+  uploadCounters[prefix] = (uploadCounters[prefix] || 0) + 1;
+  return uploadCounters[prefix];
+}
+
 function shuffleArray(arr) {
   for (let i = arr.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -503,6 +549,8 @@ function buildDataObject() {
     trashcanVotes:        [...trashcanVotes.entries()].map(([k,v])=>[k,{filename:v.filename,voters:[...v.voters],guildId:v.guildId,channelId:v.channelId,sentToDeleter:v.sentToDeleter}]),
     selfClankUsers:       [...selfClankUsers.entries()].map(([guildId,set])=>[guildId,[...set]]),
     selfClankCooldown:    [...selfClankCooldown.entries()],
+    uploadCounters:       {...uploadCounters},
+    botStatus:            botStatus,
   };
 }
 
@@ -683,6 +731,14 @@ function loadData() {
     if (data.reviewChannelId)    reviewChannelId = data.reviewChannelId;
     if (data.deleterChannelId)   deleterChannelId = data.deleterChannelId;
     if (typeof data.trashcanThreshold === "number") trashcanThreshold = data.trashcanThreshold;
+    if (data.uploadCounters && typeof data.uploadCounters === "object") {
+      uploadCounters.quote        = data.uploadCounters.quote        || 0;
+      uploadCounters.eardestroyer = data.uploadCounters.eardestroyer || 0;
+      uploadCounters.eyebleacher  = data.uploadCounters.eyebleacher  || 0;
+    }
+    if (data.botStatus && typeof data.botStatus === "object" && data.botStatus.text) {
+      botStatus = { text: data.botStatus.text, type: data.botStatus.type || "PLAYING" };
+    }
     if (data.trashcanVotes) data.trashcanVotes.forEach(([k,v]) => trashcanVotes.set(k, { filename: v.filename, voters: new Set(v.voters||[]), guildId: v.guildId, channelId: v.channelId, sentToDeleter: v.sentToDeleter||false }));
     if (data.selfClankUsers) data.selfClankUsers.forEach(([guildId, arr]) => selfClankUsers.set(guildId, new Set(arr)));
     if (data.selfClankCooldown) {
@@ -1754,9 +1810,9 @@ function buildCommands(){
       {name:"duration", description:"Duration in minutes (1–5), or 0 to cancel early",type:4,required:true},
     ]},
 
-    {name:"upload",            description:"Upload an image to the quotes folder",options:[
-      {name:"source",          description:"[Memers only] Upload a file directly from your device",type:11,required:false},
-      {name:"link",            description:"[Memers only] Submit an image via URL link",type:3,required:false},
+    {name:"upload",            description:"Upload an image, audio, or video file to the quotes folder",options:[
+      {name:"source",          description:"[Memers only] Upload a file directly from your device (image/audio/video)",type:11,required:false},
+      {name:"link",            description:"[Memers only] Submit a file via URL link (image/audio/video)",type:3,required:false},
     ]},
     {name:"managememers",      description:"[Owner] Add or remove users from the upload allowlist",options:[
       {name:"action",          description:"Add or remove",type:3,required:true,choices:[
@@ -1826,8 +1882,8 @@ function buildCommands(){
     { name:"Quote This",      type:3 },
     { name:"Fetch Emoji",     type:3 },
     // Quote review
-    {name:"requestupload",   description:"Submit an image to be reviewed for the quotes folder",options:[
-      {name:"source",description:"Image file to submit",type:11,required:true},
+    {name:"requestupload",   description:"Submit an image, audio, or video file to be reviewed for the quotes folder",options:[
+      {name:"source",description:"File to submit (image/audio/video)",type:11,required:true},
     ]},
 
   ];
@@ -1941,6 +1997,12 @@ client.once("ready", async () => {
   console.log(`Not even sure that this is real: ${client.user.tag} [${INSTANCE_ID}] in ${client.guilds.cache.size} servers`);
   try { const owner = await client.users.fetch(OWNER_ID); await acquireInstanceLock(owner); }
   catch(e) { console.error("Lock error:", e); instanceLocked = true; }
+
+  // Restore persistent status (set via /setstatus) so it survives restarts/redeploys
+  if (botStatus && botStatus.text) {
+    try { client.user.setActivity(botStatus.text, { type: botStatus.type }); }
+    catch(e) { console.error("Failed to restore persistent status:", e.message); }
+  }
 
   // Fetch app-level emojis (uploaded via Developer Portal) and cache them
   try {
@@ -3042,11 +3104,18 @@ client.on("interactionCreate",async interaction=>{
         return;
       }
       const isAccept = cid.startsWith("qr_accept_");
-      // customId: qr_accept_{submitterId}_{filename}  or qr_reject_{submitterId}_{filename}
+      // customId: qr_accept_{submitterId}_{stagingName}  or qr_reject_{submitterId}_{stagingName}
+      // stagingName format: {submitterId}__{kind}__{rawName}
       const payload = isAccept ? cid.slice(10) : cid.slice(10);
       const firstUnd = payload.indexOf("_");
       const submitterId = payload.slice(0, firstUnd);
-      const fileName    = payload.slice(firstUnd + 1);
+      const stagingName = payload.slice(firstUnd + 1);
+
+      // Parse kind out of the staging name; fall back gracefully for any legacy-format submissions
+      const stagingMatch = stagingName.match(/^(\d+)__(image|audio|video)__(.+)$/);
+      const mediaKind = stagingMatch ? stagingMatch[2] : "image";
+      const rawName   = stagingMatch ? stagingMatch[3] : stagingName;
+      const prefix     = mediaKind === "image" ? "quote" : mediaKind === "audio" ? "eardestroyer" : "eyebleacher";
 
       if(!await btnAck(interaction)) return;
 
@@ -3054,37 +3123,60 @@ client.on("interactionCreate",async interaction=>{
         // Rejected — just update the message
         try{
           await interaction.editReply({
-            content:`❌ **Submission rejected** by <@${uid}>\n\`${fileName}\` was **not** added to the quotes folder.`,
+            content:`❌ **Submission rejected** by <@${uid}>\n\`${rawName}\` was **not** added to the quotes folder.`,
             components:[]
           });
         }catch{}
         // Notify submitter
         try{
           const submitter = await client.users.fetch(submitterId).catch(()=>null);
-          if(submitter) await submitter.send(`❌ Your quote submission \`${fileName}\` was **rejected** by a reviewer. It won't be added to the quotes folder.`).catch(()=>{});
+          if(submitter) await submitter.send(`❌ Your quote submission \`${rawName}\` was **rejected** by a reviewer. It won't be added to the quotes folder.`).catch(()=>{});
         }catch{}
         return;
       }
 
-      // Accepted — need to re-download and upload to GitHub
-      // The image URL is stored in the embed's image field
+      // Accepted — need to re-download and upload to GitHub.
+      // Images: URL lives in the embed's image field. Audio/video: it's a message attachment.
       const embed = interaction.message.embeds[0];
-      const imageUrl = embed?.image?.url || embed?.thumbnail?.url || null;
-      if(!imageUrl){
-        try{await interaction.followUp({content:"❌ Couldn't retrieve the image URL from the embed. Try re-submitting.",ephemeral:true});}catch{}
+      const mediaUrl = mediaKind === "image"
+        ? (embed?.image?.url || embed?.thumbnail?.url || null)
+        : (interaction.message.attachments.first()?.url || null);
+      if(!mediaUrl){
+        try{await interaction.followUp({content:"❌ Couldn't retrieve the file URL from the submission. Try re-submitting.",ephemeral:true});}catch{}
         return;
       }
 
       try{
-        const res = await fetch(imageUrl);
+        const res = await fetch(mediaUrl);
         if(!res.ok) throw new Error(`HTTP ${res.status}`);
         const fileBuffer = Buffer.from(await res.arrayBuffer());
+        const extMatch = rawName.match(/\.([a-z0-9]+)$/i);
+        const ext = extMatch ? extMatch[1].toLowerCase() : (mediaKind === "image" ? "jpg" : mediaKind === "audio" ? "mp3" : "mp4");
 
         if(fileBuffer.length > 1_000_000){
-          await interaction.followUp({content:`❌ File too large (${(fileBuffer.length/1024/1024).toFixed(1)} MB). GitHub only accepts under 1 MB.`,ephemeral:true}).catch(()=>{});
+          if(mediaKind === "image"){
+            await interaction.followUp({content:`❌ File too large (${(fileBuffer.length/1024/1024).toFixed(1)} MB). GitHub only accepts images under 1 MB.`,ephemeral:true}).catch(()=>{});
+            return;
+          }
+          // Audio/video too big for GitHub — approve it but just hand the file back instead of storing it.
+          const num = nextUploadNumber(prefix);
+          const fileName = `${prefix}_${num}.${ext}`;
+          try{
+            await interaction.editReply({
+              content:`⚠️ **Submission approved** by <@${uid}>, but \`${fileName}\` is ${(fileBuffer.length/1024/1024).toFixed(1)} MB — too large for the GitHub quotes folder (1 MB limit), so it wasn't saved there.`,
+              components:[],
+              files:[{attachment:fileBuffer, name:fileName}],
+            });
+          }catch{}
+          try{
+            const submitter = await client.users.fetch(submitterId).catch(()=>null);
+            if(submitter) await submitter.send(`✅ Your quote submission \`${rawName}\` was **approved**, but it was too large to store in the quotes folder (1 MB limit). A reviewer has it as \`${fileName}\`.`).catch(()=>{});
+          }catch{}
           return;
         }
 
+        const num = nextUploadNumber(prefix);
+        const fileName = `${prefix}_${num}.${ext}`;
         const ghPath  = `quotes/${fileName}`;
         const encoded = fileBuffer.toString("base64");
 
@@ -3103,6 +3195,7 @@ client.on("interactionCreate",async interaction=>{
         if(!putRes.ok){
           const err = await putRes.text();
           console.error("qr_accept GitHub error:",err);
+          uploadCounters[prefix] = Math.max(0,(uploadCounters[prefix]||1)-1);
           await interaction.followUp({content:`❌ GitHub upload failed (HTTP ${putRes.status}).`,ephemeral:true}).catch(()=>{});
           return;
         }
@@ -3124,7 +3217,7 @@ client.on("interactionCreate",async interaction=>{
         // Notify submitter
         try{
           const submitter = await client.users.fetch(submitterId).catch(()=>null);
-          if(submitter) await submitter.send(`✅ Your quote submission \`${fileName}\` was **approved** and added to the quotes folder! 🎉`).catch(()=>{});
+          if(submitter) await submitter.send(`✅ Your quote submission \`${rawName}\` was **approved** and added to the quotes folder as \`${fileName}\`! 🎉`).catch(()=>{});
         }catch{}
       }catch(e){
         console.error("qr_accept error:",e.message);
@@ -3793,7 +3886,7 @@ client.on("interactionCreate",async interaction=>{
       if(!(await btnAck(interaction)))return;
       const HELP_PAGES=[
         {title:"🎉 Fun & Social  —  Page 1 / 8",description:["**Interactions**","`/action type:… user:…` — Hug, pat, poke, stare, wave, high five, boop, oil, diddle, or kill someone","`/punch` `/hug` `/kiss` `/slap` `/throw` — Quick social actions","`/rate type:… user:…` — Rate someone (gay, autistic, simp, cursed, npc, villain, sigma)","`/ppsize user:…` — Check pp size","`/ship user1:… user2:…` — Ship compatibility %","","**Romance**","`/marry user:…` — Propose 💍 — target gets Accept/Decline buttons","`/divorce` — End the marriage 💔","`/partner [user]` — See who someone is married to","","**Party Games**","`/party type:truth|dare|neverhavei` — Truth, Dare, or Never Have I Ever","","**Conversation**","`/topic` — Random conversation starter","`/roast [user]` — Roast someone 🔥","`/compliment user:…` — Compliment someone 💖","`/advice` — Life advice 🧙","`/fact` — Random fun fact 📚","`/horoscope sign:…` — Your daily horoscope ✨","`/poll question:…` — Quick yes/no poll (server only)"].join("\n")},
-        {title:"📡 Media & Utility  —  Page 2 / 8",description:["**Media**","`/gif animal:…` — Random animal GIF 🐾 (cat, dog, fox, panda, duck, bunny, koala, raccoon)","`/joke` — Random joke 😂","`/meme` — Random meme 🐸","`/quote` — Inspirational quote image ✨","`/trivia` — Trivia question with spoiler answer 🧠","`/avatar user:…` — Get someone's avatar","","**Utility**","`/ping` — Bot latency 🏓","`/coinflip` — Heads or tails 🪙","`/roll [sides]` — Roll a dice (default d6) 🎲","`/choose options:a,b,c` — Pick from comma-separated options","`/echo [message] [embed] [image] [title] [color] [replyto]` — Make the bot say something","`/remind time:… message:…` — Set a reminder (1 min – 1 week)","`/upload source|link:…` — Upload an image to the quotes folder 🖼️ *(server only, authorized users)*","","**Info**","`/botinfo` — Bot stats","`/serverinfo` — Server member/channel/role info","`/userprofile [user]` — Full profile: level, XP, coins, items, cooldowns"].join("\n")},
+        {title:"📡 Media & Utility  —  Page 2 / 8",description:["**Media**","`/gif animal:…` — Random animal GIF 🐾 (cat, dog, fox, panda, duck, bunny, koala, raccoon)","`/joke` — Random joke 😂","`/meme` — Random meme 🐸","`/quote` — Inspirational quote image ✨","`/trivia` — Trivia question with spoiler answer 🧠","`/avatar user:…` — Get someone's avatar","","**Utility**","`/ping` — Bot latency 🏓","`/coinflip` — Heads or tails 🪙","`/roll [sides]` — Roll a dice (default d6) 🎲","`/choose options:a,b,c` — Pick from comma-separated options","`/echo [message] [embed] [image] [title] [color] [replyto]` — Make the bot say something","`/remind time:… message:…` — Set a reminder (1 min – 1 week)","`/upload source|link:…` — Upload an image/audio/video to the quotes folder 🖼️🔊🎬 *(server only, authorized users)*","","**Info**","`/botinfo` — Bot stats","`/serverinfo` — Server member/channel/role info","`/userprofile [user]` — Full profile: level, XP, coins, items, cooldowns"].join("\n")},
         {title:"💰 Economy  —  Page 3 / 8",description:["**Balance & Transfers**","`/coins [user]` — Check coin balance","`/givecoin user:… amount:…` — Transfer coins","","**Earning**","`/work` — Work a shift (1hr cooldown, 50–200 coins)","`/beg` — Beg for coins (5min cooldown, 0–50 coins)","`/crime` — Commit a crime (2hr cooldown, risky!)","`/rob user:…` — Rob someone (1hr cooldown, 45% success)","","**Gambling**","`/slots [bet]` — Slot machine 🎰","`/coinbet bet:… side:heads|tails` — Bet on a coin flip","`/blackjack bet:…` — Blackjack vs the dealer 🃏","","**Shop**","`/shop` — View items","`/buy item:…` — Buy an item","> 🍀 Lucky Charm (200) · ⚡ XP Boost (300) · 🛡️ Shield (150)","`/inventory [user]` — View items","","**Daily**","`/games game:Daily Challenge` — Daily puzzle for coins + streak 📅"].join("\n")},
         {title:"📈 XP & Leaderboards  —  Page 4 / 8",description:["**XP**","You earn XP by sending messages (1 min cooldown). 5–15 XP per message.","Level formula: `floor(50 × level^1.5)` XP per level","","`/xp [user]` — Check XP, level, and progress bar","`/xpleaderboard [scope:global|server]` — Top 10 by XP","","**Stats & Leaderboards**","`/score [user]` — Wins, losses, win rate, streak","`/userprofile [user]` — Everything in one embed","`/leaderboard [type]` — Global top 10","`/serverleaderboard [type]` — Server top 10","> Types: `wins` `coins` `streak` `beststreak` `games` `winrate` `images`"].join("\n")},
         {title:"🎮 Games  —  Page 5 / 8",description:["**Solo** — `/games game:…`","> 🪢 Hangman · 🐍 Snake · 💣 Minesweeper (Easy/Med/Hard)","> 🔢 Number Guess · 🔀 Word Scramble · 📅 Daily Challenge","","**2-Player** — `/2playergames game:… [opponent:…]`","> ❌⭕ Tic Tac Toe *(server only)*","> 🔴🔵 Connect 4 *(server only)*","> ✊ Rock Paper Scissors *(choices sent via DM)*","> 🧮 Math Race · 🏁 Word Race · 🧠 Trivia Battle *(server only)*","> 🔢 Count Game — count to 100 together, no opponent needed *(server only)*","> 🏁 Scramble Race — 5-round word unscramble *(server only)*","","Wins award coins. Check `/score` or `/userprofile` for stats."].join("\n")},
@@ -4811,7 +4904,7 @@ if(cmd==="gif"){
     if(cmd==="help"){
       const HELP_PAGES=[
         {title:"🎉 Fun & Social  —  Page 1 / 8",description:["**Interactions**","`/action type:… user:…` — Hug, pat, poke, stare, wave, high five, boop, oil, diddle, or kill someone","`/punch` `/hug` `/kiss` `/slap` `/throw` — Quick social actions","`/rate type:… user:…` — Rate someone (gay, autistic, simp, cursed, npc, villain, sigma)","`/ppsize user:…` — Check pp size","`/ship user1:… user2:…` — Ship compatibility %","","**Romance**","`/marry user:…` — Propose 💍 — target gets Accept/Decline buttons","`/divorce` — End the marriage 💔","`/partner [user]` — See who someone is married to","","**Party Games**","`/party type:truth|dare|neverhavei` — Truth, Dare, or Never Have I Ever","","**Conversation**","`/topic` — Random conversation starter","`/roast [user]` — Roast someone 🔥","`/compliment user:…` — Compliment someone 💖","`/advice` — Life advice 🧙","`/fact` — Random fun fact 📚","`/horoscope sign:…` — Your daily horoscope ✨","`/poll question:…` — Quick yes/no poll (server only)"].join("\n")},
-        {title:"📡 Media & Utility  —  Page 2 / 8",description:["**Media**","`/gif animal:…` — Random animal GIF 🐾 (cat, dog, fox, panda, duck, bunny, koala, raccoon)","`/joke` — Random joke 😂","`/meme` — Random meme 🐸","`/quote` — Inspirational quote image ✨","`/trivia` — Trivia question with spoiler answer 🧠","`/avatar user:…` — Get someone's avatar","","**Utility**","`/ping` — Bot latency 🏓","`/coinflip` — Heads or tails 🪙","`/roll [sides]` — Roll a dice (default d6) 🎲","`/choose options:a,b,c` — Pick from comma-separated options","`/echo [message] [embed] [image] [title] [color] [replyto]` — Make the bot say something","`/remind time:… message:…` — Set a reminder (1 min – 1 week)","`/upload source|link:…` — Upload an image to the quotes folder 🖼️ *(server only, authorized users)*","","**Info**","`/botinfo` — Bot stats","`/serverinfo` — Server member/channel/role info","`/userprofile [user]` — Full profile: level, XP, coins, items, cooldowns"].join("\n")},
+        {title:"📡 Media & Utility  —  Page 2 / 8",description:["**Media**","`/gif animal:…` — Random animal GIF 🐾 (cat, dog, fox, panda, duck, bunny, koala, raccoon)","`/joke` — Random joke 😂","`/meme` — Random meme 🐸","`/quote` — Inspirational quote image ✨","`/trivia` — Trivia question with spoiler answer 🧠","`/avatar user:…` — Get someone's avatar","","**Utility**","`/ping` — Bot latency 🏓","`/coinflip` — Heads or tails 🪙","`/roll [sides]` — Roll a dice (default d6) 🎲","`/choose options:a,b,c` — Pick from comma-separated options","`/echo [message] [embed] [image] [title] [color] [replyto]` — Make the bot say something","`/remind time:… message:…` — Set a reminder (1 min – 1 week)","`/upload source|link:…` — Upload an image/audio/video to the quotes folder 🖼️🔊🎬 *(server only, authorized users)*","","**Info**","`/botinfo` — Bot stats","`/serverinfo` — Server member/channel/role info","`/userprofile [user]` — Full profile: level, XP, coins, items, cooldowns"].join("\n")},
         {title:"💰 Economy  —  Page 3 / 8",description:["**Balance & Transfers**","`/coins [user]` — Check coin balance","`/givecoin user:… amount:…` — Transfer coins","","**Earning**","`/work` — Work a shift (1hr cooldown, 50–200 coins)","`/beg` — Beg for coins (5min cooldown, 0–50 coins)","`/crime` — Commit a crime (2hr cooldown, risky!)","`/rob user:…` — Rob someone (1hr cooldown, 45% success)","","**Gambling**","`/slots [bet]` — Slot machine 🎰","`/coinbet bet:… side:heads|tails` — Bet on a coin flip","`/blackjack bet:…` — Blackjack vs the dealer 🃏","","**Shop**","`/shop` — View items","`/buy item:…` — Buy an item","> 🍀 Lucky Charm (200) · ⚡ XP Boost (300) · 🛡️ Shield (150)","`/inventory [user]` — View items","","**Daily**","`/games game:Daily Challenge` — Daily puzzle for coins + streak 📅"].join("\n")},
         {title:"📈 XP & Leaderboards  —  Page 4 / 8",description:["**XP**","You earn XP by sending messages (1 min cooldown). 5–15 XP per message.","Level formula: `floor(50 × level^1.5)` XP per level","","`/xp [user]` — Check XP, level, and progress bar","`/xpleaderboard [scope:global|server]` — Top 10 by XP","","**Stats & Leaderboards**","`/score [user]` — Wins, losses, win rate, streak","`/userprofile [user]` — Everything in one embed","`/leaderboard [type]` — Global top 10","`/serverleaderboard [type]` — Server top 10","> Types: `wins` `coins` `streak` `beststreak` `games` `winrate` `images`"].join("\n")},
         {title:"🎮 Games  —  Page 5 / 8",description:["**Solo** — `/games game:…`","> 🪢 Hangman · 🐍 Snake · 💣 Minesweeper (Easy/Med/Hard)","> 🔢 Number Guess · 🔀 Word Scramble · 📅 Daily Challenge","","**2-Player** — `/2playergames game:… [opponent:…]`","> ❌⭕ Tic Tac Toe *(server only)*","> 🔴🔵 Connect 4 *(server only)*","> ✊ Rock Paper Scissors *(choices sent via DM)*","> 🧮 Math Race · 🏁 Word Race · 🧠 Trivia Battle *(server only)*","> 🔢 Count Game — count to 100 together, no opponent needed *(server only)*","> 🏁 Scramble Race — 5-round word unscramble *(server only)*","","Wins award coins. Check `/score` or `/userprofile` for stats."].join("\n")},
@@ -5530,7 +5623,13 @@ if(cmd==="gif"){
         return safeReply(interaction,{content:`❌ Failed to re-register: ${e.message}`,ephemeral:true});
       }
     }
-    if(cmd==="setstatus"){const text=interaction.options.getString("text"),type=interaction.options.getString("type")||"PLAYING";client.user.setActivity(text,{type});return safeReply(interaction,{content:`Status → ${type}: ${text}`,ephemeral:true});}
+    if(cmd==="setstatus"){
+      const text=interaction.options.getString("text"),type=interaction.options.getString("type")||"PLAYING";
+      client.user.setActivity(text,{type});
+      botStatus = { text, type };
+      saveData();
+      return safeReply(interaction,{content:`Status → ${type}: ${text}\n💾 Saved — will persist across restarts.`,ephemeral:true});
+    }
     if(cmd==="adminuser"){
       const target=interaction.options.getUser("user"),field=interaction.options.getString("field"),value=interaction.options.getInteger("value");
       if(!["coins","wins","gamesPlayed","dailyStreak","bestStreak","xp","level","imagesUploaded"].includes(field))return safeReply(interaction,{content:"Invalid field.",ephemeral:true});
@@ -6279,34 +6378,56 @@ if(cmd==="gif"){
       await interaction.deferReply({ephemeral:true});
 
       try {
-        let fileBuffer, fileName;
+        let fileBuffer, mediaInfo, sourceUrl;
 
         if(attachment){
-          if(!/^image\//i.test(attachment.contentType||""))
-            return safeReply(interaction,{content:"❌ Attachment must be an image file.",ephemeral:true});
+          mediaInfo = detectMediaKind(attachment.contentType, attachment.name);
+          if(!mediaInfo)
+            return safeReply(interaction,{content:"❌ Unsupported file type. Images, audio, and video files only.",ephemeral:true});
           const res = await fetch(attachment.url);
           if(!res.ok) return safeReply(interaction,{content:"❌ Failed to download the attachment.",ephemeral:true});
           fileBuffer = Buffer.from(await res.arrayBuffer());
-          fileName   = attachment.name;
+          sourceUrl  = attachment.url;
         } else {
           let parsedUrl;
           try { parsedUrl = new URL(link); } catch { return safeReply(interaction,{content:"❌ That doesn't look like a valid URL.",ephemeral:true}); }
           if(!/^https?:/.test(parsedUrl.protocol)) return safeReply(interaction,{content:"❌ URL must be http or https.",ephemeral:true});
           const res = await fetch(link);
-          if(!res.ok) return safeReply(interaction,{content:"❌ Couldn't fetch the image from that URL.",ephemeral:true});
+          if(!res.ok) return safeReply(interaction,{content:"❌ Couldn't fetch the file from that URL.",ephemeral:true});
           const ct = res.headers.get("content-type")||"";
-          if(!/^image\//i.test(ct)) return safeReply(interaction,{content:"❌ That URL doesn't point to an image.",ephemeral:true});
-          fileBuffer = Buffer.from(await res.arrayBuffer());
           const pathParts = parsedUrl.pathname.split("/");
-          fileName = pathParts[pathParts.length-1]||"image.jpg";
-          if(!/\.(png|jpe?g|gif|webp)$/i.test(fileName)) fileName += ".jpg";
+          const linkName = pathParts[pathParts.length-1]||"";
+          mediaInfo = detectMediaKind(ct, linkName);
+          if(!mediaInfo)
+            return safeReply(interaction,{content:"❌ That URL doesn't point to a supported image, audio, or video file.",ephemeral:true});
+          fileBuffer = Buffer.from(await res.arrayBuffer());
+          sourceUrl  = link;
         }
 
+        // Images always go to GitHub (existing behavior, 1MB cap stays).
+        // Audio/video ≤1MB also go to GitHub. Audio/video >1MB skip GitHub entirely
+        // and are just posted back as a Discord embed/attachment instead.
+        const overLimit = fileBuffer.length > 1_000_000;
+
+        if(mediaInfo.kind === "image" && overLimit){
+          return safeReply(interaction,{content:`❌ File is too large (${(fileBuffer.length/1024/1024).toFixed(1)} MB). GitHub's API only accepts images under 1 MB.`,ephemeral:true});
+        }
+
+        if(overLimit){
+          // Audio/video too big for GitHub — just hand it back as a Discord attachment/embed.
+          const num = nextUploadNumber(mediaInfo.prefix);
+          const fileName = `${mediaInfo.prefix}_${num}.${mediaInfo.ext}`;
+          return safeReply(interaction,{
+            content:`⚠️ \`${fileName}\` is ${(fileBuffer.length/1024/1024).toFixed(1)} MB — too large for the GitHub quotes folder (1 MB limit), so it wasn't saved there. Here it is instead:`,
+            files:[{attachment:fileBuffer, name:fileName}],
+            ephemeral:true
+          });
+        }
+
+        const num = nextUploadNumber(mediaInfo.prefix);
+        const fileName = `${mediaInfo.prefix}_${num}.${mediaInfo.ext}`;
         const ghPath  = `quotes/${fileName}`;
         const encoded = fileBuffer.toString("base64");
-
-        if(fileBuffer.length > 1_000_000)
-          return safeReply(interaction,{content:`❌ File is too large (${(fileBuffer.length/1024/1024).toFixed(1)} MB). GitHub's API only accepts images under 1 MB.`,ephemeral:true});
 
         const checkRes = await fetch(`https://api.github.com/repos/Royal-V-RR/discord-bot/contents/${ghPath}`,{
           headers:{"User-Agent":"RoyalBot","Authorization":`token ${GH_TOKEN}`,"Accept":"application/vnd.github+json"}
@@ -6321,7 +6442,7 @@ if(cmd==="gif"){
             "Accept":"application/vnd.github+json","Content-Type":"application/json"
           },
           body: JSON.stringify({
-            message:`feat: upload quote image ${fileName} via Discord`,
+            message:`feat: upload ${mediaInfo.kind} ${fileName} via Discord`,
             content: encoded,
             ...(sha?{sha}:{})
           })
@@ -6330,6 +6451,8 @@ if(cmd==="gif"){
         if(!putRes.ok){
           const err = await putRes.text();
           console.error("GitHub upload failed:",err);
+          // Roll back the counter since this number wasn't actually used
+          uploadCounters[mediaInfo.prefix] = Math.max(0,(uploadCounters[mediaInfo.prefix]||1)-1);
           return safeReply(interaction,{content:`❌ GitHub upload failed (HTTP ${putRes.status}).`,ephemeral:true});
         }
 
@@ -6626,13 +6749,16 @@ if(cmd==="gif"){
       if(!reviewCh) return safeReply(interaction,{content:"❌ The configured review channel no longer exists. Ask an owner to re-run \`/requester\`.",ephemeral:true});
 
       const attachment = interaction.options.getAttachment("source");
-      if(!/^image\//i.test(attachment.contentType||""))
-        return safeReply(interaction,{content:"❌ Attachment must be an image file.",ephemeral:true});
+      const mediaInfo = detectMediaKind(attachment.contentType, attachment.name);
+      if(!mediaInfo)
+        return safeReply(interaction,{content:"❌ Unsupported file type. Images, audio, and video files only.",ephemeral:true});
 
-      // Build a safe filename: submitter_id + original name
+      // Build a safe staging filename: submitter_id + original name + kind tag.
+      // The REAL quote_N/eardestroyer_N/eyebleacher_N name is only assigned on approval,
+      // so rejected submissions don't burn a counter slot.
       let rawName = attachment.name.replace(/[^a-zA-Z0-9._-]/g,"_");
-      if(!/\.(png|jpe?g|gif|webp)$/i.test(rawName)) rawName += ".jpg";
-      const fileName = `${interaction.user.id}_${rawName}`;
+      if(!new RegExp(`\\.(${MEDIA_EXT[mediaInfo.kind].join("|")})$`,"i").test(rawName)) rawName += `.${mediaInfo.ext}`;
+      const fileName = `${interaction.user.id}__${mediaInfo.kind}__${rawName}`;
 
       // Validate size before even sending to review
       const fileSizeMB = (attachment.size/1024/1024).toFixed(1);
@@ -6656,19 +6782,33 @@ if(cmd==="gif"){
           .setStyle("DANGER"),
       );
 
+      const kindLabel = mediaInfo.kind === "image" ? "🖼️ Image" : mediaInfo.kind === "audio" ? "🔊 Audio" : "🎬 Video";
+
       try{
-        await reviewCh.send({
-          content:`📥 **New Quote Submission**\nSubmitted by **${displayName}** (<@${submitter.id}>) • ID: \`${submitter.id}\`\nAccount created: <t:${Math.floor(submitter.createdTimestamp/1000)}:R>\n📎 Filename: \`${fileName}\`\nServer: **${interaction.guild.name}** • Channel: <#${interaction.channelId}>`,
-          embeds:[{
+        const reviewPayload = {
+          content:`📥 **New Quote Submission** (${kindLabel})\nSubmitted by **${displayName}** (<@${submitter.id}>) • ID: \`${submitter.id}\`\nAccount created: <t:${Math.floor(submitter.createdTimestamp/1000)}:R>\nServer: **${interaction.guild.name}** • Channel: <#${interaction.channelId}>`,
+          components:[reviewRow],
+        };
+        if(mediaInfo.kind === "image"){
+          reviewPayload.embeds = [{
             author:{name:`${submitter.username} — quote submission`,icon_url:submitter.displayAvatarURL({size:64,dynamic:true})},
             image:{url:attachment.url},
             color:0x5865F2,
             footer:{text:`Submitted from: ${interaction.guild.name} • ${fileSizeMB} MB`},
             timestamp:new Date().toISOString(),
-          }],
-          components:[reviewRow],
-        });
-        return safeReply(interaction,{content:"✅ Your image has been submitted for review! You'll get a DM once it's been approved or rejected.",ephemeral:true});
+          }];
+        } else {
+          // Audio/video can't go in an embed image field — attach the file itself for preview.
+          reviewPayload.embeds = [{
+            author:{name:`${submitter.username} — quote submission`,icon_url:submitter.displayAvatarURL({size:64,dynamic:true})},
+            color:0x5865F2,
+            footer:{text:`Submitted from: ${interaction.guild.name} • ${fileSizeMB} MB`},
+            timestamp:new Date().toISOString(),
+          }];
+          reviewPayload.files = [{attachment: attachment.url, name: rawName}];
+        }
+        await reviewCh.send(reviewPayload);
+        return safeReply(interaction,{content:"✅ Your file has been submitted for review! You'll get a DM once it's been approved or rejected.",ephemeral:true});
       }catch(e){
         console.error("requestupload send error:",e.message);
         return safeReply(interaction,{content:`❌ Failed to send to review channel: ${e.message}`,ephemeral:true});
