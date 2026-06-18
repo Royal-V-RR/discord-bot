@@ -16,7 +16,7 @@ permissions:
 jobs:
   run-bot:
     runs-on: ubuntu-latest
-    timeout-minutes: 31
+    timeout-minutes: 401
 
     steps:
       - name: Checkout repository
