@@ -1525,7 +1525,7 @@ function wrapQuoteText(text, maxCharsPerLine) {
   return lines;
 }
 
-async function buildFakeQuoteCard({ avatarBuffer, quoteText, displayName, username, quoteNumber }) {
+async function buildFakeQuoteCard({ avatarBuffer, quoteText, displayName, username }) {
   // 1. Left-half photo: cover-crop to the left panel size, grayscale, slightly brightened
   const avatarPanel = await sharp(avatarBuffer)
     .resize(QUOTE_CARD_LEFT_W, QUOTE_CARD_H, { fit: "cover", position: "centre" })
@@ -1564,24 +1564,31 @@ async function buildFakeQuoteCard({ avatarBuffer, quoteText, displayName, userna
   const lines = wrapQuoteText(quoteText, maxChars).slice(0, 10); // hard cap so it can't overflow the card
   const lineHeight = fontSize * 1.3;
   const quoteBlockH = lines.length * lineHeight;
-  const footerBlockH = 110;
-  const totalContentH = quoteBlockH + footerBlockH;
-  let startY = (QUOTE_CARD_H - totalContentH) / 2 + fontSize;
+
+  // Quote block sits a little above true vertical center; name + username stack directly beneath it.
+  const quoteCenterY = QUOTE_CARD_H * 0.40;
+  let startY = quoteCenterY - quoteBlockH / 2 + fontSize * 0.8;
 
   const quoteLinesSvg = lines.map((line, i) =>
     `<text x="${rightX + rightW / 2}" y="${startY + i * lineHeight}" font-family="DejaVu Sans" font-size="${fontSize}" fill="white" text-anchor="middle">${escapeSvgText(line)}</text>`
   ).join("\n");
 
-  const nameY = startY + quoteBlockH + 50;
-  const footerY = nameY + 42;
-  const tagLabel = quoteNumber != null ? `Make it a Quote#${quoteNumber}` : "Make it a Quote";
+  // Gap from the quote's last baseline to the name, scaled relative to the reference's 44px baseline.
+  const lastLineBaselineY = startY + (lines.length - 1) * lineHeight;
+  const nameY     = lastLineBaselineY + Math.max(34, fontSize * 1.13);
+  const usernameY = nameY + 33;
+
+  // The footer tag is always "Make it a Quote#6660", pinned to the bottom-right corner.
+  const tagLabel = "Make it a Quote#6660";
+  const tagY = QUOTE_CARD_H - 23;
+  const tagX = QUOTE_CARD_W - 20;
 
   const cardSvg = `
   <svg width="${QUOTE_CARD_W}" height="${QUOTE_CARD_H}" xmlns="http://www.w3.org/2000/svg">
     ${quoteLinesSvg}
-    <text x="${rightX + rightW / 2}" y="${nameY}" font-family="DejaVu Sans" font-style="italic" font-size="30" fill="white" text-anchor="middle">- ${escapeSvgText(displayName)}</text>
-    <text x="${rightX + pad}" y="${footerY}" font-family="DejaVu Sans" font-size="20" fill="#999999" text-anchor="start">@${escapeSvgText(username)}</text>
-    <text x="${rightX + rightW - pad}" y="${footerY}" font-family="DejaVu Sans" font-size="20" fill="#999999" text-anchor="end">${escapeSvgText(tagLabel)}</text>
+    <text x="${rightX + rightW / 2}" y="${nameY}" font-family="DejaVu Sans" font-style="italic" font-size="26" fill="white" text-anchor="middle">- ${escapeSvgText(displayName)}</text>
+    <text x="${rightX + rightW / 2}" y="${usernameY}" font-family="DejaVu Sans" font-size="17" fill="#999999" text-anchor="middle">@${escapeSvgText(username)}</text>
+    <text x="${tagX}" y="${tagY}" font-family="DejaVu Sans" font-size="18" fill="#888888" text-anchor="end">${escapeSvgText(tagLabel)}</text>
   </svg>`;
   const cardLayer = await sharp(Buffer.from(cardSvg)).png().toBuffer();
 
@@ -1901,9 +1908,8 @@ function buildCommands(){
     {name:"fakequote",      description:"[Owner] Generate a 'Make it a Quote' style image card for a user",options:[
       {name:"user",         description:"User to feature (pulls their avatar, username & display name)",type:6,required:true},
       {name:"text",         description:"The quote text to display",type:3,required:true},
-      {name:"number",       description:"Fake quote # shown in the footer (default: random)",type:4,required:false},
       {name:"displayname",  description:"Override the displayed name (default: their server display name)",type:3,required:false},
-      {name:"username",     description:"Override the @username shown in the footer (default: their actual username)",type:3,required:false},
+      {name:"username",     description:"Override the @username shown below the name (default: their actual username)",type:3,required:false},
     ]},
     {name:"dmuser",         description:"[Owner] DM a user",options:[{name:"user",description:"User",type:6,required:true},{name:"message",description:"Message",type:3,required:true}]},
     {name:"leaveserver",    description:"[Owner] Leave a server",options:[{name:"server",description:"Server ID",type:3,required:true}]},
@@ -5748,14 +5754,12 @@ if(cmd==="gif"){
       await interaction.deferReply({ephemeral:true});
       const target = interaction.options.getUser("user");
       const quoteText = interaction.options.getString("text");
-      const numberOverride = interaction.options.getInteger("number");
       const displayNameOverride = interaction.options.getString("displayname");
       const usernameOverride = interaction.options.getString("username");
       try{
         const member = interaction.guildId ? await interaction.guild.members.fetch(target.id).catch(()=>null) : null;
         const displayName = displayNameOverride || member?.displayName || target.username;
         const username = usernameOverride || target.username;
-        const quoteNumber = numberOverride != null ? numberOverride : r(1000,9999);
 
         const avatarURL = target.displayAvatarURL({ size:512, dynamic:false, extension:"png" });
         const avatarRes = await fetch(avatarURL);
@@ -5763,12 +5767,12 @@ if(cmd==="gif"){
         const avatarBuffer = Buffer.from(await avatarRes.arrayBuffer());
 
         const cardBuffer = await buildFakeQuoteCard({
-          avatarBuffer, quoteText, displayName, username, quoteNumber
+          avatarBuffer, quoteText, displayName, username
         });
 
         return safeReply(interaction,{
           content:`✅ Generated quote card for **${displayName}**.`,
-          files:[{ attachment: cardBuffer, name: `quote_${quoteNumber}.png` }],
+          files:[{ attachment: cardBuffer, name: `quote_6660.png` }],
           ephemeral:true
         });
       }catch(e){
