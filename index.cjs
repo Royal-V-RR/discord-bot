@@ -1552,42 +1552,59 @@ async function buildFakeQuoteCard({ avatarBuffer, quoteText, displayName, userna
     .png()
     .toBuffer();
 
-  // 3. Lay out the quote text — size scales down for longer quotes, wraps to fit the right panel
+  // 3. Lay out the quote text. Font sizes and gaps below are measured pixel-for-pixel
+  // from a real "Make it a Quote" card render (57px quote / 28px name / 17px username,
+  // with fixed baseline-to-baseline gaps), so short quotes match exactly. Longer quotes
+  // that would overflow the right panel scale down and wrap to stay readable.
   const rightX = QUOTE_CARD_LEFT_W;
   const rightW = QUOTE_CARD_W - QUOTE_CARD_LEFT_W;
   const pad = 60;
   const textAreaW = rightW - pad * 2;
+  // The real card's text block isn't centered on the full right panel — it sits ~43px left
+  // of panel-center (measured directly from a reference card), so match that offset here.
+  const textCenterX = rightX + rightW / 2 - 43;
 
-  const fontSize = quoteText.length > 220 ? 24 : quoteText.length > 140 ? 28 : quoteText.length > 70 ? 36 : 44;
-  const approxCharW = fontSize * 0.55;
+  const BASE_QUOTE_FONT = 57, BASE_NAME_FONT = 28, BASE_USER_FONT = 17;
+  const BASE_QUOTE_TO_NAME_GAP = 54, BASE_NAME_TO_USER_GAP = 32;
+  // Single-line baseline position measured from the real card (y=311 on a 630-tall canvas).
+  const BASE_QUOTE_BASELINE = 311;
+
+  const fontSize = quoteText.length > 220 ? 26 : quoteText.length > 140 ? 32 : quoteText.length > 60 ? 40 : BASE_QUOTE_FONT;
+  const approxCharW = fontSize * 0.535;
   const maxChars = Math.max(8, Math.floor(textAreaW / approxCharW));
   const lines = wrapQuoteText(quoteText, maxChars).slice(0, 10); // hard cap so it can't overflow the card
-  const lineHeight = fontSize * 1.3;
-  const quoteBlockH = lines.length * lineHeight;
+  const lineHeight = fontSize * 1.25;
 
-  // Quote block sits a little above true vertical center; name + username stack directly beneath it.
-  const quoteCenterY = QUOTE_CARD_H * 0.40;
-  let startY = quoteCenterY - quoteBlockH / 2 + fontSize * 0.8;
+  // Scale the name/username sizes and gaps down in proportion to the quote font, so longer
+  // (smaller) quotes keep consistent visual proportions instead of looking oversized.
+  const scale = fontSize / BASE_QUOTE_FONT;
+  const nameFont = Math.round(BASE_NAME_FONT * scale);
+  const userFont = Math.round(BASE_USER_FONT * scale);
+  const quoteToNameGap = BASE_QUOTE_TO_NAME_GAP * scale;
+  const nameToUserGap = BASE_NAME_TO_USER_GAP * scale;
+
+  // For a single line, the first (only) baseline matches the reference exactly.
+  // For multiple lines, shift the whole block up so it stays vertically balanced.
+  const firstLineBaseline = BASE_QUOTE_BASELINE - (lines.length - 1) * (lineHeight / 2);
 
   const quoteLinesSvg = lines.map((line, i) =>
-    `<text x="${rightX + rightW / 2}" y="${startY + i * lineHeight}" font-family="DejaVu Sans" font-size="${fontSize}" fill="white" text-anchor="middle">${escapeSvgText(line)}</text>`
+    `<text x="${textCenterX}" y="${firstLineBaseline + i * lineHeight}" font-family="DejaVu Sans" font-size="${fontSize}" fill="white" text-anchor="middle">${escapeSvgText(line)}</text>`
   ).join("\n");
 
-  // Gap from the quote's last baseline to the name, scaled relative to the reference's 44px baseline.
-  const lastLineBaselineY = startY + (lines.length - 1) * lineHeight;
-  const nameY     = lastLineBaselineY + Math.max(34, fontSize * 1.13);
-  const usernameY = nameY + 33;
+  const lastLineBaseline = firstLineBaseline + (lines.length - 1) * lineHeight;
+  const nameY     = lastLineBaseline + quoteToNameGap;
+  const usernameY = nameY + nameToUserGap;
 
   // The footer tag is always "Make it a Quote#6660", pinned to the bottom-right corner.
   const tagLabel = "Make it a Quote#6660";
-  const tagY = QUOTE_CARD_H - 23;
-  const tagX = QUOTE_CARD_W - 20;
+  const tagY = QUOTE_CARD_H - 14;
+  const tagX = QUOTE_CARD_W - 12;
 
   const cardSvg = `
   <svg width="${QUOTE_CARD_W}" height="${QUOTE_CARD_H}" xmlns="http://www.w3.org/2000/svg">
     ${quoteLinesSvg}
-    <text x="${rightX + rightW / 2}" y="${nameY}" font-family="DejaVu Sans" font-style="italic" font-size="26" fill="white" text-anchor="middle">- ${escapeSvgText(displayName)}</text>
-    <text x="${rightX + rightW / 2}" y="${usernameY}" font-family="DejaVu Sans" font-size="17" fill="#999999" text-anchor="middle">@${escapeSvgText(username)}</text>
+    <text x="${textCenterX}" y="${nameY}" font-family="DejaVu Sans" font-style="italic" font-size="${nameFont}" fill="white" text-anchor="middle">- ${escapeSvgText(displayName)}</text>
+    <text x="${textCenterX}" y="${usernameY}" font-family="DejaVu Sans" font-size="${userFont}" fill="#999999" text-anchor="middle">@${escapeSvgText(username)}</text>
     <text x="${tagX}" y="${tagY}" font-family="DejaVu Sans" font-size="18" fill="#888888" text-anchor="end">${escapeSvgText(tagLabel)}</text>
   </svg>`;
   const cardLayer = await sharp(Buffer.from(cardSvg)).png().toBuffer();
