@@ -1526,20 +1526,28 @@ function wrapQuoteText(text, maxCharsPerLine) {
 }
 
 async function buildFakeQuoteCard({ avatarBuffer, quoteText, displayName, username }) {
-  // 1. Left-half photo: cover-crop to the left panel size, grayscale, slightly brightened
+  // 1. Left-half photo: cover-crop to the left panel size, grayscale.
+  // No brightness boost and no sharpening — the real card's photo is a plain, slightly
+  // soft grayscale conversion. Using Sharp's default lanczos3 kernel over-sharpens edges
+  // compared to the reference, so a mild blur is applied afterward to soften it back down
+  // to match the reference's measured edge contrast.
   const avatarPanel = await sharp(avatarBuffer)
     .resize(QUOTE_CARD_LEFT_W, QUOTE_CARD_H, { fit: "cover", position: "centre" })
     .grayscale()
-    .modulate({ brightness: 1.12 })
+    .blur(0.6)
     .toBuffer();
 
-  // 2. Horizontal fade mask — solid on the left, fading to transparent by the panel edge
+  // 2. Fade mask — measured pixel-for-pixel from a real card. The fade isn't a pure
+  // horizontal wipe: the "fully black" boundary sits at x≈446 at the top of the panel and
+  // x≈574 at the bottom, a deliberate diagonal tilt. The gradient vector below was solved
+  // directly from those two measured points (perpendicular to the line connecting them),
+  // with a plateau stop so the photo stays fully visible before the fade begins.
   const fadeMaskSvg = `
     <svg width="${QUOTE_CARD_LEFT_W}" height="${QUOTE_CARD_H}" xmlns="http://www.w3.org/2000/svg">
       <defs>
-        <linearGradient id="fade" x1="0%" y1="0%" x2="100%" y2="0%">
+        <linearGradient id="fade" x1="0" y1="0" x2="428.32" y2="-87.02" gradientUnits="userSpaceOnUse">
           <stop offset="0%"  stop-color="white" stop-opacity="1"/>
-          <stop offset="55%" stop-color="white" stop-opacity="1"/>
+          <stop offset="47%" stop-color="white" stop-opacity="1"/>
           <stop offset="100%" stop-color="white" stop-opacity="0"/>
         </linearGradient>
       </defs>
