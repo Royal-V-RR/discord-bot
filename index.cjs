@@ -1,5 +1,6 @@
 "use strict";
 const { Client, Intents, MessageActionRow, MessageButton, MessageSelectMenu } = require("discord.js");
+const sharp  = require("sharp");
 const https = require("https");
 const http  = require("http");
 const fs    = require("fs");
@@ -109,6 +110,11 @@ let trashcanThreshold = 3;
 const selfClankUsers = new Map(); // guildId -> Set<userId>
 // selfClankCooldown: userId -> timestamp when cooldown expires
 const selfClankCooldown = new Map();
+
+// ── Pending quote review submissions (token -> submission data) ───────────────
+// Avoids Discord's 100-char custom_id limit by using a short token instead of
+// embedding the full filename in the button ID.
+const pendingReviews = new Map(); // token -> { submitterId, fileName, rawName, mediaKind }
 
 // ── Upload counters & persistent status ───────────────────────────────────────
 // Global sequential counters for /upload + /requestupload filenames (persisted in botdata.json)
@@ -549,6 +555,7 @@ function buildDataObject() {
     trashcanVotes:        [...trashcanVotes.entries()].map(([k,v])=>[k,{filename:v.filename,voters:[...v.voters],guildId:v.guildId,channelId:v.channelId,sentToDeleter:v.sentToDeleter}]),
     selfClankUsers:       [...selfClankUsers.entries()].map(([guildId,set])=>[guildId,[...set]]),
     selfClankCooldown:    [...selfClankCooldown.entries()],
+    pendingReviews:       [...pendingReviews.entries()],
     uploadCounters:       {...uploadCounters},
     botStatus:            botStatus,
   };
@@ -746,6 +753,12 @@ function loadData() {
       data.selfClankCooldown.forEach(([k,v]) => { if(v > now) selfClankCooldown.set(k, v); });
     }
     if (data.quoteVotes)         data.quoteVotes.forEach(([k,v]) => quoteVotes.set(k, v));
+    if (data.pendingReviews) {
+      data.pendingReviews.forEach(([token, v]) => {
+        pendingReviews.set(token, v);
+        setTimeout(() => pendingReviews.delete(token), 7 * 24 * 60 * 60 * 1000);
+      });
+    }
     if (data.quoteVoteMessages)  data.quoteVoteMessages.forEach(([k,v]) => quoteVoteMessages.set(k, v));
 
     console.log(`✅ Data loaded — ${ticketConfigs.size} ticket configs, ${reactionRoles.size} reaction roles, ${scores.size} scores, ${guildChannels.size} channels, ${activeEffects.size} active effects, ${reminders.length} reminders, ${inviteComps.size} active competitions, ${premieres.size} premieres, ${activityChecks.size} activity checks, ${raConfig.size} RA configs, ${dailyQuoteChannels.size} daily quote channels`);
@@ -1479,6 +1492,110 @@ function fmtSubs(n) {
   return String(n);
 }
 
+// ── /fakequote — "Make it a Quote" style image card ───────────────────────────
+// Replicates the classic Quote bot card: left half is a grayscale photo/avatar
+// fading to black, right half is a centered quote with an italic attribution
+// and a footer showing @username + a fake "Make it a Quote#NNNN" tag.
+const QUOTE_CARD_W = 1200, QUOTE_CARD_H = 630, QUOTE_CARD_LEFT_W = 600;
+
+function escapeSvgText(s) {
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
+// Simple greedy word-wrap based on an estimated average character width for the chosen font size.
+function wrapQuoteText(text, maxCharsPerLine) {
+  const words = text.split(/\s+/).filter(Boolean);
+  const lines = [];
+  let cur = "";
+  for (const w of words) {
+    const trial = cur ? `${cur} ${w}` : w;
+    if (trial.length > maxCharsPerLine && cur) {
+      lines.push(cur);
+      cur = w;
+    } else {
+      cur = trial;
+    }
+  }
+  if (cur) lines.push(cur);
+  return lines;
+}
+
+async function buildFakeQuoteCard({ avatarBuffer, quoteText, displayName, username, quoteNumber }) {
+  // 1. Left-half photo: cover-crop to the left panel size, grayscale, slightly brightened
+  const avatarPanel = await sharp(avatarBuffer)
+    .resize(QUOTE_CARD_LEFT_W, QUOTE_CARD_H, { fit: "cover", position: "centre" })
+    .grayscale()
+    .modulate({ brightness: 1.12 })
+    .toBuffer();
+
+  // 2. Horizontal fade mask — solid on the left, fading to transparent by the panel edge
+  const fadeMaskSvg = `
+    <svg width="${QUOTE_CARD_LEFT_W}" height="${QUOTE_CARD_H}" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="fade" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%"  stop-color="white" stop-opacity="1"/>
+          <stop offset="55%" stop-color="white" stop-opacity="1"/>
+          <stop offset="100%" stop-color="white" stop-opacity="0"/>
+        </linearGradient>
+      </defs>
+      <rect width="100%" height="100%" fill="url(#fade)"/>
+    </svg>`;
+  const fadeMask = await sharp(Buffer.from(fadeMaskSvg)).png().toBuffer();
+  const avatarFaded = await sharp(avatarPanel)
+    .ensureAlpha()
+    .composite([{ input: fadeMask, blend: "dest-in" }])
+    .png()
+    .toBuffer();
+
+  // 3. Lay out the quote text — size scales down for longer quotes, wraps to fit the right panel
+  const rightX = QUOTE_CARD_LEFT_W;
+  const rightW = QUOTE_CARD_W - QUOTE_CARD_LEFT_W;
+  const pad = 60;
+  const textAreaW = rightW - pad * 2;
+
+  const fontSize = quoteText.length > 220 ? 24 : quoteText.length > 140 ? 28 : quoteText.length > 70 ? 36 : 44;
+  const approxCharW = fontSize * 0.55;
+  const maxChars = Math.max(8, Math.floor(textAreaW / approxCharW));
+  const lines = wrapQuoteText(quoteText, maxChars).slice(0, 10); // hard cap so it can't overflow the card
+  const lineHeight = fontSize * 1.3;
+  const quoteBlockH = lines.length * lineHeight;
+  const footerBlockH = 110;
+  const totalContentH = quoteBlockH + footerBlockH;
+  let startY = (QUOTE_CARD_H - totalContentH) / 2 + fontSize;
+
+  const quoteLinesSvg = lines.map((line, i) =>
+    `<text x="${rightX + rightW / 2}" y="${startY + i * lineHeight}" font-family="DejaVu Sans" font-size="${fontSize}" fill="white" text-anchor="middle">${escapeSvgText(line)}</text>`
+  ).join("\n");
+
+  const nameY = startY + quoteBlockH + 50;
+  const footerY = nameY + 42;
+  const tagLabel = quoteNumber != null ? `Make it a Quote#${quoteNumber}` : "Make it a Quote";
+
+  const cardSvg = `
+  <svg width="${QUOTE_CARD_W}" height="${QUOTE_CARD_H}" xmlns="http://www.w3.org/2000/svg">
+    ${quoteLinesSvg}
+    <text x="${rightX + rightW / 2}" y="${nameY}" font-family="DejaVu Sans" font-style="italic" font-size="30" fill="white" text-anchor="middle">- ${escapeSvgText(displayName)}</text>
+    <text x="${rightX + pad}" y="${footerY}" font-family="DejaVu Sans" font-size="20" fill="#999999" text-anchor="start">@${escapeSvgText(username)}</text>
+    <text x="${rightX + rightW - pad}" y="${footerY}" font-family="DejaVu Sans" font-size="20" fill="#999999" text-anchor="end">${escapeSvgText(tagLabel)}</text>
+  </svg>`;
+  const cardLayer = await sharp(Buffer.from(cardSvg)).png().toBuffer();
+
+  return sharp({
+    create: { width: QUOTE_CARD_W, height: QUOTE_CARD_H, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 1 } }
+  })
+    .composite([
+      { input: avatarFaded, left: 0, top: 0 },
+      { input: cardLayer, left: 0, top: 0 },
+    ])
+    .png()
+    .toBuffer();
+}
+
 // ── YouTube polling tick (runs every 5 minutes) ───────────────────────────────
 setInterval(async () => {
   for (const [guildId, cfg] of ytConfig.entries()) {
@@ -1588,7 +1705,7 @@ const client=new Client({
 //    so only the bot owner can see/use them.
 const OWNER_ONLY_CMDS = new Set([
   "servers","broadcast","fakecrash","identitycrisis","botolympics","sentience",
-  "legendrandom","fakemessage","dmuser","leaveserver","restart","refreshcmds",
+  "legendrandom","fakemessage","fakequote","dmuser","leaveserver","restart","refreshcmds",
   "botstats","setstatus","adminuser","adminreset","adminconfig","admingive",
   "shadowdelete","clankerify","forcemarry","forcedivorce","echo",
   // Owner context-menu commands
@@ -1781,6 +1898,13 @@ function buildCommands(){
     {name:"sentience",      description:"[Owner] Trigger sentience"},
     {name:"legendrandom",   description:"[Owner] Random legend"},
     {name:"fakemessage",    description:"[Owner] Send a message as another user via webhook",options:[{name:"user",description:"User to impersonate",type:6,required:true},{name:"message",description:"Message text to send",type:3,required:false},{name:"file",description:"File to send",type:11,required:false},{name:"mode",description:"Clankerify mode to apply to the message",type:3,required:false,choices:[{name:"No mode (plain)",value:"none"},{name:"Evil",value:"evil"},{name:"Freaky",value:"freaky"},{name:"American",value:"american"},{name:"British",value:"british"},{name:"Stupid",value:"stupid"},{name:"Boomer",value:"boomer"},{name:"Conspiracy",value:"conspiracy"},{name:"NPC",value:"npc"},{name:"Sigma",value:"sigma"},{name:"Medieval",value:"medieval"},{name:"Ghost",value:"ghost"},{name:"Pirate",value:"pirate"},{name:"RespawnRaccoon Propaganda",value:"rr_propaganda"},{name:"French",value:"french"},{name:"UWU / LOLCAT",value:"uwu"},{name:"Scottish",value:"scottish"},{name:"Random",value:"random"}]}]},
+    {name:"fakequote",      description:"[Owner] Generate a 'Make it a Quote' style image card for a user",options:[
+      {name:"user",         description:"User to feature (pulls their avatar, username & display name)",type:6,required:true},
+      {name:"text",         description:"The quote text to display",type:3,required:true},
+      {name:"number",       description:"Fake quote # shown in the footer (default: random)",type:4,required:false},
+      {name:"displayname",  description:"Override the displayed name (default: their server display name)",type:3,required:false},
+      {name:"username",     description:"Override the @username shown in the footer (default: their actual username)",type:3,required:false},
+    ]},
     {name:"dmuser",         description:"[Owner] DM a user",options:[{name:"user",description:"User",type:6,required:true},{name:"message",description:"Message",type:3,required:true}]},
     {name:"leaveserver",    description:"[Owner] Leave a server",options:[{name:"server",description:"Server ID",type:3,required:true}]},
     {name:"restart",        description:"[Owner] Restart"},
@@ -3096,7 +3220,6 @@ client.on("interactionCreate",async interaction=>{
     const uid=interaction.user.id;
     const cid=interaction.customId;
 
-    // ── Clankerify mode selection ─────────────────────────────────────────────
     // ── Quote review: accept / reject ────────────────────────────────────────
     if(cid.startsWith("qr_accept_")||cid.startsWith("qr_reject_")){
       if(!OWNER_IDS.includes(uid)){
@@ -3104,20 +3227,31 @@ client.on("interactionCreate",async interaction=>{
         return;
       }
       const isAccept = cid.startsWith("qr_accept_");
-      // customId: qr_accept_{submitterId}_{stagingName}  or qr_reject_{submitterId}_{stagingName}
-      // stagingName format: {submitterId}__{kind}__{rawName}
-      const payload = isAccept ? cid.slice(10) : cid.slice(10);
-      const firstUnd = payload.indexOf("_");
-      const submitterId = payload.slice(0, firstUnd);
-      const stagingName = payload.slice(firstUnd + 1);
+      // New format: qr_accept_{token} — full submission data in pendingReviews
+      const token = cid.slice(isAccept ? 10 : 10);
+      const pending = pendingReviews.get(token);
 
-      // Parse kind out of the staging name; fall back gracefully for any legacy-format submissions
-      const stagingMatch = stagingName.match(/^(\d+)__(image|audio|video)__(.+)$/);
-      const mediaKind = stagingMatch ? stagingMatch[2] : "image";
-      const rawName   = stagingMatch ? stagingMatch[3] : stagingName;
-      const prefix     = mediaKind === "image" ? "quote" : mediaKind === "audio" ? "eardestroyer" : "eyebleacher";
+      // Legacy fallback: if no token match, parse old-style IDs (submitterId_stagingName)
+      let submitterId, stagingName, mediaKind, rawName;
+      if(pending){
+        submitterId = pending.submitterId;
+        stagingName = pending.fileName;
+        mediaKind   = pending.mediaKind;
+        rawName     = pending.rawName;
+      } else {
+        // Old format: qr_accept_{submitterId}_{stagingName}
+        const payload  = token;
+        const firstUnd = payload.indexOf("_");
+        submitterId    = payload.slice(0, firstUnd);
+        stagingName    = payload.slice(firstUnd + 1);
+        const stagingMatch = stagingName.match(/^(\d+)__(image|audio|video)__(.+)$/);
+        mediaKind = stagingMatch ? stagingMatch[2] : "image";
+        rawName   = stagingMatch ? stagingMatch[3] : stagingName;
+      }
+      const prefix = mediaKind === "image" ? "quote" : mediaKind === "audio" ? "eardestroyer" : "eyebleacher";
 
       if(!await btnAck(interaction)) return;
+      if(pending) pendingReviews.delete(token);
 
       if(!isAccept){
         // Rejected — just update the message
@@ -4363,7 +4497,7 @@ client.on("interactionCreate",async interaction=>{
   const cmd=interaction.commandName;
   const inGuild=!!interaction.guildId;
 
-  const ownerOnly=["servers","broadcast","requester","deleter","fakecrash","identitycrisis","botolympics","sentience","legendrandom","dmuser","leaveserver","restart","refreshcmds","botstats","setstatus","adminuser","adminreset","adminconfig","admingive","echo","shadowdelete","clankerify","fakemessage","forcemarry","forcedivorce"];
+  const ownerOnly=["servers","broadcast","requester","deleter","fakecrash","identitycrisis","botolympics","sentience","legendrandom","dmuser","leaveserver","restart","refreshcmds","botstats","setstatus","adminuser","adminreset","adminconfig","admingive","echo","shadowdelete","clankerify","fakemessage","fakequote","forcemarry","forcedivorce"];
   if(ownerOnly.includes(cmd)&&!OWNER_IDS.includes(interaction.user.id))return safeReply(interaction,{content:"Owner only.",ephemeral:true});
 
   const manageServerCmds=["channelpicker","counting","xpconfig","setwelcome","setleave","setwelcomemsg","setleavemsg","disableownermsg","serverconfig","autorole","setboostmsg","invitecomp","purge","reactionrole","ticketsetup","ytsetup","subgoal","subcount","milestones","dailyquote"];
@@ -5610,6 +5744,38 @@ if(cmd==="gif"){
         return safeReply(interaction,{content:`✅ Message sent as **${fakeDisplayName}**${modeLabel}.`,ephemeral:true});
       }catch(e){return safeReply(interaction,{content:`❌ Failed: ${e.message}`,ephemeral:true});}
     }
+    if(cmd==="fakequote"){
+      await interaction.deferReply({ephemeral:true});
+      const target = interaction.options.getUser("user");
+      const quoteText = interaction.options.getString("text");
+      const numberOverride = interaction.options.getInteger("number");
+      const displayNameOverride = interaction.options.getString("displayname");
+      const usernameOverride = interaction.options.getString("username");
+      try{
+        const member = interaction.guildId ? await interaction.guild.members.fetch(target.id).catch(()=>null) : null;
+        const displayName = displayNameOverride || member?.displayName || target.username;
+        const username = usernameOverride || target.username;
+        const quoteNumber = numberOverride != null ? numberOverride : r(1000,9999);
+
+        const avatarURL = target.displayAvatarURL({ size:512, dynamic:false, extension:"png" });
+        const avatarRes = await fetch(avatarURL);
+        if(!avatarRes.ok) throw new Error(`Couldn't fetch avatar (HTTP ${avatarRes.status})`);
+        const avatarBuffer = Buffer.from(await avatarRes.arrayBuffer());
+
+        const cardBuffer = await buildFakeQuoteCard({
+          avatarBuffer, quoteText, displayName, username, quoteNumber
+        });
+
+        return safeReply(interaction,{
+          content:`✅ Generated quote card for **${displayName}**.`,
+          files:[{ attachment: cardBuffer, name: `quote_${quoteNumber}.png` }],
+          ephemeral:true
+        });
+      }catch(e){
+        console.error("fakequote error:",e.message);
+        return safeReply(interaction,{content:`❌ Failed to generate quote card: ${e.message}`,ephemeral:true});
+      }
+    }
     if(cmd==="leaveserver"){const guild=client.guilds.cache.get(interaction.options.getString("server"));if(!guild)return safeReply(interaction,{content:"Server not found.",ephemeral:true});const name=guild.name;await guild.leave();return safeReply(interaction,{content:`Left ${name}`,ephemeral:true});}
     if(cmd==="restart"){await safeReply(interaction,{content:"Restarting…",ephemeral:true});process.exit(0);}
     if(cmd==="refreshcmds"){
@@ -6771,13 +6937,19 @@ if(cmd==="gif"){
       const member = interaction.member;
       const displayName = member?.displayName || submitter.username;
 
+      // Generate a short token — keeps custom_id well under Discord's 100-char limit.
+      // Full filename is stored in pendingReviews keyed by the token.
+      const reviewToken = `${submitter.id.slice(-6)}${Date.now().toString(36)}`;
+      pendingReviews.set(reviewToken, { submitterId: submitter.id, fileName, rawName, mediaKind: mediaInfo.kind });
+      setTimeout(() => pendingReviews.delete(reviewToken), 7 * 24 * 60 * 60 * 1000);
+
       const reviewRow = new MessageActionRow().addComponents(
         new MessageButton()
-          .setCustomId(`qr_accept_${submitter.id}_${fileName}`)
+          .setCustomId(`qr_accept_${reviewToken}`)
           .setLabel("✅ Upload to Quotes")
           .setStyle("SUCCESS"),
         new MessageButton()
-          .setCustomId(`qr_reject_${submitter.id}_${fileName}`)
+          .setCustomId(`qr_reject_${reviewToken}`)
           .setLabel("❌ Reject")
           .setStyle("DANGER"),
       );
