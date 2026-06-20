@@ -4,6 +4,38 @@ const sharp  = require("sharp");
 const https = require("https");
 const http  = require("http");
 const fs    = require("fs");
+const path  = require("path");
+
+// ── Bundled font registration (for /fakequote card rendering) ────────────────
+// Sharp renders SVG text through fontconfig, which depends on whatever fonts
+// happen to be installed on the host OS. To make the "Make it a Quote" card
+// font (Poppins) render identically no matter where the bot is deployed, a
+// copy of the Poppins TTFs ships in ./fonts and gets registered via a small
+// fontconfig file pointed at that directory through FONTCONFIG_FILE. This is
+// additive — system fonts are still found via <include> of the default config,
+// so nothing else in the bot is affected.
+(function registerBundledFonts() {
+  try {
+    const fontsDir = path.join(__dirname, "fonts");
+    if (!fs.existsSync(fontsDir)) return; // no bundled fonts shipped — fall back to system fonts silently
+    const fcDir = path.join(__dirname, ".fontconfig");
+    if (!fs.existsSync(fcDir)) fs.mkdirSync(fcDir, { recursive: true });
+    const fontsConfPath = path.join(fcDir, "fonts.conf");
+    const cacheDir = path.join(fcDir, "cache");
+    if (!fs.existsSync(cacheDir)) fs.mkdirSync(cacheDir, { recursive: true });
+    const fontsConf = `<?xml version="1.0"?>
+<!DOCTYPE fontconfig SYSTEM "fonts.dtd">
+<fontconfig>
+  <dir>${fontsDir}</dir>
+  <cachedir>${cacheDir}</cachedir>
+  <include ignore_missing="yes">/etc/fonts/fonts.conf</include>
+</fontconfig>`;
+    fs.writeFileSync(fontsConfPath, fontsConf);
+    process.env.FONTCONFIG_FILE = fontsConfPath;
+  } catch (e) {
+    console.error("Font registration skipped:", e.message);
+  }
+})();
 
 const TOKEN     = process.env.TOKEN;
 const CLIENT_ID = "1480592876684706064";
@@ -1526,15 +1558,13 @@ function wrapQuoteText(text, maxCharsPerLine) {
 }
 
 async function buildFakeQuoteCard({ avatarBuffer, quoteText, displayName, username }) {
-  // 1. Left-half photo: cover-crop to the left panel size, grayscale.
-  // No brightness boost and no sharpening — the real card's photo is a plain, slightly
-  // soft grayscale conversion. Using Sharp's default lanczos3 kernel over-sharpens edges
-  // compared to the reference, so a mild blur is applied afterward to soften it back down
-  // to match the reference's measured edge contrast.
+  // 1. Left-half photo: cover-crop to the left panel size, then plain grayscale conversion.
+  // No brightness/contrast adjustment and no extra sharpen/blur — Sharp's default resize
+  // kernel already matches the reference card's edge sharpness almost exactly when starting
+  // from the true unprocessed source avatar (verified via Laplacian-variance comparison).
   const avatarPanel = await sharp(avatarBuffer)
     .resize(QUOTE_CARD_LEFT_W, QUOTE_CARD_H, { fit: "cover", position: "centre" })
     .grayscale()
-    .blur(0.6)
     .toBuffer();
 
   // 2. Fade mask — measured pixel-for-pixel from a real card. The fade isn't a pure
@@ -1572,13 +1602,13 @@ async function buildFakeQuoteCard({ avatarBuffer, quoteText, displayName, userna
   // of panel-center (measured directly from a reference card), so match that offset here.
   const textCenterX = rightX + rightW / 2 - 43;
 
-  const BASE_QUOTE_FONT = 57, BASE_NAME_FONT = 28, BASE_USER_FONT = 17;
+  const BASE_QUOTE_FONT = 57, BASE_NAME_FONT = 26, BASE_USER_FONT = 17;
   const BASE_QUOTE_TO_NAME_GAP = 54, BASE_NAME_TO_USER_GAP = 32;
   // Single-line baseline position measured from the real card (y=311 on a 630-tall canvas).
   const BASE_QUOTE_BASELINE = 311;
 
   const fontSize = quoteText.length > 220 ? 26 : quoteText.length > 140 ? 32 : quoteText.length > 60 ? 40 : BASE_QUOTE_FONT;
-  const approxCharW = fontSize * 0.535;
+  const approxCharW = fontSize * 0.46;
   const maxChars = Math.max(8, Math.floor(textAreaW / approxCharW));
   const lines = wrapQuoteText(quoteText, maxChars).slice(0, 10); // hard cap so it can't overflow the card
   const lineHeight = fontSize * 1.25;
@@ -1596,7 +1626,7 @@ async function buildFakeQuoteCard({ avatarBuffer, quoteText, displayName, userna
   const firstLineBaseline = BASE_QUOTE_BASELINE - (lines.length - 1) * (lineHeight / 2);
 
   const quoteLinesSvg = lines.map((line, i) =>
-    `<text x="${textCenterX}" y="${firstLineBaseline + i * lineHeight}" font-family="DejaVu Sans" font-size="${fontSize}" fill="white" text-anchor="middle">${escapeSvgText(line)}</text>`
+    `<text x="${textCenterX}" y="${firstLineBaseline + i * lineHeight}" font-family="Poppins" font-size="${fontSize}" fill="white" text-anchor="middle">${escapeSvgText(line)}</text>`
   ).join("\n");
 
   const lastLineBaseline = firstLineBaseline + (lines.length - 1) * lineHeight;
@@ -1611,9 +1641,9 @@ async function buildFakeQuoteCard({ avatarBuffer, quoteText, displayName, userna
   const cardSvg = `
   <svg width="${QUOTE_CARD_W}" height="${QUOTE_CARD_H}" xmlns="http://www.w3.org/2000/svg">
     ${quoteLinesSvg}
-    <text x="${textCenterX}" y="${nameY}" font-family="DejaVu Sans" font-style="italic" font-size="${nameFont}" fill="white" text-anchor="middle">- ${escapeSvgText(displayName)}</text>
-    <text x="${textCenterX}" y="${usernameY}" font-family="DejaVu Sans" font-size="${userFont}" fill="#999999" text-anchor="middle">@${escapeSvgText(username)}</text>
-    <text x="${tagX}" y="${tagY}" font-family="DejaVu Sans" font-size="18" fill="#888888" text-anchor="end">${escapeSvgText(tagLabel)}</text>
+    <text x="${textCenterX}" y="${nameY}" font-family="Poppins" font-style="italic" font-size="${nameFont}" fill="white" text-anchor="middle">- ${escapeSvgText(displayName)}</text>
+    <text x="${textCenterX}" y="${usernameY}" font-family="Poppins" font-size="${userFont}" fill="#999999" text-anchor="middle">@${escapeSvgText(username)}</text>
+    <text x="${tagX}" y="${tagY}" font-family="Poppins" font-size="18" fill="#888888" text-anchor="end">${escapeSvgText(tagLabel)}</text>
   </svg>`;
   const cardLayer = await sharp(Buffer.from(cardSvg)).png().toBuffer();
 
