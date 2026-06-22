@@ -4889,7 +4889,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-27",
-        "xp": 3958,
+        "xp": 3964,
         "level": 23,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -4903,7 +4903,7 @@
         "marriedTo": null,
         "pendingProposal": null,
         "forceMarried": false,
-        "imagesUploaded": 244,
+        "imagesUploaded": 245,
         "uploadedImages": [
           "IMG_4186.png",
           "quote_1498252621922832514.png",
@@ -5137,7 +5137,8 @@
           "quote_29.png",
           "quote_30.png",
           "quote_31.png",
-          "quote_32.png"
+          "quote_32.png",
+          "eardestroyer_1.ogg"
         ],
         "lastFishTime": 0,
         "lastMineTime": 0,
@@ -6794,7 +6795,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 5104,
+        "xp": 5116,
         "level": 23,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -32137,7 +32138,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 479,
+        "xp": 490,
         "level": 5,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -57933,20 +57934,10 @@
     ]
   ],
   "selfClankCooldown": [],
-  "pendingReviews": [
-    [
-      "889764mqpb4hyw",
-      {
-        "submitterId": "969280648667889764",
-        "fileName": "969280648667889764__audio__Karamel_cottoneyejoe.ogg",
-        "rawName": "Karamel_cottoneyejoe.ogg",
-        "mediaKind": "audio"
-      }
-    ]
-  ],
+  "pendingReviews": [],
   "uploadCounters": {
     "quote": 36,
-    "eardestroyer": 0,
+    "eardestroyer": 1,
     "eyebleacher": 3
   },
   "botStatus": null
