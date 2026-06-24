@@ -4508,8 +4508,8 @@
       "1515972755424673902",
       {
         "guildId": "1048053656035020911",
-        "count": 105,
-        "lastUserId": "1099756603667910696",
+        "count": 106,
+        "lastUserId": "760031383598530630",
         "highScore": 124
       }
     ]
@@ -5870,7 +5870,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 1771,
+        "xp": 1777,
         "level": 14,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -58128,7 +58128,17 @@
     ]
   ],
   "selfClankCooldown": [],
-  "pendingReviews": [],
+  "pendingReviews": [
+    [
+      "530630mqrxzquv",
+      {
+        "submitterId": "760031383598530630",
+        "fileName": "760031383598530630__image__WA_1782297500180.jpg",
+        "rawName": "WA_1782297500180.jpg",
+        "mediaKind": "image"
+      }
+    ]
+  ],
   "uploadCounters": {
     "quote": 39,
     "eardestroyer": 1,
