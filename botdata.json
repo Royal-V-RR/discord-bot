@@ -471,12 +471,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 14900,
-        "lastSubsTimestamp": 1782371826743,
+        "lastSubsTimestamp": 1782372126769,
         "history": [
-          {
-            "ts": 1782065277340,
-            "subs": 14900
-          },
           {
             "ts": 1782065577349,
             "subs": 14900
@@ -4471,6 +4467,10 @@
           },
           {
             "ts": 1782371826743,
+            "subs": 14900
+          },
+          {
+            "ts": 1782372126769,
             "subs": 14900
           }
         ],
@@ -33420,6 +33420,30 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 21,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1297207751646380057",
+      {
+        "username": "coofy57",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 12,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
