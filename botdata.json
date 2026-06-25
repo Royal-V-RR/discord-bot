@@ -4477,11 +4477,11 @@
         "subcountDiscordId": "1483595393999700080",
         "subcountMessageId": "1519677811386744934",
         "subcountThreshold": 1000,
-        "goal": 15000,
-        "goalMessage": null,
-        "goalReached": true,
+        "goal": 30000,
+        "goalMessage": "<@&1048058249280225321>, Respawn Raccoon has reached 30k youtube subscribers!",
+        "goalReached": false,
         "goalDiscordId": "1483595393999700080",
-        "goalMessageId": "1515968978432823417"
+        "goalMessageId": "1519677993625194551"
       }
     ]
   ],
