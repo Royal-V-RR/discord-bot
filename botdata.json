@@ -4508,9 +4508,9 @@
       "1515972755424673902",
       {
         "guildId": "1048053656035020911",
-        "count": 174,
-        "lastUserId": "1341784753472540746",
-        "highScore": 174
+        "count": 175,
+        "lastUserId": "1335731869538320414",
+        "highScore": 175
       }
     ]
   ],
@@ -33373,6 +33373,30 @@
         "lastDailyDate": "",
         "xp": 127,
         "level": 4,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1335731869538320414",
+      {
+        "username": "agentducky644",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 9,
+        "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
         "lastCrimeTime": 0,
