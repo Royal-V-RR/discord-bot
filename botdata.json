@@ -234,7 +234,16 @@
     ]
   ],
   "shadowDelete": [],
-  "clankerify": [],
+  "clankerify": [
+    [
+      "230741545521905664",
+      {
+        "expiresAt": 1782503069389,
+        "mode": "random",
+        "ownerClanked": true
+      }
+    ]
+  ],
   "reactionRoles": [
     [
       "1408975996715139084:1483218332005175427:🤖",
@@ -4889,7 +4898,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-27",
-        "xp": 219,
+        "xp": 228,
         "level": 24,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -6810,7 +6819,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 1259,
+        "xp": 1270,
         "level": 24,
         "lastWorkTime": 0,
         "lastBegTime": 0,
