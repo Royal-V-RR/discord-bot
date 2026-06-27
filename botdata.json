@@ -471,12 +471,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 15000,
-        "lastSubsTimestamp": 1782596014353,
+        "lastSubsTimestamp": 1782596314367,
         "history": [
-          {
-            "ts": 1782288886076,
-            "subs": 14900
-          },
           {
             "ts": 1782289186096,
             "subs": 14900
@@ -4472,6 +4468,10 @@
           {
             "ts": 1782596014353,
             "subs": 15000
+          },
+          {
+            "ts": 1782596314367,
+            "subs": 15000
           }
         ],
         "subcountDiscordId": "1483595393999700080",
@@ -4598,7 +4598,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 633,
+        "xp": 653,
         "level": 14,
         "lastWorkTime": 1778930588496,
         "lastBegTime": 1778930582404,
@@ -4652,7 +4652,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 1455,
+        "xp": 1460,
         "level": 17,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -5653,7 +5653,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 2494,
+        "xp": 2504,
         "level": 16,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -6028,8 +6028,8 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 721,
-        "level": 6,
+        "xp": 9,
+        "level": 7,
         "lastWorkTime": 0,
         "lastBegTime": 0,
         "lastCrimeTime": 0,
@@ -18103,7 +18103,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 132,
+        "xp": 138,
         "level": 10,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -31931,7 +31931,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 199,
+        "xp": 210,
         "level": 3,
         "lastWorkTime": 0,
         "lastBegTime": 0,
