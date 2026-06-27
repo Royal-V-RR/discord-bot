@@ -471,12 +471,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 15000,
-        "lastSubsTimestamp": 1782578250756,
+        "lastSubsTimestamp": 1782578550793,
         "history": [
-          {
-            "ts": 1782271513426,
-            "subs": 14900
-          },
           {
             "ts": 1782271813452,
             "subs": 14900
@@ -4472,6 +4468,10 @@
           {
             "ts": 1782578250756,
             "subs": 15000
+          },
+          {
+            "ts": 1782578550793,
+            "subs": 15000
           }
         ],
         "subcountDiscordId": "1483595393999700080",
@@ -4852,7 +4852,7 @@
       {
         "username": "junoblep",
         "wins": 87,
-        "gamesPlayed": 324,
+        "gamesPlayed": 325,
         "coins": 0,
         "dailyStreak": 1,
         "bestStreak": 1,
