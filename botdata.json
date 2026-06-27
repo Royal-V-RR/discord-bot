@@ -4903,7 +4903,7 @@
         "marriedTo": null,
         "pendingProposal": null,
         "forceMarried": false,
-        "imagesUploaded": 255,
+        "imagesUploaded": 256,
         "uploadedImages": [
           "IMG_4186.png",
           "quote_1498252621922832514.png",
@@ -5147,7 +5147,8 @@
           "quote_48.png",
           "quote_49.png",
           "quote_54.png",
-          "quote_55.png"
+          "quote_55.png",
+          "quote_59.png"
         ],
         "lastFishTime": 0,
         "lastMineTime": 0,
@@ -58802,7 +58803,7 @@
   "selfClankCooldown": [],
   "pendingReviews": [],
   "uploadCounters": {
-    "quote": 58,
+    "quote": 59,
     "eardestroyer": 1,
     "eyebleacher": 3
   },
