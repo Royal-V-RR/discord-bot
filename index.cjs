@@ -1793,8 +1793,15 @@ async function buildTomatoGif(msgContent, authorTag, tomatoCount, speedMin = 50,
   const BASE_DELAY_CS = Math.max(2, Math.round(frames[0].delayMs / 10));
   const outFrameCount = numFrames;
   const outputW = CARD_W, outputH = CARD_H;
-  const outBufArr = [];
 
+  // First pass: composite every output frame and keep the raw RGBA buffers.
+  // IMPORTANT: we deliberately do NOT quantize each frame in isolation here.
+  // (Bug history: quantizing per-frame gives every frame its own palette, but
+  // a GIF only has one global color table — writing each frame's indices
+  // against ITS OWN palette while the file only stores frame 0's palette made
+  // every later frame (and all the tomato colors) decode as whatever frame 0's
+  // unused/padding slots were, i.e. solid black.)
+  const rawFrames = [];
   for(let outF = 0; outF < outFrameCount; outF++){
     // Build composite list — advance each tomato's frame accumulator
     const composites = [];
@@ -1810,19 +1817,26 @@ async function buildTomatoGif(msgContent, authorTag, tomatoCount, speedMin = 50,
     }
 
     // Composite all tomatoes onto the card in one sharp call
-    const { data, info } = await sharp(cardPng)
+    const { data } = await sharp(cardPng)
       .composite(composites)
       .raw()
       .toBuffer({ resolveWithObject: true });
 
-    const indexed = quantizeRGBA(data, info.width, info.height);
-    outBufArr.push({ indexed: indexed.pixels, palette: indexed.palette, delay: BASE_DELAY_CS });
+    rawFrames.push(data);
   }
 
-  // ── 6. Encode final GIF ────────────────────────────────────────────────────
+  // Second pass: build ONE shared palette from every frame combined, then
+  // index each frame's pixels against that same palette so colors stay
+  // correct and consistent across the whole animation.
+  const { palette: globalPalette, colorMap: sharedColorMap } = buildSharedPalette(rawFrames, outputW, outputH);
+  const outBufArr = rawFrames.map(data => ({
+    indexed: indexFrameToPalette(data, outputW, outputH, globalPalette, sharedColorMap),
+    delay:   BASE_DELAY_CS,
+  }));
+
+  // ── 7. Encode final GIF ────────────────────────────────────────────────────
   // omggif GifWriter palette must be an Array of [r,g,b] triples with length
   // equal to a power of 2 between 2 and 256. We always quantize to 256 entries.
-  const globalPalette = outBufArr[0].palette; // Array of 256 [r,g,b] triples
 
   // Allocate output buffer generously
   const outBuf = Buffer.alloc(outputW * outputH * outFrameCount * 4 + 1024 * 64);
@@ -1841,23 +1855,32 @@ async function buildTomatoGif(msgContent, authorTag, tomatoCount, speedMin = 50,
   return Buffer.from(outBuf.buffer, 0, writer.end());
 }
 
-// Quantize RGBA raw buffer → { pixels: Uint8Array (indexed, 0-255), palette: [[r,g,b]×256] }
+// Build ONE shared palette across a whole set of RGBA frame buffers.
 // omggif requires the palette as a plain Array of [r,g,b] arrays, length = power of 2 (we use 256).
-// Index 0 is reserved as the background/transparent colour (Discord dark grey).
-function quantizeRGBA(rgbaData, width, height) {
+// Index 0 is reserved as the background colour (Discord dark grey), matching the
+// card's own background so any transparent pixel blends in correctly.
+// Returns { palette: [[r,g,b]×256], colorMap: Map<R5G5B5 key, paletteIndex> }.
+//
+// NOTE: this MUST be built from all frames combined, not per-frame — a GIF has
+// only one global color table, so indexing each frame against its own private
+// palette (the old behaviour) made every frame after the first decode using
+// the wrong colours (see buildTomatoGif for the full story).
+function buildSharedPalette(rgbaBuffers, width, height) {
   const PALETTE_SIZE = 256; // must be power of 2
   const totalPx = width * height;
 
   // ── Frequency count using 5-bit RGB (R5G5B5) — 32 768 possible buckets ────
   const freq = new Map();
-  for(let i = 0; i < totalPx; i++){
-    const a = rgbaData[i*4+3];
-    if(a < 32) continue; // skip transparent pixels
-    const r = rgbaData[i*4]   >> 3;
-    const g = rgbaData[i*4+1] >> 3;
-    const b = rgbaData[i*4+2] >> 3;
-    const key = (r << 10) | (g << 5) | b;
-    freq.set(key, (freq.get(key) || 0) + 1);
+  for(const rgbaData of rgbaBuffers){
+    for(let i = 0; i < totalPx; i++){
+      const a = rgbaData[i*4+3];
+      if(a < 32) continue; // skip transparent pixels
+      const r = rgbaData[i*4]   >> 3;
+      const g = rgbaData[i*4+1] >> 3;
+      const b = rgbaData[i*4+2] >> 3;
+      const key = (r << 10) | (g << 5) | b;
+      freq.set(key, (freq.get(key) || 0) + 1);
+    }
   }
 
   // ── Pick top (PALETTE_SIZE - 1) colours by frequency ──────────────────────
@@ -1881,22 +1904,49 @@ function quantizeRGBA(rgbaData, width, height) {
     palette[i + 1] = [r8, g8, b8];
     colorMap.set(key, i + 1);
   }
-  // Fill any remaining slots with black so the array is exactly PALETTE_SIZE long
-  for(let i = sorted.length + 1; i < PALETTE_SIZE; i++) palette[i] = [0, 0, 0];
+  // Fill any remaining slots with the background colour (not black) so a miss
+  // never renders as a jarring black blob — worst case it just blends into the card.
+  for(let i = sorted.length + 1; i < PALETTE_SIZE; i++) palette[i] = palette[0];
 
-  // ── Map every pixel to its nearest palette index ───────────────────────────
+  return { palette, colorMap };
+}
+
+// Map a single RGBA frame buffer onto a previously-built shared palette.
+// Pixels whose exact 5-bit colour didn't make the top-255 cut (rare — usually
+// only anti-aliased edge pixels) are matched to the nearest palette entry by
+// squared distance instead of collapsing to one arbitrary fallback colour.
+function indexFrameToPalette(rgbaData, width, height, palette, colorMap) {
+  const totalPx = width * height;
   const pixels = new Uint8Array(totalPx);
+  const nearestCache = new Map(); // memoize nearest-match lookups for this frame
+
   for(let i = 0; i < totalPx; i++){
     const a = rgbaData[i*4+3];
     if(a < 32){ pixels[i] = 0; continue; } // transparent → background index
-    const r = rgbaData[i*4]   >> 3;
-    const g = rgbaData[i*4+1] >> 3;
-    const b = rgbaData[i*4+2] >> 3;
-    const key = (r << 10) | (g << 5) | b;
-    pixels[i] = colorMap.has(key) ? colorMap.get(key) : 1; // fallback to first real colour
+
+    const r = rgbaData[i*4], g = rgbaData[i*4+1], b = rgbaData[i*4+2];
+    const key = ((r >> 3) << 10) | ((g >> 3) << 5) | (b >> 3);
+
+    let idx = colorMap.get(key);
+    if(idx === undefined){
+      if(nearestCache.has(key)){
+        idx = nearestCache.get(key);
+      } else {
+        let best = 0, bestDist = Infinity;
+        for(let p = 1; p < palette.length; p++){
+          const [pr, pg, pb] = palette[p];
+          const dr = pr - r, dg = pg - g, db = pb - b;
+          const dist = dr*dr + dg*dg + db*db;
+          if(dist < bestDist){ bestDist = dist; best = p; }
+        }
+        idx = best;
+        nearestCache.set(key, idx);
+      }
+    }
+    pixels[i] = idx;
   }
 
-  return { pixels, palette };
+  return pixels;
 }
 
 // ── YouTube polling tick (runs every 5 minutes) ───────────────────────────────
@@ -4666,9 +4716,16 @@ client.on("interactionCreate",async interaction=>{
       }
 
       // Parse inputs — clamp to valid ranges
-      const rawCount    = parseInt(interaction.fields.getTextInputValue("tomato_count"))    || 1;
-      const rawSpeedMin = parseInt(interaction.fields.getTextInputValue("tomato_speed_min")) ?? 50;
-      const rawSpeedMax = parseInt(interaction.fields.getTextInputValue("tomato_speed_max")) ?? 100;
+      // NOTE: parseInt() returns NaN for non-numeric input, and `?? 50` does NOT
+      // catch NaN (only null/undefined), so a non-numeric entry used to silently
+      // flow through as NaN all the way into the GIF builder (NaN speeds →
+      // NaN frame index → undefined composite input → broken/blank output).
+      const parsedCount    = parseInt(interaction.fields.getTextInputValue("tomato_count"));
+      const parsedSpeedMin = parseInt(interaction.fields.getTextInputValue("tomato_speed_min"));
+      const parsedSpeedMax = parseInt(interaction.fields.getTextInputValue("tomato_speed_max"));
+      const rawCount    = Number.isNaN(parsedCount)    ? 1   : parsedCount;
+      const rawSpeedMin = Number.isNaN(parsedSpeedMin) ? 50  : parsedSpeedMin;
+      const rawSpeedMax = Number.isNaN(parsedSpeedMax) ? 100 : parsedSpeedMax;
       const count    = Math.min(50, Math.max(1, rawCount));
       const speedMin = Math.min(1000, Math.max(0, rawSpeedMin));
       const speedMax = Math.min(1000, Math.max(speedMin, rawSpeedMax));
