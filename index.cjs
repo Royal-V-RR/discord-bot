@@ -1817,67 +1817,88 @@ async function buildTomatoGif(msgContent, authorTag, tomatoCount, speedMin = 50,
     const framePng = await sharp(cardPng).composite(composites).raw().toBuffer({ resolveWithObject: true });
     const { data, info } = framePng;
 
-    // Convert RGBA raw → indexed palette for GIF (simple 8-bit quantisation using omggif)
-    // Build a 256-color palette from the frame data using a simple median-cut approximation
-    // For simplicity: use a fixed Discord-palette + tomato reds
-    // Actually, GifWriter needs indexed pixels. Use quantization via a helper:
+    // Quantize RGBA → indexed pixels + palette array formatted for omggif
     const indexed = quantizeRGBA(data, info.width, info.height);
-    outBufArr.push({ indexed: indexed.pixels, palette: indexed.palette, delay: BASE_DELAY_CS, width: info.width, height: info.height });
+    outBufArr.push({ indexed: indexed.pixels, palette: indexed.palette, delay: BASE_DELAY_CS });
   }
 
   // ── 6. Encode final GIF ────────────────────────────────────────────────────
-  // Use the palette from frame 0 for all frames (good enough for this use case)
-  const globalPalette = outBufArr[0].palette;
-  const outBuf = Buffer.alloc(outputW * outputH * outFrameCount * 2 + 1024 * 256);
-  const writer = new GifWriter(outBuf, outputW, outputH, { palette: globalPalette, loop: 0 });
+  // omggif GifWriter palette must be an Array of [r,g,b] triples with length
+  // equal to a power of 2 between 2 and 256. We always quantize to 256 entries.
+  const globalPalette = outBufArr[0].palette; // Array of 256 [r,g,b] triples
+
+  // Allocate output buffer generously
+  const outBuf = Buffer.alloc(outputW * outputH * outFrameCount * 4 + 1024 * 64);
+  const writer = new GifWriter(outBuf, outputW, outputH, {
+    palette:  globalPalette,  // [[r,g,b], ...] length 256
+    loop:     0,              // loop forever
+  });
 
   for(const frame of outBufArr){
     writer.addFrame(0, 0, outputW, outputH, frame.indexed, {
-      palette: globalPalette,
-      delay: frame.delay,
-      disposal: 2, // restore to background between frames
+      delay:    frame.delay,
+      disposal: 2,           // restore to background
     });
   }
 
-  return outBuf.slice(0, writer.end());
+  return Buffer.from(outBuf.buffer, 0, writer.end());
 }
 
-// Simple RGBA → 256-color indexed quantizer (octree-free, ordered-dither approach)
-// Returns { pixels: Uint8Array (indexed), palette: Uint8Array (r,g,b per entry, 256 entries = 768 bytes) }
+// Quantize RGBA raw buffer → { pixels: Uint8Array (indexed, 0-255), palette: [[r,g,b]×256] }
+// omggif requires the palette as a plain Array of [r,g,b] arrays, length = power of 2 (we use 256).
+// Index 0 is reserved as the background/transparent colour (Discord dark grey).
 function quantizeRGBA(rgbaData, width, height) {
-  // Build a frequency table using 5-bit color (R5G5B5) → 32768 buckets
-  const freq = new Map();
+  const PALETTE_SIZE = 256; // must be power of 2
   const totalPx = width * height;
+
+  // ── Frequency count using 5-bit RGB (R5G5B5) — 32 768 possible buckets ────
+  const freq = new Map();
   for(let i = 0; i < totalPx; i++){
+    const a = rgbaData[i*4+3];
+    if(a < 32) continue; // skip transparent pixels
     const r = rgbaData[i*4]   >> 3;
     const g = rgbaData[i*4+1] >> 3;
     const b = rgbaData[i*4+2] >> 3;
-    const key = (r<<10)|(g<<5)|b;
-    freq.set(key, (freq.get(key)||0)+1);
+    const key = (r << 10) | (g << 5) | b;
+    freq.set(key, (freq.get(key) || 0) + 1);
   }
-  // Pick top 255 colors by frequency (slot 0 = transparent/background)
-  const sorted = [...freq.entries()].sort((a,b)=>b[1]-a[1]).slice(0,255);
-  const palette = new Uint8Array(256*3);
-  const colorMap = new Map(); // key → index
+
+  // ── Pick top (PALETTE_SIZE - 1) colours by frequency ──────────────────────
+  // Slot 0 = background (Discord dark grey #36393f)
+  const sorted = [...freq.entries()].sort((a, b) => b[1] - a[1]).slice(0, PALETTE_SIZE - 1);
+
+  // Build palette as Array<[r,g,b]> — omggif's expected format
+  const palette = new Array(PALETTE_SIZE);
+  palette[0] = [0x36, 0x39, 0x3f]; // Discord dark background as colour 0
+
+  const colorMap = new Map(); // R5G5B5 key → palette index
   for(let i = 0; i < sorted.length; i++){
     const key = sorted[i][0];
-    const r = (key>>10)&31, g=(key>>5)&31, b=key&31;
-    palette[(i+1)*3]   = (r<<3)|(r>>2);
-    palette[(i+1)*3+1] = (g<<3)|(g>>2);
-    palette[(i+1)*3+2] = (b<<3)|(b>>2);
-    colorMap.set(key, i+1);
+    const r5 = (key >> 10) & 31;
+    const g5 = (key >>  5) & 31;
+    const b5 =  key        & 31;
+    // Expand 5-bit to 8-bit
+    const r8 = (r5 << 3) | (r5 >> 2);
+    const g8 = (g5 << 3) | (g5 >> 2);
+    const b8 = (b5 << 3) | (b5 >> 2);
+    palette[i + 1] = [r8, g8, b8];
+    colorMap.set(key, i + 1);
   }
-  // Map pixels to nearest palette index
+  // Fill any remaining slots with black so the array is exactly PALETTE_SIZE long
+  for(let i = sorted.length + 1; i < PALETTE_SIZE; i++) palette[i] = [0, 0, 0];
+
+  // ── Map every pixel to its nearest palette index ───────────────────────────
   const pixels = new Uint8Array(totalPx);
   for(let i = 0; i < totalPx; i++){
     const a = rgbaData[i*4+3];
-    if(a < 32){ pixels[i] = 0; continue; } // transparent → background color
+    if(a < 32){ pixels[i] = 0; continue; } // transparent → background index
     const r = rgbaData[i*4]   >> 3;
     const g = rgbaData[i*4+1] >> 3;
     const b = rgbaData[i*4+2] >> 3;
-    const key = (r<<10)|(g<<5)|b;
-    pixels[i] = colorMap.has(key) ? colorMap.get(key) : 1;
+    const key = (r << 10) | (g << 5) | b;
+    pixels[i] = colorMap.has(key) ? colorMap.get(key) : 1; // fallback to first real colour
   }
+
   return { pixels, palette };
 }
 
