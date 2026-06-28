@@ -1747,77 +1747,74 @@ async function buildTomatoGif(msgContent, authorTag, tomatoCount, speedMin = 50,
   const numFrames = reader.numFrames();
 
   // Decode all frames as RGBA pixel arrays
+  // frameInfo(f).delay is in centiseconds (10ms units) — multiply by 10 for ms
   const frames = [];
   for(let f = 0; f < numFrames; f++){
     const info = reader.frameInfo(f);
     const pixels = new Uint8ClampedArray(gifW * gifH * 4);
     reader.decodeAndBlitFrameRGBA(f, pixels);
-    frames.push({ pixels, delay: info.delay * 10, disposalMethod: info.disposal });
+    frames.push({ pixels, delayMs: info.delay * 10 }); // delay in ms
   }
 
-  // ── 4. Determine tomato placements and per-tomato frame speeds ─────────────
-  const maxTomatoW = Math.floor(CARD_W * 0.55); // tomato can be at most 55% from left
-  const maxTomatoH = Math.floor(CARD_H * 0.65);
+  // ── 4. Pre-scale each unique tomato frame to its render size ───────────────
+  // Do this once up-front rather than per-output-frame to avoid O(frames×tomatoes) sharp calls.
+  const scaledW = Math.min(gifW, Math.floor(CARD_W * 0.35));
+  const scaledH = Math.round(gifH * (scaledW / gifW));
+
+  // Cache: frame index → scaled PNG buffer
+  const scaledFrameCache = new Array(numFrames);
+  for(let f = 0; f < numFrames; f++){
+    // Use Buffer.from(pixels) — NOT pixels.buffer, which is offset in Uint8ClampedArray
+    const rawBuf = Buffer.from(frames[f].pixels);
+    const png = await sharp(rawBuf, { raw: { width: gifW, height: gifH, channels: 4 } })
+      .resize(scaledW, scaledH)
+      .png()
+      .toBuffer();
+    scaledFrameCache[f] = png;
+  }
+
+  // ── 5. Determine tomato placements and per-tomato frame speeds ─────────────
+  const maxTomatoX = Math.max(1, CARD_W - scaledW);
+  const maxTomatoY = Math.max(1, CARD_H - scaledH);
   const tomatos = [];
   for(let t = 0; t < tomatoCount; t++){
-    // Pick a random speed within [speedMin, speedMax] (both as percentages, converted to 0-10× multiplier)
     const pctRange = speedMax - speedMin;
-    const speedPct = ((speedMin + (pctRange > 0 ? Math.random() * pctRange : 0)) / 100);
+    const speedPct = (speedMin + (pctRange > 0 ? Math.random() * pctRange : 0)) / 100;
     tomatos.push({
-      x: Math.floor(Math.random() * maxTomatoW),
-      y: Math.floor(Math.random() * maxTomatoH),
-      speedPct: Math.max(0.001, speedPct), // avoid divide-by-zero on 0%
+      x:        Math.floor(Math.random() * maxTomatoX),
+      y:        Math.floor(Math.random() * maxTomatoY),
+      speedPct: Math.max(0.001, speedPct),
+      accum:    0,
     });
   }
 
-  // ── 5. Build output GIF frames ─────────────────────────────────────────────
-  // Each output frame corresponds to one tomato GIF frame at base speed.
-  // For speed-varied tomatoes, we use frame-skipping: tomato t advances one frame
-  // every ceil(1/speedPct) output frames.
-  // Frame delay: use the base tomato delay (or 50ms minimum).
-  const BASE_DELAY_CS = Math.max(Math.round(frames[0].delay / 10), 5); // centiseconds
-
-  // Total output frames = numFrames of the tomato at 100% speed
+  // ── 6. Build output GIF frames ─────────────────────────────────────────────
+  // Frame delay in centiseconds (omggif unit), minimum 2cs (20ms) to keep GIF valid
+  const BASE_DELAY_CS = Math.max(2, Math.round(frames[0].delayMs / 10));
   const outFrameCount = numFrames;
-
-  // Per tomato: current frame index tracking
-  const tomatoFrameCounters = tomatos.map(() => ({ frame: 0, accumulator: 0 }));
-
-  const outBufArr = [];
   const outputW = CARD_W, outputH = CARD_H;
+  const outBufArr = [];
 
   for(let outF = 0; outF < outFrameCount; outF++){
-    // Start with the card PNG
-    let compositeImg = sharp(cardPng).clone();
+    // Build composite list — advance each tomato's frame accumulator
     const composites = [];
-
-    for(let t = 0; t < tomatoCount; t++){
-      const tc = tomatoFrameCounters[t];
-      const tomato = tomatos[t];
-      // Advance frame for this tomato based on its speed
-      tc.accumulator += tomato.speedPct;
-      const tFrame = frames[Math.min(Math.floor(tc.accumulator) % numFrames, numFrames-1)];
-
-      // Convert tomato RGBA → PNG via sharp
-      const tomatoPng = await sharp(Buffer.from(tFrame.pixels.buffer), {
-        raw: { width: gifW, height: gifH, channels: 4 }
-      }).png().toBuffer();
-
-      // Scale tomato to a reasonable size (max 40% of card width)
-      const scaledW = Math.min(gifW, Math.floor(CARD_W * 0.35));
-      const scaledH = Math.round(gifH * (scaledW / gifW));
-      const scaledTomato = await sharp(tomatoPng).resize(scaledW, scaledH).png().toBuffer();
-
-      const px = Math.max(0, Math.min(tomato.x, CARD_W - scaledW));
-      const py = Math.max(0, Math.min(tomato.y, CARD_H - scaledH));
-      composites.push({ input: scaledTomato, left: px, top: py, blend: "over" });
+    for(const tomato of tomatos){
+      tomato.accum += tomato.speedPct;
+      const frameIdx = Math.floor(tomato.accum) % numFrames;
+      composites.push({
+        input: scaledFrameCache[frameIdx],
+        left:  tomato.x,
+        top:   tomato.y,
+        blend: "over",
+      });
     }
 
-    // Composite all tomatoes onto this frame
-    const framePng = await sharp(cardPng).composite(composites).raw().toBuffer({ resolveWithObject: true });
-    const { data, info } = framePng;
+    // Composite all tomatoes onto the card in one sharp call
+    const { data, info } = await sharp(cardPng)
+      .composite(composites)
+      .raw()
+      .toBuffer({ resolveWithObject: true });
 
-    // Quantize RGBA → indexed pixels + palette array formatted for omggif
     const indexed = quantizeRGBA(data, info.width, info.height);
     outBufArr.push({ indexed: indexed.pixels, palette: indexed.palette, delay: BASE_DELAY_CS });
   }
@@ -4681,11 +4678,12 @@ client.on("interactionCreate",async interaction=>{
         const gifBuf = await buildTomatoGif(pending.msgContent, pending.authorTag, count, speedMin, speedMax);
         tomatoPending.delete(msgId);
         const ch = interaction.channel;
-        await safeSend(ch, { files:[{ attachment: gifBuf, name:"tomato.gif" }] });
+        if(!ch) throw new Error("Could not find the channel to send the GIF in");
+        await ch.send({ files:[{ attachment: gifBuf, name:"tomato.gif" }] });
         await interaction.editReply({ content:`🍅 Tomatoed! (${count} tomato${count!==1?"s":""}, speed ${speedMin}–${speedMax}%)` }).catch(()=>{});
       }catch(e){
-        console.error("tomato modal fire error:",e);
-        await interaction.editReply({content:`❌ Failed to make GIF: ${e.message}`}).catch(()=>{});
+        console.error("tomato modal fire error:", e);
+        await interaction.editReply({content:`❌ Failed to make GIF: ${e.message}\n\`\`\`${e.stack?.slice(0,500)||""}\`\`\``}).catch(()=>{});
       }
       return;
     }
