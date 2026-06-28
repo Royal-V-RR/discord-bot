@@ -143,10 +143,17 @@ const selfClankUsers = new Map(); // guildId -> Set<userId>
 // selfClankCooldown: userId -> timestamp when cooldown expires
 const selfClankCooldown = new Map();
 
-// ── Pending quote review submissions (token -> submission data) ───────────────
+// Pending quote review submissions (token -> submission data) ───────────────
 // Avoids Discord's 100-char custom_id limit by using a short token instead of
 // embedding the full filename in the button ID.
 const pendingReviews = new Map(); // token -> { submitterId, fileName, rawName, mediaKind }
+
+// ── Tomato This pending settings (messageId -> { count, speed, authorTag, msgContent }) ──
+const tomatoPending = new Map();
+
+// ── Paranoia watchers (userId -> { chance, armed }) ───────────────────────────
+// When armed, any message the watched user sends gets a paranoia reply.
+const paranoiaWatchers = new Map();
 
 // ── Upload counters & persistent status ───────────────────────────────────────
 // Global sequential counters for /upload + /requestupload filenames (persisted in botdata.json)
@@ -992,6 +999,34 @@ const DARE_ACTIONS=["Change your server nickname to 'Big Mistake' for 10 minutes
 const NEVERHAVEI_STMTS=["... eaten food that fell on the floor.","... stayed up for more than 24 hours straight.","... pretended not to see a notification.","... laughed at something I shouldn't have.","... said 'you too' when the waiter said 'enjoy your meal'.","... accidentally liked a very old post while stalking someone's profile.","... cried at a movie or show alone.","... talked to my pet like they understand everything.","... sent a message and immediately regretted it.","... forgotten someone's name right after being introduced."];
 const HOROSCOPES={Aries:"♈ **Aries**: The stars say stop overthinking and send the message. You already know what you want.",Taurus:"♉ **Taurus**: Mercury is in chaos. Eat something good today. That's the advice. Just eat something good.",Gemini:"♊ **Gemini**: Both of your personalities are right. Pick one anyway.",Cancer:"♋ **Cancer**: Someone is thinking about you right now. Whether that's good news is unclear.",Leo:"♌ **Leo**: The universe wants you to be perceived today. This is your sign (literally).",Virgo:"♍ **Virgo**: You've been holding it together for everyone else. Today the stars permit a meltdown.",Libra:"♎ **Libra**: Stop making pros and cons lists. Just pick. It'll be fine.",Scorpio:"♏ **Scorpio**: You already know the answer. You just want someone to confirm it. Fine. You're right.",Sagittarius:"♐ **Sagittarius**: Adventure awaits. Probably not literally today but spiritually, sure.",Capricorn:"♑ **Capricorn**: You've been working hard. The stars notice. Nobody else does but the stars do.",Aquarius:"♒ **Aquarius**: Your weird idea is actually good this time. Go for it.",Pisces:"♓ **Pisces**: You're not behind. Everyone else is just pretending they know what they're doing too."};
 
+// ── Paranoia messages (sourced from the Discord screenshots) ──────────────────
+const PARANOIA_MESSAGES = [
+  "They're watching",
+  "Don't speak any longer, otherwise they'll listen",
+  "It's rude to talk about someone that is listening",
+  "You weren't supposed to say that",
+  "What have you done?",
+  "They're coming for you",
+  "You've been to loud and they've heard",
+  "Pray because only that can save you now",
+  "You can't hide, for they see everywhere",
+  "You can't run, they'll always be faster",
+  "They can hear you",
+  "Shh… be quiet",
+  "They know you better than you know yourself",
+  "Be quiet",
+  "Stop fighting, they've already won",
+  "Resisting is futile",
+  "All this over loss?",
+  "You know too much",
+  "Don't look towards it",
+  "Go alone",
+  "There's no escape",
+  "They'll enjoy every second of it",
+  "Time is running out quickly",
+  "The darkness takes away",
+];
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const r    = (min,max) => Math.floor(Math.random()*(max-min+1))+min;
 const pick = arr => arr[Math.floor(Math.random()*arr.length)];
@@ -1658,6 +1693,194 @@ async function buildFakeQuoteCard({ avatarBuffer, quoteText, displayName, userna
     .toBuffer();
 }
 
+// ── Tomato GIF builder ────────────────────────────────────────────────────────
+// Generates a GIF where a Discord-style message card has tomato-splat.gif
+// overlaid at random positions, with optional per-tomato speed variation.
+// Uses sharp (already a dep) for image compositing and omggif for GIF encode/decode.
+async function buildTomatoGif(msgContent, authorTag, tomatoCount, speedMin = 50, speedMax = 100) {
+  // Lazy-require omggif (pure-JS, no native deps — safe to require at call time)
+  let GifReader, GifWriter;
+  try {
+    const omggif = require("omggif");
+    GifReader = omggif.GifReader;
+    GifWriter  = omggif.GifWriter;
+  } catch(e) {
+    throw new Error("omggif not installed — run: npm install omggif");
+  }
+
+  // ── 1. Build the message card PNG ──────────────────────────────────────────
+  const CARD_W = 700, CARD_H = 160, PADDING = 20, FONT_SIZE = 18;
+  const lineMaxChars = 52; // approx chars per line at our font size
+  // Wrap msgContent
+  const rawLines = msgContent.split("\n");
+  const wrappedLines = [];
+  for(const line of rawLines){
+    if(line.length <= lineMaxChars){ wrappedLines.push(line); continue; }
+    let rem = line;
+    while(rem.length > lineMaxChars){ wrappedLines.push(rem.slice(0,lineMaxChars)); rem=rem.slice(lineMaxChars); }
+    if(rem.length) wrappedLines.push(rem);
+  }
+  // Limit to 4 lines, add ellipsis
+  const displayLines = wrappedLines.slice(0,4);
+  if(wrappedLines.length > 4) displayLines[3] = displayLines[3].slice(0,-3)+"…";
+
+  function esc(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+
+  const textRows = displayLines.map((l,i)=>`<text x="${PADDING}" y="${PADDING+24+(i*24)}" font-family="sans-serif" font-size="${FONT_SIZE}" fill="#dcddde">${esc(l)}</text>`).join("");
+  const authorY = PADDING + 24 + (displayLines.length*24) + 8;
+  const cardSvg = `<svg width="${CARD_W}" height="${CARD_H}" xmlns="http://www.w3.org/2000/svg">
+    <rect width="${CARD_W}" height="${CARD_H}" fill="#36393f"/>
+    <text x="${PADDING}" y="${PADDING+16}" font-family="sans-serif" font-size="14" fill="#8e9297">${esc(authorTag)}</text>
+    ${textRows}
+  </svg>`;
+  const cardPng = await sharp(Buffer.from(cardSvg)).png().toBuffer();
+
+  // ── 2. Fetch tomato-splat.gif from the repo ────────────────────────────────
+  const tomatoUrl = "https://raw.githubusercontent.com/Royal-V-RR/discord-bot/main/tomato-splat.gif";
+  const tRes = await fetch(tomatoUrl);
+  if(!tRes.ok) throw new Error(`Could not fetch tomato-splat.gif (HTTP ${tRes.status})`);
+  const tomatoGifBuf = Buffer.from(await tRes.arrayBuffer());
+
+  // ── 3. Decode tomato GIF frames ────────────────────────────────────────────
+  const reader = new GifReader(new Uint8Array(tomatoGifBuf));
+  const gifW = reader.width, gifH = reader.height;
+  const numFrames = reader.numFrames();
+
+  // Decode all frames as RGBA pixel arrays
+  const frames = [];
+  for(let f = 0; f < numFrames; f++){
+    const info = reader.frameInfo(f);
+    const pixels = new Uint8ClampedArray(gifW * gifH * 4);
+    reader.decodeAndBlitFrameRGBA(f, pixels);
+    frames.push({ pixels, delay: info.delay * 10, disposalMethod: info.disposal });
+  }
+
+  // ── 4. Determine tomato placements and per-tomato frame speeds ─────────────
+  const maxTomatoW = Math.floor(CARD_W * 0.55); // tomato can be at most 55% from left
+  const maxTomatoH = Math.floor(CARD_H * 0.65);
+  const tomatos = [];
+  for(let t = 0; t < tomatoCount; t++){
+    // Pick a random speed within [speedMin, speedMax] (both as percentages, converted to 0-10× multiplier)
+    const pctRange = speedMax - speedMin;
+    const speedPct = ((speedMin + (pctRange > 0 ? Math.random() * pctRange : 0)) / 100);
+    tomatos.push({
+      x: Math.floor(Math.random() * maxTomatoW),
+      y: Math.floor(Math.random() * maxTomatoH),
+      speedPct: Math.max(0.001, speedPct), // avoid divide-by-zero on 0%
+    });
+  }
+
+  // ── 5. Build output GIF frames ─────────────────────────────────────────────
+  // Each output frame corresponds to one tomato GIF frame at base speed.
+  // For speed-varied tomatoes, we use frame-skipping: tomato t advances one frame
+  // every ceil(1/speedPct) output frames.
+  // Frame delay: use the base tomato delay (or 50ms minimum).
+  const BASE_DELAY_CS = Math.max(Math.round(frames[0].delay / 10), 5); // centiseconds
+
+  // Total output frames = numFrames of the tomato at 100% speed
+  const outFrameCount = numFrames;
+
+  // Per tomato: current frame index tracking
+  const tomatoFrameCounters = tomatos.map(() => ({ frame: 0, accumulator: 0 }));
+
+  const outBufArr = [];
+  const outputW = CARD_W, outputH = CARD_H;
+
+  for(let outF = 0; outF < outFrameCount; outF++){
+    // Start with the card PNG
+    let compositeImg = sharp(cardPng).clone();
+    const composites = [];
+
+    for(let t = 0; t < tomatoCount; t++){
+      const tc = tomatoFrameCounters[t];
+      const tomato = tomatos[t];
+      // Advance frame for this tomato based on its speed
+      tc.accumulator += tomato.speedPct;
+      const tFrame = frames[Math.min(Math.floor(tc.accumulator) % numFrames, numFrames-1)];
+
+      // Convert tomato RGBA → PNG via sharp
+      const tomatoPng = await sharp(Buffer.from(tFrame.pixels.buffer), {
+        raw: { width: gifW, height: gifH, channels: 4 }
+      }).png().toBuffer();
+
+      // Scale tomato to a reasonable size (max 40% of card width)
+      const scaledW = Math.min(gifW, Math.floor(CARD_W * 0.35));
+      const scaledH = Math.round(gifH * (scaledW / gifW));
+      const scaledTomato = await sharp(tomatoPng).resize(scaledW, scaledH).png().toBuffer();
+
+      const px = Math.max(0, Math.min(tomato.x, CARD_W - scaledW));
+      const py = Math.max(0, Math.min(tomato.y, CARD_H - scaledH));
+      composites.push({ input: scaledTomato, left: px, top: py, blend: "over" });
+    }
+
+    // Composite all tomatoes onto this frame
+    const framePng = await sharp(cardPng).composite(composites).raw().toBuffer({ resolveWithObject: true });
+    const { data, info } = framePng;
+
+    // Convert RGBA raw → indexed palette for GIF (simple 8-bit quantisation using omggif)
+    // Build a 256-color palette from the frame data using a simple median-cut approximation
+    // For simplicity: use a fixed Discord-palette + tomato reds
+    // Actually, GifWriter needs indexed pixels. Use quantization via a helper:
+    const indexed = quantizeRGBA(data, info.width, info.height);
+    outBufArr.push({ indexed: indexed.pixels, palette: indexed.palette, delay: BASE_DELAY_CS, width: info.width, height: info.height });
+  }
+
+  // ── 6. Encode final GIF ────────────────────────────────────────────────────
+  // Use the palette from frame 0 for all frames (good enough for this use case)
+  const globalPalette = outBufArr[0].palette;
+  const outBuf = Buffer.alloc(outputW * outputH * outFrameCount * 2 + 1024 * 256);
+  const writer = new GifWriter(outBuf, outputW, outputH, { palette: globalPalette, loop: 0 });
+
+  for(const frame of outBufArr){
+    writer.addFrame(0, 0, outputW, outputH, frame.indexed, {
+      palette: globalPalette,
+      delay: frame.delay,
+      disposal: 2, // restore to background between frames
+    });
+  }
+
+  return outBuf.slice(0, writer.end());
+}
+
+// Simple RGBA → 256-color indexed quantizer (octree-free, ordered-dither approach)
+// Returns { pixels: Uint8Array (indexed), palette: Uint8Array (r,g,b per entry, 256 entries = 768 bytes) }
+function quantizeRGBA(rgbaData, width, height) {
+  // Build a frequency table using 5-bit color (R5G5B5) → 32768 buckets
+  const freq = new Map();
+  const totalPx = width * height;
+  for(let i = 0; i < totalPx; i++){
+    const r = rgbaData[i*4]   >> 3;
+    const g = rgbaData[i*4+1] >> 3;
+    const b = rgbaData[i*4+2] >> 3;
+    const key = (r<<10)|(g<<5)|b;
+    freq.set(key, (freq.get(key)||0)+1);
+  }
+  // Pick top 255 colors by frequency (slot 0 = transparent/background)
+  const sorted = [...freq.entries()].sort((a,b)=>b[1]-a[1]).slice(0,255);
+  const palette = new Uint8Array(256*3);
+  const colorMap = new Map(); // key → index
+  for(let i = 0; i < sorted.length; i++){
+    const key = sorted[i][0];
+    const r = (key>>10)&31, g=(key>>5)&31, b=key&31;
+    palette[(i+1)*3]   = (r<<3)|(r>>2);
+    palette[(i+1)*3+1] = (g<<3)|(g>>2);
+    palette[(i+1)*3+2] = (b<<3)|(b>>2);
+    colorMap.set(key, i+1);
+  }
+  // Map pixels to nearest palette index
+  const pixels = new Uint8Array(totalPx);
+  for(let i = 0; i < totalPx; i++){
+    const a = rgbaData[i*4+3];
+    if(a < 32){ pixels[i] = 0; continue; } // transparent → background color
+    const r = rgbaData[i*4]   >> 3;
+    const g = rgbaData[i*4+1] >> 3;
+    const b = rgbaData[i*4+2] >> 3;
+    const key = (r<<10)|(g<<5)|b;
+    pixels[i] = colorMap.has(key) ? colorMap.get(key) : 1;
+  }
+  return { pixels, palette };
+}
+
 // ── YouTube polling tick (runs every 5 minutes) ───────────────────────────────
 setInterval(async () => {
   for (const [guildId, cfg] of ytConfig.entries()) {
@@ -1769,9 +1992,9 @@ const OWNER_ONLY_CMDS = new Set([
   "servers","broadcast","fakecrash","identitycrisis","botolympics","sentience",
   "legendrandom","fakemessage","fakequote","dmuser","leaveserver","restart","refreshcmds",
   "botstats","setstatus","adminuser","adminreset","adminconfig","admingive",
-  "shadowdelete","clankerify","forcemarry","forcedivorce","echo",
+  "shadowdelete","clankerify","forcemarry","forcedivorce","echo","paranoia",
   // Owner context-menu commands
-  "Reaction Bomb","Clank This","Expose",
+  "Reaction Bomb","Clank This","Expose","Tomato This",
 ]);
 
 function buildCommands(){
@@ -1838,31 +2061,7 @@ function buildCommands(){
     {name:"userprofile",    description:"Full profile card — stats, economy, XP, inventory & more 📋",options:uReq(false)},
     {name:"botinfo",        description:"Bot information 🤖"},
     {name:"help",           description:"Show all commands and how to use the bot 📖"},
-    // Economy
-    {name:"coins",    description:"Check coin balance 💰",options:uReq(false)},
-    {name:"slots",    description:"Slot machine 🎰",options:[{name:"bet",description:"Coins to bet (default 10)",type:4,required:false}]},
-    {name:"coinbet",  description:"Bet on a coin flip 🪙",options:[{name:"bet",description:"Coins",type:4,required:true},{name:"side",description:"heads or tails",type:3,required:true,choices:[{name:"Heads",value:"heads"},{name:"Tails",value:"tails"}]}]},
-    {name:"blackjack",description:"Blackjack 🃏",options:[{name:"bet",description:"Coins to bet",type:4,required:true}]},
-    {name:"givecoin", description:"Give coins to someone 💸",options:[{name:"user",description:"User",type:6,required:true},{name:"amount",description:"Amount",type:4,required:true}]},
-    {name:"beg",      description:"Beg for coins 🙏"},
-    {name:"work",     description:"Work for coins 💼"},
-    {name:"crime",    description:"Commit a crime 🦹"},
-    {name:"rob",      description:"Rob another user 🔫",options:uReq()},
-    {name:"shop",     description:"View the item shop 🛍️"},
-    {name:"buy",      description:"Buy an item 🛒",options:[{name:"item",description:"Item name",type:3,required:true,choices:[
-      {name:"Lucky Charm 🍀 (+10% coins, 1hr)",         value:"lucky_charm"},
-      {name:"XP Boost ⚡ (2× XP, 1hr)",                 value:"xp_boost"},
-      {name:"Shield 🛡️ (blocks next rob)",              value:"shield"},
-      {name:"Coin Magnet 🧲 (next work = 3× coins)",    value:"coin_magnet"},
-      {name:"Mystery Box 📦 (weighted random reward)",  value:"mystery_box"},
-      {name:"Item Mystery Box 🎲 (cheap, low quality)", value:"item_mystery_box"},
-      {name:"Rob Insurance 📋 (no fine if caught rob)", value:"rob_insurance"},
-    ]}]},
-    {name:"open",     description:"Open a mystery box from your inventory 📦",options:[{name:"box",description:"Which box to open",type:3,required:true,choices:[
-      {name:"Mystery Box 📦",      value:"mystery_box"},
-      {name:"Item Mystery Box 🎲", value:"item_mystery_box"},
-    ]}]},
-    {name:"inventory",description:"Check your inventory 🎒",options:uReq(false)},
+
     // XP
     {name:"xp",           description:"Check XP and level 📈",options:uReq(false)},
     {name:"xpleaderboard",description:"XP leaderboard 🏆",options:[{name:"scope",description:"global or server",type:3,required:false,choices:[{name:"Global",value:"global"},{name:"Server",value:"server"}]}]},
@@ -1966,6 +2165,10 @@ function buildCommands(){
       {name:"displayname",  description:"Override the displayed name (default: their server display name)",type:3,required:false},
       {name:"username",     description:"Override the @username shown below the name (default: their actual username)",type:3,required:false},
     ]},
+    {name:"paranoia",       description:"[Owner] Watch a user and reply to their messages with paranoia lines (run again to disarm)",options:[
+      {name:"user",         description:"Target user to haunt (run again on same user to disarm)",type:6,required:true},
+      {name:"chance",       description:"% chance each message triggers a reply (1-100, default 100)",type:4,required:false},
+    ]},
     {name:"dmuser",         description:"[Owner] DM a user",options:[{name:"user",description:"User",type:6,required:true},{name:"message",description:"Message",type:3,required:true}]},
     {name:"leaveserver",    description:"[Owner] Leave a server",options:[{name:"server",description:"Server ID",type:3,required:true}]},
     {name:"restart",        description:"[Owner] Restart"},
@@ -2061,6 +2264,7 @@ function buildCommands(){
     { name:"Reaction Bomb",   type:3, default_member_permissions:"0" },
     { name:"Clank This",      type:3, default_member_permissions:"0" },
     { name:"Expose",          type:3, default_member_permissions:"0" },
+    { name:"Tomato This",     type:3, default_member_permissions:"0" },
     // Everyone
     { name:"Vibe Check",      type:3 },
     { name:"Uwu-ify",         type:3 },
@@ -3235,6 +3439,16 @@ client.on("messageCreate",async msg=>{
     }
   }
 
+  // ── Paranoia watcher — reply to watched users' messages ─────────────────────
+  const paranoiaEntry = paranoiaWatchers.get(msg.author.id);
+  if(paranoiaEntry && paranoiaEntry.armed){
+    // Roll chance — if it passes, pick one random paranoia line and reply to this message
+    if(Math.random() * 100 < paranoiaEntry.chance){
+      const line = PARANOIA_MESSAGES[Math.floor(Math.random() * PARANOIA_MESSAGES.length)];
+      try{ await msg.reply({ content: line, allowedMentions:{ repliedUser: false } }); }catch(e){ console.error("paranoia reply error:", e.message); }
+    }
+  }
+
   // ── Permanent counting channel ────────────────────────────────────────────
   const cc=countingChannels.get(msg.channelId);
   if(cc){
@@ -4080,14 +4294,13 @@ client.on("interactionCreate",async interaction=>{
       if(page<0||page>=TOTAL){try{await interaction.deferUpdate();}catch{}return;}
       if(!(await btnAck(interaction)))return;
       const HELP_PAGES=[
-        {title:"🎉 Fun & Social  —  Page 1 / 8",description:["**Interactions**","`/action type:… user:…` — Hug, pat, poke, stare, wave, high five, boop, oil, diddle, or kill someone","`/punch` `/hug` `/kiss` `/slap` `/throw` — Quick social actions","`/rate type:… user:…` — Rate someone (gay, autistic, simp, cursed, npc, villain, sigma)","`/ppsize user:…` — Check pp size","`/ship user1:… user2:…` — Ship compatibility %","","**Romance**","`/marry user:…` — Propose 💍 — target gets Accept/Decline buttons","`/divorce` — End the marriage 💔","`/partner [user]` — See who someone is married to","","**Party Games**","`/party type:truth|dare|neverhavei` — Truth, Dare, or Never Have I Ever","","**Conversation**","`/topic` — Random conversation starter","`/roast [user]` — Roast someone 🔥","`/compliment user:…` — Compliment someone 💖","`/advice` — Life advice 🧙","`/fact` — Random fun fact 📚","`/horoscope sign:…` — Your daily horoscope ✨","`/poll question:…` — Quick yes/no poll (server only)"].join("\n")},
-        {title:"📡 Media & Utility  —  Page 2 / 8",description:["**Media**","`/gif animal:…` — Random animal GIF 🐾 (cat, dog, fox, panda, duck, bunny, koala, raccoon)","`/joke` — Random joke 😂","`/meme` — Random meme 🐸","`/quote` — Inspirational quote image ✨","`/trivia` — Trivia question with spoiler answer 🧠","`/avatar user:…` — Get someone's avatar","","**Utility**","`/ping` — Bot latency 🏓","`/coinflip` — Heads or tails 🪙","`/roll [sides]` — Roll a dice (default d6) 🎲","`/choose options:a,b,c` — Pick from comma-separated options","`/echo [message] [embed] [image] [title] [color] [replyto]` — Make the bot say something","`/remind time:… message:…` — Set a reminder (1 min – 1 week)","`/upload source|link:…` — Upload an image/audio/video to the quotes folder 🖼️🔊🎬 *(server only, authorized users)*","","**Info**","`/botinfo` — Bot stats","`/serverinfo` — Server member/channel/role info","`/userprofile [user]` — Full profile: level, XP, coins, items, cooldowns"].join("\n")},
-        {title:"💰 Economy  —  Page 3 / 8",description:["**Balance & Transfers**","`/coins [user]` — Check coin balance","`/givecoin user:… amount:…` — Transfer coins","","**Earning**","`/work` — Work a shift (1hr cooldown, 50–200 coins)","`/beg` — Beg for coins (5min cooldown, 0–50 coins)","`/crime` — Commit a crime (2hr cooldown, risky!)","`/rob user:…` — Rob someone (1hr cooldown, 45% success)","","**Gambling**","`/slots [bet]` — Slot machine 🎰","`/coinbet bet:… side:heads|tails` — Bet on a coin flip","`/blackjack bet:…` — Blackjack vs the dealer 🃏","","**Shop**","`/shop` — View items","`/buy item:…` — Buy an item","> 🍀 Lucky Charm (200) · ⚡ XP Boost (300) · 🛡️ Shield (150)","`/inventory [user]` — View items","","**Daily**","`/games game:Daily Challenge` — Daily puzzle for coins + streak 📅"].join("\n")},
-        {title:"📈 XP & Leaderboards  —  Page 4 / 8",description:["**XP**","You earn XP by sending messages (1 min cooldown). 5–15 XP per message.","Level formula: `floor(50 × level^1.5)` XP per level","","`/xp [user]` — Check XP, level, and progress bar","`/xpleaderboard [scope:global|server]` — Top 10 by XP","","**Stats & Leaderboards**","`/score [user]` — Wins, losses, win rate, streak","`/userprofile [user]` — Everything in one embed","`/leaderboard [type]` — Global top 10","`/serverleaderboard [type]` — Server top 10","> Types: `wins` `coins` `streak` `beststreak` `games` `winrate` `images`"].join("\n")},
-        {title:"🎮 Games  —  Page 5 / 8",description:["**Solo** — `/games game:…`","> 🪢 Hangman · 🐍 Snake · 💣 Minesweeper (Easy/Med/Hard)","> 🔢 Number Guess · 🔀 Word Scramble · 📅 Daily Challenge","","**2-Player** — `/2playergames game:… [opponent:…]`","> ❌⭕ Tic Tac Toe *(server only)*","> 🔴🔵 Connect 4 *(server only)*","> ✊ Rock Paper Scissors *(choices sent via DM)*","> 🧮 Math Race · 🏁 Word Race · 🧠 Trivia Battle *(server only)*","> 🔢 Count Game — count to 100 together, no opponent needed *(server only)*","> 🏁 Scramble Race — 5-round word unscramble *(server only)*","","Wins award coins. Check `/score` or `/userprofile` for stats."].join("\n")},
-        {title:"⚙️ Server Config  —  Page 6 / 8",description:["Most commands here require **Manage Server** permission.","","**Channels & Messages**","`/channelpicker channel:… [levelup]` — Set the bot's main channel","`/xpconfig setting:…` — Level-up messages (on/off, ping toggle, channel)","`/setwelcome channel:… [message]` — Welcome message (`{user}` `{server}` `{count}`)","`/setleave channel:… [message]` — Leave message","`/setboostmsg channel:… [message]` — Boost announcement","`/disableownermsg enabled:…` — Toggle bot owner broadcasts","`/purge amount:…` — Bulk delete (needs Manage Messages)","`/counting action:set|remove|status` — Set a permanent counting channel","","**Roles**","`/autorole [role]` — Auto-assign role on join (blank to disable)","`/reactionrole action:add|remove|list …` — Emoji reaction roles","`/rolespingfix` — List & fix roles that can @everyone","","**Competitions & Tickets**","`/invitecomp hours:…` — Invite competition with coin rewards","`/ticketsetup` · `/closeticket` · `/addtoticket` · `/removefromticket`","","**Overview**","`/serverconfig` — View all current settings"].join("\n")},
-        {title:"🛡️ Activity & RA/LOA  —  Page 7 / 8",description:["**Activity Checks** *(Manage Server)*","`/activity-check channel:… [deadline] [message] [ping] [schedule]` — Send a check-in to staff","> Specify which roles must respond and who is excluded","> Auto-closes after the deadline and reports who didn't check in","> Add `schedule:Monday 09:00` (UTC) to repeat it weekly automatically","","**RA / LOA Setup** *(Manage Server)*","`/raconfig action:create` — Auto-create Reduced Activity + LOA roles","`/raconfig action:set_ra|set_loa role:…` — Use existing roles","`/raconfig action:view` — See current config","","**Assigning Roles** *(Manage Roles)*","`/reduced-activity user:… action:give|remove [duration]` — Give/remove RA role","`/loa user:… action:give|remove [duration]` — Give/remove LOA role","> `duration` is in hours — omit for permanent"].join("\n")},
-        {title:"📺 YouTube Tracking  —  Page 8 / 8",description:["Track a YouTube channel's subscriber count live in Discord.","All commands require **Manage Server** permission.","","**Setup (do this first)**","`/ytsetup channel:… discord_channel:… [apikey:…]` — Connect a YouTube channel","> Accepts `@handle`, full URL, or channel ID starting with UC","> Provide your YouTube Data API v3 key on first use — it's saved to botdata","> Get a free key at console.cloud.google.com → enable YouTube Data API v3","","**Live Sub Count**","`/subcount threshold:1K|10K` — Post an embed that edits itself every 5 min","","**Sub Goal**","`/subgoal goal:N [message]` — Live progress bar towards a target sub count","> Fires a custom or default message when the goal is reached","","**Milestones**","`/milestones action:add subs:N [message]` — Announce when a sub count is crossed","`/milestones action:remove subs:N` — Remove a milestone","`/milestones action:list` — View all milestones and their status"].join("\n")},
+        {title:"🎉 Fun & Social  —  Page 1 / 7",description:["**Interactions**","`/action type:… user:…` — Hug, pat, poke, stare, wave, high five, boop, oil, diddle, or kill someone","`/punch` `/hug` `/kiss` `/slap` `/throw` — Quick social actions","`/rate type:… user:…` — Rate someone (gay, autistic, simp, cursed, npc, villain, sigma)","`/ppsize user:…` — Check pp size","`/ship user1:… user2:…` — Ship compatibility %","","**Romance**","`/marry user:…` — Propose 💍 — target gets Accept/Decline buttons","`/divorce` — End the marriage 💔","`/partner [user]` — See who someone is married to","","**Party Games**","`/party type:truth|dare|neverhavei` — Truth, Dare, or Never Have I Ever","","**Conversation**","`/topic` — Random conversation starter","`/roast [user]` — Roast someone 🔥","`/compliment user:…` — Compliment someone 💖","`/advice` — Life advice 🧙","`/fact` — Random fun fact 📚","`/horoscope sign:…` — Your daily horoscope ✨","`/poll question:…` — Quick yes/no poll (server only)"].join("\n")},
+        {title:"📡 Media & Utility  —  Page 2 / 7",description:["**Media**","`/gif animal:…` — Random animal GIF 🐾 (cat, dog, fox, panda, duck, bunny, koala, raccoon)","`/joke` — Random joke 😂","`/meme` — Random meme 🐸","`/quote` — Inspirational quote image ✨","`/trivia` — Trivia question with spoiler answer 🧠","`/avatar user:…` — Get someone\'s avatar","","**Utility**","`/ping` — Bot latency 🏓","`/coinflip` — Heads or tails 🪙","`/roll [sides]` — Roll a dice (default d6) 🎲","`/choose options:a,b,c` — Pick from comma-separated options","`/echo [message] [embed] [image] [title] [color] [replyto]` — Make the bot say something","`/remind time:… message:…` — Set a reminder (1 min – 1 week)","`/upload source|link:…` — Upload an image/audio/video to the quotes folder 🖼️🔊🎬 *(server only, authorized users)*","","**Info**","`/botinfo` — Bot stats","`/serverinfo` — Server member/channel/role info","`/userprofile [user]` — Full profile: level, XP, coins, items, cooldowns"].join("\n")},
+        {title:"📈 XP & Leaderboards  —  Page 3 / 7",description:["**XP**","You earn XP by sending messages (1 min cooldown). 5–15 XP per message.","Level formula: `floor(50 × level^1.5)` XP per level","","`/xp [user]` — Check XP, level, and progress bar","`/xpleaderboard [scope:global|server]` — Top 10 by XP","","**Stats & Leaderboards**","`/score [user]` — Wins, losses, win rate, streak","`/userprofile [user]` — Everything in one embed","`/leaderboard [type]` — Global top 10","`/serverleaderboard [type]` — Server top 10","> Types: `wins` `coins` `streak` `beststreak` `games` `winrate` `images`"].join("\n")},
+        {title:"🎮 Games  —  Page 4 / 7",description:["**Solo** — `/games game:…`","> 🪢 Hangman · 🐍 Snake · 💣 Minesweeper (Easy/Med/Hard)","> 🔢 Number Guess · 🔀 Word Scramble · 📅 Daily Challenge","","**2-Player** — `/2playergames game:… [opponent:…]`","> ❌⭕ Tic Tac Toe *(server only)*","> 🔴🔵 Connect 4 *(server only)*","> ✊ Rock Paper Scissors *(choices sent via DM)*","> 🧮 Math Race · 🏁 Word Race · 🧠 Trivia Battle *(server only)*","> 🔢 Count Game — count to 100 together, no opponent needed *(server only)*","> 🏁 Scramble Race — 5-round word unscramble *(server only)*","","Wins award coins. Check `/score` or `/userprofile` for stats."].join("\n")},
+        {title:"⚙️ Server Config  —  Page 5 / 7",description:["Most commands here require **Manage Server** permission.","","**Channels & Messages**","`/channelpicker channel:… [levelup]` — Set the bot\'s main channel","`/xpconfig setting:…` — Level-up messages (on/off, ping toggle, channel)","`/setwelcome channel:… [message]` — Welcome message (`{user}` `{server}` `{count}`)","`/setleave channel:… [message]` — Leave message","`/setboostmsg channel:… [message]` — Boost announcement","`/disableownermsg enabled:…` — Toggle bot owner broadcasts","`/purge amount:…` — Bulk delete (needs Manage Messages)","`/counting action:set|remove|status` — Set a permanent counting channel","","**Roles**","`/autorole [role]` — Auto-assign role on join (blank to disable)","`/reactionrole action:add|remove|list …` — Emoji reaction roles","`/rolespingfix` — List & fix roles that can @everyone","","**Competitions & Tickets**","`/invitecomp hours:…` — Invite competition with coin rewards","`/ticketsetup` · `/closeticket` · `/addtoticket` · `/removefromticket`","","**Overview**","`/serverconfig` — View all current settings"].join("\n")},
+        {title:"🛡️ Activity & RA/LOA  —  Page 6 / 7",description:["**Activity Checks** *(Manage Server)*","`/activity-check channel:… [deadline] [message] [ping] [schedule]` — Send a check-in to staff","> Specify which roles must respond and who is excluded","> Auto-closes after the deadline and reports who didn\'t check in","> Add `schedule:Monday 09:00` (UTC) to repeat it weekly automatically","","**RA / LOA Setup** *(Manage Server)*","`/raconfig action:create` — Auto-create Reduced Activity + LOA roles","`/raconfig action:set_ra|set_loa role:…` — Use existing roles","`/raconfig action:view` — See current config","","**Assigning Roles** *(Manage Roles)*","`/reduced-activity user:… action:give|remove [duration]` — Give/remove RA role","`/loa user:… action:give|remove [duration]` — Give/remove LOA role","> `duration` is in hours — omit for permanent"].join("\n")},
+        {title:"📺 YouTube Tracking  —  Page 7 / 7",description:["Track a YouTube channel\'s subscriber count live in Discord.","All commands require **Manage Server** permission.","","**Setup (do this first)**","`/ytsetup channel:… discord_channel:… [apikey:…]` — Connect a YouTube channel","> Accepts `@handle`, full URL, or channel ID starting with UC","> Provide your YouTube Data API v3 key on first use — it\'s saved to botdata","> Get a free key at console.cloud.google.com → enable YouTube Data API v3","","**Live Sub Count**","`/subcount threshold:1K|10K` — Post an embed that edits itself every 5 min","","**Sub Goal**","`/subgoal goal:N [message]` — Live progress bar towards a target sub count","> Fires a custom or default message when the goal is reached","","**Milestones**","`/milestones action:add subs:N [message]` — Announce when a sub count is crossed","`/milestones action:remove subs:N` — Remove a milestone","`/milestones action:list` — View all milestones and their status","","**[Owner] Pranks & Chaos**","`/paranoia user:… [chance]` — DM a user creepy paranoia messages (1-100% chance per message)","> Right-click any message → **Tomato This** — splat tomato-splat.gif onto a message screenshot as a GIF"].join("\n")},
       ];
       const p=HELP_PAGES[page];
       const navRow=new MessageActionRow().addComponents(
@@ -4403,7 +4616,59 @@ client.on("interactionCreate",async interaction=>{
       return;
     }
 
+    // ── Tomato This — select menu handlers (legacy, now handled by modal) ───────
+    // No-op: kept as guard in case stale interactions arrive
+    if(cid.startsWith("tomato_count_")||cid.startsWith("tomato_speed_")){
+      try{await interaction.deferUpdate();}catch{}
+      return;
+    }
+
+    // ── Tomato This — fire button (legacy, now modal-driven) ───────────────────
+    if(cid.startsWith("tomato_fire_")){
+      try{await interaction.deferUpdate();}catch{}
+      return;
+    }
+
     try{await interaction.deferUpdate();}catch{}
+    return;
+  }
+
+  // ── Modal submits ─────────────────────────────────────────────────────────────
+  if(interaction.isModalSubmit()){
+    const uid = interaction.user.id;
+    const cid = interaction.customId;
+
+    // ── Tomato This modal ────────────────────────────────────────────────────────
+    if(cid.startsWith("tomato_modal_")){
+      if(!OWNER_IDS.includes(uid)) return safeReply(interaction,{content:"Owner only.",ephemeral:true});
+      const msgId = cid.slice("tomato_modal_".length);
+      const pending = tomatoPending.get(msgId);
+      if(!pending){
+        return safeReply(interaction,{content:"❌ Session expired, right-click the message again.",ephemeral:true});
+      }
+
+      // Parse inputs — clamp to valid ranges
+      const rawCount    = parseInt(interaction.fields.getTextInputValue("tomato_count"))    || 1;
+      const rawSpeedMin = parseInt(interaction.fields.getTextInputValue("tomato_speed_min")) ?? 50;
+      const rawSpeedMax = parseInt(interaction.fields.getTextInputValue("tomato_speed_max")) ?? 100;
+      const count    = Math.min(50, Math.max(1, rawCount));
+      const speedMin = Math.min(1000, Math.max(0, rawSpeedMin));
+      const speedMax = Math.min(1000, Math.max(speedMin, rawSpeedMax));
+
+      await interaction.deferReply({ephemeral:true});
+      try{
+        const gifBuf = await buildTomatoGif(pending.msgContent, pending.authorTag, count, speedMin, speedMax);
+        tomatoPending.delete(msgId);
+        const ch = interaction.channel;
+        await safeSend(ch, { files:[{ attachment: gifBuf, name:"tomato.gif" }] });
+        await interaction.editReply({ content:`🍅 Tomatoed! (${count} tomato${count!==1?"s":""}, speed ${speedMin}–${speedMax}%)` }).catch(()=>{});
+      }catch(e){
+        console.error("tomato modal fire error:",e);
+        await interaction.editReply({content:`❌ Failed to make GIF: ${e.message}`}).catch(()=>{});
+      }
+      return;
+    }
+
     return;
   }
 
@@ -4454,6 +4719,65 @@ client.on("interactionCreate",async interaction=>{
       await safeReply(interaction,{content:`${prefix}
 > ${content}
 — <@${author.id}>`});
+      return;
+    }
+
+    // ── Tomato This (owner only) ────────────────────────────────────────────────
+    if(cmd === "Tomato This"){
+      if(!OWNER_IDS.includes(uid)) return safeReply(interaction,{content:"Owner only.",ephemeral:true});
+      const msgContent = targetMsg.content || "";
+      const authorTag  = targetMsg.member?.displayName || targetMsg.author.globalName || targetMsg.author.username;
+
+      // Store metadata keyed by message ID so the modal submit can retrieve it
+      tomatoPending.set(targetMsg.id, { authorTag, msgContent });
+
+      // Show a Modal with two inputs: count (1-50) and speed min/max (0-1000%)
+      try {
+        await interaction.showModal({
+          title: "🍅 Tomato Settings",
+          custom_id: `tomato_modal_${targetMsg.id}`,
+          components: [
+            {
+              type: 1, // Action row
+              components: [{
+                type: 4, // Text input
+                custom_id: "tomato_count",
+                label: "Number of tomatoes (1–50)",
+                style: 1, // Short
+                placeholder: "1",
+                value: "1",
+                min_length: 1, max_length: 2, required: true,
+              }]
+            },
+            {
+              type: 1,
+              components: [{
+                type: 4,
+                custom_id: "tomato_speed_min",
+                label: "Min speed % per tomato (0–1000)",
+                style: 1,
+                placeholder: "50",
+                value: "50",
+                min_length: 1, max_length: 4, required: true,
+              }]
+            },
+            {
+              type: 1,
+              components: [{
+                type: 4,
+                custom_id: "tomato_speed_max",
+                label: "Max speed % per tomato (0–1000)",
+                style: 1,
+                placeholder: "100",
+                value: "100",
+                min_length: 1, max_length: 4, required: true,
+              }]
+            },
+          ]
+        });
+      } catch(e) {
+        console.error("Tomato This modal error:", e.message);
+      }
       return;
     }
 
@@ -4558,7 +4882,7 @@ client.on("interactionCreate",async interaction=>{
   const cmd=interaction.commandName;
   const inGuild=!!interaction.guildId;
 
-  const ownerOnly=["servers","broadcast","requester","deleter","fakecrash","identitycrisis","botolympics","sentience","legendrandom","dmuser","leaveserver","restart","refreshcmds","botstats","setstatus","adminuser","adminreset","adminconfig","admingive","echo","shadowdelete","clankerify","fakemessage","fakequote","forcemarry","forcedivorce"];
+  const ownerOnly=["servers","broadcast","requester","deleter","fakecrash","identitycrisis","botolympics","sentience","legendrandom","dmuser","leaveserver","restart","refreshcmds","botstats","setstatus","adminuser","adminreset","adminconfig","admingive","echo","shadowdelete","clankerify","fakemessage","fakequote","forcemarry","forcedivorce","paranoia"];
   if(ownerOnly.includes(cmd)&&!OWNER_IDS.includes(interaction.user.id))return safeReply(interaction,{content:"Owner only.",ephemeral:true});
 
   const manageServerCmds=["channelpicker","counting","xpconfig","setwelcome","setleave","setwelcomemsg","setleavemsg","disableownermsg","serverconfig","autorole","setboostmsg","invitecomp","purge","reactionrole","ticketsetup","ytsetup","subgoal","subcount","milestones","dailyquote"];
@@ -5098,14 +5422,13 @@ if(cmd==="gif"){
 
     if(cmd==="help"){
       const HELP_PAGES=[
-        {title:"🎉 Fun & Social  —  Page 1 / 8",description:["**Interactions**","`/action type:… user:…` — Hug, pat, poke, stare, wave, high five, boop, oil, diddle, or kill someone","`/punch` `/hug` `/kiss` `/slap` `/throw` — Quick social actions","`/rate type:… user:…` — Rate someone (gay, autistic, simp, cursed, npc, villain, sigma)","`/ppsize user:…` — Check pp size","`/ship user1:… user2:…` — Ship compatibility %","","**Romance**","`/marry user:…` — Propose 💍 — target gets Accept/Decline buttons","`/divorce` — End the marriage 💔","`/partner [user]` — See who someone is married to","","**Party Games**","`/party type:truth|dare|neverhavei` — Truth, Dare, or Never Have I Ever","","**Conversation**","`/topic` — Random conversation starter","`/roast [user]` — Roast someone 🔥","`/compliment user:…` — Compliment someone 💖","`/advice` — Life advice 🧙","`/fact` — Random fun fact 📚","`/horoscope sign:…` — Your daily horoscope ✨","`/poll question:…` — Quick yes/no poll (server only)"].join("\n")},
-        {title:"📡 Media & Utility  —  Page 2 / 8",description:["**Media**","`/gif animal:…` — Random animal GIF 🐾 (cat, dog, fox, panda, duck, bunny, koala, raccoon)","`/joke` — Random joke 😂","`/meme` — Random meme 🐸","`/quote` — Inspirational quote image ✨","`/trivia` — Trivia question with spoiler answer 🧠","`/avatar user:…` — Get someone's avatar","","**Utility**","`/ping` — Bot latency 🏓","`/coinflip` — Heads or tails 🪙","`/roll [sides]` — Roll a dice (default d6) 🎲","`/choose options:a,b,c` — Pick from comma-separated options","`/echo [message] [embed] [image] [title] [color] [replyto]` — Make the bot say something","`/remind time:… message:…` — Set a reminder (1 min – 1 week)","`/upload source|link:…` — Upload an image/audio/video to the quotes folder 🖼️🔊🎬 *(server only, authorized users)*","","**Info**","`/botinfo` — Bot stats","`/serverinfo` — Server member/channel/role info","`/userprofile [user]` — Full profile: level, XP, coins, items, cooldowns"].join("\n")},
-        {title:"💰 Economy  —  Page 3 / 8",description:["**Balance & Transfers**","`/coins [user]` — Check coin balance","`/givecoin user:… amount:…` — Transfer coins","","**Earning**","`/work` — Work a shift (1hr cooldown, 50–200 coins)","`/beg` — Beg for coins (5min cooldown, 0–50 coins)","`/crime` — Commit a crime (2hr cooldown, risky!)","`/rob user:…` — Rob someone (1hr cooldown, 45% success)","","**Gambling**","`/slots [bet]` — Slot machine 🎰","`/coinbet bet:… side:heads|tails` — Bet on a coin flip","`/blackjack bet:…` — Blackjack vs the dealer 🃏","","**Shop**","`/shop` — View items","`/buy item:…` — Buy an item","> 🍀 Lucky Charm (200) · ⚡ XP Boost (300) · 🛡️ Shield (150)","`/inventory [user]` — View items","","**Daily**","`/games game:Daily Challenge` — Daily puzzle for coins + streak 📅"].join("\n")},
-        {title:"📈 XP & Leaderboards  —  Page 4 / 8",description:["**XP**","You earn XP by sending messages (1 min cooldown). 5–15 XP per message.","Level formula: `floor(50 × level^1.5)` XP per level","","`/xp [user]` — Check XP, level, and progress bar","`/xpleaderboard [scope:global|server]` — Top 10 by XP","","**Stats & Leaderboards**","`/score [user]` — Wins, losses, win rate, streak","`/userprofile [user]` — Everything in one embed","`/leaderboard [type]` — Global top 10","`/serverleaderboard [type]` — Server top 10","> Types: `wins` `coins` `streak` `beststreak` `games` `winrate` `images`"].join("\n")},
-        {title:"🎮 Games  —  Page 5 / 8",description:["**Solo** — `/games game:…`","> 🪢 Hangman · 🐍 Snake · 💣 Minesweeper (Easy/Med/Hard)","> 🔢 Number Guess · 🔀 Word Scramble · 📅 Daily Challenge","","**2-Player** — `/2playergames game:… [opponent:…]`","> ❌⭕ Tic Tac Toe *(server only)*","> 🔴🔵 Connect 4 *(server only)*","> ✊ Rock Paper Scissors *(choices sent via DM)*","> 🧮 Math Race · 🏁 Word Race · 🧠 Trivia Battle *(server only)*","> 🔢 Count Game — count to 100 together, no opponent needed *(server only)*","> 🏁 Scramble Race — 5-round word unscramble *(server only)*","","Wins award coins. Check `/score` or `/userprofile` for stats."].join("\n")},
-        {title:"⚙️ Server Config  —  Page 6 / 8",description:["Most commands here require **Manage Server** permission.","","**Channels & Messages**","`/channelpicker channel:… [levelup]` — Set the bot's main channel","`/xpconfig setting:…` — Level-up messages (on/off, ping toggle, channel)","`/setwelcome channel:… [message]` — Welcome message (`{user}` `{server}` `{count}`)","`/setleave channel:… [message]` — Leave message","`/setboostmsg channel:… [message]` — Boost announcement","`/disableownermsg enabled:…` — Toggle bot owner broadcasts","`/purge amount:…` — Bulk delete (needs Manage Messages)","`/counting action:set|remove|status` — Set a permanent counting channel","","**Roles**","`/autorole [role]` — Auto-assign role on join (blank to disable)","`/reactionrole action:add|remove|list …` — Emoji reaction roles","`/rolespingfix` — List & fix roles that can @everyone","","**Competitions & Tickets**","`/invitecomp hours:…` — Invite competition with coin rewards","`/ticketsetup` · `/closeticket` · `/addtoticket` · `/removefromticket`","","**Overview**","`/serverconfig` — View all current settings"].join("\n")},
-        {title:"🛡️ Activity & RA/LOA  —  Page 7 / 8",description:["**Activity Checks** *(Manage Server)*","`/activity-check channel:… [deadline] [message] [ping] [schedule]` — Send a check-in to staff","> Specify which roles must respond and who is excluded","> Auto-closes after the deadline and reports who didn't check in","> Add `schedule:Monday 09:00` (UTC) to repeat it weekly automatically","","**RA / LOA Setup** *(Manage Server)*","`/raconfig action:create` — Auto-create Reduced Activity + LOA roles","`/raconfig action:set_ra|set_loa role:…` — Use existing roles","`/raconfig action:view` — See current config","","**Assigning Roles** *(Manage Roles)*","`/reduced-activity user:… action:give|remove [duration]` — Give/remove RA role","`/loa user:… action:give|remove [duration]` — Give/remove LOA role","> `duration` is in hours — omit for permanent"].join("\n")},
-        {title:"📺 YouTube Tracking  —  Page 8 / 8",description:["Track a YouTube channel's subscriber count live in Discord.","All commands require **Manage Server** permission.","","**Setup (do this first)**","`/ytsetup channel:… discord_channel:… [apikey:…]` — Connect a YouTube channel","> Accepts `@handle`, full URL, or channel ID starting with UC","> Provide your YouTube Data API v3 key on first use — it's saved to botdata","> Get a free key at console.cloud.google.com → enable YouTube Data API v3","","**Live Sub Count**","`/subcount threshold:1K|10K` — Post an embed that edits itself every 5 min","","**Sub Goal**","`/subgoal goal:N [message]` — Live progress bar towards a target sub count","> Fires a custom or default message when the goal is reached","","**Milestones**","`/milestones action:add subs:N [message]` — Announce when a sub count is crossed","`/milestones action:remove subs:N` — Remove a milestone","`/milestones action:list` — View all milestones and their status"].join("\n")},
+        {title:"🎉 Fun & Social  —  Page 1 / 7",description:["**Interactions**","`/action type:… user:…` — Hug, pat, poke, stare, wave, high five, boop, oil, diddle, or kill someone","`/punch` `/hug` `/kiss` `/slap` `/throw` — Quick social actions","`/rate type:… user:…` — Rate someone (gay, autistic, simp, cursed, npc, villain, sigma)","`/ppsize user:…` — Check pp size","`/ship user1:… user2:…` — Ship compatibility %","","**Romance**","`/marry user:…` — Propose 💍 — target gets Accept/Decline buttons","`/divorce` — End the marriage 💔","`/partner [user]` — See who someone is married to","","**Party Games**","`/party type:truth|dare|neverhavei` — Truth, Dare, or Never Have I Ever","","**Conversation**","`/topic` — Random conversation starter","`/roast [user]` — Roast someone 🔥","`/compliment user:…` — Compliment someone 💖","`/advice` — Life advice 🧙","`/fact` — Random fun fact 📚","`/horoscope sign:…` — Your daily horoscope ✨","`/poll question:…` — Quick yes/no poll (server only)"].join("\n")},
+        {title:"📡 Media & Utility  —  Page 2 / 7",description:["**Media**","`/gif animal:…` — Random animal GIF 🐾 (cat, dog, fox, panda, duck, bunny, koala, raccoon)","`/joke` — Random joke 😂","`/meme` — Random meme 🐸","`/quote` — Inspirational quote image ✨","`/trivia` — Trivia question with spoiler answer 🧠","`/avatar user:…` — Get someone\'s avatar","","**Utility**","`/ping` — Bot latency 🏓","`/coinflip` — Heads or tails 🪙","`/roll [sides]` — Roll a dice (default d6) 🎲","`/choose options:a,b,c` — Pick from comma-separated options","`/echo [message] [embed] [image] [title] [color] [replyto]` — Make the bot say something","`/remind time:… message:…` — Set a reminder (1 min – 1 week)","`/upload source|link:…` — Upload an image/audio/video to the quotes folder 🖼️🔊🎬 *(server only, authorized users)*","","**Info**","`/botinfo` — Bot stats","`/serverinfo` — Server member/channel/role info","`/userprofile [user]` — Full profile: level, XP, coins, items, cooldowns"].join("\n")},
+        {title:"📈 XP & Leaderboards  —  Page 3 / 7",description:["**XP**","You earn XP by sending messages (1 min cooldown). 5–15 XP per message.","Level formula: `floor(50 × level^1.5)` XP per level","","`/xp [user]` — Check XP, level, and progress bar","`/xpleaderboard [scope:global|server]` — Top 10 by XP","","**Stats & Leaderboards**","`/score [user]` — Wins, losses, win rate, streak","`/userprofile [user]` — Everything in one embed","`/leaderboard [type]` — Global top 10","`/serverleaderboard [type]` — Server top 10","> Types: `wins` `coins` `streak` `beststreak` `games` `winrate` `images`"].join("\n")},
+        {title:"🎮 Games  —  Page 4 / 7",description:["**Solo** — `/games game:…`","> 🪢 Hangman · 🐍 Snake · 💣 Minesweeper (Easy/Med/Hard)","> 🔢 Number Guess · 🔀 Word Scramble · 📅 Daily Challenge","","**2-Player** — `/2playergames game:… [opponent:…]`","> ❌⭕ Tic Tac Toe *(server only)*","> 🔴🔵 Connect 4 *(server only)*","> ✊ Rock Paper Scissors *(choices sent via DM)*","> 🧮 Math Race · 🏁 Word Race · 🧠 Trivia Battle *(server only)*","> 🔢 Count Game — count to 100 together, no opponent needed *(server only)*","> 🏁 Scramble Race — 5-round word unscramble *(server only)*","","Wins award coins. Check `/score` or `/userprofile` for stats."].join("\n")},
+        {title:"⚙️ Server Config  —  Page 5 / 7",description:["Most commands here require **Manage Server** permission.","","**Channels & Messages**","`/channelpicker channel:… [levelup]` — Set the bot\'s main channel","`/xpconfig setting:…` — Level-up messages (on/off, ping toggle, channel)","`/setwelcome channel:… [message]` — Welcome message (`{user}` `{server}` `{count}`)","`/setleave channel:… [message]` — Leave message","`/setboostmsg channel:… [message]` — Boost announcement","`/disableownermsg enabled:…` — Toggle bot owner broadcasts","`/purge amount:…` — Bulk delete (needs Manage Messages)","`/counting action:set|remove|status` — Set a permanent counting channel","","**Roles**","`/autorole [role]` — Auto-assign role on join (blank to disable)","`/reactionrole action:add|remove|list …` — Emoji reaction roles","`/rolespingfix` — List & fix roles that can @everyone","","**Competitions & Tickets**","`/invitecomp hours:…` — Invite competition with coin rewards","`/ticketsetup` · `/closeticket` · `/addtoticket` · `/removefromticket`","","**Overview**","`/serverconfig` — View all current settings"].join("\n")},
+        {title:"🛡️ Activity & RA/LOA  —  Page 6 / 7",description:["**Activity Checks** *(Manage Server)*","`/activity-check channel:… [deadline] [message] [ping] [schedule]` — Send a check-in to staff","> Specify which roles must respond and who is excluded","> Auto-closes after the deadline and reports who didn\'t check in","> Add `schedule:Monday 09:00` (UTC) to repeat it weekly automatically","","**RA / LOA Setup** *(Manage Server)*","`/raconfig action:create` — Auto-create Reduced Activity + LOA roles","`/raconfig action:set_ra|set_loa role:…` — Use existing roles","`/raconfig action:view` — See current config","","**Assigning Roles** *(Manage Roles)*","`/reduced-activity user:… action:give|remove [duration]` — Give/remove RA role","`/loa user:… action:give|remove [duration]` — Give/remove LOA role","> `duration` is in hours — omit for permanent"].join("\n")},
+        {title:"📺 YouTube Tracking  —  Page 7 / 7",description:["Track a YouTube channel\'s subscriber count live in Discord.","All commands require **Manage Server** permission.","","**Setup (do this first)**","`/ytsetup channel:… discord_channel:… [apikey:…]` — Connect a YouTube channel","> Accepts `@handle`, full URL, or channel ID starting with UC","> Provide your YouTube Data API v3 key on first use — it\'s saved to botdata","> Get a free key at console.cloud.google.com → enable YouTube Data API v3","","**Live Sub Count**","`/subcount threshold:1K|10K` — Post an embed that edits itself every 5 min","","**Sub Goal**","`/subgoal goal:N [message]` — Live progress bar towards a target sub count","> Fires a custom or default message when the goal is reached","","**Milestones**","`/milestones action:add subs:N [message]` — Announce when a sub count is crossed","`/milestones action:remove subs:N` — Remove a milestone","`/milestones action:list` — View all milestones and their status","","**[Owner] Pranks & Chaos**","`/paranoia user:… [chance]` — DM a user creepy paranoia messages (1-100% chance per message)","> Right-click any message → **Tomato This** — splat tomato-splat.gif onto a message screenshot as a GIF"].join("\n")},
       ];
       const TOTAL=HELP_PAGES.length;
       function buildHelpEmbed(page){
@@ -5122,221 +5445,6 @@ if(cmd==="gif"){
       return safeReply(interaction,buildHelpEmbed(0));
     }
 
-
-    // ── Economy ────────────────────────────────────────────────────────────────
-    if(cmd==="coins"){const u=interaction.options.getUser("user")||interaction.user;return safeReply(interaction,`💰 **${u.username}** has **${getScore(u.id,u.username).coins.toLocaleString()}** coins.`);}
-    if(cmd==="givecoin"){
-      const target=interaction.options.getUser("user"),amount=interaction.options.getInteger("amount");
-      if(target.id===interaction.user.id)return safeReply(interaction,{content:"Can't give coins to yourself.",ephemeral:true});
-      if(amount<=0)return safeReply(interaction,{content:"Amount must be positive.",ephemeral:true});
-      const giver=getScore(interaction.user.id,interaction.user.username);
-      if(giver.coins<amount)return safeReply(interaction,{content:`You only have **${giver.coins}** coins.`,ephemeral:true});
-      giver.coins-=amount;getScore(target.id,target.username).coins+=amount;
-      saveData();
-      return safeReply(interaction,`💸 <@${interaction.user.id}> gave **${amount}** coins to <@${target.id}>!`);
-    }
-    if(cmd==="slots"){
-      const isOwner=OWNER_IDS.includes(interaction.user.id);
-      const bet=interaction.options.getInteger("bet")||10;
-      if(bet<CONFIG.slots_min_bet)return safeReply(interaction,{content:`Min bet is ${CONFIG.slots_min_bet}.`,ephemeral:true});
-      const s=getScore(interaction.user.id,interaction.user.username);
-      if(s.coins<bet)return safeReply(interaction,{content:`You only have **${s.coins}** coins.`,ephemeral:true});
-      const reels=isOwner?["💎","💎","💎"]:spinSlots();
-      const{mult,label}=slotPayout(reels);
-      const fx=activeEffects.get(interaction.user.id)||{};
-      const hasCharm=fx.lucky_charm_expiry&&fx.lucky_charm_expiry>Date.now();
-      let winnings=Math.floor(bet*mult);
-      if(hasCharm&&winnings>0)winnings=Math.floor(winnings*(1+CONFIG.lucky_charm_bonus/100));
-      s.coins=s.coins-bet+winnings;
-      saveData();
-      const charmTag=hasCharm&&winnings>0?" 🍀 +"+CONFIG.lucky_charm_bonus+"%":"";
-      return safeReply(interaction,`🎰 | ${reels.join(" | ")} |\n\n**${label}**\n`+(mult>=1?`✅ Won **${winnings}** coins! (+${winnings-bet})`:`❌ Lost **${bet}** coins.`)+`\n💰 Balance: **${s.coins}**`+charmTag);
-    }
-    if(cmd==="coinbet"){
-      const bet=interaction.options.getInteger("bet"),side=interaction.options.getString("side");
-      if(bet<1)return safeReply(interaction,{content:"Min bet is 1.",ephemeral:true});
-      const s=getScore(interaction.user.id,interaction.user.username);
-      if(s.coins<bet)return safeReply(interaction,{content:`You only have **${s.coins}** coins.`,ephemeral:true});
-      const result=Math.random()<(CONFIG.coinbet_win_chance/100)?"heads":"tails",won=result===side;s.coins+=won?bet:-bet;
-      saveData();
-      return safeReply(interaction,`🪙 **${result.charAt(0).toUpperCase()+result.slice(1)}**\n`+(won?`✅ Won **${bet}** coins!`:`❌ Lost **${bet}** coins.`)+`\n💰 Balance: **${s.coins}**`);
-    }
-    if(cmd==="blackjack"){
-      const cid=interaction.channelId;
-      if(activeGames.has(cid))return safeReply(interaction,{content:"A game is already running here!",ephemeral:true});
-      const bet=interaction.options.getInteger("bet");
-      if(bet<1)return safeReply(interaction,{content:"Min bet is 1.",ephemeral:true});
-      const ps=getScore(interaction.user.id,interaction.user.username);
-      if(ps.coins<bet)return safeReply(interaction,{content:`You only have **${ps.coins}** coins.`,ephemeral:true});
-      const deck=newDeck(),ph=[deck.pop(),deck.pop()],dh=[deck.pop(),deck.pop()];
-      const showBoard=(hide=true)=>`🃏 **Blackjack** (bet: ${bet})\n\n**Your hand:** ${renderHand(ph)} — **${handVal(ph)}**\n**Dealer:** ${renderHand(dh,hide)}${hide?"":" — **"+handVal(dh)+"**"}`;
-      if(handVal(ph)===21){
-        const bjFxDeal=activeEffects.get(interaction.user.id)||{};
-        const bjCharmDeal=bjFxDeal.lucky_charm_expiry&&bjFxDeal.lucky_charm_expiry>Date.now();
-        const reward=bjCharmDeal?Math.floor(Math.floor(bet*CONFIG.blackjack_natural_mult/100)*(1+CONFIG.lucky_charm_bonus/100)):Math.floor(bet*CONFIG.blackjack_natural_mult/100);
-        ps.coins+=reward;ps.wins++;ps.gamesPlayed++;saveData();
-        return safeReply(interaction,{content:`${showBoard(false)}\n\n🎉 **Blackjack!** Won **${reward}** coins!`+(bjCharmDeal?" 🍀":"")+`\n💰 Balance: **${ps.coins}**`,components:makeBJButtons(true)});
-      }
-      activeGames.set(cid,{type:"blackjack",deck,playerHand:ph,dealerHand:dh,bet,playerScore:ps,playerId:interaction.user.id});
-      return safeReply(interaction,{content:showBoard(true),components:makeBJButtons()});
-    }
-    if(cmd==="work"){
-      const isOwner=OWNER_IDS.includes(interaction.user.id);
-      const s=getScore(interaction.user.id,interaction.user.username),now=Date.now(),rem=CONFIG.work_cooldown_ms-(now-s.lastWorkTime);
-      if(!isOwner&&rem>0)return safeReply(interaction,{content:`⏰ Rest first. Back in **${Math.ceil(rem/60000)}m**.`,ephemeral:true});
-      s.lastWorkTime=now;
-      const resp=pick(WORK_RESPONSES);
-      let coins=isOwner?resp.hi:r(resp.lo,resp.hi);
-      // Apply coin_magnet (single use, 3×)
-      const hasMagnet=s.inventory&&s.inventory.includes("coin_magnet");
-      if(hasMagnet){coins=Math.floor(coins*CONFIG.coin_magnet_mult/100);s.inventory.splice(s.inventory.indexOf("coin_magnet"),1);}
-      // Apply lucky_charm (+10%)
-      const fx=activeEffects.get(interaction.user.id)||{};
-      const hasCharm=fx.lucky_charm_expiry&&fx.lucky_charm_expiry>now;
-      if(hasCharm)coins=Math.floor(coins*(1+CONFIG.lucky_charm_bonus/100));
-      s.coins+=coins;
-      saveData();
-      const ownerTag=isOwner?" 👑":"";
-      const bonusTag=hasMagnet?" 🧲 3×":"";
-      const charmTag=hasCharm?" 🍀 +"+CONFIG.lucky_charm_bonus+"%":"";
-      return safeReply(interaction,resp.msg.replace("{c}",coins)+`\n💰 Balance: **${s.coins}**`+ownerTag+bonusTag+charmTag);
-    }
-    if(cmd==="beg"){
-      const isOwner=OWNER_IDS.includes(interaction.user.id);
-      const s=getScore(interaction.user.id,interaction.user.username),now=Date.now(),rem=CONFIG.beg_cooldown_ms-(now-s.lastBegTime);
-      if(!isOwner&&rem>0)return safeReply(interaction,{content:`⏰ Wait **${Math.ceil(rem/1000)}s** before begging again.`,ephemeral:true});
-      s.lastBegTime=now;
-      const givingResps=BEG_RESPONSES.filter(r=>r.give);
-      const failResps=BEG_RESPONSES.filter(r=>!r.give);
-      const success=isOwner||Math.random()<(CONFIG.beg_success_chance/100);
-      const resp=success?pick(givingResps):pick(failResps);
-      let coins=isOwner?resp.hi:(success?r(resp.lo,resp.hi):0);
-      const fx=activeEffects.get(interaction.user.id)||{};
-      const hasCharm=fx.lucky_charm_expiry&&fx.lucky_charm_expiry>now;
-      if(hasCharm&&coins>0)coins=Math.floor(coins*(1+CONFIG.lucky_charm_bonus/100));
-      s.coins+=coins;
-      saveData();
-      const charmTag=hasCharm&&coins>0?" 🍀 +"+CONFIG.lucky_charm_bonus+"%":"";
-      return safeReply(interaction,resp.msg.replace("{c}",coins)+(coins>0?`\n💰 Balance: **${s.coins}**`+charmTag:""));
-    }
-    if(cmd==="crime"){
-      const isOwner=OWNER_IDS.includes(interaction.user.id);
-      const s=getScore(interaction.user.id,interaction.user.username),now=Date.now(),rem=CONFIG.crime_cooldown_ms-(now-s.lastCrimeTime);
-      if(!isOwner&&rem>0)return safeReply(interaction,{content:`⏰ Lay low for **${Math.ceil(rem/60000)}m**.`,ephemeral:true});
-      s.lastCrimeTime=now;
-      const successResps=CRIME_RESPONSES.filter(r=>r.success);
-      const failResps2=CRIME_RESPONSES.filter(r=>!r.success);
-      const crimeSuccess=isOwner||Math.random()<(CONFIG.crime_success_chance/100);
-      const resp=crimeSuccess?pick(successResps):pick(failResps2);
-      let coins=isOwner?resp.hi:r(resp.lo,resp.hi);
-      const fx2=activeEffects.get(interaction.user.id)||{};
-      const hasCharm=fx2.lucky_charm_expiry&&fx2.lucky_charm_expiry>now;
-      // Charm only boosts successful crimes, not fines
-      if(hasCharm&&(isOwner||crimeSuccess))coins=Math.floor(coins*(1+CONFIG.lucky_charm_bonus/100));
-      if(isOwner||crimeSuccess)s.coins+=coins;else s.coins=Math.max(0,s.coins-coins);
-      saveData();
-      const charmTag=hasCharm&&(isOwner||crimeSuccess)?" 🍀 +"+CONFIG.lucky_charm_bonus+"%":"";
-      return safeReply(interaction,resp.msg.replace("{c}",coins)+`\n💰 Balance: **${s.coins}**`+charmTag);
-    }
-    if(cmd==="rob"){
-      const isOwner=OWNER_IDS.includes(interaction.user.id);
-      const target=interaction.options.getUser("user");
-      if(target.id===interaction.user.id||target.bot)return safeReply(interaction,{content:"Invalid target.",ephemeral:true});
-      const s=getScore(interaction.user.id,interaction.user.username),now=Date.now(),rem=CONFIG.rob_cooldown_ms-(now-s.lastRobTime);
-      if(!isOwner&&rem>0)return safeReply(interaction,{content:`⏰ Lay low for **${Math.ceil(rem/60000)}m**.`,ephemeral:true});
-      s.lastRobTime=now;
-      const t=getScore(target.id,target.username);
-      if(t.inventory&&t.inventory.includes("shield")){t.inventory.splice(t.inventory.indexOf("shield"),1);saveData();return safeReply(interaction,`🛡️ <@${target.id}> had a **Shield**! Your robbery failed and the shield is now broken.`);}
-      if(t.coins<10)return safeReply(interaction,`😅 <@${target.id}> is broke — not worth robbing.`);
-      const success=isOwner||Math.random()<(CONFIG.rob_success_chance/100);
-      if(success){const pct=isOwner?CONFIG.rob_steal_pct_max:r(CONFIG.rob_steal_pct_min,CONFIG.rob_steal_pct_max);const stolen=Math.floor(t.coins*pct/100);t.coins-=stolen;s.coins+=stolen;saveData();return safeReply(interaction,`🔫 <@${interaction.user.id}> robbed <@${target.id}> and stole **${stolen}** coins!\n💰 Your balance: **${s.coins}**`);}
-      else{
-        // Check rob_insurance
-        const hasInsurance=s.inventory&&s.inventory.includes("rob_insurance");
-        if(hasInsurance){s.inventory.splice(s.inventory.indexOf("rob_insurance"),1);saveData();return safeReply(interaction,`🚔 You tried to rob <@${target.id}> and got caught — but your **Rob Insurance 📋** covered the fine! Policy consumed.\n💰 Your balance: **${s.coins}**`);}
-        const fine=Math.floor(s.coins*r(CONFIG.rob_fine_pct_min,CONFIG.rob_fine_pct_max)/100);s.coins=Math.max(0,s.coins-fine);saveData();return safeReply(interaction,`🚔 You tried to rob <@${target.id}> but got caught! Lost **${fine}** coins.\n💰 Your balance: **${s.coins}**`);
-      }
-    }
-    if(cmd==="shop"){const lines=Object.entries(getShopItems()).map(([id,item])=>`**${item.name}** (\`${id}\`) — **${item.price}** coins\n> ${item.desc}`);return safeReply(interaction,`🛍️ **Item Shop**\n\n${lines.join("\n\n")}\n\nUse **/buy <item>** to purchase.`);}
-    if(cmd==="buy"){
-      const itemId=interaction.options.getString("item");
-      const item=getShopItems()[itemId];if(!item)return safeReply(interaction,{content:"Unknown item.",ephemeral:true});
-      const s=getScore(interaction.user.id,interaction.user.username);
-      if(s.coins<item.price)return safeReply(interaction,{content:`You need **${item.price}** coins but only have **${s.coins}**.`,ephemeral:true});
-      s.coins-=item.price;
-
-      // Mystery boxes go to inventory — opened with /open
-      if(itemId==="mystery_box"||itemId==="item_mystery_box"){
-        s.inventory.push(itemId);
-        saveData();
-        return safeReply(interaction,`✅ Bought **${item.name}** for **${item.price}** coins! Use \`/open\` to open it.\n💰 Balance: **${s.coins}**`);
-      }
-
-      // Timed items activate immediately
-      if(itemId==="lucky_charm"||itemId==="xp_boost"){
-        const fx=activeEffects.get(interaction.user.id)||{};
-        const now=Date.now();
-        const key=itemId==="lucky_charm"?"lucky_charm_expiry":"xp_boost_expiry";
-        // Stack: extend if already active
-        const current=fx[key]||now;
-        fx[key]=Math.max(current,now)+3600000; // +1hr
-        activeEffects.set(interaction.user.id,fx);
-        saveData();
-        const expiresIn=Math.ceil((fx[key]-now)/60000);
-        return safeReply(interaction,`✅ **${item.name}** activated! Effect lasts **${expiresIn} minutes**.\n💰 Balance: **${s.coins}**`);
-      }
-
-      // All other items go to inventory (shield, coin_magnet, rob_insurance)
-      s.inventory.push(itemId);
-      saveData();
-      return safeReply(interaction,`✅ Bought **${item.name}** for **${item.price}** coins!\n💰 Balance: **${s.coins}**`);
-    }
-    if(cmd==="open"){
-      const boxId=interaction.options.getString("box");
-      const s=getScore(interaction.user.id,interaction.user.username);
-      const SHOP=getShopItems();
-      const boxName=SHOP[boxId]?.name||boxId;
-      // Check inventory
-      const idx=s.inventory.indexOf(boxId);
-      if(idx===-1)return safeReply(interaction,{content:`❌ You don't have a **${boxName}** in your inventory. Buy one with \`/buy\`!`,ephemeral:true});
-      // Remove from inventory
-      s.inventory.splice(idx,1);
-      // Roll the box
-      const result=boxId==="mystery_box"?openMysteryBox():openItemMysteryBox();
-      let rewardMsg,rewardDetail;
-      if(result.type==="coins"){
-        s.coins+=result.coins;
-        saveData();
-        rewardMsg=`💰 **${result.coins} coins**!`;
-        rewardDetail=`💰 Balance: **${s.coins}**`;
-      }else{
-        const wonName=SHOP[result.itemId]?.name||result.itemId;
-        // Timed items activate immediately
-        if(result.itemId==="lucky_charm"||result.itemId==="xp_boost"){
-          const fx=activeEffects.get(interaction.user.id)||{};
-          const key=result.itemId==="lucky_charm"?"lucky_charm_expiry":"xp_boost_expiry";
-          const now=Date.now();
-          fx[key]=Math.max(fx[key]||now,now)+3600000;
-          activeEffects.set(interaction.user.id,fx);
-          rewardDetail="✨ Effect activated for 1hr!";
-        }else{
-          s.inventory.push(result.itemId);
-          rewardDetail="🎒 Added to your inventory.";
-        }
-        saveData();
-        rewardMsg=`🎁 **${wonName}**!`;
-      }
-      const emoji=boxId==="mystery_box"?"📦":"🎲";
-      return safeReply(interaction,`${emoji} **${boxName} opened!**\n\nYou got: ${rewardMsg}\n${rewardDetail}`);
-    }
-    if(cmd==="inventory"){
-      const u=interaction.options.getUser("user")||interaction.user;
-      const s=getScore(u.id,u.username);
-      if(!s.inventory||!s.inventory.length)return safeReply(interaction,`🎒 **${u.username}'s Inventory** is empty.`);
-      const counts={};s.inventory.forEach(i=>counts[i]=(counts[i]||0)+1);
-      const lines=Object.entries(counts).map(([id,qty])=>`**${getShopItems()[id]?.name||id}** × ${qty}`);
-      return safeReply(interaction,`🎒 **${u.username}'s Inventory**\n${lines.join("\n")}`);
-    }
 
     // XP
     if(cmd==="xp"){
@@ -5834,6 +5942,21 @@ if(cmd==="gif"){
         console.error("fakequote error:",e.message);
         return safeReply(interaction,{content:`❌ Failed to generate quote card: ${e.message}`,ephemeral:true});
       }
+    }
+    if(cmd==="paranoia"){
+      const target  = interaction.options.getUser("user");
+      const chance  = Math.min(100, Math.max(1, interaction.options.getInteger("chance") ?? 100));
+      if(target.bot) return safeReply(interaction,{content:"❌ Can't haunt a bot.",ephemeral:true});
+
+      // If already watching this user, toggle off
+      if(paranoiaWatchers.has(target.id)){
+        paranoiaWatchers.delete(target.id);
+        return safeReply(interaction,{content:`🔕 Paranoia **disarmed** for <@${target.id}>.`,ephemeral:true});
+      }
+
+      // Arm watcher — fires on every message the target sends in any guild channel
+      paranoiaWatchers.set(target.id, { chance, armed: true });
+      return safeReply(interaction,{content:`👻 Now watching <@${target.id}> — each message they send has a **${chance}%** chance of getting a paranoia reply in that channel.\nRun \`/paranoia\` on them again to disarm.`,ephemeral:true});
     }
     if(cmd==="leaveserver"){const guild=client.guilds.cache.get(interaction.options.getString("server"));if(!guild)return safeReply(interaction,{content:"Server not found.",ephemeral:true});const name=guild.name;await guild.leave();return safeReply(interaction,{content:`Left ${name}`,ephemeral:true});}
     if(cmd==="restart"){await safeReply(interaction,{content:"Restarting…",ephemeral:true});process.exit(0);}
