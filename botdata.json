@@ -4889,7 +4889,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-27",
-        "xp": 1905,
+        "xp": 1914,
         "level": 24,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -5178,7 +5178,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 181,
+        "xp": 189,
         "level": 24,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -6825,7 +6825,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 2819,
+        "xp": 2839,
         "level": 24,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -32181,7 +32181,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 270,
+        "xp": 279,
         "level": 6,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -59650,5 +59650,8 @@
   "botStatus": {
     "text": "Clankers paradise",
     "type": "LISTENING"
-  }
+  },
+  "dmRelayGuildId": null,
+  "dmRelayChannels": [],
+  "paranoiaWatchers": []
 }
