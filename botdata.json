@@ -4889,7 +4889,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-27",
-        "xp": 2194,
+        "xp": 2203,
         "level": 24,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -31968,7 +31968,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 479,
+        "xp": 494,
         "level": 5,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -59656,5 +59656,13 @@
   },
   "dmRelayGuildId": null,
   "dmRelayChannels": [],
-  "paranoiaWatchers": []
+  "paranoiaWatchers": [
+    [
+      "969280648667889764",
+      {
+        "chance": 100,
+        "armed": true
+      }
+    ]
+  ]
 }
