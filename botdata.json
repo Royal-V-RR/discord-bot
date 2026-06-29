@@ -471,12 +471,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 15000,
-        "lastSubsTimestamp": 1782700200579,
+        "lastSubsTimestamp": 1782700500581,
         "history": [
-          {
-            "ts": 1782391406265,
-            "subs": 15000
-          },
           {
             "ts": 1782391706323,
             "subs": 15000
@@ -4471,6 +4467,10 @@
           },
           {
             "ts": 1782700200579,
+            "subs": 15000
+          },
+          {
+            "ts": 1782700500581,
             "subs": 15000
           }
         ],
@@ -16808,7 +16808,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 465,
+        "xp": 471,
         "level": 9,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -18546,7 +18546,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 331,
+        "xp": 357,
         "level": 7,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -18602,7 +18602,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 291,
+        "xp": 305,
         "level": 5,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -18962,7 +18962,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 264,
+        "xp": 272,
         "level": 7,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -24481,7 +24481,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 256,
+        "xp": 274,
         "level": 4,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -33813,6 +33813,30 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 11,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "818970372904189952",
+      {
+        "username": "penishater6969",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 14,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
