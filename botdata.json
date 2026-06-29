@@ -4690,7 +4690,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-15",
-        "xp": 649,
+        "xp": 656,
         "level": 24,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -6828,7 +6828,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 3240,
+        "xp": 3250,
         "level": 24,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -59734,6 +59734,13 @@
       "1254388539890860083",
       {
         "chance": 15,
+        "armed": true
+      }
+    ],
+    [
+      "230741545521905664",
+      {
+        "chance": 10,
         "armed": true
       }
     ]
