@@ -155,6 +155,22 @@ const tomatoPending = new Map();
 // When armed, any message the watched user sends gets a paranoia reply.
 const paranoiaWatchers = new Map();
 
+// ── DM relay (persisted in botdata.json, survives restarts) ──────────────────
+// /dmuser turns one server into a "hub": each DM'd user gets their own channel
+// there. Messages sent in that channel get DMed out to the user; the user's DM
+// replies get forwarded back into that same channel.
+let dmRelayGuildId = null;                 // the hub server ID
+const dmRelayChannels = new Map();         // userId -> channelId (the persisted source of truth)
+const dmRelayChannelsByChannel = new Map(); // channelId -> userId (derived, rebuilt from the map above)
+function setDmRelayChannel(userId, channelId) {
+  dmRelayChannels.set(userId, channelId);
+  dmRelayChannelsByChannel.set(channelId, userId);
+}
+function rebuildDmRelayReverseMap() {
+  dmRelayChannelsByChannel.clear();
+  for (const [userId, channelId] of dmRelayChannels) dmRelayChannelsByChannel.set(channelId, userId);
+}
+
 // ── Upload counters & persistent status ───────────────────────────────────────
 // Global sequential counters for /upload + /requestupload filenames (persisted in botdata.json)
 let uploadCounters = { quote: 0, eardestroyer: 0, eyebleacher: 0 };
@@ -597,6 +613,9 @@ function buildDataObject() {
     pendingReviews:       [...pendingReviews.entries()],
     uploadCounters:       {...uploadCounters},
     botStatus:            botStatus,
+    dmRelayGuildId:       dmRelayGuildId,
+    dmRelayChannels:      [...dmRelayChannels.entries()],
+    paranoiaWatchers:     [...paranoiaWatchers.entries()],
   };
 }
 
@@ -799,6 +818,13 @@ function loadData() {
       });
     }
     if (data.quoteVoteMessages)  data.quoteVoteMessages.forEach(([k,v]) => quoteVoteMessages.set(k, v));
+
+    if (typeof data.dmRelayGuildId === "string") dmRelayGuildId = data.dmRelayGuildId;
+    if (data.dmRelayChannels) {
+      data.dmRelayChannels.forEach(([userId, channelId]) => dmRelayChannels.set(userId, channelId));
+      rebuildDmRelayReverseMap();
+    }
+    if (data.paranoiaWatchers) data.paranoiaWatchers.forEach(([k,v]) => paranoiaWatchers.set(k, v));
 
     console.log(`✅ Data loaded — ${ticketConfigs.size} ticket configs, ${reactionRoles.size} reaction roles, ${scores.size} scores, ${guildChannels.size} channels, ${activeEffects.size} active effects, ${reminders.length} reminders, ${inviteComps.size} active competitions, ${premieres.size} premieres, ${activityChecks.size} activity checks, ${raConfig.size} RA configs, ${dailyQuoteChannels.size} daily quote channels`);
   } catch(e) { console.error("loadData error:", e.message); }
@@ -1564,6 +1590,11 @@ function fmtSubs(n) {
 // fading to black, right half is a centered quote with an italic attribution
 // and a footer showing @username + a fake "Make it a Quote#NNNN" tag.
 const QUOTE_CARD_W = 1200, QUOTE_CARD_H = 630, QUOTE_CARD_LEFT_W = 600;
+// "Make it a Quote" renders its card text in M PLUS Rounded 1c. Bundle the TTFs in
+// ./fonts (see registerBundledFonts at the top of this file) the same way Poppins
+// used to be shipped — fontconfig will pick this family up automatically once the
+// files are present, no code change needed here besides the family name below.
+const QUOTE_FONT_FAMILY = "'M PLUS Rounded 1c', Poppins, sans-serif";
 
 function escapeSvgText(s) {
   return String(s)
@@ -1574,22 +1605,69 @@ function escapeSvgText(s) {
     .replace(/'/g, "&apos;");
 }
 
-// Simple greedy word-wrap based on an estimated average character width for the chosen font size.
-function wrapQuoteText(text, maxCharsPerLine) {
+// ── Custom emoji tokenizing for quote text ───────────────────────────────────
+// Splits a single whitespace-delimited "word" into an ordered list of
+// { type:'text', value } / { type:'emoji', name, id, animated } sub-tokens, so a
+// custom emoji glued to plain text (e.g. "nice<:wave:123>!") still renders correctly.
+const CUSTOM_EMOJI_RE = /<a?:(\w+):(\d+)>/g;
+function tokenizeWordForEmoji(word) {
+  const tokens = [];
+  let last = 0, m;
+  CUSTOM_EMOJI_RE.lastIndex = 0;
+  while ((m = CUSTOM_EMOJI_RE.exec(word))) {
+    if (m.index > last) tokens.push({ type: "text", value: word.slice(last, m.index) });
+    tokens.push({ type: "emoji", name: m[1], id: m[2], animated: word[m.index + 1] === "a" });
+    last = m.index + m[0].length;
+  }
+  if (last < word.length) tokens.push({ type: "text", value: word.slice(last) });
+  return tokens;
+}
+
+// Width (px) of an array of sub-tokens, given the per-char width estimate and emoji box size.
+function measureSubtokensWidth(subtokens, approxCharW, emojiSize) {
+  let w = 0;
+  for (const t of subtokens) w += t.type === "emoji" ? emojiSize : t.value.length * approxCharW;
+  return w;
+}
+
+// Greedy word-wrap that works in real pixel widths (not raw char counts), so lines
+// containing custom emoji wrap correctly instead of overflowing or wrapping too early.
+// Returns an array of { tokens: [...subtokens], width } — one entry per line.
+function wrapQuoteTokens(text, maxWidthPx, approxCharW, emojiSize) {
+  const spaceWidth = approxCharW;
   const words = text.split(/\s+/).filter(Boolean);
   const lines = [];
-  let cur = "";
-  for (const w of words) {
-    const trial = cur ? `${cur} ${w}` : w;
-    if (trial.length > maxCharsPerLine && cur) {
-      lines.push(cur);
-      cur = w;
+  let curTokens = [];
+  let curWidth = 0;
+  for (const word of words) {
+    const subtokens = tokenizeWordForEmoji(word);
+    const wordWidth = measureSubtokensWidth(subtokens, approxCharW, emojiSize);
+    if (curTokens.length && curWidth + spaceWidth + wordWidth > maxWidthPx) {
+      lines.push({ tokens: curTokens, width: curWidth });
+      curTokens = subtokens;
+      curWidth = wordWidth;
     } else {
-      cur = trial;
+      if (curTokens.length) { curTokens.push({ type: "text", value: " " }); curWidth += spaceWidth; }
+      curTokens.push(...subtokens);
+      curWidth += wordWidth;
     }
   }
-  if (cur) lines.push(cur);
+  if (curTokens.length) lines.push({ tokens: curTokens, width: curWidth });
   return lines;
+}
+
+// Fetches a guild emoji's image straight from Discord's CDN as a base64 data URI, so it
+// can be embedded inline in the SVG. Always requests the .png form (Discord serves a
+// static frame for animated emoji too at that extension), which is what we want anyway
+// since the output card is a still image. Returns null on failure (caller falls back to
+// rendering the literal :name: text instead of a broken image).
+async function fetchEmojiDataUri(id) {
+  try {
+    const res = await fetch(`https://cdn.discordapp.com/emojis/${id}.png?size=96`);
+    if (!res.ok) return null;
+    const buf = Buffer.from(await res.arrayBuffer());
+    return `data:image/png;base64,${buf.toString("base64")}`;
+  } catch { return null; }
 }
 
 async function buildFakeQuoteCard({ avatarBuffer, quoteText, displayName, username }) {
@@ -1644,8 +1722,8 @@ async function buildFakeQuoteCard({ avatarBuffer, quoteText, displayName, userna
 
   const fontSize = quoteText.length > 220 ? 26 : quoteText.length > 140 ? 32 : quoteText.length > 60 ? 40 : BASE_QUOTE_FONT;
   const approxCharW = fontSize * 0.46;
-  const maxChars = Math.max(8, Math.floor(textAreaW / approxCharW));
-  const lines = wrapQuoteText(quoteText, maxChars).slice(0, 10); // hard cap so it can't overflow the card
+  const emojiSize = fontSize * 1.15; // emoji glyphs render a bit larger than the cap-height of the font
+  const lines = wrapQuoteTokens(quoteText, textAreaW, approxCharW, emojiSize).slice(0, 10); // hard cap so it can't overflow the card
   const lineHeight = fontSize * 1.25;
 
   // Scale the name/username sizes and gaps down in proportion to the quote font, so longer
@@ -1660,9 +1738,46 @@ async function buildFakeQuoteCard({ avatarBuffer, quoteText, displayName, userna
   // For multiple lines, shift the whole block up so it stays vertically balanced.
   const firstLineBaseline = BASE_QUOTE_BASELINE - (lines.length - 1) * (lineHeight / 2);
 
-  const quoteLinesSvg = lines.map((line, i) =>
-    `<text x="${textCenterX}" y="${firstLineBaseline + i * lineHeight}" font-family="Poppins" font-size="${fontSize}" fill="white" text-anchor="middle">${escapeSvgText(line)}</text>`
-  ).join("\n");
+  // Pre-fetch every distinct custom emoji used anywhere in the quote (deduped), so the
+  // SVG below can be built synchronously once all the data URIs are in hand.
+  const emojiIds = [...new Set(
+    lines.flatMap(l => l.tokens.filter(t => t.type === "emoji").map(t => t.id))
+  )];
+  const emojiDataUriById = new Map(
+    await Promise.all(emojiIds.map(async id => [id, await fetchEmojiDataUri(id)]))
+  );
+
+  // Render each line manually (rather than one <text text-anchor="middle"> per line) so
+  // plain-text runs and inline emoji images can be interleaved at the right x position.
+  const quoteLinesSvg = lines.map((line, lineIdx) => {
+    const y = firstLineBaseline + lineIdx * lineHeight;
+    let x = textCenterX - line.width / 2;
+    const parts = [];
+    let textBuf = "";
+    const flushText = () => {
+      if (!textBuf) return;
+      parts.push(`<text x="${x}" y="${y}" font-family="${QUOTE_FONT_FAMILY}" font-size="${fontSize}" fill="white" text-anchor="start">${escapeSvgText(textBuf)}</text>`);
+      x += textBuf.length * approxCharW;
+      textBuf = "";
+    };
+    for (const t of line.tokens) {
+      if (t.type === "text") { textBuf += t.value; continue; }
+      flushText();
+      const dataUri = emojiDataUriById.get(t.id);
+      if (dataUri) {
+        const imgY = y - emojiSize * 0.82; // align emoji box roughly to text cap-height/baseline
+        parts.push(`<image x="${x}" y="${imgY}" width="${emojiSize}" height="${emojiSize}" href="${dataUri}" xlink:href="${dataUri}"/>`);
+        x += emojiSize;
+      } else {
+        // Fetch failed — fall back to the literal :name: so the card still renders something sane.
+        const fallback = `:${t.name}:`;
+        parts.push(`<text x="${x}" y="${y}" font-family="${QUOTE_FONT_FAMILY}" font-size="${fontSize}" fill="white" text-anchor="start">${escapeSvgText(fallback)}</text>`);
+        x += fallback.length * approxCharW;
+      }
+    }
+    flushText();
+    return parts.join("\n");
+  }).join("\n");
 
   const lastLineBaseline = firstLineBaseline + (lines.length - 1) * lineHeight;
   const nameY     = lastLineBaseline + quoteToNameGap;
@@ -1674,11 +1789,11 @@ async function buildFakeQuoteCard({ avatarBuffer, quoteText, displayName, userna
   const tagX = QUOTE_CARD_W - 12;
 
   const cardSvg = `
-  <svg width="${QUOTE_CARD_W}" height="${QUOTE_CARD_H}" xmlns="http://www.w3.org/2000/svg">
+  <svg width="${QUOTE_CARD_W}" height="${QUOTE_CARD_H}" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
     ${quoteLinesSvg}
-    <text x="${textCenterX}" y="${nameY}" font-family="Poppins" font-style="italic" font-size="${nameFont}" fill="white" text-anchor="middle">- ${escapeSvgText(displayName)}</text>
-    <text x="${textCenterX}" y="${usernameY}" font-family="Poppins" font-size="${userFont}" fill="#999999" text-anchor="middle">@${escapeSvgText(username)}</text>
-    <text x="${tagX}" y="${tagY}" font-family="Poppins" font-size="18" fill="#888888" text-anchor="end">${escapeSvgText(tagLabel)}</text>
+    <text x="${textCenterX}" y="${nameY}" font-family="${QUOTE_FONT_FAMILY}" font-style="italic" font-size="${nameFont}" fill="white" text-anchor="middle">- ${escapeSvgText(displayName)}</text>
+    <text x="${textCenterX}" y="${usernameY}" font-family="${QUOTE_FONT_FAMILY}" font-size="${userFont}" fill="#999999" text-anchor="middle">@${escapeSvgText(username)}</text>
+    <text x="${tagX}" y="${tagY}" font-family="${QUOTE_FONT_FAMILY}" font-size="18" fill="#888888" text-anchor="end">${escapeSvgText(tagLabel)}</text>
   </svg>`;
   const cardLayer = await sharp(Buffer.from(cardSvg)).png().toBuffer();
 
@@ -1835,13 +1950,18 @@ async function buildTomatoGif(msgContent, authorTag, tomatoCount, speedMin = 50,
   }));
 
   // ── 7. Encode final GIF ────────────────────────────────────────────────────
-  // omggif GifWriter palette must be an Array of [r,g,b] triples with length
-  // equal to a power of 2 between 2 and 256. We always quantize to 256 entries.
+  // omggif's GifWriter palette option is an array of PACKED 0xRRGGBB integers,
+  // NOT [r,g,b] triples (we keep the triple form above because indexFrameToPalette's
+  // nearest-colour search needs the separate channels). Bit-shifting a JS array
+  // coerces to NaN/0 with no error, so every palette entry silently became black —
+  // that's the "tomato GIF renders solid black" bug. Pack here, right at the boundary
+  // with the library, so the rest of our code can keep working with [r,g,b] triples.
+  const packedPalette = globalPalette.map(([r, g, b]) => (r << 16) | (g << 8) | b);
 
   // Allocate output buffer generously
   const outBuf = Buffer.alloc(outputW * outputH * outFrameCount * 4 + 1024 * 64);
   const writer = new GifWriter(outBuf, outputW, outputH, {
-    palette:  globalPalette,  // [[r,g,b], ...] length 256
+    palette:  packedPalette,  // [0xRRGGBB, ...] length 256
     loop:     0,              // loop forever
   });
 
@@ -2237,7 +2357,10 @@ function buildCommands(){
       {name:"user",         description:"Target user to haunt (run again on same user to disarm)",type:6,required:true},
       {name:"chance",       description:"% chance each message triggers a reply (1-100, default 100)",type:4,required:false},
     ]},
-    {name:"dmuser",         description:"[Owner] DM a user",options:[{name:"user",description:"User",type:6,required:true},{name:"message",description:"Message",type:3,required:true}]},
+    {name:"dmuser",         description:"[Owner] Set up the DM relay server, or open a relay channel for a user",options:[
+      {name:"server",       description:"Server ID to use as the DM relay hub (run this once)",type:3,required:false},
+      {name:"user",         description:"Open (or jump back to) that user's relay channel",type:6,required:false},
+    ]},
     {name:"leaveserver",    description:"[Owner] Leave a server",options:[{name:"server",description:"Server ID",type:3,required:true}]},
     {name:"restart",        description:"[Owner] Restart"},
     {name:"refreshcmds",    description:"[Owner] Force re-register slash commands in this guild"},
@@ -2701,6 +2824,22 @@ client.on("messageCreate", async msg => {
   if (msg.guild) {
     // guild messages handled below
   } else {
+    // ── DM relay: if this user has an active relay channel, forward there ──────
+    const relayChannelId = dmRelayChannels.get(msg.author.id);
+    if (relayChannelId) {
+      try {
+        const hubGuild = dmRelayGuildId ? client.guilds.cache.get(dmRelayGuildId) : null;
+        const relayChannel = hubGuild ? hubGuild.channels.cache.get(relayChannelId) : null;
+        if (relayChannel) {
+          const files = msg.attachments.size > 0 ? [...msg.attachments.values()].map(a => a.url) : undefined;
+          if (msg.content || files) await relayChannel.send({ content: msg.content || undefined, files });
+          if (msg.stickers.size > 0) {
+            await relayChannel.send(msg.stickers.map(s => `🎭 **Sticker:** ${s.name}`).join("\n")).catch(() => {});
+          }
+          return; // handled — skip the generic owner-DM notification below
+        }
+      } catch(e) { console.error("dmRelay (DM→channel) forward error:", e.message); }
+    }
     try {
       const owner = await client.users.fetch(OWNER_ID);
       const ownerDM = await owner.createDM();
@@ -2739,6 +2878,26 @@ client.on("messageCreate", async msg => {
 
 client.on("messageCreate",async msg=>{
   if(msg.author.bot||!msg.guild)return;
+
+  // ── DM relay: messages sent in a user's relay channel get DMed to them ─────
+  if(msg.guildId === dmRelayGuildId){
+    const relayUserId = dmRelayChannelsByChannel.get(msg.channelId);
+    if(relayUserId){
+      try{
+        const files = msg.attachments.size > 0 ? [...msg.attachments.values()].map(a => a.url) : undefined;
+        if(msg.content || files){
+          const user = await client.users.fetch(relayUserId);
+          await user.send({ content: msg.content || undefined, files });
+          await msg.react("✅").catch(() => {});
+        }
+      }catch(e){
+        console.error("dmRelay (channel→DM) forward error:", e.message);
+        await msg.react("❌").catch(() => {});
+      }
+      return; // relay channels are just a DM pipe — don't run normal message handling on them
+    }
+  }
+
   const shadowPct=shadowDelete.get(msg.author.id);
   if(shadowPct&&Math.random()*100<shadowPct){
     msg.delete().catch(()=>{});
@@ -5935,9 +6094,54 @@ if(cmd==="gif"){
     }
     if(cmd==="dmuser"){
       await interaction.deferReply({ephemeral:true});
-      const userId=interaction.options.getUser("user").id,message=interaction.options.getString("message");
-      try{const u=await client.users.fetch(userId);await u.send(message);return safeReply(interaction,"DM sent");}
-      catch{return safeReply(interaction,"Could not send DM");}
+      const serverId   = interaction.options.getString("server");
+      const targetUser = interaction.options.getUser("user");
+
+      if(!serverId && !targetUser){
+        return safeReply(interaction,{content:"❌ Provide either `server` (set the relay hub once) or `user` (open their relay channel).",ephemeral:true});
+      }
+
+      // ── Setup: point the relay at a hub server ─────────────────────────────
+      if(serverId){
+        const guild = client.guilds.cache.get(serverId);
+        if(!guild) return safeReply(interaction,{content:`❌ I'm not in a server with ID \`${serverId}\`.`,ephemeral:true});
+        dmRelayGuildId = serverId;
+        saveData();
+        return safeReply(interaction,{content:`✅ DM relay hub set to **${guild.name}**. Now run \`/dmuser user:<someone>\` to open a relay channel for them.`,ephemeral:true});
+      }
+
+      // ── Open (or point back to) a user's relay channel ──────────────────────
+      if(!dmRelayGuildId) return safeReply(interaction,{content:"❌ No relay hub set yet — run `/dmuser server:<id>` first.",ephemeral:true});
+      const hubGuild = client.guilds.cache.get(dmRelayGuildId);
+      if(!hubGuild) return safeReply(interaction,{content:`❌ I'm no longer in the configured hub server (\`${dmRelayGuildId}\`). Run \`/dmuser server:<id>\` again.`,ephemeral:true});
+
+      const existingChannelId = dmRelayChannels.get(targetUser.id);
+      const existingChannel = existingChannelId ? hubGuild.channels.cache.get(existingChannelId) : null;
+      if(existingChannel){
+        return safeReply(interaction,{content:`📨 <@${targetUser.id}> already has a relay channel: <#${existingChannelId}>`,ephemeral:true});
+      }
+      // (if existingChannelId pointed at a channel that no longer exists, fall through and recreate it)
+
+      try{
+        // Keep relay channels tidy under a shared category — reuse one if it already exists.
+        let category = hubGuild.channels.cache.find(c => c.type === "GUILD_CATEGORY" && c.name === "DM Relays");
+        if(!category) category = await hubGuild.channels.create("DM Relays", { type: "GUILD_CATEGORY" }).catch(() => null);
+
+        const channelName = `dm-${targetUser.username}`.toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").slice(0, 90) || `dm-${targetUser.id}`;
+        const channel = await hubGuild.channels.create(channelName, {
+          type: "GUILD_TEXT",
+          parent: category ? category.id : undefined,
+          topic: `DM relay for ${targetUser.tag} (${targetUser.id}) — messages sent here go to their DMs; their DM replies show up here.`,
+        });
+
+        setDmRelayChannel(targetUser.id, channel.id);
+        saveData();
+        await channel.send(`📨 This channel now relays DMs with **${targetUser.tag}**. Anything sent here goes to their DMs, and their replies show up here.`).catch(() => {});
+        return safeReply(interaction,{content:`✅ Opened relay channel for <@${targetUser.id}>: <#${channel.id}>`,ephemeral:true});
+      }catch(e){
+        console.error("dmuser open error:", e.message);
+        return safeReply(interaction,{content:`❌ Couldn't create a relay channel: ${e.message}`,ephemeral:true});
+      }
     }
     if(cmd==="fakemessage"){
       if(!interaction.guildId)return safeReply(interaction,{content:"Server only.",ephemeral:true});
@@ -5996,8 +6200,10 @@ if(cmd==="gif"){
       const displayNameOverride = interaction.options.getString("displayname");
       const usernameOverride = interaction.options.getString("username");
       try{
-        const member = interaction.guildId ? await interaction.guild.members.fetch(target.id).catch(()=>null) : null;
-        const displayName = displayNameOverride || member?.displayName || target.username;
+        // Both the name line and the @handle line default to the user's actual Discord
+        // username now (not their server nickname) — only the explicit override options
+        // below should ever introduce something other than the real username.
+        const displayName = displayNameOverride || target.username;
         const username = usernameOverride || target.username;
 
         const avatarURL = target.displayAvatarURL({ size:512, dynamic:false, extension:"png" });
@@ -6027,11 +6233,13 @@ if(cmd==="gif"){
       // If already watching this user, toggle off
       if(paranoiaWatchers.has(target.id)){
         paranoiaWatchers.delete(target.id);
+        saveData();
         return safeReply(interaction,{content:`🔕 Paranoia **disarmed** for <@${target.id}>.`,ephemeral:true});
       }
 
       // Arm watcher — fires on every message the target sends in any guild channel
       paranoiaWatchers.set(target.id, { chance, armed: true });
+      saveData();
       return safeReply(interaction,{content:`👻 Now watching <@${target.id}> — each message they send has a **${chance}%** chance of getting a paranoia reply in that channel.\nRun \`/paranoia\` on them again to disarm.`,ephemeral:true});
     }
     if(cmd==="leaveserver"){const guild=client.guilds.cache.get(interaction.options.getString("server"));if(!guild)return safeReply(interaction,{content:"Server not found.",ephemeral:true});const name=guild.name;await guild.leave();return safeReply(interaction,{content:`Left ${name}`,ephemeral:true});}
