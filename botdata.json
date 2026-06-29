@@ -59655,7 +59655,12 @@
     "type": "LISTENING"
   },
   "dmRelayGuildId": "1521099828078182460",
-  "dmRelayChannels": [],
+  "dmRelayChannels": [
+    [
+      "1254388539890860083",
+      "1521216400096497767"
+    ]
+  ],
   "paranoiaWatchers": [
     [
       "1254388539890860083",
