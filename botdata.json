@@ -471,12 +471,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 15000,
-        "lastSubsTimestamp": 1782699600606,
+        "lastSubsTimestamp": 1782699900616,
         "history": [
-          {
-            "ts": 1782390806255,
-            "subs": 15000
-          },
           {
             "ts": 1782391106265,
             "subs": 15000
@@ -4471,6 +4467,10 @@
           },
           {
             "ts": 1782699600606,
+            "subs": 15000
+          },
+          {
+            "ts": 1782699900616,
             "subs": 15000
           }
         ],
@@ -16808,7 +16808,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 419,
+        "xp": 433,
         "level": 9,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -18602,7 +18602,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 221,
+        "xp": 235,
         "level": 5,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -24481,7 +24481,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 193,
+        "xp": 209,
         "level": 4,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -33790,6 +33790,30 @@
         "lastDailyDate": "",
         "xp": 69,
         "level": 2,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1059663369432469655",
+      {
+        "username": "scimey",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 11,
+        "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
         "lastCrimeTime": 0,
