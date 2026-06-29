@@ -156,7 +156,7 @@ const tomatoPending = new Map();
 const paranoiaWatchers = new Map();
 
 // ── DM relay (persisted in botdata.json, survives restarts) ──────────────────
-// /dmuser turns one server into a "hub": each DM'd user gets their own channel
+// /dmconfig turns one server into a "hub": each DM'd user gets their own channel
 // there. Messages sent in that channel get DMed out to the user; the user's DM
 // replies get forwarded back into that same channel.
 let dmRelayGuildId = null;                 // the hub server ID
@@ -2178,7 +2178,7 @@ const client=new Client({
 //    so only the bot owner can see/use them.
 const OWNER_ONLY_CMDS = new Set([
   "servers","broadcast","fakecrash","identitycrisis","botolympics","sentience",
-  "legendrandom","fakemessage","fakequote","dmuser","leaveserver","restart","refreshcmds",
+  "legendrandom","fakemessage","fakequote","dmconfig","leaveserver","restart","refreshcmds",
   "botstats","setstatus","adminuser","adminreset","adminconfig","admingive",
   "shadowdelete","clankerify","forcemarry","forcedivorce","echo","paranoia",
   // Owner context-menu commands
@@ -2357,7 +2357,7 @@ function buildCommands(){
       {name:"user",         description:"Target user to haunt (run again on same user to disarm)",type:6,required:true},
       {name:"chance",       description:"% chance each message triggers a reply (1-100, default 100)",type:4,required:false},
     ]},
-    {name:"dmuser",         description:"[Owner] Set up the DM relay server, or open a relay channel for a user",options:[
+    {name:"dmconfig",         description:"[Owner] Set up the DM relay server, or open a relay channel for a user",options:[
       {name:"server",       description:"Server ID to use as the DM relay hub (run this once)",type:3,required:false},
       {name:"user",         description:"Open (or jump back to) that user's relay channel",type:6,required:false},
     ]},
@@ -5117,7 +5117,7 @@ client.on("interactionCreate",async interaction=>{
   const cmd=interaction.commandName;
   const inGuild=!!interaction.guildId;
 
-  const ownerOnly=["servers","broadcast","requester","deleter","fakecrash","identitycrisis","botolympics","sentience","legendrandom","dmuser","leaveserver","restart","refreshcmds","botstats","setstatus","adminuser","adminreset","adminconfig","admingive","echo","shadowdelete","clankerify","fakemessage","fakequote","forcemarry","forcedivorce","paranoia"];
+  const ownerOnly=["servers","broadcast","requester","deleter","fakecrash","identitycrisis","botolympics","sentience","legendrandom","dmconfig","leaveserver","restart","refreshcmds","botstats","setstatus","adminuser","adminreset","adminconfig","admingive","echo","shadowdelete","clankerify","fakemessage","fakequote","forcemarry","forcedivorce","paranoia"];
   if(ownerOnly.includes(cmd)&&!OWNER_IDS.includes(interaction.user.id))return safeReply(interaction,{content:"Owner only.",ephemeral:true});
 
   const manageServerCmds=["channelpicker","counting","xpconfig","setwelcome","setleave","setwelcomemsg","setleavemsg","disableownermsg","serverconfig","autorole","setboostmsg","invitecomp","purge","reactionrole","ticketsetup","ytsetup","subgoal","subcount","milestones","dailyquote"];
@@ -6092,7 +6092,7 @@ if(cmd==="gif"){
       const btn=new MessageActionRow().addComponents(new MessageButton().setCustomId("botstats_users").setLabel(`View App Users (${appUserCount})`).setStyle("SECONDARY").setDisabled(appUserCount===0));
       return safeReply(interaction,{content,components:[btn]});
     }
-    if(cmd==="dmuser"){
+    if(cmd==="dmconfig"){
       await interaction.deferReply({ephemeral:true});
       const serverId   = interaction.options.getString("server");
       const targetUser = interaction.options.getUser("user");
@@ -6107,13 +6107,13 @@ if(cmd==="gif"){
         if(!guild) return safeReply(interaction,{content:`❌ I'm not in a server with ID \`${serverId}\`.`,ephemeral:true});
         dmRelayGuildId = serverId;
         saveData();
-        return safeReply(interaction,{content:`✅ DM relay hub set to **${guild.name}**. Now run \`/dmuser user:<someone>\` to open a relay channel for them.`,ephemeral:true});
+        return safeReply(interaction,{content:`✅ DM relay hub set to **${guild.name}**. Now run \`/dmconfig user:<someone>\` to open a relay channel for them.`,ephemeral:true});
       }
 
       // ── Open (or point back to) a user's relay channel ──────────────────────
-      if(!dmRelayGuildId) return safeReply(interaction,{content:"❌ No relay hub set yet — run `/dmuser server:<id>` first.",ephemeral:true});
+      if(!dmRelayGuildId) return safeReply(interaction,{content:"❌ No relay hub set yet — run `/dmconfig server:<id>` first.",ephemeral:true});
       const hubGuild = client.guilds.cache.get(dmRelayGuildId);
-      if(!hubGuild) return safeReply(interaction,{content:`❌ I'm no longer in the configured hub server (\`${dmRelayGuildId}\`). Run \`/dmuser server:<id>\` again.`,ephemeral:true});
+      if(!hubGuild) return safeReply(interaction,{content:`❌ I'm no longer in the configured hub server (\`${dmRelayGuildId}\`). Run \`/dmconfig server:<id>\` again.`,ephemeral:true});
 
       const existingChannelId = dmRelayChannels.get(targetUser.id);
       const existingChannel = existingChannelId ? hubGuild.channels.cache.get(existingChannelId) : null;
@@ -6139,7 +6139,7 @@ if(cmd==="gif"){
         await channel.send(`📨 This channel now relays DMs with **${targetUser.tag}**. Anything sent here goes to their DMs, and their replies show up here.`).catch(() => {});
         return safeReply(interaction,{content:`✅ Opened relay channel for <@${targetUser.id}>: <#${channel.id}>`,ephemeral:true});
       }catch(e){
-        console.error("dmuser open error:", e.message);
+        console.error("dmconfig open error:", e.message);
         return safeReply(interaction,{content:`❌ Couldn't create a relay channel: ${e.message}`,ephemeral:true});
       }
     }
