@@ -35888,7 +35888,7 @@
       "IMG_4293.png",
       {
         "up": 3,
-        "down": 1
+        "down": 2
       }
     ],
     [
@@ -61061,10 +61061,12 @@
       "1521503205996105868",
       {
         "filename": "IMG_4293.png",
-        "voters": [],
+        "voters": [
+          "1413943805203189800"
+        ],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
-        "sentToDeleter": false
+        "sentToDeleter": true
       }
     ],
     [
