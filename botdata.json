@@ -62961,10 +62961,12 @@
       "1521573530133598350",
       {
         "filename": "IMG-20260429-WA0009.jpg",
-        "voters": [],
+        "voters": [
+          "1460301822827692237"
+        ],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
-        "sentToDeleter": false
+        "sentToDeleter": true
       }
     ]
   ],
