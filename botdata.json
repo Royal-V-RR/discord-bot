@@ -5180,7 +5180,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 476,
+        "xp": 482,
         "level": 24,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -52678,6 +52678,10 @@
     [
       "1521570286229651639",
       "Juno talking head.png"
+    ],
+    [
+      "1521570316999069706",
+      "quote_1498033819045855273.png"
     ]
   ],
   "reviewChannelId": "1503045026866004071",
@@ -62586,6 +62590,16 @@
       "1521570286229651639",
       {
         "filename": "Juno talking head.png",
+        "voters": [],
+        "guildId": "1048053656035020911",
+        "channelId": "1477294439180537980",
+        "sentToDeleter": false
+      }
+    ],
+    [
+      "1521570316999069706",
+      {
+        "filename": "quote_1498033819045855273.png",
         "voters": [],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
