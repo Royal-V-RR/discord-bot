@@ -60223,10 +60223,12 @@
       "1521440332351406131",
       {
         "filename": "quote_1493676228874342520.png",
-        "voters": [],
+        "voters": [
+          "1254388539890860083"
+        ],
         "guildId": "1408975996715139084",
         "channelId": "1408975997272854611",
-        "sentToDeleter": false
+        "sentToDeleter": true
       }
     ],
     [
