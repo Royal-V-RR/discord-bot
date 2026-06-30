@@ -4889,7 +4889,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-27",
-        "xp": 2789,
+        "xp": 2801,
         "level": 24,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -5660,7 +5660,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 3051,
+        "xp": 3062,
         "level": 16,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -9429,7 +9429,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 56,
+        "xp": 65,
         "level": 18,
         "lastWorkTime": 1781950069162,
         "lastBegTime": 0,
@@ -35843,7 +35843,7 @@
     [
       "InShot_20260410_150430421.jpg",
       {
-        "up": 4,
+        "up": 6,
         "down": 0
       }
     ],
@@ -52288,6 +52288,10 @@
     [
       "1521563046575738880",
       "quote_1512746909226373190.png"
+    ],
+    [
+      "1521563339912646666",
+      "InShot_20260410_150430421.jpg"
     ]
   ],
   "reviewChannelId": "1503045026866004071",
@@ -61414,6 +61418,16 @@
       "1521563046575738880",
       {
         "filename": "quote_1512746909226373190.png",
+        "voters": [],
+        "guildId": "1048053656035020911",
+        "channelId": "1477294439180537980",
+        "sentToDeleter": false
+      }
+    ],
+    [
+      "1521563339912646666",
+      {
+        "filename": "InShot_20260410_150430421.jpg",
         "voters": [],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
