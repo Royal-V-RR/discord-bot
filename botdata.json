@@ -5781,7 +5781,6 @@
           "Screenshot_20260610-1412052.png",
           "Screenshot_20260610-1832572.png",
           "Screenshot_20260611-2005092.png",
-          "Screenshot_20260611-2051302.png",
           "1413943805203189800_Screenshot_20260611-2055532.png",
           "Screenshot_20260612-1321412.png",
           "IMG_5563.jpg",
@@ -52635,6 +52634,10 @@
     [
       "1521569258096689373",
       "Screenshot_20260611-2051302.png"
+    ],
+    [
+      "1521569292259430500",
+      "quote_43.png"
     ]
   ],
   "reviewChannelId": "1503045026866004071",
@@ -62435,6 +62438,16 @@
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
         "sentToDeleter": true
+      }
+    ],
+    [
+      "1521569292259430500",
+      {
+        "filename": "quote_43.png",
+        "voters": [],
+        "guildId": "1048053656035020911",
+        "channelId": "1477294439180537980",
+        "sentToDeleter": false
       }
     ]
   ],
