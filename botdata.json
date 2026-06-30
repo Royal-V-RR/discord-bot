@@ -471,12 +471,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 15100,
-        "lastSubsTimestamp": 1782846545197,
+        "lastSubsTimestamp": 1782846845229,
         "history": [
-          {
-            "ts": 1782537932682,
-            "subs": 15000
-          },
           {
             "ts": 1782538232710,
             "subs": 15000
@@ -4471,6 +4467,10 @@
           },
           {
             "ts": 1782846545197,
+            "subs": 15100
+          },
+          {
+            "ts": 1782846845229,
             "subs": 15100
           }
         ],
@@ -17742,7 +17742,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 125,
+        "xp": 130,
         "level": 13,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -17838,7 +17838,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-06-04",
-        "xp": 2412,
+        "xp": 2425,
         "level": 17,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -17918,7 +17918,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 1673,
+        "xp": 1678,
         "level": 13,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -33979,6 +33979,30 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 8,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1518303504979067187",
+      {
+        "username": "olatebalhevn76",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 7,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
