@@ -4889,7 +4889,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-27",
-        "xp": 2644,
+        "xp": 2657,
         "level": 24,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -9432,7 +9432,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 3433,
+        "xp": 3440,
         "level": 17,
         "lastWorkTime": 1781950069162,
         "lastBegTime": 0,
@@ -51751,6 +51751,10 @@
     [
       "1521497739328880680",
       "quote_80.png"
+    ],
+    [
+      "1521497888687915059",
+      "thomas is a minor.png"
     ]
   ],
   "reviewChannelId": "1503045026866004071",
@@ -59837,6 +59841,16 @@
       "1521497739328880680",
       {
         "filename": "quote_80.png",
+        "voters": [],
+        "guildId": "1048053656035020911",
+        "channelId": "1477294439180537980",
+        "sentToDeleter": false
+      }
+    ],
+    [
+      "1521497888687915059",
+      {
+        "filename": "thomas is a minor.png",
         "voters": [],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
