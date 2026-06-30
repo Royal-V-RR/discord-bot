@@ -4889,7 +4889,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-27",
-        "xp": 2701,
+        "xp": 2713,
         "level": 24,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -9431,7 +9431,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 3480,
+        "xp": 3486,
         "level": 17,
         "lastWorkTime": 1781950069162,
         "lastBegTime": 0,
@@ -51988,6 +51988,10 @@
     [
       "1521500430977208351",
       "quote_7.png"
+    ],
+    [
+      "1521501088539480105",
+      "IMG_4077.png"
     ]
   ],
   "reviewChannelId": "1503045026866004071",
@@ -60573,6 +60577,16 @@
       "1521500430977208351",
       {
         "filename": "quote_7.png",
+        "voters": [],
+        "guildId": "1048053656035020911",
+        "channelId": "1477294439180537980",
+        "sentToDeleter": false
+      }
+    ],
+    [
+      "1521501088539480105",
+      {
+        "filename": "IMG_4077.png",
         "voters": [],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
