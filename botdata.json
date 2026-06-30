@@ -4889,7 +4889,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-27",
-        "xp": 2657,
+        "xp": 2668,
         "level": 24,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -51794,6 +51794,10 @@
     [
       "1521498238320906280",
       "quote_1497898328049057922.png"
+    ],
+    [
+      "1521498253403885709",
+      "faggoter than you.png"
     ]
   ],
   "reviewChannelId": "1503045026866004071",
@@ -59974,6 +59978,19 @@
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
         "sentToDeleter": false
+      }
+    ],
+    [
+      "1521498253403885709",
+      {
+        "filename": "faggoter than you.png",
+        "voters": [
+          "969280648667889764",
+          "1460301822827692237"
+        ],
+        "guildId": "1048053656035020911",
+        "channelId": "1477294439180537980",
+        "sentToDeleter": true
       }
     ]
   ],
