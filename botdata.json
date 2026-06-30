@@ -62888,10 +62888,12 @@
       "1521572122865041639",
       {
         "filename": "IMG_4237.png",
-        "voters": [],
+        "voters": [
+          "1460301822827692237"
+        ],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
-        "sentToDeleter": false
+        "sentToDeleter": true
       }
     ]
   ],
