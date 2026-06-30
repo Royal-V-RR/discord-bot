@@ -471,12 +471,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 15100,
-        "lastSubsTimestamp": 1782842045093,
+        "lastSubsTimestamp": 1782842345074,
         "history": [
-          {
-            "ts": 1782533280408,
-            "subs": 15000
-          },
           {
             "ts": 1782533580401,
             "subs": 15000
@@ -4471,6 +4467,10 @@
           },
           {
             "ts": 1782842045093,
+            "subs": 15100
+          },
+          {
+            "ts": 1782842345074,
             "subs": 15100
           }
         ],
@@ -9424,7 +9424,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 309,
+        "xp": 323,
         "level": 18,
         "lastWorkTime": 1781950069162,
         "lastBegTime": 0,
@@ -37602,7 +37602,7 @@
     [
       "brikit tung sahur.png",
       {
-        "up": 0,
+        "up": 1,
         "down": 1
       }
     ],
