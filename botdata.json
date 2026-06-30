@@ -234,15 +234,7 @@
     ]
   ],
   "shadowDelete": [],
-  "clankerify": [
-    [
-      "690219723472109616",
-      {
-        "expiresAt": 1782817734403,
-        "mode": "conspiracy"
-      }
-    ]
-  ],
+  "clankerify": [],
   "reactionRoles": [
     [
       "1408975996715139084:1483218332005175427:🤖",
@@ -59764,16 +59756,19 @@
   "selfClankUsers": [
     [
       "1048053656035020911",
-      [
-        "690219723472109616"
-      ]
+      []
     ],
     [
       "1408975996715139084",
       []
     ]
   ],
-  "selfClankCooldown": [],
+  "selfClankCooldown": [
+    [
+      "690219723472109616",
+      1782818334414
+    ]
+  ],
   "pendingReviews": [],
   "uploadCounters": {
     "quote": 82,
