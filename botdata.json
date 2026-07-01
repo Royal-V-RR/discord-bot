@@ -4936,7 +4936,6 @@
           "IMG_4270.png",
           "IMG_4271.png",
           "IMG_4272.png",
-          "quote_1498436849465688275.png",
           "quote_1498437559028551741.png",
           "IMG_4276.png",
           "quote_1498440246306541679.png",
@@ -5706,7 +5705,6 @@
           "Screenshot_20260426-2005102.png",
           "quote_1498042086438469642.png",
           "Screenshot_20260427-1633402.png",
-          "quote_1498347916270506134.png",
           "Screenshot_20260427-2131002.png",
           "quote_1498699893869379816.png",
           "quote_1498700332497113230.png",
@@ -6826,7 +6824,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 4572,
+        "xp": 4578,
         "level": 24,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -32709,8 +32707,8 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 131,
-        "level": 2,
+        "xp": 4,
+        "level": 3,
         "lastWorkTime": 0,
         "lastBegTime": 0,
         "lastCrimeTime": 0,
@@ -53953,6 +53951,10 @@
     [
       "1522020853447921754",
       "quote_1497696449373278420.png"
+    ],
+    [
+      "1522021058490925137",
+      "quote_1497717389360369867.png"
     ]
   ],
   "reviewChannelId": "1503045026866004071",
@@ -66491,6 +66493,16 @@
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
         "sentToDeleter": true
+      }
+    ],
+    [
+      "1522021058490925137",
+      {
+        "filename": "quote_1497717389360369867.png",
+        "voters": [],
+        "guildId": "1048053656035020911",
+        "channelId": "1477294439180537980",
+        "sentToDeleter": false
       }
     ]
   ],
