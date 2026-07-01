@@ -63398,10 +63398,12 @@
       "1521802798432518214",
       {
         "filename": "quote_1509534469114298518.png",
-        "voters": [],
+        "voters": [
+          "690219723472109616"
+        ],
         "guildId": "1408975996715139084",
         "channelId": "1408975997272854611",
-        "sentToDeleter": false
+        "sentToDeleter": true
       }
     ]
   ],
