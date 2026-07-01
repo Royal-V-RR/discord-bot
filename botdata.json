@@ -17840,7 +17840,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-06-04",
-        "xp": 3290,
+        "xp": 3304,
         "level": 17,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -53830,6 +53830,10 @@
     [
       "1521924037176197220",
       "quote_44.png"
+    ],
+    [
+      "1521924131539390475",
+      "the ghost busters.png"
     ]
   ],
   "reviewChannelId": "1503045026866004071",
@@ -66238,6 +66242,16 @@
       "1521924037176197220",
       {
         "filename": "quote_44.png",
+        "voters": [],
+        "guildId": "1048053656035020911",
+        "channelId": "1477294439180537980",
+        "sentToDeleter": false
+      }
+    ],
+    [
+      "1521924131539390475",
+      {
+        "filename": "the ghost busters.png",
         "voters": [],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
