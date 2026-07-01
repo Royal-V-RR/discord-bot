@@ -9426,7 +9426,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 1079,
+        "xp": 1088,
         "level": 18,
         "lastWorkTime": 1781950069162,
         "lastBegTime": 0,
@@ -53834,6 +53834,10 @@
     [
       "1521924131539390475",
       "the ghost busters.png"
+    ],
+    [
+      "1521924208211525818",
+      "I bark to differ.png"
     ]
   ],
   "reviewChannelId": "1503045026866004071",
@@ -66252,6 +66256,16 @@
       "1521924131539390475",
       {
         "filename": "the ghost busters.png",
+        "voters": [],
+        "guildId": "1048053656035020911",
+        "channelId": "1477294439180537980",
+        "sentToDeleter": false
+      }
+    ],
+    [
+      "1521924208211525818",
+      {
+        "filename": "I bark to differ.png",
         "voters": [],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
