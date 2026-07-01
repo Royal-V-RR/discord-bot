@@ -35033,7 +35033,7 @@
     [
       "laughing in loud.png",
       {
-        "up": 6,
+        "up": 7,
         "down": 4
       }
     ],
@@ -53529,6 +53529,10 @@
     [
       "1521919210207313963",
       "quote_48.png"
+    ],
+    [
+      "1521919234068709446",
+      "laughing in loud.png"
     ]
   ],
   "reviewChannelId": "1503045026866004071",
@@ -65225,6 +65229,16 @@
       "1521919210207313963",
       {
         "filename": "quote_48.png",
+        "voters": [],
+        "guildId": "1048053656035020911",
+        "channelId": "1477294439180537980",
+        "sentToDeleter": false
+      }
+    ],
+    [
+      "1521919234068709446",
+      {
+        "filename": "laughing in loud.png",
         "voters": [],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
