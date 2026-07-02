@@ -17920,7 +17920,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 1682,
+        "xp": 1694,
         "level": 14,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -54023,6 +54023,10 @@
     [
       "1522127221437894726",
       "Tuxedo.png"
+    ],
+    [
+      "1522127422970138765",
+      "judges be like.jpeg"
     ]
   ],
   "reviewChannelId": "1503045026866004071",
@@ -66719,6 +66723,16 @@
       "1522127221437894726",
       {
         "filename": "Tuxedo.png",
+        "voters": [],
+        "guildId": "1048053656035020911",
+        "channelId": "1477294439180537980",
+        "sentToDeleter": false
+      }
+    ],
+    [
+      "1522127422970138765",
+      {
+        "filename": "judges be like.jpeg",
         "voters": [],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
