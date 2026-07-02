@@ -33797,10 +33797,11 @@
         "inventory": [],
         "marriedTo": null,
         "pendingProposal": null,
-        "imagesUploaded": 1,
+        "imagesUploaded": 2,
         "forceMarried": false,
         "uploadedImages": [
-          "quote_92.png"
+          "quote_92.png",
+          "quote_97.png"
         ]
       }
     ],
@@ -67017,19 +67018,9 @@
     ]
   ],
   "selfClankCooldown": [],
-  "pendingReviews": [
-    [
-      "821276mr3d42xn",
-      {
-        "submitterId": "1520763926105821276",
-        "fileName": "1520763926105821276__image__IMG_0370.png",
-        "rawName": "IMG_0370.png",
-        "mediaKind": "image"
-      }
-    ]
-  ],
+  "pendingReviews": [],
   "uploadCounters": {
-    "quote": 96,
+    "quote": 97,
     "eardestroyer": 1,
     "eyebleacher": 3
   },
