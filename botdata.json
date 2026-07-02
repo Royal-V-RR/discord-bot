@@ -4889,7 +4889,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-27",
-        "xp": 4692,
+        "xp": 4706,
         "level": 24,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -5185,7 +5185,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 966,
+        "xp": 975,
         "level": 24,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -6825,7 +6825,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 4659,
+        "xp": 4669,
         "level": 24,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -54119,6 +54119,10 @@
     [
       "1522203865628413972",
       "3e670f34-b9b5-4d5b-b17f-3f49f9627109.png"
+    ],
+    [
+      "1522204155408683018",
+      "suntzu_3.jpg"
     ]
   ],
   "reviewChannelId": "1503045026866004071",
@@ -67037,6 +67041,16 @@
       "1522203865628413972",
       {
         "filename": "3e670f34-b9b5-4d5b-b17f-3f49f9627109.png",
+        "voters": [],
+        "guildId": "1048053656035020911",
+        "channelId": "1477294439180537980",
+        "sentToDeleter": false
+      }
+    ],
+    [
+      "1522204155408683018",
+      {
+        "filename": "suntzu_3.jpg",
         "voters": [],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
