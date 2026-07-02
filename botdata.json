@@ -4889,7 +4889,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-27",
-        "xp": 4724,
+        "xp": 4736,
         "level": 24,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -66862,10 +66862,12 @@
       "1522127510874099833",
       {
         "filename": "1193150033864949811_Screenshot_20260604_002934_Discord.jpg",
-        "voters": [],
+        "voters": [
+          "690219723472109616"
+        ],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
-        "sentToDeleter": false
+        "sentToDeleter": true
       }
     ],
     [
