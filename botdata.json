@@ -471,12 +471,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 15100,
-        "lastSubsTimestamp": 1783034175878,
+        "lastSubsTimestamp": 1783034475870,
         "history": [
-          {
-            "ts": 1782726783785,
-            "subs": 15000
-          },
           {
             "ts": 1782727083817,
             "subs": 15000
@@ -4472,6 +4468,10 @@
           {
             "ts": 1783034175878,
             "subs": 15100
+          },
+          {
+            "ts": 1783034475870,
+            "subs": 15100
           }
         ],
         "subcountDiscordId": "1483595393999700080",
@@ -4889,7 +4889,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-27",
-        "xp": 5380,
+        "xp": 5388,
         "level": 24,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -6037,7 +6037,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 754,
+        "xp": 761,
         "level": 7,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -6827,7 +6827,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 5179,
+        "xp": 5184,
         "level": 24,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -34179,6 +34179,30 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 5,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1519756368582676575",
+      {
+        "username": "lllvqont",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 13,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
