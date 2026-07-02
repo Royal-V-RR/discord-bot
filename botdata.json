@@ -234,15 +234,7 @@
     ]
   ],
   "shadowDelete": [],
-  "clankerify": [
-    [
-      "1213866609362604194",
-      {
-        "expiresAt": 1783009637475,
-        "mode": "random"
-      }
-    ]
-  ],
+  "clankerify": [],
   "reactionRoles": [
     [
       "1408975996715139084:1483218332005175427:🤖",
@@ -6835,7 +6827,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 4994,
+        "xp": 5004,
         "level": 24,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -9437,7 +9429,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 1483,
+        "xp": 1494,
         "level": 18,
         "lastWorkTime": 1781950069162,
         "lastBegTime": 0,
@@ -67174,9 +67166,7 @@
   "selfClankUsers": [
     [
       "1048053656035020911",
-      [
-        "1213866609362604194"
-      ]
+      []
     ],
     [
       "1408975996715139084",
@@ -67187,6 +67177,10 @@
     [
       "1460301822827692237",
       1783009383605
+    ],
+    [
+      "1213866609362604194",
+      1783010237495
     ]
   ],
   "pendingReviews": [],
