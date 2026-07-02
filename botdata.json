@@ -471,12 +471,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 15100,
-        "lastSubsTimestamp": 1783028802853,
+        "lastSubsTimestamp": 1783029102918,
         "history": [
-          {
-            "ts": 1782721683617,
-            "subs": 15000
-          },
           {
             "ts": 1782721983598,
             "subs": 15000
@@ -4472,6 +4468,10 @@
           {
             "ts": 1783028802853,
             "subs": 15100
+          },
+          {
+            "ts": 1783029102918,
+            "subs": 15100
           }
         ],
         "subcountDiscordId": "1483595393999700080",
@@ -6827,7 +6827,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 5170,
+        "xp": 5179,
         "level": 24,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -34155,6 +34155,30 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 8,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1520376852722618528",
+      {
+        "username": "alex969624",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 5,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
