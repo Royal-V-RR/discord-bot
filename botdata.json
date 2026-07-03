@@ -39662,7 +39662,7 @@
     [
       "quote_78.png",
       {
-        "up": 1,
+        "up": 2,
         "down": 0
       }
     ],
@@ -68162,10 +68162,12 @@
       "1522588771139190875",
       {
         "filename": "1193150033864949811_Screenshot_20260602_191719_Discord.jpg",
-        "voters": [],
+        "voters": [
+          "690219723472109616"
+        ],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
-        "sentToDeleter": false
+        "sentToDeleter": true
       }
     ],
     [
@@ -68385,7 +68387,17 @@
     ]
   ],
   "selfClankCooldown": [],
-  "pendingReviews": [],
+  "pendingReviews": [
+    [
+      "604194mr4y9oao",
+      {
+        "submitterId": "1213866609362604194",
+        "fileName": "1213866609362604194__image__IMG_20260606_121914.jpg",
+        "rawName": "IMG_20260606_121914.jpg",
+        "mediaKind": "image"
+      }
+    ]
+  ],
   "uploadCounters": {
     "quote": 104,
     "eardestroyer": 1,
