@@ -32193,10 +32193,11 @@
         "inventory": [],
         "marriedTo": null,
         "pendingProposal": null,
-        "imagesUploaded": 1,
+        "imagesUploaded": 2,
         "forceMarried": false,
         "uploadedImages": [
-          "quote_105.jpg"
+          "quote_105.jpg",
+          "quote_110.png"
         ]
       }
     ],
@@ -69062,19 +69063,9 @@
     ]
   ],
   "selfClankCooldown": [],
-  "pendingReviews": [
-    [
-      "604194mr59dbbf",
-      {
-        "submitterId": "1213866609362604194",
-        "fileName": "1213866609362604194__image__Baslksz14_20260703211914.png",
-        "rawName": "Baslksz14_20260703211914.png",
-        "mediaKind": "image"
-      }
-    ]
-  ],
+  "pendingReviews": [],
   "uploadCounters": {
-    "quote": 109,
+    "quote": 110,
     "eardestroyer": 1,
     "eyebleacher": 3
   },
