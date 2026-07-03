@@ -621,6 +621,7 @@ function buildDataObject() {
     dmRelayChannels:      [...dmRelayChannels.entries()],
     paranoiaWatchers:     [...paranoiaWatchers.entries()],
     customClankerModes:   [...customClankerModes.entries()],
+    quoteUserVotes:       [...quoteUserVotes.entries()].map(([fn, m]) => [fn, [...m.entries()]]),
   };
 }
 
@@ -831,6 +832,7 @@ function loadData() {
     }
     if (data.paranoiaWatchers) data.paranoiaWatchers.forEach(([k,v]) => paranoiaWatchers.set(k, v));
     if (data.customClankerModes) data.customClankerModes.forEach(([k,v]) => customClankerModes.set(k, v));
+    if (data.quoteUserVotes) data.quoteUserVotes.forEach(([fn, entries]) => quoteUserVotes.set(fn, new Map(entries)));
 
     console.log(`✅ Data loaded — ${ticketConfigs.size} ticket configs, ${reactionRoles.size} reaction roles, ${scores.size} scores, ${guildChannels.size} channels, ${activeEffects.size} active effects, ${reminders.length} reminders, ${inviteComps.size} active competitions, ${premieres.size} premieres, ${activityChecks.size} activity checks, ${raConfig.size} RA configs, ${dailyQuoteChannels.size} daily quote channels`);
   } catch(e) { console.error("loadData error:", e.message); }
@@ -934,6 +936,17 @@ setInterval(async () => {
     } catch(e) { console.error("scheduled activity check error:", e); }
   }
 }, 60 * 1000);
+
+// ── Global error handlers — keep the bot alive through unhandled promise rejections ──
+// Without these, a single unhandled rejection can crash the entire process.
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("[unhandledRejection] Unhandled promise rejection:", reason);
+  // Don't exit — log and continue
+});
+process.on("uncaughtException", (err) => {
+  console.error("[uncaughtException] Uncaught exception:", err);
+  // Don't exit — log and continue. Data is safe since we write on timers/SIGTERM.
+});
 
 // FIX: On graceful shutdown, await the commit before exiting so GitHub Actions captures the data
 process.on("SIGTERM", async () => {
@@ -2189,7 +2202,7 @@ const OWNER_ONLY_CMDS = new Set([
   "legendrandom","fakemessage","fakequote","dmconfig","leaveserver","restart","refreshcmds",
   "botstats","setstatus","adminuser","adminreset","adminconfig","admingive",
   "shadowdelete","clankerify","forcemarry","forcedivorce","echo","paranoia",
-  ,"tempowner",
+  "clankerbuild","tempowner",
   // Owner context-menu commands
   "Reaction Bomb","Clank This","Expose",
 ]);
@@ -2482,7 +2495,6 @@ function buildCommands(){
         {name:"Delete",       value:"delete"},
         {name:"List all",     value:"list"},
       ]},
-      {name:"name",description:"Mode ID — lowercase, no spaces (e.g. cowboy)",type:3,required:false},
     ]},
 
     // ── [Owner] Temp Owner ────────────────────────────────────────────────────
@@ -2722,6 +2734,11 @@ function makeQuoteVoteButtons(msgId, votes, trashData) {
       .setLabel(String(trash))
       .setStyle("SECONDARY")
       .setEmoji(trashE ? { id: trashE.id, name: trashE.name } : { name: "🗑️" }),
+    new MessageButton()
+      .setCustomId(`qvote_who_${msgId}`)
+      .setLabel("Who?")
+      .setStyle("SECONDARY")
+      .setEmoji({ name: "👥" }),
   )];
 }
 
@@ -3716,10 +3733,11 @@ client.on("interactionCreate",async interaction=>{
     }
   }
 
-  // ── BUTTONS ──────────────────────────────────────────────────────────────────
+  // ── BUTTONS & SELECT MENUS ────────────────────────────────────────────────────
   if(interaction.isButton()||interaction.isSelectMenu()){
     const uid=interaction.user.id;
     const cid=interaction.customId;
+    try {
 
     // ── Quote review: accept / reject ────────────────────────────────────────
     if(cid.startsWith("qr_accept_")||cid.startsWith("qr_reject_")){
@@ -3922,9 +3940,9 @@ client.on("interactionCreate",async interaction=>{
     }
 
     // ── Quote vote buttons ─────────────────────────────────────────────────────
-    // qvote_up_{msgId}, qvote_down_{msgId}, qvote_trash_{msgId}
-    if(cid.startsWith("qvote_up_") || cid.startsWith("qvote_down_") || cid.startsWith("qvote_trash_")){
-      const [,direction,msgId] = cid.match(/^qvote_(up|down|trash)_(.+)$/)||[];
+    // qvote_up_{msgId}, qvote_down_{msgId}, qvote_trash_{msgId}, qvote_who_{msgId}
+    if(cid.startsWith("qvote_up_") || cid.startsWith("qvote_down_") || cid.startsWith("qvote_trash_") || cid.startsWith("qvote_who_")){
+      const [,direction,msgId] = cid.match(/^qvote_(up|down|trash|who)_(.+)$/)||[];
       if(!msgId){ try{await interaction.reply({content:"❌ Invalid vote button.",ephemeral:true});}catch{} return; }
 
       const filename = quoteVoteMessages.get(msgId);
@@ -3933,6 +3951,44 @@ client.on("interactionCreate",async interaction=>{
         return;
       }
 
+      // ── Who voted? (ephemeral breakdown) ─────────────────────────────────────
+      if(direction==="who"){
+        await interaction.deferReply({ephemeral:true}).catch(()=>{});
+        const uvm  = quoteUserVotes.get(filename) || new Map();
+        const upIds    = [...uvm.entries()].filter(([,v])=>v==="up").map(([id])=>id);
+        const downIds  = [...uvm.entries()].filter(([,v])=>v==="down").map(([id])=>id);
+        const tv       = trashcanVotes.get(msgId);
+        const trashIds = tv ? [...tv.voters] : [];
+
+        const fetchName = async id => {
+          try { const u = await client.users.fetch(id); return u.globalName || u.username; }
+          catch { return `<@${id}>`; }
+        };
+        const [upNames, downNames, trashNames] = await Promise.all([
+          Promise.all(upIds.map(fetchName)),
+          Promise.all(downIds.map(fetchName)),
+          Promise.all(trashIds.map(fetchName)),
+        ]);
+
+        const fmt = arr => arr.length ? arr.join(", ") : "_Nobody yet_";
+        const votes = quoteVotes.get(filename) || { up:0, down:0 };
+        const goodE  = appEmojiCache.get("goodquote");
+        const badE   = appEmojiCache.get("badquote");
+        const trashE = appEmojiCache.get("raccoontrashcan");
+        const goodStr  = goodE  ? `<:${goodE.name}:${goodE.id}>`  : "👍";
+        const badStr   = badE   ? `<:${badE.name}:${badE.id}>`   : "👎";
+        const trashStr = trashE ? `<:${trashE.name}:${trashE.id}>` : "🗑️";
+
+        await interaction.editReply({content:[
+          `**📊 Vote breakdown for \`${filename}\`**`,
+          `${goodStr} **Good (${votes.up}):** ${fmt(upNames)}`,
+          `${badStr} **Bad (${votes.down}):** ${fmt(downNames)}`,
+          `${trashStr} **Flagged (${trashIds.length}):** ${fmt(trashNames)}`,
+        ].join("\n")}).catch(()=>{});
+        return;
+      }
+
+      // For up/down/trash — acknowledge the button click without replacing the message
       await interaction.deferUpdate().catch(()=>{});
 
       // ── Trash button ──────────────────────────────────────────────────────────
@@ -4085,6 +4141,78 @@ client.on("interactionCreate",async interaction=>{
       try{
         await interaction.update({
           content:`🤖 You've self-clankerified yourself for **${duration} minute(s)**${modeStr}! Your messages will be deleted and resent as a webhook until it expires.`,
+          components:[]
+        });
+      }catch{}
+      return;
+    }
+
+    // ── Self-clank community mode selection ───────────────────────────────────
+    // Same logic as selfclank_mode_ but picks from community modes
+    if(cid.startsWith("selfclank_community_")){
+      const parts = cid.split("_");
+      // customId: selfclank_community_{userId}_{duration}
+      const targetUserId = parts[2];
+      const durKey       = parts[3];
+      if(uid !== targetUserId){
+        try{await interaction.reply({content:"Not your self-clank menu.",ephemeral:true});}catch{}
+        return;
+      }
+      const duration = parseInt(durKey, 10);
+      const mode = interaction.values[0];
+      if(!customClankerModes.has(mode)){
+        try{await interaction.reply({content:"❌ That community mode no longer exists.",ephemeral:true});}catch{}
+        return;
+      }
+      const expiresAt = Date.now() + duration * 60_000;
+      clankerify.set(uid, { expiresAt, mode });
+      if(interaction.guildId){
+        if(!selfClankUsers.has(interaction.guildId)) selfClankUsers.set(interaction.guildId, new Set());
+        selfClankUsers.get(interaction.guildId).add(uid);
+      }
+      saveData();
+      const guildIdSnap2 = interaction.guildId;
+      setTimeout(() => {
+        clankerify.delete(uid);
+        if(guildIdSnap2){ const gs=selfClankUsers.get(guildIdSnap2); if(gs) gs.delete(uid); }
+        selfClankCooldown.set(uid, Date.now() + 10 * 60_000);
+        saveData();
+      }, duration * 60_000);
+      const cm = customClankerModes.get(mode);
+      try{
+        await interaction.update({
+          content:`🤖 You've self-clankerified yourself for **${duration} minute(s)** using **${cm.emoji||"⭐"} ${mode}**!`,
+          components:[]
+        });
+      }catch{}
+      return;
+    }
+
+    // ── Clankerify community mode selection ───────────────────────────────────
+    if(cid.startsWith("clankerify_community_")){
+      if(!OWNER_IDS.includes(uid)){
+        try{await interaction.reply({content:"Not for you.",ephemeral:true});}catch{}
+        return;
+      }
+      // customId: clankerify_community_{targetId}_{durKey}
+      const parts    = cid.split("_");
+      const targetId = parts[2];
+      const durKey2  = parts[3];
+      const duration = durKey2 === "perm" ? null : parseInt(durKey2, 10);
+      const mode     = interaction.values[0];
+      if(!customClankerModes.has(mode)){
+        try{await interaction.reply({content:"❌ That community mode no longer exists.",ephemeral:true});}catch{}
+        return;
+      }
+      const expiresAt = duration ? Date.now() + duration * 60_000 : null;
+      clankerify.set(targetId, { expiresAt, mode, ownerClanked: true });
+      saveData();
+      if(expiresAt) setTimeout(() => { clankerify.delete(targetId); saveData(); }, duration * 60_000);
+      const cm = customClankerModes.get(mode);
+      const durationStr = duration ? `**${duration} minute(s)**` : "**permanently**";
+      try{
+        await interaction.update({
+          content:`🤖 <@${targetId}> has been clankerified ${durationStr} in **${cm.emoji||"⭐"} ${mode}** (community mode).`,
           components:[]
         });
       }catch{}
@@ -4949,6 +5077,15 @@ client.on("interactionCreate",async interaction=>{
 
     try{await interaction.deferUpdate();}catch{}
     return;
+    } catch(btnErr) {
+      console.error("[button/select handler error]", btnErr);
+      try {
+        if(!interaction.replied && !interaction.deferred)
+          await interaction.reply({content:"❌ Something went wrong. Please try again.", ephemeral:true});
+        else
+          await interaction.followUp({content:"❌ Something went wrong. Please try again.", ephemeral:true}).catch(()=>{});
+      } catch {}
+    }
   }
 
   // ── Modal submits ─────────────────────────────────────────────────────────────
@@ -4956,38 +5093,140 @@ client.on("interactionCreate",async interaction=>{
     const uid = interaction.user.id;
     const cid = interaction.customId;
 
+    // ── /clankerbuild_new — open blank create modal ────────────────────────────
+    if(cid === "clankerbuild_new"){
+      if(!OWNER_IDS.includes(uid)){ try{await interaction.reply({content:"Owner only.",ephemeral:true});}catch{} return; }
+      await interaction.showModal({
+        title:"🛠️ New Clanker Mode",
+        custom_id:"clankerbuild_modal_NEW",
+        components:[
+          {type:1,components:[{type:4,custom_id:"cb_name",    label:"Mode ID (lowercase, no spaces)",        style:1, required:true,  placeholder:"cowboy",                max_length:40  }]},
+          {type:1,components:[{type:4,custom_id:"cb_emoji",   label:"Emoji (shown in dropdown)",             style:1, required:false, placeholder:"🌟",                    max_length:10  }]},
+          {type:1,components:[{type:4,custom_id:"cb_display", label:"Display name format ({name} = user)",  style:1, required:true,  placeholder:"🤠 {name} pardner",     max_length:80  }]},
+          {type:1,components:[{type:4,custom_id:"cb_words",   label:"Word replacements  (hello→howdy, …)",  style:2, required:false, placeholder:"hello→howdy, friend→pardner", max_length:1000}]},
+          {type:1,components:[{type:4,custom_id:"cb_signoffs",label:"Signoffs separated by |",              style:2, required:false, placeholder:"yeehaw!|much obliged|git along now", max_length:1000}]},
+        ],
+      }).catch(e=>console.error("[clankerbuild_new modal]",e.message));
+      return;
+    }
+
+    // ── /clankerbuild pick-to-edit select ──────────────────────────────────────
+    if(cid.startsWith("clankerbuild_pick_edit_")){
+      if(!OWNER_IDS.includes(uid)){ try{await interaction.reply({content:"Owner only.",ephemeral:true});}catch{} return; }
+      const modeName = interaction.values[0];
+      const existing = customClankerModes.get(modeName) || {};
+      // Only the creator or an owner can edit
+      if(!OWNER_IDS.includes(uid) && existing.creatorId !== uid){
+        try{await interaction.reply({content:"❌ You can only edit your own modes.",ephemeral:true});}catch{}
+        return;
+      }
+      await interaction.showModal({
+        title:`✏️ Edit: ${modeName}`,
+        custom_id:`clankerbuild_modal_EDIT_${modeName}`,
+        components:[
+          {type:1,components:[{type:4,custom_id:"cb_emoji",   label:"Emoji (shown in dropdown)",            style:1, required:false, placeholder:"🌟",                    value:existing.emoji||"",                          max_length:10  }]},
+          {type:1,components:[{type:4,custom_id:"cb_display", label:"Display name format ({name} = user)", style:1, required:true,  placeholder:"🤠 {name} pardner",     value:existing.displayNameFormat||"{name}",         max_length:80  }]},
+          {type:1,components:[{type:4,custom_id:"cb_words",   label:"Word replacements  (hello→howdy, …)", style:2, required:false, placeholder:"hello→howdy, friend→pardner", value:(existing.words||[]).map(([f,t])=>`${f}→${t}`).join(", "), max_length:1000}]},
+          {type:1,components:[{type:4,custom_id:"cb_signoffs",label:"Signoffs separated by |",             style:2, required:false, placeholder:"yeehaw!|much obliged",   value:(existing.signoffs||[]).join("|"),            max_length:1000}]},
+          {type:1,components:[{type:4,custom_id:"cb_start",   label:"Message start prefix (optional)",     style:1, required:false, placeholder:"🤠 ",                   value:existing.messageStart||"",                   max_length:200 }]},
+        ],
+      }).catch(e=>console.error("[clankerbuild_pick_edit modal]",e.message));
+      return;
+    }
+
+    // ── /clankerbuild pick-to-delete select ────────────────────────────────────
+    if(cid.startsWith("clankerbuild_pick_delete_")){
+      if(!OWNER_IDS.includes(uid)){ try{await interaction.reply({content:"Owner only.",ephemeral:true});}catch{} return; }
+      const modeName = interaction.values[0];
+      const existing = customClankerModes.get(modeName);
+      if(!existing){ try{await interaction.reply({content:"Mode not found.",ephemeral:true});}catch{} return; }
+      if(!OWNER_IDS.includes(uid) && existing.creatorId !== uid){
+        try{await interaction.reply({content:"❌ You can only delete your own modes.",ephemeral:true});}catch{}
+        return;
+      }
+      try{
+        await interaction.reply({
+          content:`🗑️ Delete **${existing.emoji||"⭐"} ${modeName}** (by ${existing.creatorName||"?"})?`,
+          components:[new MessageActionRow().addComponents(
+            new MessageButton().setCustomId(`clankerbuild_delconfirm_${modeName}`).setLabel("Delete").setStyle("DANGER"),
+            new MessageButton().setCustomId("clankerbuild_delcancel").setLabel("Cancel").setStyle("SECONDARY"),
+          )],
+          ephemeral:true,
+        });
+      }catch(e){console.error("[clankerbuild_pick_delete]",e.message);}
+      return;
+    }
+
+    // ── /clankerbuild delete confirm / cancel ──────────────────────────────────
+    if(cid.startsWith("clankerbuild_delconfirm_")){
+      if(!OWNER_IDS.includes(uid)){ try{await interaction.reply({content:"Owner only.",ephemeral:true});}catch{} return; }
+      const modeName = cid.slice("clankerbuild_delconfirm_".length);
+      const existing = customClankerModes.get(modeName);
+      if(!existing){ try{await interaction.update({content:"Mode not found.",components:[]});}catch{} return; }
+      if(!OWNER_IDS.includes(uid) && existing.creatorId !== uid){
+        try{await interaction.update({content:"❌ You can only delete your own modes.",components:[]});}catch{}
+        return;
+      }
+      customClankerModes.delete(modeName);
+      saveData();
+      try{await interaction.update({content:`✅ Deleted mode \`${modeName}\`.`, components:[]});}catch{}
+      return;
+    }
+    if(cid === "clankerbuild_delcancel"){
+      try{await interaction.update({content:"Cancelled.", components:[]});}catch{}
+      return;
+    }
+
     // ── /clankerbuild modal submit ────────────────────────────────────────────
-    if(cid.startsWith("clankerbuild_modal_")){
+    if(cid === "clankerbuild_modal_NEW" || cid.startsWith("clankerbuild_modal_EDIT_")){
       if(!OWNER_IDS.includes(uid)) return safeReply(interaction,{content:"Owner only.",ephemeral:true});
-      const modeName = cid.slice("clankerbuild_modal_".length);
+      const isNew    = cid === "clankerbuild_modal_NEW";
+      const modeName = isNew
+        ? (interaction.fields.getTextInputValue("cb_name")||"").trim().toLowerCase().replace(/\s+/g,"_")
+        : cid.slice("clankerbuild_modal_EDIT_".length);
+
+      if(!modeName || modeName.length > 40)
+        return safeReply(interaction,{content:"❌ Mode ID must be 1–40 characters.",ephemeral:true});
+
+      const BUILTIN_MODES2 = new Set(["none","evil","freaky","american","british","stupid","boomer","conspiracy","npc","sigma","medieval","ghost","pirate","rr_propaganda","french","uwu","scottish","random"]);
+      if(BUILTIN_MODES2.has(modeName))
+        return safeReply(interaction,{content:`❌ \`${modeName}\` is a built-in mode and cannot be overwritten.`,ephemeral:true});
+
+      // If editing, preserve original creator info
+      const existingMode = customClankerModes.get(modeName);
+      if(!isNew && existingMode && !OWNER_IDS.includes(uid) && existingMode.creatorId !== uid)
+        return safeReply(interaction,{content:"❌ You can only edit your own modes.",ephemeral:true});
 
       const emoji          = interaction.fields.getTextInputValue("cb_emoji").trim();
       const displayNameFmt = interaction.fields.getTextInputValue("cb_display").trim() || "{name}";
       const wordsRaw       = interaction.fields.getTextInputValue("cb_words").trim();
       const signoffsRaw    = interaction.fields.getTextInputValue("cb_signoffs").trim();
-      const messageStart   = interaction.fields.getTextInputValue("cb_start").trim();
+      const messageStart   = cid.startsWith("clankerbuild_modal_EDIT_")
+        ? (interaction.fields.getTextInputValue("cb_start").trim())
+        : "";
 
-      // Parse word replacements: "hello→howdy, friend→pardner"
       const words = wordsRaw
         ? wordsRaw.split(",").map(p=>p.trim()).filter(Boolean).map(p=>{
-            const [from,...rest] = p.split("→"); return [from?.trim(), rest.join("→").trim()];
+            const [from,...rest]=p.split("→"); return [from?.trim(), rest.join("→").trim()];
           }).filter(([f,t])=>f&&t)
         : [];
-
-      // Parse signoffs: "yeehaw!|much obliged"
       const signoffs = signoffsRaw ? signoffsRaw.split("|").map(s=>s.trim()).filter(Boolean) : [];
 
-      const isEdit = customClankerModes.has(modeName);
-      customClankerModes.set(modeName, { emoji, displayNameFormat: displayNameFmt, words, signoffs, messageStart });
+      // Preserve creator info when editing
+      const creatorId   = (existingMode?.creatorId)   || uid;
+      const creatorName = (existingMode?.creatorName) || (interaction.user.globalName || interaction.user.username);
+
+      customClankerModes.set(modeName, { emoji, displayNameFormat: displayNameFmt, words, signoffs, messageStart, creatorId, creatorName });
       saveData();
 
       return safeReply(interaction,{
         content:[
-          `${isEdit?"✏️ Updated":"✅ Created"} custom clanker mode \`${modeName}\`!`,
+          `${existingMode?"✏️ Updated":"✅ Created"} custom clanker mode \`${modeName}\`!`,
           `${emoji||"⭐"} **Display:** \`${displayNameFmt}\``,
-          words.length  ? `🔁 **Word swaps:** ${words.map(([f,t])=>`${f}→${t}`).join(", ")}` : "",
+          words.length    ? `🔁 **Word swaps:** ${words.map(([f,t])=>`${f}→${t}`).join(", ")}` : "",
           signoffs.length ? `✍️ **Signoffs:** ${signoffs.join(" | ")}` : "",
-          messageStart  ? `📝 **Start prefix:** \`${messageStart}\`` : "",
+          messageStart    ? `📝 **Start prefix:** \`${messageStart}\`` : "",
+          `👤 **Creator:** ${creatorName}`,
         ].filter(Boolean).join("\n"),
         ephemeral:true,
       });
@@ -5240,7 +5479,7 @@ client.on("interactionCreate",async interaction=>{
     }
 
     return; // unknown message context command
-  }
+  }   // ── end if(isButton || isSelectMenu) ─────────────────────────────────────
 
   if(!interaction.isCommand())return;
   const cmd=interaction.commandName;
@@ -5257,11 +5496,24 @@ client.on("interactionCreate",async interaction=>{
   }
 
   try{
+    // ── Auto-defer safety net ──────────────────────────────────────────────────
+    // If the command handler hasn't acknowledged the interaction within 2.5 s,
+    // automatically defer it so Discord doesn't show "Application did not respond".
+    // safeReply() already checks interaction.deferred and calls editReply(), so
+    // all existing reply paths work unchanged after this fires.
+    const _autoDeferTimer = setTimeout(async () => {
+      if(!interaction.replied && !interaction.deferred){
+        console.warn(`[auto-defer] /${cmd} exceeded 2.5s — deferring to prevent timeout`);
+        await interaction.deferReply().catch(()=>{});
+      }
+    }, 2500);
+    const _clearAutoDefer = () => clearTimeout(_autoDeferTimer);
+
     const au=()=>`<@${interaction.user.id}>`;
     const bu=()=>`<@${interaction.options.getUser("user").id}>`;
 
-    if(cmd==="ping")return safeReply(interaction,`🏓 Pong! Latency: **${client.ws.ping}ms**`);
-    if(cmd==="avatar"){const u=await client.users.fetch(interaction.options.getUser("user").id);return safeReply(interaction,u.displayAvatarURL({size:1024,dynamic:true}));}
+    if(cmd==="ping"){_clearAutoDefer();return safeReply(interaction,`🏓 Pong! Latency: **${client.ws.ping}ms**`);}
+    if(cmd==="avatar"){await interaction.deferReply();_clearAutoDefer();const u=await client.users.fetch(interaction.options.getUser("user").id);return safeReply(interaction,u.displayAvatarURL({size:1024,dynamic:true}));}
 
 
 
@@ -5378,42 +5630,71 @@ function isEffectiveOwner(userId, commandName){
 if(cmd==="clankerbuild"){
   if(!OWNER_IDS.includes(uid)) return safeReply(interaction,{content:"Owner only.",ephemeral:true});
   const action = interaction.options.getString("action");
-  const name   = (interaction.options.getString("name")||"").trim().toLowerCase().replace(/\s+/g,"_");
+  const isOwner = OWNER_IDS.includes(uid);
+
+  // Helpers
+  const BUILTIN_MODES = new Set(["none","evil","freaky","american","british","stupid","boomer","conspiracy","npc","sigma","medieval","ghost","pirate","rr_propaganda","french","uwu","scottish","random"]);
+  // User sees their own modes; owners see all
+  const visibleModes = [...customClankerModes.entries()].filter(([,m]) => isOwner || m.creatorId === uid);
 
   // ── list ──────────────────────────────────────────────────────────────────
   if(action==="list"){
-    if(!customClankerModes.size)
+    if(!visibleModes.length)
       return safeReply(interaction,{content:"No custom clanker modes yet. Use `/clankerbuild action:create` to make one.",ephemeral:true});
-    const lines = [...customClankerModes.entries()].map(([id, m]) =>
-      `**${m.emoji||"⭐"} ${id}** — display: \`${m.displayNameFormat||"{name}"}\`, words: ${(m.words||[]).length}, signoffs: ${(m.signoffs||[]).length}, start: ${m.messageStart?"yes":"no"}`
+    const lines = visibleModes.map(([id, m]) =>
+      `**${m.emoji||"⭐"} ${id}** — display: \`${m.displayNameFormat||"{name}"}\`, words: ${(m.words||[]).length}, signoffs: ${(m.signoffs||[]).length}, by: **${m.creatorName||"?"}**`
     );
-    return safeReply(interaction,{content:`**Custom Clanker Modes (${customClankerModes.size})**\n${lines.join("\n")}`,ephemeral:true});
+    return safeReply(interaction,{content:`**Custom Clanker Modes (${visibleModes.length})**\n${lines.join("\n")}`,ephemeral:true});
   }
 
-  // ── delete ─────────────────────────────────────────────────────────────────
+  // ── create/edit — show user's modes + "New Mode" button ───────────────────
+  if(action==="create"){
+    const components = [];
+    if(visibleModes.length){
+      const opts = visibleModes.map(([id, m]) => ({
+        label: `${m.emoji||"⭐"} ${id}`,
+        value: id,
+        description: `by ${m.creatorName||"?"} — ${(m.words||[]).length} word swaps`,
+      }));
+      components.push(new MessageActionRow().addComponents(
+        new MessageSelectMenu()
+          .setCustomId(`clankerbuild_pick_edit_${uid}`)
+          .setPlaceholder("✏️ Edit an existing mode…")
+          .addOptions(opts.slice(0,25))
+      ));
+    }
+    components.push(new MessageActionRow().addComponents(
+      new MessageButton().setCustomId("clankerbuild_new").setLabel("➕ New Mode").setStyle("SUCCESS"),
+    ));
+    return safeReply(interaction,{
+      content: visibleModes.length
+        ? `**🛠️ Your Custom Clanker Modes (${visibleModes.length})**\nSelect one to edit, or create a new one:`
+        : "**🛠️ No custom modes yet!** Click below to build one:",
+      components,
+      ephemeral: true,
+    });
+  }
+
+  // ── delete — show user's modes in a select ────────────────────────────────
   if(action==="delete"){
-    if(!name) return safeReply(interaction,{content:"Provide `name` of the mode to delete.",ephemeral:true});
-    if(!customClankerModes.has(name)) return safeReply(interaction,{content:`No custom mode named \`${name}\`.`,ephemeral:true});
-    customClankerModes.delete(name);
-    saveData();
-    return safeReply(interaction,{content:`🗑️ Deleted custom mode \`${name}\`.`,ephemeral:true});
+    if(!visibleModes.length)
+      return safeReply(interaction,{content:"You have no custom modes to delete.",ephemeral:true});
+    const opts = visibleModes.map(([id, m]) => ({
+      label: `${m.emoji||"⭐"} ${id}`,
+      value: id,
+      description: `by ${m.creatorName||"?"} — ${(m.words||[]).length} word swaps`,
+    }));
+    return safeReply(interaction,{
+      content:"🗑️ **Delete a Custom Mode** — select one to remove:",
+      components:[new MessageActionRow().addComponents(
+        new MessageSelectMenu()
+          .setCustomId(`clankerbuild_pick_delete_${uid}`)
+          .setPlaceholder("Select mode to delete…")
+          .addOptions(opts.slice(0,25))
+      )],
+      ephemeral:true,
+    });
   }
-
-  // ── create / edit — show modal ─────────────────────────────────────────────
-  if(!name) return safeReply(interaction,{content:"Provide `name` for the mode (e.g. `cowboy`).",ephemeral:true});
-  const existing = customClankerModes.get(name) || {};
-  await interaction.showModal({
-    title: `🛠️ Clanker Mode: ${name}`,
-    custom_id: `clankerbuild_modal_${name}`,
-    components:[
-      { type:1, components:[{ type:4, custom_id:"cb_emoji",    label:"Emoji (shown in dropdown)",                style:1, required:false, placeholder:"🌟", value: existing.emoji||"",                max_length:10  }]},
-      { type:1, components:[{ type:4, custom_id:"cb_display",  label:"Display name format  ({name} = user)",    style:1, required:true,  placeholder:"🤠 {name} pardner", value: existing.displayNameFormat||"{name}", max_length:80 }]},
-      { type:1, components:[{ type:4, custom_id:"cb_words",    label:"Word replacements  (hello→howdy, …)",     style:2, required:false, placeholder:"hello→howdy, friend→pardner", value: (existing.words||[]).map(([f,t])=>`${f}→${t}`).join(", "), max_length:1000 }]},
-      { type:1, components:[{ type:4, custom_id:"cb_signoffs", label:"Signoffs separated by |",                 style:2, required:false, placeholder:"yeehaw!|much obliged|git along now", value: (existing.signoffs||[]).join("|"), max_length:1000 }]},
-      { type:1, components:[{ type:4, custom_id:"cb_start",    label:"Message start prefix (optional)",         style:1, required:false, placeholder:"🤠 ", value: existing.messageStart||"", max_length:200 }]},
-    ],
-  }).catch(e=>{ console.error("[clankerbuild] modal error:",e.message); });
-  return;
 }
 
 // ── /tempowner ────────────────────────────────────────────────────────────────
@@ -5511,23 +5792,31 @@ if(cmd==="clankerify"){
     {label:"Scottish",                  value:"scottish",     emoji:"🏴󠁧󠁢󠁳󠁣󠁴󠁿"},
     {label:"Random (picks a random mode each message)", value:"random", emoji:"🎲"},
   ];
-  const customOptions = [...customClankerModes.entries()].map(([id, m]) => ({
-    label: `Custom: ${id}`,
-    value: id,
-    emoji: m.emoji || "⭐",
-  }));
-  // Discord limit: 25 options per select menu
-  const allOptions = [...builtInOptions, ...customOptions].slice(0, 25);
-  const modeMenu = new MessageActionRow().addComponents(
+  const modeRow = new MessageActionRow().addComponents(
     new MessageSelectMenu()
       .setCustomId(`clankerify_mode_${target.id}_${durKey}`)
-      .setPlaceholder("Pick a personality mode…")
-      .addOptions(allOptions)
+      .setPlaceholder("Pick a built-in personality mode…")
+      .addOptions(builtInOptions)
   );
+  const clankerifyComponents = [modeRow];
+  // Add separate community modes row if any exist
+  const communityOpts = [...customClankerModes.entries()].map(([id, m]) => ({
+    label: `${m.emoji||"⭐"} ${id}`,
+    value: id,
+    description: `by ${m.creatorName||"?"}`,
+  }));
+  if(communityOpts.length){
+    clankerifyComponents.push(new MessageActionRow().addComponents(
+      new MessageSelectMenu()
+        .setCustomId(`clankerify_community_${target.id}_${durKey}`)
+        .setPlaceholder("🤖 Community modes…")
+        .addOptions(communityOpts.slice(0,25))
+    ));
+  }
   const durationStr = duration ? `**${duration} minute(s)**` : "**permanently**";
   return safeReply(interaction,{
     content:`🤖 Clankerifying <@${target.id}> ${durationStr}. Pick a mode:`,
-    components:[modeMenu],
+    components: clankerifyComponents,
     ephemeral:true
   });
 }
@@ -5829,6 +6118,7 @@ if(cmd==="gif"){
 
     if(cmd==="serverinfo"){
       if(!inGuild)return safeReply(interaction,{content:"Server only.",ephemeral:true});
+      await interaction.deferReply(); _clearAutoDefer();
       const g=interaction.guild;
       await g.members.fetch();
       const bots=g.members.cache.filter(m=>m.user.bot).size;
@@ -5837,6 +6127,7 @@ if(cmd==="gif"){
 
     if(cmd==="userprofile"){
       const u = interaction.options.getUser("user") || interaction.user;
+      await interaction.deferReply(); _clearAutoDefer();
       const s = getScore(u.id, u.username);
       const { level, xp, needed } = xpInfo(s);
       const member = inGuild ? await interaction.guild.members.fetch(u.id).catch(()=>null) : null;
@@ -5945,7 +6236,7 @@ if(cmd==="gif"){
     if(cmd==="xpleaderboard"){
       const scope=interaction.options.getString("scope")||"global";
       let entries=[...scores.entries()];
-      if(scope==="server"){if(!inGuild)return safeReply(interaction,{content:"Server only.",ephemeral:true});await interaction.guild.members.fetch();const mids=new Set(interaction.guild.members.cache.filter(m=>!m.user.bot).map(m=>m.id));entries=entries.filter(([id])=>mids.has(id));}
+      if(scope==="server"){if(!inGuild)return safeReply(interaction,{content:"Server only.",ephemeral:true});await interaction.deferReply();_clearAutoDefer();await interaction.guild.members.fetch();const mids=new Set(interaction.guild.members.cache.filter(m=>!m.user.bot).map(m=>m.id));entries=entries.filter(([id])=>mids.has(id));}
       if(!entries.length)return safeReply(interaction,"No XP data yet!");
       const totalXP=([,s])=>{let t=0,lv=s.level||1;for(let i=1;i<lv;i++)t+=Math.floor(50*Math.pow(i,1.5));return t+(s.xp||0);};
       const sorted=[...entries].sort((a,b)=>totalXP(b)-totalXP(a)).slice(0,10);
@@ -5975,6 +6266,7 @@ if(cmd==="gif"){
     if(cmd==="leaderboard"){const type=interaction.options.getString("type")||"wins";const entries=[...scores.entries()];if(!entries.length)return safeReply(interaction,"No scores yet!");return safeReply(interaction,buildLeaderboard(entries,type,"🌍 Global"));}
     if(cmd==="serverleaderboard"){
       if(!inGuild)return safeReply(interaction,{content:"Server only.",ephemeral:true});
+      await interaction.deferReply(); _clearAutoDefer();
       await interaction.guild.members.fetch();
       const mids=new Set(interaction.guild.members.cache.filter(m=>!m.user.bot).map(m=>m.id));
       const entries=[...scores.entries()].filter(([id])=>mids.has(id));
@@ -7606,18 +7898,27 @@ if(cmd==="gif"){
         {label:"Scottish",                  value:"scottish",         emoji:"🏴󠁧󠁢󠁳󠁣󠁴󠁿"},
         {label:"Random (picks a random mode each message)", value:"random",   emoji:"🎲"},
       ];
-      const selfclankCustom = [...customClankerModes.entries()].map(([id, m]) => ({
-        label: `Custom: ${id}`, value: id, emoji: m.emoji || "⭐",
-      }));
-      const modeMenu = new MessageActionRow().addComponents(
+      const selfclankComponents = [new MessageActionRow().addComponents(
         new MessageSelectMenu()
           .setCustomId(`selfclank_mode_${interaction.user.id}_${duration}`)
-          .setPlaceholder("Pick a personality mode…")
-          .addOptions([...selfclankBuiltIn, ...selfclankCustom].slice(0, 25))
-      );
+          .setPlaceholder("Pick a built-in personality mode…")
+          .addOptions(selfclankBuiltIn)
+      )];
+      const selfclankCommunity = [...customClankerModes.entries()].map(([id, m]) => ({
+        label: `${m.emoji||"⭐"} ${id}`, value: id, description: `by ${m.creatorName||"?"}`,
+      }));
+      if(selfclankCommunity.length){
+        selfclankComponents.push(new MessageActionRow().addComponents(
+          new MessageSelectMenu()
+            .setCustomId(`selfclank_community_${interaction.user.id}_${duration}`)
+            .setPlaceholder("🤖 Community modes…")
+            .addOptions(selfclankCommunity.slice(0,25))
+        ));
+      }
+      const modeMenu = selfclankComponents[0]; // alias
       return safeReply(interaction,{
         content:`🤖 Self-clankerifying yourself for **${duration} minute(s)**. Pick a mode:`,
-        components:[modeMenu],
+        components: selfclankComponents,
         ephemeral:true
       });
     }
@@ -7713,8 +8014,11 @@ if(cmd==="gif"){
 
     // Count game
   }catch(err){
-    console.error("Command error:",err);
-    safeReply(interaction,{content:"An error occurred.",ephemeral:true});
+    _clearAutoDefer();
+    console.error(`[command error] /${cmd}:`, err);
+    // If the interaction has already timed out (INTERACTION_ALREADY_REPLIED or unknown),
+    // safeReply will silently swallow the error — that's intentional.
+    safeReply(interaction, {content:"❌ An error occurred processing that command.", ephemeral:true});
   }
 });
 
