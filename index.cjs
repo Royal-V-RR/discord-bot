@@ -2189,7 +2189,7 @@ const OWNER_ONLY_CMDS = new Set([
   "legendrandom","fakemessage","fakequote","dmconfig","leaveserver","restart","refreshcmds",
   "botstats","setstatus","adminuser","adminreset","adminconfig","admingive",
   "shadowdelete","clankerify","forcemarry","forcedivorce","echo","paranoia",
-  "clankerbuild","tempowner",
+  ,"tempowner",
   // Owner context-menu commands
   "Reaction Bomb","Clank This","Expose",
 ]);
