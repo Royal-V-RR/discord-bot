@@ -68090,10 +68090,12 @@
       "1522588800981930034",
       {
         "filename": "quote_1511475758340505712.png",
-        "voters": [],
+        "voters": [
+          "969280648667889764"
+        ],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
-        "sentToDeleter": false
+        "sentToDeleter": true
       }
     ]
   ],
