@@ -471,12 +471,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 15100,
-        "lastSubsTimestamp": 1783100485497,
+        "lastSubsTimestamp": 1783100785501,
         "history": [
-          {
-            "ts": 1782792662411,
-            "subs": 15000
-          },
           {
             "ts": 1782792962464,
             "subs": 15000
@@ -4471,6 +4467,10 @@
           },
           {
             "ts": 1783100485497,
+            "subs": 15100
+          },
+          {
+            "ts": 1783100785501,
             "subs": 15100
           }
         ],
@@ -24219,7 +24219,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 1500,
+        "xp": 1513,
         "level": 10,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -34228,6 +34228,30 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 9,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1348270724984471562",
+      {
+        "username": "bluetiger1733",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 5,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
