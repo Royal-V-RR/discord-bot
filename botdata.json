@@ -8448,7 +8448,6 @@
           "IMG_4153.png",
           "IMG_4154.png",
           "quote_1498006700798513152.png",
-          "quote_1496873035230220339.png",
           "IMG_4159.png",
           "IMG_4162.png",
           "IMG_4166.png",
@@ -68986,10 +68985,12 @@
       "1522638283774099467",
       {
         "filename": "quote_1499764163713699912.png",
-        "voters": [],
+        "voters": [
+          "1520763926105821276"
+        ],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
-        "sentToDeleter": false
+        "sentToDeleter": true
       }
     ]
   ],
