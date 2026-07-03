@@ -471,12 +471,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 15100,
-        "lastSubsTimestamp": 1783090408295,
+        "lastSubsTimestamp": 1783090708264,
         "history": [
-          {
-            "ts": 1782783662094,
-            "subs": 15000
-          },
           {
             "ts": 1782783962137,
             "subs": 15000
@@ -4472,6 +4468,10 @@
           {
             "ts": 1783090408295,
             "subs": 15100
+          },
+          {
+            "ts": 1783090708264,
+            "subs": 15100
           }
         ],
         "subcountDiscordId": "1483595393999700080",
@@ -4889,7 +4889,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-27",
-        "xp": 5711,
+        "xp": 5718,
         "level": 24,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -4903,7 +4903,7 @@
         "marriedTo": null,
         "pendingProposal": null,
         "forceMarried": false,
-        "imagesUploaded": 280,
+        "imagesUploaded": 281,
         "uploadedImages": [
           "IMG_4186.png",
           "quote_1498252621922832514.png",
@@ -5167,7 +5167,8 @@
           "quote_100.png",
           "quote_101.png",
           "quote_103.png",
-          "quote_104.png"
+          "quote_104.png",
+          "quote_106.png"
         ],
         "lastFishTime": 0,
         "lastMineTime": 0,
@@ -33792,7 +33793,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 72,
+        "xp": 87,
         "level": 5,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -68617,7 +68618,7 @@
   "selfClankCooldown": [],
   "pendingReviews": [],
   "uploadCounters": {
-    "quote": 105,
+    "quote": 106,
     "eardestroyer": 1,
     "eyebleacher": 3
   },
