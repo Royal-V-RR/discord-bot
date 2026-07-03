@@ -134,6 +134,10 @@ const quoteVotes = new Map();
 const quoteVoteMessages = new Map();
 let reviewChannelId = null; // global channel ID for quote review submissions
 let deleterChannelId = null; // global channel ID where trashcan-flagged quotes are sent for reevaluation
+// quoteUserVotes: filename → Map<userId, 'up'|'down'>  (in-session tracking, prevents double-vote per session)
+const quoteUserVotes = new Map();
+// customClankerModes: modeId → { emoji, displayNameFormat, words: [[from,to],...], signoffs: [...], messageStart }
+const customClankerModes = new Map();
 // trashcanVotes: messageId -> { filename, voters: Set<userId>, guildId, channelId, sentToDeleter: bool }
 const trashcanVotes = new Map();
 // Configurable threshold for trashcan reactions (default: 3)
@@ -616,6 +620,7 @@ function buildDataObject() {
     dmRelayGuildId:       dmRelayGuildId,
     dmRelayChannels:      [...dmRelayChannels.entries()],
     paranoiaWatchers:     [...paranoiaWatchers.entries()],
+    customClankerModes:   [...customClankerModes.entries()],
   };
 }
 
@@ -825,6 +830,7 @@ function loadData() {
       rebuildDmRelayReverseMap();
     }
     if (data.paranoiaWatchers) data.paranoiaWatchers.forEach(([k,v]) => paranoiaWatchers.set(k, v));
+    if (data.customClankerModes) data.customClankerModes.forEach(([k,v]) => customClankerModes.set(k, v));
 
     console.log(`✅ Data loaded — ${ticketConfigs.size} ticket configs, ${reactionRoles.size} reaction roles, ${scores.size} scores, ${guildChannels.size} channels, ${activeEffects.size} active effects, ${reminders.length} reminders, ${inviteComps.size} active competitions, ${premieres.size} premieres, ${activityChecks.size} activity checks, ${raConfig.size} RA configs, ${dailyQuoteChannels.size} daily quote channels`);
   } catch(e) { console.error("loadData error:", e.message); }
@@ -857,11 +863,11 @@ setInterval(async () => {
       if (!chosen) continue;
       const sent = await safeSend(ch, { content: `🌅 **Daily Quote**`, files: [chosen.download_url] });
       if (sent) {
-        await sent.react(resolveEmoji("goodquote", sent)).catch(()=>{});
-        await sent.react(resolveEmoji("badquote", sent)).catch(()=>{});
-        await sent.react(resolveEmoji("raccoontrashcan", sent)).catch(()=>{});
         quoteVoteMessages.set(sent.id, chosen.name);
-        trashcanVotes.set(sent.id, { filename: chosen.name, voters: new Set(), guildId, channelId: cfg.channelId, sentToDeleter: false });
+        const trashEntry = { filename: chosen.name, voters: new Set(), guildId, channelId: cfg.channelId, sentToDeleter: false };
+        trashcanVotes.set(sent.id, trashEntry);
+        const voteButtons = makeQuoteVoteButtons(sent.id, quoteVotes.get(chosen.name), trashEntry);
+        await sent.edit({ components: voteButtons }).catch(()=>{});
         saveData();
       }
     } catch(e) { console.error(`Daily quote tick error [${guildId}]:`, e.message); }
@@ -1809,11 +1815,11 @@ async function buildFakeQuoteCard({ avatarBuffer, quoteText, displayName, userna
 }
 
 // ── Tomato GIF builder ────────────────────────────────────────────────────────
-// Generates a GIF where a Discord-style message card has tomato-splat.gif
-// overlaid at random positions, with optional per-tomato speed variation.
-// Uses sharp (already a dep) for image compositing and omggif for GIF encode/decode.
-async function buildTomatoGif(msgContent, authorTag, tomatoCount, speedMin = 50, speedMax = 100) {
-  // Lazy-require omggif (pure-JS, no native deps — safe to require at call time)
+// Generates a GIF where a Discord-accurate message card has tomato-splat.gif
+// overlaid at random positions. Card layout matches Discord dark-mode desktop:
+//   • #313338 background  • 40×40 circular avatar  • bold role-coloured username
+//   • muted timestamp  • #DCDDDE content text  • gg sans / Noto Sans font stack
+async function buildTomatoGif(msgContent, authorTag, tomatoCount, speedMin = 50, speedMax = 100, avatarURL = null, usernameColor = "#FFFFFF") {
   let GifReader, GifWriter;
   try {
     const omggif = require("omggif");
@@ -1823,34 +1829,91 @@ async function buildTomatoGif(msgContent, authorTag, tomatoCount, speedMin = 50,
     throw new Error("omggif not installed — run: npm install omggif");
   }
 
-  // ── 1. Build the message card PNG ──────────────────────────────────────────
-  const CARD_W = 700, CARD_H = 160, PADDING = 20, FONT_SIZE = 18;
-  const lineMaxChars = 52; // approx chars per line at our font size
-  // Wrap msgContent
-  const rawLines = msgContent.split("\n");
+  // ── 1. Build Discord-style message card PNG ───────────────────────────────
+  const CARD_W      = 700;
+  const PAD_H       = 16;   // horizontal padding on both sides
+  const PAD_V       = 12;   // vertical padding top/bottom
+  const AVATAR_SIZE = 40;
+  const TEXT_LEFT   = PAD_H + AVATAR_SIZE + 12; // text column starts here
+  const TEXT_W      = CARD_W - TEXT_LEFT - PAD_H;
+  const FONT_SIZE   = 16;
+  const LINE_H      = 22;
+  const FONT_FAMILY = "'gg sans','Noto Sans',Arial,sans-serif";
+
+  // Wrap content to TEXT_W (~75 chars at 16px)
+  const CHARS_PER_LINE = Math.floor(TEXT_W / (FONT_SIZE * 0.55));
+  const rawLines = (msgContent || "(no message content)").split("\n");
   const wrappedLines = [];
   for(const line of rawLines){
-    if(line.length <= lineMaxChars){ wrappedLines.push(line); continue; }
+    if(!line){ wrappedLines.push(""); continue; }
+    if(line.length <= CHARS_PER_LINE){ wrappedLines.push(line); continue; }
     let rem = line;
-    while(rem.length > lineMaxChars){ wrappedLines.push(rem.slice(0,lineMaxChars)); rem=rem.slice(lineMaxChars); }
+    while(rem.length > CHARS_PER_LINE){ wrappedLines.push(rem.slice(0, CHARS_PER_LINE)); rem = rem.slice(CHARS_PER_LINE); }
     if(rem.length) wrappedLines.push(rem);
   }
-  // Limit to 4 lines, add ellipsis
-  const displayLines = wrappedLines.slice(0,4);
-  if(wrappedLines.length > 4) displayLines[3] = displayLines[3].slice(0,-3)+"…";
+  const displayLines = wrappedLines.slice(0, 8);
+  if(wrappedLines.length > 8) displayLines[7] = displayLines[7].slice(0, -1) + "…";
 
-  function esc(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+  // Discord-style timestamp: "Today at 4:20 PM"
+  const now   = new Date();
+  const h12   = ((now.getHours() % 12) || 12);
+  const mins  = now.getMinutes().toString().padStart(2, "0");
+  const ampm  = now.getHours() >= 12 ? "PM" : "AM";
+  const tsStr = `Today at ${h12}:${mins} ${ampm}`;
 
-  const textRows = displayLines.map((l,i)=>`<text x="${PADDING}" y="${PADDING+24+(i*24)}" font-family="sans-serif" font-size="${FONT_SIZE}" fill="#dcddde">${esc(l)}</text>`).join("");
-  const authorY = PADDING + 24 + (displayLines.length*24) + 8;
+  // Measure author name width (rough: ~9.6px per char at 16px bold)
+  const authorW  = authorTag.length * 9.6;
+  const TS_X     = TEXT_LEFT + authorW + 8; // timestamp x, 8px gap after name
+  const CONTENT_Y_BASE = PAD_V + FONT_SIZE + 6; // first content line baseline
+
+  const CARD_H = Math.max(
+    PAD_V + AVATAR_SIZE + PAD_V,
+    CONTENT_Y_BASE + displayLines.length * LINE_H + PAD_V
+  );
+
+  function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+
+  const contentSvgRows = displayLines.map((l, i) =>
+    `<text x="${TEXT_LEFT}" y="${CONTENT_Y_BASE + (i + 1) * LINE_H}" font-family="${FONT_FAMILY}" font-size="${FONT_SIZE}" fill="#dcddde">${esc(l)}</text>`
+  ).join("");
+
   const cardSvg = `<svg width="${CARD_W}" height="${CARD_H}" xmlns="http://www.w3.org/2000/svg">
-    <rect width="${CARD_W}" height="${CARD_H}" fill="#36393f"/>
-    <text x="${PADDING}" y="${PADDING+16}" font-family="sans-serif" font-size="14" fill="#8e9297">${esc(authorTag)}</text>
-    ${textRows}
+    <rect width="${CARD_W}" height="${CARD_H}" fill="#313338"/>
+    <text x="${TEXT_LEFT}" y="${PAD_V + FONT_SIZE}" font-family="${FONT_FAMILY}" font-size="${FONT_SIZE}" font-weight="bold" fill="${esc(usernameColor)}">${esc(authorTag)}</text>
+    <text x="${TS_X}" y="${PAD_V + FONT_SIZE}" font-family="${FONT_FAMILY}" font-size="12" fill="#949ba4">${esc(tsStr)}</text>
+    ${contentSvgRows}
   </svg>`;
-  const cardPng = await sharp(Buffer.from(cardSvg)).png().toBuffer();
 
-  // ── 2. Fetch tomato-splat.gif from the repo ────────────────────────────────
+  let cardPng = await sharp(Buffer.from(cardSvg)).png().toBuffer();
+
+  // ── Composite circular avatar ─────────────────────────────────────────────
+  const circleMaskSvg = `<svg width="${AVATAR_SIZE}" height="${AVATAR_SIZE}"><circle cx="${AVATAR_SIZE/2}" cy="${AVATAR_SIZE/2}" r="${AVATAR_SIZE/2}" fill="white"/></svg>`;
+  let avatarComposite;
+  if(avatarURL){
+    try {
+      const aRes = await fetch(avatarURL);
+      if(aRes.ok){
+        const aBuf = Buffer.from(await aRes.arrayBuffer());
+        avatarComposite = await sharp(aBuf)
+          .resize(AVATAR_SIZE, AVATAR_SIZE)
+          .composite([{ input: Buffer.from(circleMaskSvg), blend: "dest-in" }])
+          .png()
+          .toBuffer();
+      }
+    } catch(e){ console.error("[tomato] avatar fetch:", e.message); }
+  }
+  if(!avatarComposite){
+    // Fallback: coloured circle with initial letter
+    const initials = esc((authorTag[0] || "?").toUpperCase());
+    const fallbackSvg = `<svg width="${AVATAR_SIZE}" height="${AVATAR_SIZE}" xmlns="http://www.w3.org/2000/svg"><circle cx="${AVATAR_SIZE/2}" cy="${AVATAR_SIZE/2}" r="${AVATAR_SIZE/2}" fill="#5865f2"/><text x="${AVATAR_SIZE/2}" y="${AVATAR_SIZE/2 + 6}" font-family="${FONT_FAMILY}" font-size="20" font-weight="bold" fill="white" text-anchor="middle">${initials}</text></svg>`;
+    avatarComposite = await sharp(Buffer.from(fallbackSvg)).png().toBuffer();
+  }
+  cardPng = await sharp(cardPng)
+    .composite([{ input: avatarComposite, left: PAD_H, top: PAD_V, blend: "over" }])
+    .png()
+    .toBuffer();
+
+  // ── 2. Fetch tomato-splat.gif ─────────────────────────────────────────────
   const tomatoUrl = "https://raw.githubusercontent.com/Royal-V-RR/discord-bot/main/tomato-splat.gif";
   const tRes = await fetch(tomatoUrl);
   if(!tRes.ok) throw new Error(`Could not fetch tomato-splat.gif (HTTP ${tRes.status})`);
@@ -1860,118 +1923,63 @@ async function buildTomatoGif(msgContent, authorTag, tomatoCount, speedMin = 50,
   const reader = new GifReader(new Uint8Array(tomatoGifBuf));
   const gifW = reader.width, gifH = reader.height;
   const numFrames = reader.numFrames();
-
-  // Decode all frames as RGBA pixel arrays
-  // frameInfo(f).delay is in centiseconds (10ms units) — multiply by 10 for ms
   const frames = [];
   for(let f = 0; f < numFrames; f++){
     const info = reader.frameInfo(f);
     const pixels = new Uint8ClampedArray(gifW * gifH * 4);
     reader.decodeAndBlitFrameRGBA(f, pixels);
-    frames.push({ pixels, delayMs: info.delay * 10 }); // delay in ms
+    frames.push({ pixels, delayMs: info.delay * 10 });
   }
 
-  // ── 4. Pre-scale each unique tomato frame to its render size ───────────────
-  // Do this once up-front rather than per-output-frame to avoid O(frames×tomatoes) sharp calls.
+  // ── 4. Pre-scale tomato frames ─────────────────────────────────────────────
   const scaledW = Math.min(gifW, Math.floor(CARD_W * 0.35));
   const scaledH = Math.round(gifH * (scaledW / gifW));
-
-  // Cache: frame index → scaled PNG buffer
   const scaledFrameCache = new Array(numFrames);
   for(let f = 0; f < numFrames; f++){
-    // Use Buffer.from(pixels) — NOT pixels.buffer, which is offset in Uint8ClampedArray
     const rawBuf = Buffer.from(frames[f].pixels);
-    const png = await sharp(rawBuf, { raw: { width: gifW, height: gifH, channels: 4 } })
+    scaledFrameCache[f] = await sharp(rawBuf, { raw: { width: gifW, height: gifH, channels: 4 } })
       .resize(scaledW, scaledH)
       .png()
       .toBuffer();
-    scaledFrameCache[f] = png;
   }
 
-  // ── 5. Determine tomato placements and per-tomato frame speeds ─────────────
+  // ── 5. Tomato placements + speeds ─────────────────────────────────────────
   const maxTomatoX = Math.max(1, CARD_W - scaledW);
   const maxTomatoY = Math.max(1, CARD_H - scaledH);
   const tomatos = [];
   for(let t = 0; t < tomatoCount; t++){
     const pctRange = speedMax - speedMin;
     const speedPct = (speedMin + (pctRange > 0 ? Math.random() * pctRange : 0)) / 100;
-    tomatos.push({
-      x:        Math.floor(Math.random() * maxTomatoX),
-      y:        Math.floor(Math.random() * maxTomatoY),
-      speedPct: Math.max(0.001, speedPct),
-      accum:    0,
-    });
+    tomatos.push({ x: Math.floor(Math.random() * maxTomatoX), y: Math.floor(Math.random() * maxTomatoY), speedPct: Math.max(0.001, speedPct), accum: 0 });
   }
 
-  // ── 6. Build output GIF frames ─────────────────────────────────────────────
-  // Frame delay in centiseconds (omggif unit), minimum 2cs (20ms) to keep GIF valid
+  // ── 6. Build output frames ─────────────────────────────────────────────────
   const BASE_DELAY_CS = Math.max(2, Math.round(frames[0].delayMs / 10));
-  const outFrameCount = numFrames;
   const outputW = CARD_W, outputH = CARD_H;
-
-  // First pass: composite every output frame and keep the raw RGBA buffers.
-  // IMPORTANT: we deliberately do NOT quantize each frame in isolation here.
-  // (Bug history: quantizing per-frame gives every frame its own palette, but
-  // a GIF only has one global color table — writing each frame's indices
-  // against ITS OWN palette while the file only stores frame 0's palette made
-  // every later frame (and all the tomato colors) decode as whatever frame 0's
-  // unused/padding slots were, i.e. solid black.)
   const rawFrames = [];
-  for(let outF = 0; outF < outFrameCount; outF++){
-    // Build composite list — advance each tomato's frame accumulator
+  for(let outF = 0; outF < numFrames; outF++){
     const composites = [];
     for(const tomato of tomatos){
       tomato.accum += tomato.speedPct;
       const frameIdx = Math.floor(tomato.accum) % numFrames;
-      composites.push({
-        input: scaledFrameCache[frameIdx],
-        left:  tomato.x,
-        top:   tomato.y,
-        blend: "over",
-      });
+      composites.push({ input: scaledFrameCache[frameIdx], left: tomato.x, top: tomato.y, blend: "over" });
     }
-
-    // Composite all tomatoes onto the card in one sharp call
-    const { data } = await sharp(cardPng)
-      .composite(composites)
-      .raw()
-      .toBuffer({ resolveWithObject: true });
-
+    const { data } = await sharp(cardPng).composite(composites).raw().toBuffer({ resolveWithObject: true });
     rawFrames.push(data);
   }
 
-  // Second pass: build ONE shared palette from every frame combined, then
-  // index each frame's pixels against that same palette so colors stay
-  // correct and consistent across the whole animation.
+  // ── 7. Shared palette + GIF encode (see comment in buildSharedPalette) ─────
   const { palette: globalPalette, colorMap: sharedColorMap } = buildSharedPalette(rawFrames, outputW, outputH);
   const outBufArr = rawFrames.map(data => ({
     indexed: indexFrameToPalette(data, outputW, outputH, globalPalette, sharedColorMap),
     delay:   BASE_DELAY_CS,
   }));
-
-  // ── 7. Encode final GIF ────────────────────────────────────────────────────
-  // omggif's GifWriter palette option is an array of PACKED 0xRRGGBB integers,
-  // NOT [r,g,b] triples (we keep the triple form above because indexFrameToPalette's
-  // nearest-colour search needs the separate channels). Bit-shifting a JS array
-  // coerces to NaN/0 with no error, so every palette entry silently became black —
-  // that's the "tomato GIF renders solid black" bug. Pack here, right at the boundary
-  // with the library, so the rest of our code can keep working with [r,g,b] triples.
   const packedPalette = globalPalette.map(([r, g, b]) => (r << 16) | (g << 8) | b);
-
-  // Allocate output buffer generously
-  const outBuf = Buffer.alloc(outputW * outputH * outFrameCount * 4 + 1024 * 64);
-  const writer = new GifWriter(outBuf, outputW, outputH, {
-    palette:  packedPalette,  // [0xRRGGBB, ...] length 256
-    loop:     0,              // loop forever
-  });
-
+  const outBuf = Buffer.alloc(outputW * outputH * numFrames * 4 + 1024 * 64);
+  const writer = new GifWriter(outBuf, outputW, outputH, { palette: packedPalette, loop: 0 });
   for(const frame of outBufArr){
-    writer.addFrame(0, 0, outputW, outputH, frame.indexed, {
-      delay:    frame.delay,
-      disposal: 2,           // restore to background
-    });
+    writer.addFrame(0, 0, outputW, outputH, frame.indexed, { delay: frame.delay, disposal: 2 });
   }
-
   return Buffer.from(outBuf.buffer, 0, writer.end());
 }
 
@@ -2181,8 +2189,9 @@ const OWNER_ONLY_CMDS = new Set([
   "legendrandom","fakemessage","fakequote","dmconfig","leaveserver","restart","refreshcmds",
   "botstats","setstatus","adminuser","adminreset","adminconfig","admingive",
   "shadowdelete","clankerify","forcemarry","forcedivorce","echo","paranoia",
+  "clankerbuild","tempowner",
   // Owner context-menu commands
-  "Reaction Bomb","Clank This","Expose","Tomato This",
+  "Reaction Bomb","Clank This","Expose",
 ]);
 
 function buildCommands(){
@@ -2455,8 +2464,8 @@ function buildCommands(){
     { name:"Reaction Bomb",   type:3, default_member_permissions:"0" },
     { name:"Clank This",      type:3, default_member_permissions:"0" },
     { name:"Expose",          type:3, default_member_permissions:"0" },
-    { name:"Tomato This",     type:3, default_member_permissions:"0" },
-    // Everyone
+    // Everyone (including Tomato This)
+    { name:"Tomato This",     type:3 },
     { name:"Vibe Check",      type:3 },
     { name:"Uwu-ify",         type:3 },
     { name:"Quote This",      type:3 },
@@ -2464,6 +2473,23 @@ function buildCommands(){
     // Quote review
     {name:"requestupload",   description:"Submit an image, audio, or video file to be reviewed for the quotes folder",options:[
       {name:"source",description:"File to submit (image/audio/video)",type:11,required:true},
+    ]},
+
+    // ── [Owner] Community Modes ───────────────────────────────────────────────
+    {name:"clankerbuild", description:"[Owner] Build or manage a custom clankerify personality mode",options:[
+      {name:"action",description:"What to do",type:3,required:true,choices:[
+        {name:"Create / Edit",value:"create"},
+        {name:"Delete",       value:"delete"},
+        {name:"List all",     value:"list"},
+      ]},
+      {name:"name",description:"Mode ID — lowercase, no spaces (e.g. cowboy)",type:3,required:false},
+    ]},
+
+    // ── [Owner] Temp Owner ────────────────────────────────────────────────────
+    {name:"tempowner", description:"[Owner] Grant a user temporary access to specific owner-only commands",options:[
+      {name:"user",       description:"User to grant access to",type:6,required:true},
+      {name:"duration",   description:"How long in minutes (1–1440)",type:4,required:true,min_value:1,max_value:1440},
+      {name:"commands",   description:"Comma-separated list of command names to grant (or 'all')",type:3,required:false},
     ]},
 
   ];
@@ -2670,6 +2696,35 @@ function resolveEmoji(name, msg) {
   return name; // unicode or last-resort fallback
 }
 
+// ── Quote vote buttons ────────────────────────────────────────────────────────
+// Renders the 👍 N  👎 N  🗑️ N button row shown beneath every quote image.
+// Uses app emojis from appEmojiCache if available, falls back to plain unicode.
+// Vote counts come from quoteVotes (filename → {up,down}); trash count from trashcanVotes.
+function makeQuoteVoteButtons(msgId, votes, trashData) {
+  const v      = votes || { up: 0, down: 0 };
+  const trash  = trashData?.voters?.size ?? 0;
+  const goodE  = appEmojiCache.get("goodquote");
+  const badE   = appEmojiCache.get("badquote");
+  const trashE = appEmojiCache.get("raccoontrashcan");
+  return [new MessageActionRow().addComponents(
+    new MessageButton()
+      .setCustomId(`qvote_up_${msgId}`)
+      .setLabel(String(v.up))
+      .setStyle("SUCCESS")
+      .setEmoji(goodE  ? { id: goodE.id,  name: goodE.name  } : { name: "👍" }),
+    new MessageButton()
+      .setCustomId(`qvote_down_${msgId}`)
+      .setLabel(String(v.down))
+      .setStyle("DANGER")
+      .setEmoji(badE   ? { id: badE.id,   name: badE.name   } : { name: "👎" }),
+    new MessageButton()
+      .setCustomId(`qvote_trash_${msgId}`)
+      .setLabel(String(trash))
+      .setStyle("SECONDARY")
+      .setEmoji(trashE ? { id: trashE.id, name: trashE.name } : { name: "🗑️" }),
+  )];
+}
+
 // ── Reaction roles ────────────────────────────────────────────────────────────
 function emojiKey(reaction){
   if(reaction.emoji.id) return `${reaction.emoji.name}:${reaction.emoji.id}`;
@@ -2687,61 +2742,8 @@ client.on("messageReactionAdd", async (reaction, user) => {
     if(reaction.message.partial) await reaction.message.fetch();
   } catch(e) { console.error("[RR] message fetch failed:", e.message); return; }
 
-  // ── Quote vote tracking ──────────────────────────────────────────────────────
-  const quoteName = quoteVoteMessages.get(reaction.message.id);
-  if (quoteName) {
-    const emoji = reaction.emoji.name;
-    if (emoji === "goodquote" || emoji === "badquote") {
-      const v = quoteVotes.get(quoteName) || { up: 0, down: 0 };
-      if (emoji === "goodquote") v.up++;
-      else                v.down++;
-      quoteVotes.set(quoteName, v);
-      saveData();
-    }
-    // ── Trashcan vote ──────────────────────────────────────────────────────────
-    if (emoji === "raccoontrashcan") {
-      const tv = trashcanVotes.get(reaction.message.id);
-      if (tv && !tv.sentToDeleter) {
-        tv.voters.add(user.id);
-        if (tv.voters.size >= trashcanThreshold && deleterChannelId) {
-          tv.sentToDeleter = true;
-          saveData();
-          // Send to deleter channel
-          (async () => {
-            try {
-              const deleterCh = await client.channels.fetch(deleterChannelId).catch(()=>null);
-              if (!deleterCh) return;
-              const msgLink = `https://discord.com/channels/${tv.guildId||"@me"}/${tv.channelId||"?"}/${reaction.message.id}`;
-              const imageUrl = `https://raw.githubusercontent.com/Royal-V-RR/discord-bot/main/quotes/${encodeURIComponent(tv.filename)}`;
-              const row = new MessageActionRow().addComponents(
-                new MessageButton()
-                  .setCustomId(`del_keep_${reaction.message.id}`)
-                  .setLabel("✅ Keep")
-                  .setStyle("SUCCESS"),
-                new MessageButton()
-                  .setCustomId(`del_delete_${tv.filename}`)
-                  .setLabel("🗑️ Delete")
-                  .setStyle("DANGER"),
-              );
-              await deleterCh.send({
-                content: [
-                  `🗑️ **Quote Flagged for Reevaluation**`,
-                  `📎 Filename: \`${tv.filename}\``,
-                  `🔗 [Jump to message](${msgLink})`,
-                  `👥 Flagged by **${tv.voters.size}** user(s) (threshold: ${trashcanThreshold})`,
-                  `🖼️ ${imageUrl}`,
-                ].join("\n"),
-                components: [row],
-              });
-            } catch(e) { console.error("[trashcan] send to deleter error:", e.message); }
-          })();
-        } else {
-          saveData();
-        }
-      }
-    }
-    // Don't return — fall through so reaction roles still work on quote messages
-  }
+  // Quote votes are now handled via buttons (makeQuoteVoteButtons / qvote_* handlers).
+  // Reactions no longer track goodquote/badquote/trashcan votes.
 
   const guildId = reaction.message.guildId;
   if(!guildId) return;
@@ -2775,26 +2777,7 @@ client.on("messageReactionRemove", async (reaction, user) => {
     if(reaction.message.partial) await reaction.message.fetch();
   } catch(e) { console.error("[RR] message fetch failed:", e.message); return; }
 
-  // ── Quote vote removal ───────────────────────────────────────────────────────
-  const quoteName = quoteVoteMessages.get(reaction.message.id);
-  if (quoteName) {
-    const emoji = reaction.emoji.name;
-    if (emoji === "goodquote" || emoji === "badquote") {
-      const v = quoteVotes.get(quoteName) || { up: 0, down: 0 };
-      if (emoji === "goodquote") v.up   = Math.max(0, v.up - 1);
-      else                v.down = Math.max(0, v.down - 1);
-      quoteVotes.set(quoteName, v);
-      saveData();
-    }
-    if (emoji === "raccoontrashcan") {
-      const tv = trashcanVotes.get(reaction.message.id);
-      if (tv && !tv.sentToDeleter) {
-        tv.voters.delete(user.id);
-        saveData();
-      }
-    }
-    // Don't return — fall through so reaction roles still work on quote messages
-  }
+  // Quote votes are now handled via buttons — reactions no longer track votes.
 
   const guildId = reaction.message.guildId;
   if(!guildId) return;
@@ -3611,6 +3594,22 @@ client.on("messageCreate",async msg=>{
         if(!sendContent && !attachFiles.length && stickers.length){
           sendOpts.content = stickers.map(n => `[Sticker: ${n}]`).join(" ");
         }
+        // ── Custom mode (built with /clankerbuild) ────────────────────────────
+        if(mode && customClankerModes.has(mode)){
+          const cm = customClankerModes.get(mode);
+          const rawName = member?.displayName || msg.author.displayName || msg.author.globalName || msg.author.username;
+          displayName = (cm.displayNameFormat || "{name}").replace("{name}", rawName);
+          if(sendContent){
+            let t = sendContent;
+            for(const [from, to] of (cm.words || [])){
+              t = t.replace(new RegExp(`\\b${from.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")}\\b`, "gi"), to);
+            }
+            if(cm.messageStart) t = cm.messageStart + t;
+            if(cm.signoffs?.length) t += " " + cm.signoffs[Math.floor(Math.random()*cm.signoffs.length)];
+            sendContent = t;
+          }
+        }
+
         if(sendOpts.content || sendOpts.files){
           const sentMsg = await webhook.send(sendOpts).catch(()=>null);
           // For propaganda mode: suppress the embed Discord auto-generates from URLs
@@ -3919,6 +3918,97 @@ client.on("interactionCreate",async interaction=>{
         console.error("del_delete error:",e);
         await interaction.followUp({content:"❌ Something went wrong during deletion.",ephemeral:true}).catch(()=>{});
       }
+      return;
+    }
+
+    // ── Quote vote buttons ─────────────────────────────────────────────────────
+    // qvote_up_{msgId}, qvote_down_{msgId}, qvote_trash_{msgId}
+    if(cid.startsWith("qvote_up_") || cid.startsWith("qvote_down_") || cid.startsWith("qvote_trash_")){
+      const [,direction,msgId] = cid.match(/^qvote_(up|down|trash)_(.+)$/)||[];
+      if(!msgId){ try{await interaction.reply({content:"❌ Invalid vote button.",ephemeral:true});}catch{} return; }
+
+      const filename = quoteVoteMessages.get(msgId);
+      if(!filename){
+        try{await interaction.reply({content:"❌ Couldn't find the quote this vote belongs to.",ephemeral:true});}catch{}
+        return;
+      }
+
+      await interaction.deferUpdate().catch(()=>{});
+
+      // ── Trash button ──────────────────────────────────────────────────────────
+      if(direction==="trash"){
+        const tv = trashcanVotes.get(msgId);
+        if(!tv){ return; }
+        const alreadyFlagged = tv.voters.has(uid);
+        if(alreadyFlagged){
+          tv.voters.delete(uid); // toggle off
+        } else {
+          tv.voters.add(uid);
+          // Check threshold
+          if(!tv.sentToDeleter && tv.voters.size >= trashcanThreshold && deleterChannelId){
+            tv.sentToDeleter = true;
+            (async()=>{
+              try{
+                const deleterCh = await client.channels.fetch(deleterChannelId).catch(()=>null);
+                if(!deleterCh) return;
+                const gId = tv.guildId || "@me";
+                const cId = tv.channelId || "0";
+                const msgLink = `https://discord.com/channels/${gId}/${cId}/${msgId}`;
+                const imageUrl = `https://raw.githubusercontent.com/Royal-V-RR/discord-bot/main/quotes/${encodeURIComponent(tv.filename)}`;
+                const row = new MessageActionRow().addComponents(
+                  new MessageButton().setCustomId(`del_keep_${msgId}`).setLabel("✅ Keep").setStyle("SUCCESS"),
+                  new MessageButton().setCustomId(`del_delete_${tv.filename}`).setLabel("🗑️ Delete").setStyle("DANGER"),
+                );
+                await deleterCh.send({
+                  content:[
+                    `🗑️ **Quote Flagged for Review**`,
+                    `📎 Filename: \`${tv.filename}\``,
+                    `🔗 [Jump to message](${msgLink})`,
+                    `👥 Flagged by **${tv.voters.size}** user(s) (threshold: ${trashcanThreshold})`,
+                    `🖼️ ${imageUrl}`,
+                  ].join("\n"),
+                  components:[row],
+                });
+              }catch(e){ console.error("[qvote trash] deleter send error:",e.message); }
+            })();
+          }
+        }
+        saveData();
+        // Rebuild buttons to reflect new trash count
+        const votes = quoteVotes.get(filename) || { up:0, down:0 };
+        const newButtons = makeQuoteVoteButtons(msgId, votes, tv);
+        await interaction.editReply({ components: newButtons }).catch(()=>{});
+        return;
+      }
+
+      // ── Up / Down buttons ─────────────────────────────────────────────────────
+      if(!quoteUserVotes.has(filename)) quoteUserVotes.set(filename, new Map());
+      const userVoteMap = quoteUserVotes.get(filename);
+      const prevVote = userVoteMap.get(uid) || null;
+      const newVote = (direction==="up") ? "up" : "down";
+
+      const v = quoteVotes.get(filename) || { up:0, down:0 };
+
+      if(prevVote === newVote){
+        // Same button again → remove vote
+        if(newVote==="up")   v.up   = Math.max(0, v.up-1);
+        else                 v.down = Math.max(0, v.down-1);
+        userVoteMap.delete(uid);
+      } else {
+        // New vote or switching sides
+        if(prevVote==="up")   v.up   = Math.max(0, v.up-1);
+        if(prevVote==="down") v.down = Math.max(0, v.down-1);
+        if(newVote==="up")    v.up++;
+        else                  v.down++;
+        userVoteMap.set(uid, newVote);
+      }
+
+      quoteVotes.set(filename, v);
+      saveData();
+
+      const tv = trashcanVotes.get(msgId) || null;
+      const newButtons = makeQuoteVoteButtons(msgId, v, tv);
+      await interaction.editReply({ components: newButtons }).catch(()=>{});
       return;
     }
 
@@ -4521,13 +4611,14 @@ client.on("interactionCreate",async interaction=>{
       if(page<0||page>=TOTAL){try{await interaction.deferUpdate();}catch{}return;}
       if(!(await btnAck(interaction)))return;
       const HELP_PAGES=[
-        {title:"🎉 Fun & Social  —  Page 1 / 7",description:["**Interactions**","`/action type:… user:…` — Hug, pat, poke, stare, wave, high five, boop, oil, diddle, or kill someone","`/punch` `/hug` `/kiss` `/slap` `/throw` — Quick social actions","`/rate type:… user:…` — Rate someone (gay, autistic, simp, cursed, npc, villain, sigma)","`/ppsize user:…` — Check pp size","`/ship user1:… user2:…` — Ship compatibility %","","**Romance**","`/marry user:…` — Propose 💍 — target gets Accept/Decline buttons","`/divorce` — End the marriage 💔","`/partner [user]` — See who someone is married to","","**Party Games**","`/party type:truth|dare|neverhavei` — Truth, Dare, or Never Have I Ever","","**Conversation**","`/topic` — Random conversation starter","`/roast [user]` — Roast someone 🔥","`/compliment user:…` — Compliment someone 💖","`/advice` — Life advice 🧙","`/fact` — Random fun fact 📚","`/horoscope sign:…` — Your daily horoscope ✨","`/poll question:…` — Quick yes/no poll (server only)"].join("\n")},
-        {title:"📡 Media & Utility  —  Page 2 / 7",description:["**Media**","`/gif animal:…` — Random animal GIF 🐾 (cat, dog, fox, panda, duck, bunny, koala, raccoon)","`/joke` — Random joke 😂","`/meme` — Random meme 🐸","`/quote` — Inspirational quote image ✨","`/trivia` — Trivia question with spoiler answer 🧠","`/avatar user:…` — Get someone\'s avatar","","**Utility**","`/ping` — Bot latency 🏓","`/coinflip` — Heads or tails 🪙","`/roll [sides]` — Roll a dice (default d6) 🎲","`/choose options:a,b,c` — Pick from comma-separated options","`/echo [message] [embed] [image] [title] [color] [replyto]` — Make the bot say something","`/remind time:… message:…` — Set a reminder (1 min – 1 week)","`/upload source|link:…` — Upload an image/audio/video to the quotes folder 🖼️🔊🎬 *(server only, authorized users)*","","**Info**","`/botinfo` — Bot stats","`/serverinfo` — Server member/channel/role info","`/userprofile [user]` — Full profile: level, XP, coins, items, cooldowns"].join("\n")},
-        {title:"📈 XP & Leaderboards  —  Page 3 / 7",description:["**XP**","You earn XP by sending messages (1 min cooldown). 5–15 XP per message.","Level formula: `floor(50 × level^1.5)` XP per level","","`/xp [user]` — Check XP, level, and progress bar","`/xpleaderboard [scope:global|server]` — Top 10 by XP","","**Stats & Leaderboards**","`/score [user]` — Wins, losses, win rate, streak","`/userprofile [user]` — Everything in one embed","`/leaderboard [type]` — Global top 10","`/serverleaderboard [type]` — Server top 10","> Types: `wins` `coins` `streak` `beststreak` `games` `winrate` `images`"].join("\n")},
-        {title:"🎮 Games  —  Page 4 / 7",description:["**Solo** — `/games game:…`","> 🪢 Hangman · 🐍 Snake · 💣 Minesweeper (Easy/Med/Hard)","> 🔢 Number Guess · 🔀 Word Scramble · 📅 Daily Challenge","","**2-Player** — `/2playergames game:… [opponent:…]`","> ❌⭕ Tic Tac Toe *(server only)*","> 🔴🔵 Connect 4 *(server only)*","> ✊ Rock Paper Scissors *(choices sent via DM)*","> 🧮 Math Race · 🏁 Word Race · 🧠 Trivia Battle *(server only)*","> 🔢 Count Game — count to 100 together, no opponent needed *(server only)*","> 🏁 Scramble Race — 5-round word unscramble *(server only)*","","Wins award coins. Check `/score` or `/userprofile` for stats."].join("\n")},
-        {title:"⚙️ Server Config  —  Page 5 / 7",description:["Most commands here require **Manage Server** permission.","","**Channels & Messages**","`/channelpicker channel:… [levelup]` — Set the bot\'s main channel","`/xpconfig setting:…` — Level-up messages (on/off, ping toggle, channel)","`/setwelcome channel:… [message]` — Welcome message (`{user}` `{server}` `{count}`)","`/setleave channel:… [message]` — Leave message","`/setboostmsg channel:… [message]` — Boost announcement","`/disableownermsg enabled:…` — Toggle bot owner broadcasts","`/purge amount:…` — Bulk delete (needs Manage Messages)","`/counting action:set|remove|status` — Set a permanent counting channel","","**Roles**","`/autorole [role]` — Auto-assign role on join (blank to disable)","`/reactionrole action:add|remove|list …` — Emoji reaction roles","`/rolespingfix` — List & fix roles that can @everyone","","**Competitions & Tickets**","`/invitecomp hours:…` — Invite competition with coin rewards","`/ticketsetup` · `/closeticket` · `/addtoticket` · `/removefromticket`","","**Overview**","`/serverconfig` — View all current settings"].join("\n")},
-        {title:"🛡️ Activity & RA/LOA  —  Page 6 / 7",description:["**Activity Checks** *(Manage Server)*","`/activity-check channel:… [deadline] [message] [ping] [schedule]` — Send a check-in to staff","> Specify which roles must respond and who is excluded","> Auto-closes after the deadline and reports who didn\'t check in","> Add `schedule:Monday 09:00` (UTC) to repeat it weekly automatically","","**RA / LOA Setup** *(Manage Server)*","`/raconfig action:create` — Auto-create Reduced Activity + LOA roles","`/raconfig action:set_ra|set_loa role:…` — Use existing roles","`/raconfig action:view` — See current config","","**Assigning Roles** *(Manage Roles)*","`/reduced-activity user:… action:give|remove [duration]` — Give/remove RA role","`/loa user:… action:give|remove [duration]` — Give/remove LOA role","> `duration` is in hours — omit for permanent"].join("\n")},
-        {title:"📺 YouTube Tracking  —  Page 7 / 7",description:["Track a YouTube channel\'s subscriber count live in Discord.","All commands require **Manage Server** permission.","","**Setup (do this first)**","`/ytsetup channel:… discord_channel:… [apikey:…]` — Connect a YouTube channel","> Accepts `@handle`, full URL, or channel ID starting with UC","> Provide your YouTube Data API v3 key on first use — it\'s saved to botdata","> Get a free key at console.cloud.google.com → enable YouTube Data API v3","","**Live Sub Count**","`/subcount threshold:1K|10K` — Post an embed that edits itself every 5 min","","**Sub Goal**","`/subgoal goal:N [message]` — Live progress bar towards a target sub count","> Fires a custom or default message when the goal is reached","","**Milestones**","`/milestones action:add subs:N [message]` — Announce when a sub count is crossed","`/milestones action:remove subs:N` — Remove a milestone","`/milestones action:list` — View all milestones and their status","","**[Owner] Pranks & Chaos**","`/paranoia user:… [chance]` — DM a user creepy paranoia messages (1-100% chance per message)","> Right-click any message → **Tomato This** — splat tomato-splat.gif onto a message screenshot as a GIF"].join("\n")},
+        {title:"🎉 Fun & Social  —  Page 1 / 8",description:["**Interactions**","`/action type:… user:…` — Hug, pat, poke, stare, wave, high five, boop, oil, diddle, or kill someone","`/punch` `/hug` `/kiss` `/slap` `/throw` — Quick social actions","`/rate type:… user:…` — Rate someone (gay, autistic, simp, cursed, npc, villain, sigma)","`/ppsize user:…` — Check pp size","`/ship user1:… user2:…` — Ship compatibility %","","**Romance**","`/marry user:…` — Propose 💍 — target gets Accept/Decline buttons","`/divorce` — End the marriage 💔","`/partner [user]` — See who someone is married to","","**Party Games**","`/party type:truth|dare|neverhavei` — Truth, Dare, or Never Have I Ever","","**Conversation**","`/topic` — Random conversation starter","`/roast [user]` — Roast someone 🔥","`/compliment user:…` — Compliment someone 💖","`/advice` — Life advice 🧙","`/fact` — Random fun fact 📚","`/horoscope sign:…` — Your daily horoscope ✨","`/poll question:…` — Quick yes/no poll (server only)"].join("\n")},
+        {title:"📡 Media & Utility  —  Page 2 / 8",description:["**Media**","`/gif animal:…` — Random animal GIF 🐾 (cat, dog, fox, panda, duck, bunny, koala, raccoon)","`/joke` — Random joke 😂","`/meme` — Random meme 🐸","`/quote` — Inspirational quote image ✨","`/trivia` — Trivia question with spoiler answer 🧠","`/avatar user:…` — Get someone\'s avatar","","**Utility**","`/ping` — Bot latency 🏓","`/coinflip` — Heads or tails 🪙","`/roll [sides]` — Roll a dice (default d6) 🎲","`/choose options:a,b,c` — Pick from comma-separated options","`/echo [message] [embed] [image] [title] [color] [replyto]` — Make the bot say something","`/remind time:… message:…` — Set a reminder (1 min – 1 week)","`/upload source|link:…` — Upload an image/audio/video to the quotes folder 🖼️🔊🎬 *(server only, authorized users)*","","**Info**","`/botinfo` — Bot stats","`/serverinfo` — Server member/channel/role info","`/userprofile [user]` — Full profile: level, XP, coins, items, cooldowns"].join("\n")},
+        {title:"📈 XP & Leaderboards  —  Page 3 / 8",description:["**XP**","You earn XP by sending messages (1 min cooldown). 5–15 XP per message.","Level formula: `floor(50 × level^1.5)` XP per level","","`/xp [user]` — Check XP, level, and progress bar","`/xpleaderboard [scope:global|server]` — Top 10 by XP","","**Stats & Leaderboards**","`/score [user]` — Wins, losses, win rate, streak","`/userprofile [user]` — Everything in one embed","`/leaderboard [type]` — Global top 10","`/serverleaderboard [type]` — Server top 10","> Types: `wins` `coins` `streak` `beststreak` `games` `winrate` `images`"].join("\n")},
+        {title:"🎮 Games  —  Page 4 / 8",description:["**Solo** — `/games game:…`","> 🪢 Hangman · 🐍 Snake · 💣 Minesweeper (Easy/Med/Hard)","> 🔢 Number Guess · 🔀 Word Scramble · 📅 Daily Challenge","","**2-Player** — `/2playergames game:… [opponent:…]`","> ❌⭕ Tic Tac Toe *(server only)*","> 🔴🔵 Connect 4 *(server only)*","> ✊ Rock Paper Scissors *(choices sent via DM)*","> 🧮 Math Race · 🏁 Word Race · 🧠 Trivia Battle *(server only)*","> 🔢 Count Game — count to 100 together, no opponent needed *(server only)*","> 🏁 Scramble Race — 5-round word unscramble *(server only)*","","Wins award coins. Check `/score` or `/userprofile` for stats."].join("\n")},
+        {title:"⚙️ Server Config  —  Page 5 / 8",description:["Most commands here require **Manage Server** permission.","","**Channels & Messages**","`/channelpicker channel:… [levelup]` — Set the bot\'s main channel","`/xpconfig setting:…` — Level-up messages (on/off, ping toggle, channel)","`/setwelcome channel:… [message]` — Welcome message (`{user}` `{server}` `{count}`)","`/setleave channel:… [message]` — Leave message","`/setboostmsg channel:… [message]` — Boost announcement","`/disableownermsg enabled:…` — Toggle bot owner broadcasts","`/purge amount:…` — Bulk delete (needs Manage Messages)","`/counting action:set|remove|status` — Set a permanent counting channel","","**Roles**","`/autorole [role]` — Auto-assign role on join (blank to disable)","`/reactionrole action:add|remove|list …` — Emoji reaction roles","`/rolespingfix` — List & fix roles that can @everyone","","**Competitions & Tickets**","`/invitecomp hours:…` — Invite competition with coin rewards","`/ticketsetup` · `/closeticket` · `/addtoticket` · `/removefromticket`","","**Overview**","`/serverconfig` — View all current settings"].join("\n")},
+        {title:"🛡️ Activity & RA/LOA  —  Page 6 / 8",description:["**Activity Checks** *(Manage Server)*","`/activity-check channel:… [deadline] [message] [ping] [schedule]` — Send a check-in to staff","> Specify which roles must respond and who is excluded","> Auto-closes after the deadline and reports who didn\'t check in","> Add `schedule:Monday 09:00` (UTC) to repeat it weekly automatically","","**RA / LOA Setup** *(Manage Server)*","`/raconfig action:create` — Auto-create Reduced Activity + LOA roles","`/raconfig action:set_ra|set_loa role:…` — Use existing roles","`/raconfig action:view` — See current config","","**Assigning Roles** *(Manage Roles)*","`/reduced-activity user:… action:give|remove [duration]` — Give/remove RA role","`/loa user:… action:give|remove [duration]` — Give/remove LOA role","> `duration` is in hours — omit for permanent"].join("\n")},
+        {title:"📺 YouTube Tracking  —  Page 7 / 8",description:["Track a YouTube channel\'s subscriber count live in Discord.","All commands require **Manage Server** permission.","","**Setup (do this first)**","`/ytsetup channel:… discord_channel:… [apikey:…]` — Connect a YouTube channel","> Accepts `@handle`, full URL, or channel ID starting with UC","> Provide your YouTube Data API v3 key on first use — it\'s saved to botdata","> Get a free key at console.cloud.google.com → enable YouTube Data API v3","","**Live Sub Count**","`/subcount threshold:1K|10K` — Post an embed that edits itself every 5 min","","**Sub Goal**","`/subgoal goal:N [message]` — Live progress bar towards a target sub count","> Fires a custom or default message when the goal is reached","","**Milestones**","`/milestones action:add subs:N [message]` — Announce when a sub count is crossed","`/milestones action:remove subs:N` — Remove a milestone","`/milestones action:list` — View all milestones and their status","","**[Owner] Pranks & Chaos**","`/paranoia user:… [chance]` — DM a user creepy paranoia messages (1-100% chance per message)","> Right-click any message → **Tomato This** — splat tomato-splat.gif onto a message card (open to everyone)"].join("\n")},
+        {title:"🤖 Community Modes  —  Page 8 / 8",description:["Clankerify replaces a user\'s messages with a webhook impersonating them in a chosen personality.","","**For Everyone**","`/selfclank duration:1-5` — Clankerify yourself for 1–5 min with any mode","> Choose from built-in modes or any custom modes owners have built","> Max 2 self-clanked users per server at once","> `/selfclank duration:0` to cancel early","","**Built-in Modes**","🤖 No mode (plain) · 😈 Evil · 😏 Freaky · 🦅 American · 🫖 British","🪖 Stupid · 📰 Boomer · 🔺 Conspiracy · 🗺️ NPC · 😤 Sigma","⚔️ Medieval · 👻 Ghost · 🏴‍☠️ Pirate · 🦝 RespawnRaccoon Propaganda","🇫🇷 French · 🐱 UWU/LOLCAT · 🏴󠁧󠁢󠁳󠁣󠁴󠁿 Scottish · 🎲 Random","","**[Owner] Custom Modes** — built with `/clankerbuild`","`/clankerbuild action:create name:<id>` — Opens a builder modal with:","  • Display name format  (`{name}` = the user\'s name)","  • Word replacements  (`hello→howdy, friend→pardner, …`)","  • Signoffs  (`yeehaw! | much obliged | git along now`)","  • Message start prefix","  • Emoji shown in the mode selector","`/clankerbuild action:list` — View all custom modes","`/clankerbuild action:delete name:<id>` — Remove a custom mode","","Custom modes appear automatically in the `/clankerify` and `/selfclank` dropdowns.","","**[Owner] Temp Owner Access**","`/tempowner user:… duration:… [commands:…]` — Grant a user temporary access","> Pick specific commands by name (comma-separated) or use `all`","> They receive a DM listing exactly what they can use and for how long"].join("\n")},
       ];
       const p=HELP_PAGES[page];
       const navRow=new MessageActionRow().addComponents(
@@ -4865,9 +4956,45 @@ client.on("interactionCreate",async interaction=>{
     const uid = interaction.user.id;
     const cid = interaction.customId;
 
-    // ── Tomato This modal ────────────────────────────────────────────────────────
-    if(cid.startsWith("tomato_modal_")){
+    // ── /clankerbuild modal submit ────────────────────────────────────────────
+    if(cid.startsWith("clankerbuild_modal_")){
       if(!OWNER_IDS.includes(uid)) return safeReply(interaction,{content:"Owner only.",ephemeral:true});
+      const modeName = cid.slice("clankerbuild_modal_".length);
+
+      const emoji          = interaction.fields.getTextInputValue("cb_emoji").trim();
+      const displayNameFmt = interaction.fields.getTextInputValue("cb_display").trim() || "{name}";
+      const wordsRaw       = interaction.fields.getTextInputValue("cb_words").trim();
+      const signoffsRaw    = interaction.fields.getTextInputValue("cb_signoffs").trim();
+      const messageStart   = interaction.fields.getTextInputValue("cb_start").trim();
+
+      // Parse word replacements: "hello→howdy, friend→pardner"
+      const words = wordsRaw
+        ? wordsRaw.split(",").map(p=>p.trim()).filter(Boolean).map(p=>{
+            const [from,...rest] = p.split("→"); return [from?.trim(), rest.join("→").trim()];
+          }).filter(([f,t])=>f&&t)
+        : [];
+
+      // Parse signoffs: "yeehaw!|much obliged"
+      const signoffs = signoffsRaw ? signoffsRaw.split("|").map(s=>s.trim()).filter(Boolean) : [];
+
+      const isEdit = customClankerModes.has(modeName);
+      customClankerModes.set(modeName, { emoji, displayNameFormat: displayNameFmt, words, signoffs, messageStart });
+      saveData();
+
+      return safeReply(interaction,{
+        content:[
+          `${isEdit?"✏️ Updated":"✅ Created"} custom clanker mode \`${modeName}\`!`,
+          `${emoji||"⭐"} **Display:** \`${displayNameFmt}\``,
+          words.length  ? `🔁 **Word swaps:** ${words.map(([f,t])=>`${f}→${t}`).join(", ")}` : "",
+          signoffs.length ? `✍️ **Signoffs:** ${signoffs.join(" | ")}` : "",
+          messageStart  ? `📝 **Start prefix:** \`${messageStart}\`` : "",
+        ].filter(Boolean).join("\n"),
+        ephemeral:true,
+      });
+    }
+
+    // ── Tomato This modal ─────────────────────────────────────────────────────
+    if(cid.startsWith("tomato_modal_")){
       const msgId = cid.slice("tomato_modal_".length);
       const pending = tomatoPending.get(msgId);
       if(!pending){
@@ -4891,7 +5018,7 @@ client.on("interactionCreate",async interaction=>{
 
       await interaction.deferReply({ephemeral:true});
       try{
-        const gifBuf = await buildTomatoGif(pending.msgContent, pending.authorTag, count, speedMin, speedMax);
+        const gifBuf = await buildTomatoGif(pending.msgContent, pending.authorTag, count, speedMin, speedMax, pending.avatarURL, pending.usernameColor);
         tomatoPending.delete(msgId);
         const ch = interaction.channel;
         if(!ch) throw new Error("Could not find the channel to send the GIF in");
@@ -4957,14 +5084,16 @@ client.on("interactionCreate",async interaction=>{
       return;
     }
 
-    // ── Tomato This (owner only) ────────────────────────────────────────────────
+    // ── Tomato This (everyone) ──────────────────────────────────────────────────
     if(cmd === "Tomato This"){
-      if(!OWNER_IDS.includes(uid)) return safeReply(interaction,{content:"Owner only.",ephemeral:true});
-      const msgContent = targetMsg.content || "";
-      const authorTag  = targetMsg.member?.displayName || targetMsg.author.globalName || targetMsg.author.username;
+      const msgContent    = targetMsg.content || "";
+      const authorTag     = targetMsg.member?.displayName || targetMsg.author.globalName || targetMsg.author.username;
+      const avatarURL     = targetMsg.author.displayAvatarURL({ size: 128, dynamic: false, format: "png" });
+      const rawColor      = targetMsg.member?.displayHexColor;
+      const usernameColor = (rawColor && rawColor !== "#000000") ? rawColor : "#FFFFFF";
 
-      // Store metadata keyed by message ID so the modal submit can retrieve it
-      tomatoPending.set(targetMsg.id, { authorTag, msgContent });
+      // Store metadata so the modal submit can retrieve it
+      tomatoPending.set(targetMsg.id, { authorTag, msgContent, avatarURL, usernameColor });
 
       // Show a Modal with two inputs: count (1-50) and speed min/max (0-1000%)
       try {
@@ -5117,8 +5246,8 @@ client.on("interactionCreate",async interaction=>{
   const cmd=interaction.commandName;
   const inGuild=!!interaction.guildId;
 
-  const ownerOnly=["servers","broadcast","requester","deleter","fakecrash","identitycrisis","botolympics","sentience","legendrandom","dmconfig","leaveserver","restart","refreshcmds","botstats","setstatus","adminuser","adminreset","adminconfig","admingive","echo","shadowdelete","clankerify","fakemessage","fakequote","forcemarry","forcedivorce","paranoia"];
-  if(ownerOnly.includes(cmd)&&!OWNER_IDS.includes(interaction.user.id))return safeReply(interaction,{content:"Owner only.",ephemeral:true});
+  const ownerOnly=["servers","broadcast","requester","deleter","fakecrash","identitycrisis","botolympics","sentience","legendrandom","dmconfig","leaveserver","restart","refreshcmds","botstats","setstatus","adminuser","adminreset","adminconfig","admingive","echo","shadowdelete","clankerify","fakemessage","fakequote","forcemarry","forcedivorce","paranoia","clankerbuild","tempowner"];
+  if(ownerOnly.includes(cmd)&&!isEffectiveOwner(interaction.user.id, cmd))return safeReply(interaction,{content:"Owner only.",ephemeral:true});
 
   const manageServerCmds=["channelpicker","counting","xpconfig","setwelcome","setleave","setwelcomemsg","setleavemsg","disableownermsg","serverconfig","autorole","setboostmsg","invitecomp","purge","reactionrole","ticketsetup","ytsetup","subgoal","subcount","milestones","dailyquote"];
   if(manageServerCmds.includes(cmd)){
@@ -5232,6 +5361,122 @@ client.on("interactionCreate",async interaction=>{
   return safeReply(interaction,{content:`👻 Shadow delete set to **${pct}%** for <@${target.id}>.`,ephemeral:true});
 }
 
+// ── Temp Owner state ──────────────────────────────────────────────────────────
+// tempOwnerGrants: userId → { commands: Set<string>, expiresAt: number, timerId }
+const tempOwnerGrants = new Map();
+function hasTempOwnerAccess(userId, commandName){
+  const grant = tempOwnerGrants.get(userId);
+  if(!grant) return false;
+  if(Date.now() > grant.expiresAt){ tempOwnerGrants.delete(userId); return false; }
+  return grant.commands.has("all") || grant.commands.has(commandName);
+}
+function isEffectiveOwner(userId, commandName){
+  return OWNER_IDS.includes(userId) || hasTempOwnerAccess(userId, commandName);
+}
+
+// ── /clankerbuild ─────────────────────────────────────────────────────────────
+if(cmd==="clankerbuild"){
+  if(!OWNER_IDS.includes(uid)) return safeReply(interaction,{content:"Owner only.",ephemeral:true});
+  const action = interaction.options.getString("action");
+  const name   = (interaction.options.getString("name")||"").trim().toLowerCase().replace(/\s+/g,"_");
+
+  // ── list ──────────────────────────────────────────────────────────────────
+  if(action==="list"){
+    if(!customClankerModes.size)
+      return safeReply(interaction,{content:"No custom clanker modes yet. Use `/clankerbuild action:create` to make one.",ephemeral:true});
+    const lines = [...customClankerModes.entries()].map(([id, m]) =>
+      `**${m.emoji||"⭐"} ${id}** — display: \`${m.displayNameFormat||"{name}"}\`, words: ${(m.words||[]).length}, signoffs: ${(m.signoffs||[]).length}, start: ${m.messageStart?"yes":"no"}`
+    );
+    return safeReply(interaction,{content:`**Custom Clanker Modes (${customClankerModes.size})**\n${lines.join("\n")}`,ephemeral:true});
+  }
+
+  // ── delete ─────────────────────────────────────────────────────────────────
+  if(action==="delete"){
+    if(!name) return safeReply(interaction,{content:"Provide `name` of the mode to delete.",ephemeral:true});
+    if(!customClankerModes.has(name)) return safeReply(interaction,{content:`No custom mode named \`${name}\`.`,ephemeral:true});
+    customClankerModes.delete(name);
+    saveData();
+    return safeReply(interaction,{content:`🗑️ Deleted custom mode \`${name}\`.`,ephemeral:true});
+  }
+
+  // ── create / edit — show modal ─────────────────────────────────────────────
+  if(!name) return safeReply(interaction,{content:"Provide `name` for the mode (e.g. `cowboy`).",ephemeral:true});
+  const existing = customClankerModes.get(name) || {};
+  await interaction.showModal({
+    title: `🛠️ Clanker Mode: ${name}`,
+    custom_id: `clankerbuild_modal_${name}`,
+    components:[
+      { type:1, components:[{ type:4, custom_id:"cb_emoji",    label:"Emoji (shown in dropdown)",                style:1, required:false, placeholder:"🌟", value: existing.emoji||"",                max_length:10  }]},
+      { type:1, components:[{ type:4, custom_id:"cb_display",  label:"Display name format  ({name} = user)",    style:1, required:true,  placeholder:"🤠 {name} pardner", value: existing.displayNameFormat||"{name}", max_length:80 }]},
+      { type:1, components:[{ type:4, custom_id:"cb_words",    label:"Word replacements  (hello→howdy, …)",     style:2, required:false, placeholder:"hello→howdy, friend→pardner", value: (existing.words||[]).map(([f,t])=>`${f}→${t}`).join(", "), max_length:1000 }]},
+      { type:1, components:[{ type:4, custom_id:"cb_signoffs", label:"Signoffs separated by |",                 style:2, required:false, placeholder:"yeehaw!|much obliged|git along now", value: (existing.signoffs||[]).join("|"), max_length:1000 }]},
+      { type:1, components:[{ type:4, custom_id:"cb_start",    label:"Message start prefix (optional)",         style:1, required:false, placeholder:"🤠 ", value: existing.messageStart||"", max_length:200 }]},
+    ],
+  }).catch(e=>{ console.error("[clankerbuild] modal error:",e.message); });
+  return;
+}
+
+// ── /tempowner ────────────────────────────────────────────────────────────────
+if(cmd==="tempowner"){
+  if(!OWNER_IDS.includes(uid)) return safeReply(interaction,{content:"Owner only.",ephemeral:true});
+  const targetUser = interaction.options.getUser("user");
+  const duration   = interaction.options.getInteger("duration"); // minutes
+  const rawCmds    = (interaction.options.getString("commands")||"all").trim();
+
+  // Parse command list
+  const grantedCmds = rawCmds.toLowerCase()==="all"
+    ? new Set(["all"])
+    : new Set(rawCmds.split(",").map(s=>s.trim()).filter(Boolean));
+
+  // Clear any existing grant for this user
+  const existing = tempOwnerGrants.get(targetUser.id);
+  if(existing?.timerId) clearTimeout(existing.timerId);
+
+  const expiresAt = Date.now() + duration * 60_000;
+  const timerId = setTimeout(()=>{ tempOwnerGrants.delete(targetUser.id); }, duration * 60_000);
+  tempOwnerGrants.set(targetUser.id, { commands: grantedCmds, expiresAt, timerId });
+
+  const KNOWN_OWNER_CMDS = [...OWNER_ONLY_CMDS].filter(c => !c.startsWith("Reaction") && !c.startsWith("Clank") && !c.startsWith("Expose"));
+  const grantDisplay = grantedCmds.has("all")
+    ? `**All owner commands** (${KNOWN_OWNER_CMDS.slice(0,8).join(", ")}…)`
+    : `\`${[...grantedCmds].join("`, `")}\``;
+
+  // Build interactive ephemeral for the target user to see what they got
+  const rows = [];
+  const eligible = grantedCmds.has("all") ? KNOWN_OWNER_CMDS : [...grantedCmds].filter(c=>OWNER_ONLY_CMDS.has(c));
+  // Show in chunks of 5 buttons per row (max 5 rows = 25 buttons)
+  for(let i=0; i<Math.min(eligible.length,25); i+=5){
+    rows.push(new MessageActionRow().addComponents(
+      eligible.slice(i, i+5).map(c =>
+        new MessageButton().setCustomId(`tempowner_info_${c}`).setLabel(`/${c}`).setStyle("SECONDARY").setDisabled(true)
+      )
+    ));
+  }
+
+  // Confirm to the owner
+  await safeReply(interaction,{
+    content:`✅ <@${targetUser.id}> has been granted temporary owner access for **${duration} minute(s)**.\n📋 Granted: ${grantDisplay}`,
+    ephemeral:true,
+  });
+
+  // DM the target user with what they can use
+  try {
+    const expiry = `<t:${Math.floor(expiresAt/1000)}:R>`;
+    const dm = await targetUser.createDM();
+    await dm.send({
+      content: [
+        `🔑 **Temporary Owner Access Granted**`,
+        `You've been given access to the following owner-only commands on RoyalBot for **${duration} minute(s)** (expires ${expiry}):`,
+        grantedCmds.has("all")
+          ? KNOWN_OWNER_CMDS.map(c=>`\`/${c}\``).join("  ")
+          : [...grantedCmds].map(c=>`\`/${c}\``).join("  "),
+      ].join("\n"),
+      ...(rows.length ? { components: rows } : {}),
+    });
+  } catch(e){ console.warn("[tempowner] DM failed:",e.message); }
+  return;
+}
+
 if(cmd==="clankerify"){
   const target   = interaction.options.getUser("user");
   const duration = interaction.options.getInteger("duration") ?? null; // minutes, null = permanent
@@ -5246,30 +5491,38 @@ if(cmd==="clankerify"){
   // Encode target and duration into customId so the select handler can read them
   // Format: clankerify_mode_{targetId}_{duration|"perm"}
   const durKey = duration ? String(duration) : "perm";
+  const builtInOptions = [
+    {label:"No mode (plain)",  value:"none",        emoji:"🤖"},
+    {label:"Evil",             value:"evil",        emoji:"😈"},
+    {label:"Freaky",           value:"freaky",      emoji:"😏"},
+    {label:"American",         value:"american",    emoji:"🦅"},
+    {label:"British",          value:"british",     emoji:"🫖"},
+    {label:"Stupid",           value:"stupid",      emoji:"🪖"},
+    {label:"Boomer",           value:"boomer",      emoji:"📰"},
+    {label:"Conspiracy",       value:"conspiracy",  emoji:"🔺"},
+    {label:"NPC",              value:"npc",         emoji:"🗺️"},
+    {label:"Sigma",            value:"sigma",       emoji:"😤"},
+    {label:"Medieval",         value:"medieval",    emoji:"⚔️"},
+    {label:"Ghost",            value:"ghost",       emoji:"👻"},
+    {label:"Pirate",           value:"pirate",      emoji:"🏴‍☠️"},
+    {label:"RespawnRaccoon Propaganda", value:"rr_propaganda", emoji:"🦝"},
+    {label:"French",                    value:"french",       emoji:"🇫🇷"},
+    {label:"UWU / LOLCAT",              value:"uwu",          emoji:"🐱"},
+    {label:"Scottish",                  value:"scottish",     emoji:"🏴󠁧󠁢󠁳󠁣󠁴󠁿"},
+    {label:"Random (picks a random mode each message)", value:"random", emoji:"🎲"},
+  ];
+  const customOptions = [...customClankerModes.entries()].map(([id, m]) => ({
+    label: `Custom: ${id}`,
+    value: id,
+    emoji: m.emoji || "⭐",
+  }));
+  // Discord limit: 25 options per select menu
+  const allOptions = [...builtInOptions, ...customOptions].slice(0, 25);
   const modeMenu = new MessageActionRow().addComponents(
     new MessageSelectMenu()
       .setCustomId(`clankerify_mode_${target.id}_${durKey}`)
       .setPlaceholder("Pick a personality mode…")
-      .addOptions([
-        {label:"No mode (plain)",  value:"none",        emoji:"🤖"},
-        {label:"Evil",             value:"evil",        emoji:"😈"},
-        {label:"Freaky",           value:"freaky",      emoji:"😏"},
-        {label:"American",         value:"american",    emoji:"🦅"},
-        {label:"British",          value:"british",     emoji:"🫖"},
-        {label:"Stupid",           value:"stupid",      emoji:"🪖"},
-        {label:"Boomer",           value:"boomer",      emoji:"📰"},
-        {label:"Conspiracy",       value:"conspiracy",  emoji:"🔺"},
-        {label:"NPC",              value:"npc",         emoji:"🗺️"},
-        {label:"Sigma",            value:"sigma",       emoji:"😤"},
-        {label:"Medieval",         value:"medieval",    emoji:"⚔️"},
-        {label:"Ghost",            value:"ghost",       emoji:"👻"},
-        {label:"Pirate",           value:"pirate",      emoji:"🏴‍☠️"},
-        {label:"RespawnRaccoon Propaganda", value:"rr_propaganda", emoji:"🦝"},
-        {label:"French",                    value:"french",       emoji:"🇫🇷"},
-        {label:"UWU / LOLCAT",              value:"uwu",          emoji:"🐱"},
-        {label:"Scottish",                  value:"scottish",     emoji:"🏴󠁧󠁢󠁳󠁣󠁴󠁿"},
-        {label:"Random (picks a random mode each message)", value:"random",   emoji:"🎲"},
-      ])
+      .addOptions(allOptions)
   );
   const durationStr = duration ? `**${duration} minute(s)**` : "**permanently**";
   return safeReply(interaction,{
@@ -5390,11 +5643,11 @@ if(cmd==="gif"){
           try {
             const msg = sent.id ? sent : await interaction.fetchReply().catch(()=>null);
             if(msg){
-              await msg.react(resolveEmoji("goodquote", msg)).catch(()=>{});
-              await msg.react(resolveEmoji("badquote", msg)).catch(()=>{});
-              await msg.react(resolveEmoji("raccoontrashcan", msg)).catch(()=>{});
               quoteVoteMessages.set(msg.id, chosen.name);
-              trashcanVotes.set(msg.id, { filename: chosen.name, voters: new Set(), guildId: interaction.guildId||null, channelId: interaction.channelId||null, sentToDeleter: false });
+              const trashEntry = { filename: chosen.name, voters: new Set(), guildId: interaction.guildId||null, channelId: interaction.channelId||null, sentToDeleter: false };
+              trashcanVotes.set(msg.id, trashEntry);
+              const voteButtons = makeQuoteVoteButtons(msg.id, quoteVotes.get(chosen.name), trashEntry);
+              await msg.edit({ components: voteButtons }).catch(()=>{});
               saveData();
             }
           } catch {}
@@ -5427,11 +5680,11 @@ if(cmd==="gif"){
           try {
             const msg = sent.id ? sent : await interaction.fetchReply().catch(()=>null);
             if(msg){
-              await msg.react(resolveEmoji("goodquote", msg)).catch(()=>{});
-              await msg.react(resolveEmoji("badquote", msg)).catch(()=>{});
-              await msg.react(resolveEmoji("raccoontrashcan", msg)).catch(()=>{});
               quoteVoteMessages.set(msg.id, chosen.name);
-              trashcanVotes.set(msg.id, { filename: chosen.name, voters: new Set(), guildId: interaction.guildId||null, channelId: interaction.channelId||null, sentToDeleter: false });
+              const trashEntry = { filename: chosen.name, voters: new Set(), guildId: interaction.guildId||null, channelId: interaction.channelId||null, sentToDeleter: false };
+              trashcanVotes.set(msg.id, trashEntry);
+              const voteButtons = makeQuoteVoteButtons(msg.id, quoteVotes.get(chosen.name), trashEntry);
+              await msg.edit({ components: voteButtons }).catch(()=>{});
               saveData();
             }
           } catch {}
@@ -5464,11 +5717,11 @@ if(cmd==="gif"){
           try {
             const msg = sent.id ? sent : await interaction.fetchReply().catch(()=>null);
             if(msg){
-              await msg.react(resolveEmoji("goodquote", msg)).catch(()=>{});
-              await msg.react(resolveEmoji("badquote", msg)).catch(()=>{});
-              await msg.react(resolveEmoji("raccoontrashcan", msg)).catch(()=>{});
               quoteVoteMessages.set(msg.id, chosen.name);
-              trashcanVotes.set(msg.id, { filename: chosen.name, voters: new Set(), guildId: interaction.guildId||null, channelId: interaction.channelId||null, sentToDeleter: false });
+              const trashEntry = { filename: chosen.name, voters: new Set(), guildId: interaction.guildId||null, channelId: interaction.channelId||null, sentToDeleter: false };
+              trashcanVotes.set(msg.id, trashEntry);
+              const voteButtons = makeQuoteVoteButtons(msg.id, quoteVotes.get(chosen.name), trashEntry);
+              await msg.edit({ components: voteButtons }).catch(()=>{});
               saveData();
             }
           } catch {}
@@ -5663,7 +5916,8 @@ if(cmd==="gif"){
         {title:"🎮 Games  —  Page 4 / 7",description:["**Solo** — `/games game:…`","> 🪢 Hangman · 🐍 Snake · 💣 Minesweeper (Easy/Med/Hard)","> 🔢 Number Guess · 🔀 Word Scramble · 📅 Daily Challenge","","**2-Player** — `/2playergames game:… [opponent:…]`","> ❌⭕ Tic Tac Toe *(server only)*","> 🔴🔵 Connect 4 *(server only)*","> ✊ Rock Paper Scissors *(choices sent via DM)*","> 🧮 Math Race · 🏁 Word Race · 🧠 Trivia Battle *(server only)*","> 🔢 Count Game — count to 100 together, no opponent needed *(server only)*","> 🏁 Scramble Race — 5-round word unscramble *(server only)*","","Wins award coins. Check `/score` or `/userprofile` for stats."].join("\n")},
         {title:"⚙️ Server Config  —  Page 5 / 7",description:["Most commands here require **Manage Server** permission.","","**Channels & Messages**","`/channelpicker channel:… [levelup]` — Set the bot\'s main channel","`/xpconfig setting:…` — Level-up messages (on/off, ping toggle, channel)","`/setwelcome channel:… [message]` — Welcome message (`{user}` `{server}` `{count}`)","`/setleave channel:… [message]` — Leave message","`/setboostmsg channel:… [message]` — Boost announcement","`/disableownermsg enabled:…` — Toggle bot owner broadcasts","`/purge amount:…` — Bulk delete (needs Manage Messages)","`/counting action:set|remove|status` — Set a permanent counting channel","","**Roles**","`/autorole [role]` — Auto-assign role on join (blank to disable)","`/reactionrole action:add|remove|list …` — Emoji reaction roles","`/rolespingfix` — List & fix roles that can @everyone","","**Competitions & Tickets**","`/invitecomp hours:…` — Invite competition with coin rewards","`/ticketsetup` · `/closeticket` · `/addtoticket` · `/removefromticket`","","**Overview**","`/serverconfig` — View all current settings"].join("\n")},
         {title:"🛡️ Activity & RA/LOA  —  Page 6 / 7",description:["**Activity Checks** *(Manage Server)*","`/activity-check channel:… [deadline] [message] [ping] [schedule]` — Send a check-in to staff","> Specify which roles must respond and who is excluded","> Auto-closes after the deadline and reports who didn\'t check in","> Add `schedule:Monday 09:00` (UTC) to repeat it weekly automatically","","**RA / LOA Setup** *(Manage Server)*","`/raconfig action:create` — Auto-create Reduced Activity + LOA roles","`/raconfig action:set_ra|set_loa role:…` — Use existing roles","`/raconfig action:view` — See current config","","**Assigning Roles** *(Manage Roles)*","`/reduced-activity user:… action:give|remove [duration]` — Give/remove RA role","`/loa user:… action:give|remove [duration]` — Give/remove LOA role","> `duration` is in hours — omit for permanent"].join("\n")},
-        {title:"📺 YouTube Tracking  —  Page 7 / 7",description:["Track a YouTube channel\'s subscriber count live in Discord.","All commands require **Manage Server** permission.","","**Setup (do this first)**","`/ytsetup channel:… discord_channel:… [apikey:…]` — Connect a YouTube channel","> Accepts `@handle`, full URL, or channel ID starting with UC","> Provide your YouTube Data API v3 key on first use — it\'s saved to botdata","> Get a free key at console.cloud.google.com → enable YouTube Data API v3","","**Live Sub Count**","`/subcount threshold:1K|10K` — Post an embed that edits itself every 5 min","","**Sub Goal**","`/subgoal goal:N [message]` — Live progress bar towards a target sub count","> Fires a custom or default message when the goal is reached","","**Milestones**","`/milestones action:add subs:N [message]` — Announce when a sub count is crossed","`/milestones action:remove subs:N` — Remove a milestone","`/milestones action:list` — View all milestones and their status","","**[Owner] Pranks & Chaos**","`/paranoia user:… [chance]` — DM a user creepy paranoia messages (1-100% chance per message)","> Right-click any message → **Tomato This** — splat tomato-splat.gif onto a message screenshot as a GIF"].join("\n")},
+        {title:"📺 YouTube Tracking  —  Page 7 / 8",description:["Track a YouTube channel\'s subscriber count live in Discord.","All commands require **Manage Server** permission.","","**Setup (do this first)**","`/ytsetup channel:… discord_channel:… [apikey:…]` — Connect a YouTube channel","> Accepts `@handle`, full URL, or channel ID starting with UC","> Provide your YouTube Data API v3 key on first use — it\'s saved to botdata","> Get a free key at console.cloud.google.com → enable YouTube Data API v3","","**Live Sub Count**","`/subcount threshold:1K|10K` — Post an embed that edits itself every 5 min","","**Sub Goal**","`/subgoal goal:N [message]` — Live progress bar towards a target sub count","> Fires a custom or default message when the goal is reached","","**Milestones**","`/milestones action:add subs:N [message]` — Announce when a sub count is crossed","`/milestones action:remove subs:N` — Remove a milestone","`/milestones action:list` — View all milestones and their status","","**[Owner] Pranks & Chaos**","`/paranoia user:… [chance]` — DM a user creepy paranoia messages (1-100% chance per message)","> Right-click any message → **Tomato This** — splat tomato-splat.gif onto a Discord-style message card (open to everyone)"].join("\n")},
+        {title:"🤖 Community Modes  —  Page 8 / 8",description:["Clankerify replaces a user\'s messages with a webhook impersonating them in a chosen personality.","","**For Everyone**","`/selfclank duration:1-5` — Clankerify yourself for 1–5 min with any mode","> Choose from built-in modes or any custom modes owners have built","> Max 2 self-clanked users per server at once","> `/selfclank duration:0` to cancel early","","**Built-in Modes**","🤖 No mode (plain) · 😈 Evil · 😏 Freaky · 🦅 American · 🫖 British","🪖 Stupid · 📰 Boomer · 🔺 Conspiracy · 🗺️ NPC · 😤 Sigma","⚔️ Medieval · 👻 Ghost · 🏴‍☠️ Pirate · 🦝 RespawnRaccoon Propaganda","🇫🇷 French · 🐱 UWU/LOLCAT · 🏴󠁧󠁢󠁳󠁣󠁴󠁿 Scottish · 🎲 Random","","**[Owner] Custom Modes** — built with `/clankerbuild`","`/clankerbuild action:create name:<id>` — Opens a builder modal with:","  • Display name format (`{name}` = the user\'s name)","  • Word replacements (`hello→howdy, friend→pardner, …`)","  • Signoffs (`yeehaw! | much obliged | git along now`)","  • Message start prefix","  • Emoji shown in the mode selector","`/clankerbuild action:list` — View all custom modes","`/clankerbuild action:delete name:<id>` — Remove a custom mode","","Custom modes appear automatically in the `/clankerify` and `/selfclank` dropdowns.","","**[Owner] Temp Owner Access**","`/tempowner user:… duration:… [commands:…]` — Grant a user temporary access","> Pick specific commands by name (comma-separated) or use `all`","> They receive a DM listing exactly what they can use and for how long"].join("\n")},
       ];
       const TOTAL=HELP_PAGES.length;
       function buildHelpEmbed(page){
@@ -7332,30 +7586,34 @@ if(cmd==="gif"){
         return safeReply(interaction,{content:`❌ There are already **2** self-clanked users in this server (the maximum). Wait for one to expire.`,ephemeral:true});
       }
       // Build mode selection menu
+      const selfclankBuiltIn = [
+        {label:"No mode (plain)",           value:"none",             emoji:"🤖"},
+        {label:"Evil",                      value:"evil",             emoji:"😈"},
+        {label:"Freaky",                    value:"freaky",           emoji:"😏"},
+        {label:"American",                  value:"american",         emoji:"🦅"},
+        {label:"British",                   value:"british",          emoji:"🫖"},
+        {label:"Stupid",                    value:"stupid",           emoji:"🪖"},
+        {label:"Boomer",                    value:"boomer",           emoji:"📰"},
+        {label:"Conspiracy",                value:"conspiracy",       emoji:"🔺"},
+        {label:"NPC",                       value:"npc",              emoji:"🗺️"},
+        {label:"Sigma",                     value:"sigma",            emoji:"😤"},
+        {label:"Medieval",                  value:"medieval",         emoji:"⚔️"},
+        {label:"Ghost",                     value:"ghost",            emoji:"👻"},
+        {label:"Pirate",                    value:"pirate",           emoji:"🏴‍☠️"},
+        {label:"RespawnRaccoon Propaganda", value:"rr_propaganda",    emoji:"🦝"},
+        {label:"French",                    value:"french",           emoji:"🇫🇷"},
+        {label:"UWU / LOLCAT",              value:"uwu",              emoji:"🐱"},
+        {label:"Scottish",                  value:"scottish",         emoji:"🏴󠁧󠁢󠁳󠁣󠁴󠁿"},
+        {label:"Random (picks a random mode each message)", value:"random",   emoji:"🎲"},
+      ];
+      const selfclankCustom = [...customClankerModes.entries()].map(([id, m]) => ({
+        label: `Custom: ${id}`, value: id, emoji: m.emoji || "⭐",
+      }));
       const modeMenu = new MessageActionRow().addComponents(
         new MessageSelectMenu()
           .setCustomId(`selfclank_mode_${interaction.user.id}_${duration}`)
           .setPlaceholder("Pick a personality mode…")
-          .addOptions([
-            {label:"No mode (plain)",           value:"none",             emoji:"🤖"},
-            {label:"Evil",                      value:"evil",             emoji:"😈"},
-            {label:"Freaky",                    value:"freaky",           emoji:"😏"},
-            {label:"American",                  value:"american",         emoji:"🦅"},
-            {label:"British",                   value:"british",          emoji:"🫖"},
-            {label:"Stupid",                    value:"stupid",           emoji:"🪖"},
-            {label:"Boomer",                    value:"boomer",           emoji:"📰"},
-            {label:"Conspiracy",                value:"conspiracy",       emoji:"🔺"},
-            {label:"NPC",                       value:"npc",              emoji:"🗺️"},
-            {label:"Sigma",                     value:"sigma",            emoji:"😤"},
-            {label:"Medieval",                  value:"medieval",         emoji:"⚔️"},
-            {label:"Ghost",                     value:"ghost",            emoji:"👻"},
-            {label:"Pirate",                    value:"pirate",           emoji:"🏴‍☠️"},
-            {label:"RespawnRaccoon Propaganda", value:"rr_propaganda",    emoji:"🦝"},
-            {label:"French",                    value:"french",           emoji:"🇫🇷"},
-            {label:"UWU / LOLCAT",              value:"uwu",              emoji:"🐱"},
-            {label:"Scottish",                  value:"scottish",         emoji:"🏴󠁧󠁢󠁳󠁣󠁴󠁿"},
-            {label:"Random (picks a random mode each message)", value:"random",   emoji:"🎲"},
-          ])
+          .addOptions([...selfclankBuiltIn, ...selfclankCustom].slice(0, 25))
       );
       return safeReply(interaction,{
         content:`🤖 Self-clankerifying yourself for **${duration} minute(s)**. Pick a mode:`,
