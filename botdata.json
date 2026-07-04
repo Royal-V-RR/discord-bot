@@ -32184,7 +32184,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 66,
+        "xp": 75,
         "level": 7,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -33797,7 +33797,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 50,
+        "xp": 65,
         "level": 6,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -55356,6 +55356,10 @@
     [
       "1522936314138202274",
       "Characters walk dog.png"
+    ],
+    [
+      "1522936485177725048",
+      "quote_1496607993062756463.png"
     ]
   ],
   "reviewChannelId": "1503045026866004071",
@@ -70563,6 +70567,16 @@
       "1522936314138202274",
       {
         "filename": "Characters walk dog.png",
+        "voters": [],
+        "guildId": "1048053656035020911",
+        "channelId": "1477294439180537980",
+        "sentToDeleter": false
+      }
+    ],
+    [
+      "1522936485177725048",
+      {
+        "filename": "quote_1496607993062756463.png",
         "voters": [],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
