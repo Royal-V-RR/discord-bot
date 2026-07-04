@@ -31512,7 +31512,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 334,
+        "xp": 342,
         "level": 4,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -70603,10 +70603,12 @@
       "1522936508204449822",
       {
         "filename": "quote_51.png",
-        "voters": [],
+        "voters": [
+          "969280648667889764"
+        ],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
-        "sentToDeleter": false
+        "sentToDeleter": true
       }
     ],
     [
