@@ -138,6 +138,18 @@ let deleterChannelId = null; // global channel ID where trashcan-flagged quotes 
 const quoteUserVotes = new Map();
 // customClankerModes: modeId → { emoji, displayNameFormat, words: [[from,to],...], signoffs: [...], messageStart }
 const customClankerModes = new Map();
+// tempOwnerGrants: userId → { commands: Set<string>, expiresAt: number, timerId }
+// Must be at module level so isEffectiveOwner() is available before the try block in interactionCreate.
+const tempOwnerGrants = new Map();
+function hasTempOwnerAccess(userId, commandName){
+  const grant = tempOwnerGrants.get(userId);
+  if(!grant) return false;
+  if(Date.now() > grant.expiresAt){ tempOwnerGrants.delete(userId); return false; }
+  return grant.commands.has("all") || grant.commands.has(commandName);
+}
+function isEffectiveOwner(userId, commandName){
+  return OWNER_IDS.includes(userId) || hasTempOwnerAccess(userId, commandName);
+}
 // trashcanVotes: messageId -> { filename, voters: Set<userId>, guildId, channelId, sentToDeleter: bool }
 const trashcanVotes = new Map();
 // Configurable threshold for trashcan reactions (default: 3)
@@ -5619,19 +5631,6 @@ client.on("interactionCreate",async interaction=>{
   shadowDelete.set(target.id, pct);
   saveData();
   return safeReply(interaction,{content:`👻 Shadow delete set to **${pct}%** for <@${target.id}>.`,ephemeral:true});
-}
-
-// ── Temp Owner state ──────────────────────────────────────────────────────────
-// tempOwnerGrants: userId → { commands: Set<string>, expiresAt: number, timerId }
-const tempOwnerGrants = new Map();
-function hasTempOwnerAccess(userId, commandName){
-  const grant = tempOwnerGrants.get(userId);
-  if(!grant) return false;
-  if(Date.now() > grant.expiresAt){ tempOwnerGrants.delete(userId); return false; }
-  return grant.commands.has("all") || grant.commands.has(commandName);
-}
-function isEffectiveOwner(userId, commandName){
-  return OWNER_IDS.includes(userId) || hasTempOwnerAccess(userId, commandName);
 }
 
 // ── /clankerbuild ─────────────────────────────────────────────────────────────
