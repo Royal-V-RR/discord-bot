@@ -55074,6 +55074,10 @@
     [
       "1522930933035040839",
       "thomas is a minor.png"
+    ],
+    [
+      "1522930987682500758",
+      "quote_3.png"
     ]
   ],
   "reviewChannelId": "1503045026866004071",
@@ -69589,6 +69593,16 @@
       "1522930933035040839",
       {
         "filename": "thomas is a minor.png",
+        "voters": [],
+        "guildId": "1048053656035020911",
+        "channelId": "1477294439180537980",
+        "sentToDeleter": false
+      }
+    ],
+    [
+      "1522930987682500758",
+      {
+        "filename": "quote_3.png",
         "voters": [],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
