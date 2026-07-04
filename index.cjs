@@ -1124,10 +1124,16 @@ function openItemMysteryBox(){
 async function safeReply(interaction, payload) {
   try {
     const p = typeof payload==="string" ? {content:payload} : payload;
-    if (interaction.deferred) return await interaction.editReply(p);
-    if (interaction.replied)  return await interaction.followUp({...p, ephemeral:true});
+    if (interaction.deferred) return await interaction.editReply(p).catch(()=>{});
+    if (interaction.replied)  return await interaction.followUp({...p, ephemeral:true}).catch(()=>{});
     return await interaction.reply(p);
-  } catch(e) { /* ignore */ }
+  } catch(e) {
+    // Swallow "Unknown interaction" / "Interaction has already been acknowledged"
+    // errors — these happen when Discord's 3-second window has expired.
+    if(e?.code !== 10062 && !e?.message?.includes("already been acknowledged")){
+      console.error("[safeReply error]", e?.message);
+    }
+  }
 }
 async function btnAck(interaction) {
   try { await interaction.deferUpdate(); return true; } catch { return false; }
@@ -1136,6 +1142,8 @@ async function btnEphemeral(interaction, text) {
   try {
     if (!interaction.replied && !interaction.deferred)
       await interaction.reply({content:text, ephemeral:true});
+    else
+      await interaction.followUp({content:text, ephemeral:true}).catch(()=>{});
   } catch {}
 }
 async function safeSend(channel, payload) {
@@ -5495,20 +5503,20 @@ client.on("interactionCreate",async interaction=>{
       return safeReply(interaction,{content:"❌ You need **Manage Server** permission.",ephemeral:true});
   }
 
-  try{
-    // ── Auto-defer safety net ──────────────────────────────────────────────────
-    // If the command handler hasn't acknowledged the interaction within 2.5 s,
-    // automatically defer it so Discord doesn't show "Application did not respond".
-    // safeReply() already checks interaction.deferred and calls editReply(), so
-    // all existing reply paths work unchanged after this fires.
-    const _autoDeferTimer = setTimeout(async () => {
-      if(!interaction.replied && !interaction.deferred){
-        console.warn(`[auto-defer] /${cmd} exceeded 2.5s — deferring to prevent timeout`);
-        await interaction.deferReply().catch(()=>{});
-      }
-    }, 2500);
-    const _clearAutoDefer = () => clearTimeout(_autoDeferTimer);
+  // ── Auto-defer safety net ────────────────────────────────────────────────────
+  // Declared OUTSIDE try/catch so _clearAutoDefer is in scope in both blocks.
+  // If the handler hasn't replied within 2.5 s, defer automatically so Discord
+  // never shows "Application did not respond". safeReply() already handles the
+  // deferred state by calling editReply() instead of reply().
+  let _autoDeferTimer = setTimeout(async () => {
+    if(!interaction.replied && !interaction.deferred){
+      console.warn(`[auto-defer] /${cmd} exceeded 2.5s — auto-deferring`);
+      await interaction.deferReply().catch(()=>{});
+    }
+  }, 2500);
+  const _clearAutoDefer = () => clearTimeout(_autoDeferTimer);
 
+  try{
     const au=()=>`<@${interaction.user.id}>`;
     const bu=()=>`<@${interaction.options.getUser("user").id}>`;
 
