@@ -69432,10 +69432,12 @@
       "1522889889685831800",
       {
         "filename": "quote_5.png",
-        "voters": [],
+        "voters": [
+          "969280648667889764"
+        ],
         "guildId": "1408975996715139084",
         "channelId": "1408975997272854611",
-        "sentToDeleter": false
+        "sentToDeleter": true
       }
     ],
     [
