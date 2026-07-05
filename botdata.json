@@ -71188,10 +71188,12 @@
       "1523267435870814289",
       {
         "filename": "quote_1503783762511527946.png",
-        "voters": [],
+        "voters": [
+          "690219723472109616"
+        ],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
-        "sentToDeleter": false
+        "sentToDeleter": true
       }
     ]
   ],
