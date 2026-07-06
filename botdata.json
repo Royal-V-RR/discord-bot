@@ -71560,10 +71560,12 @@
       "1523701774911930540",
       {
         "filename": "IMG_5321.png",
-        "voters": [],
+        "voters": [
+          "1520763926105821276"
+        ],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
-        "sentToDeleter": false
+        "sentToDeleter": true
       }
     ],
     [
