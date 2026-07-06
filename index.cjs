@@ -94,6 +94,7 @@ const openTickets      = new Map();
 const premieres        = new Map(); // premiereId -> { title, endsAt, channelId, userId, messageId, guildId }
 const disabledLevelUp  = new Set(); // legacy — now superseded by levelUpConfig.enabled
 const userInstalls     = new Set();
+const blacklistedUsers = new Set(); // Users banned from ever running any command or using bot features — persisted in botdata.json
 const activityChecks   = new Map(); // messageId -> { guildId, channelId, roleIds, deadline, respondedUsers: Set }
 const scheduledChecks  = new Map(); // `${guildId}:${channelId}` -> { guildId, channelId, dayOfWeek, hour, minute, deadlineHr, customMsg, doPing, roleIds, excludedIds, nextFire }
 const raConfig         = new Map(); // guildId -> { raRoleId, loaRoleId }
@@ -602,6 +603,7 @@ function buildDataObject() {
     ytConfig:         [...ytConfig.entries()],
     countingChannels: [...countingChannels.entries()],
     userInstalls:     [...userInstalls],
+    blacklistedUsers: [...blacklistedUsers],
     scores:           [...scores.entries()],
     // Active item effects — expiry timestamps so buffs survive restarts
     activeEffects:    [...activeEffects.entries()],
@@ -694,6 +696,7 @@ function loadData() {
     if (data.ytConfig)         data.ytConfig         .forEach(([k,v]) => ytConfig.set(k, v));
     if (data.countingChannels) data.countingChannels  .forEach(([k,v]) => countingChannels.set(k, v));
     if (data.userInstalls)     data.userInstalls    .forEach(v => userInstalls.add(v));
+    if (data.blacklistedUsers) data.blacklistedUsers.forEach(v => blacklistedUsers.add(v));
     if (data.scores)           data.scores          .forEach(([k,v]) => scores.set(k, v));
     if (data.memers)           { MEMERS.clear(); data.memers.forEach(v => MEMERS.add(v)); }
 
@@ -2222,7 +2225,7 @@ const OWNER_ONLY_CMDS = new Set([
   "legendrandom","fakemessage","fakequote","dmconfig","leaveserver","restart","refreshcmds",
   "botstats","setstatus","adminuser","adminreset","adminconfig","admingive",
   "shadowdelete","clankerify","forcemarry","forcedivorce","echo","paranoia",
-  "clankerbuild","tempowner",
+  "clankerbuild","tempowner","blacklist",
   // Owner context-menu commands
   "Reaction Bomb","Clank This","Expose",
 ]);
@@ -2522,6 +2525,16 @@ function buildCommands(){
       {name:"user",       description:"User to grant access to",type:6,required:true},
       {name:"duration",   description:"How long in minutes (1–1440)",type:4,required:true,min_value:1,max_value:1440},
       {name:"commands",   description:"Comma-separated list of command names to grant (or 'all')",type:3,required:false},
+    ]},
+
+    // ── [Owner] Blacklist ─────────────────────────────────────────────────────
+    {name:"blacklist", description:"[Owner] Block a user from ever using RoyalBot",options:[
+      {name:"action",description:"What to do",type:3,required:true,choices:[
+        {name:"Add",   value:"add"},
+        {name:"Remove",value:"remove"},
+        {name:"List",  value:"list"},
+      ]},
+      {name:"user",description:"User to blacklist / unblacklist",type:6,required:false},
     ]},
 
   ];
@@ -2841,6 +2854,7 @@ client.on("messageReactionRemove", async (reaction, user) => {
 // ── DM forwarding ──────────────────────────────────────────────────────────────
 client.on("messageCreate", async msg => {
   if (msg.author.bot) return;
+  if (blacklistedUsers.has(msg.author.id)) return; // blacklisted — ignore DMs entirely
   if (msg.guild) {
     // guild messages handled below
   } else {
@@ -2898,6 +2912,14 @@ client.on("messageCreate", async msg => {
 
 client.on("messageCreate",async msg=>{
   if(msg.author.bot||!msg.guild)return;
+
+  // ── Blacklist — blocks all guild message-based features ────────────────────
+  if(blacklistedUsers.has(msg.author.id)){
+    if(countingChannels.has(msg.channelId)){
+      await safeSend(msg.channel,`${msg.author} is blacklisted from RoyalBot and cannot count, ignore this message`);
+    }
+    return;
+  }
 
   // ── DM relay: messages sent in a user's relay channel get DMed to them ─────
   if(msg.guildId === dmRelayGuildId){
@@ -3745,6 +3767,16 @@ client.on("messageCreate",async msg=>{
 // ── Interaction handler ───────────────────────────────────────────────────────
 client.on("interactionCreate",async interaction=>{
   if(!instanceLocked)return;
+
+  // ── Blacklist — blocks ALL interactions (commands, buttons, menus) ─────────
+  if(interaction.user && blacklistedUsers.has(interaction.user.id)){
+    try{
+      const payload={content:`❌ <@${interaction.user.id}> is blacklisted from RoyalBot and cannot use this bot.`,ephemeral:true};
+      if(interaction.deferred||interaction.replied) await interaction.followUp(payload).catch(()=>{});
+      else await interaction.reply(payload).catch(()=>{});
+    }catch{}
+    return;
+  }
 
   if(!interaction.guildId && interaction.user && !interaction.user.bot){
     if(!userInstalls.has(interaction.user.id)){
@@ -5505,7 +5537,7 @@ client.on("interactionCreate",async interaction=>{
   const cmd=interaction.commandName;
   const inGuild=!!interaction.guildId;
 
-  const ownerOnly=["servers","broadcast","requester","deleter","fakecrash","identitycrisis","botolympics","sentience","legendrandom","dmconfig","leaveserver","restart","refreshcmds","botstats","setstatus","adminuser","adminreset","adminconfig","admingive","echo","shadowdelete","clankerify","fakemessage","fakequote","forcemarry","forcedivorce","paranoia","clankerbuild","tempowner"];
+  const ownerOnly=["servers","broadcast","requester","deleter","fakecrash","identitycrisis","botolympics","sentience","legendrandom","dmconfig","leaveserver","restart","refreshcmds","botstats","setstatus","adminuser","adminreset","adminconfig","admingive","echo","shadowdelete","clankerify","fakemessage","fakequote","forcemarry","forcedivorce","paranoia","clankerbuild","tempowner","blacklist"];
   if(ownerOnly.includes(cmd)&&!isEffectiveOwner(interaction.user.id, cmd))return safeReply(interaction,{content:"Owner only.",ephemeral:true});
 
   const manageServerCmds=["channelpicker","counting","xpconfig","setwelcome","setleave","setwelcomemsg","setleavemsg","disableownermsg","serverconfig","autorole","setboostmsg","invitecomp","purge","reactionrole","ticketsetup","ytsetup","subgoal","subcount","milestones","dailyquote"];
@@ -5760,6 +5792,35 @@ if(cmd==="tempowner"){
       ...(rows.length ? { components: rows } : {}),
     });
   } catch(e){ console.warn("[tempowner] DM failed:",e.message); }
+  return;
+}
+
+if(cmd==="blacklist"){
+  const action = interaction.options.getString("action");
+  const targetUser = interaction.options.getUser("user");
+
+  if(action==="list"){
+    if(blacklistedUsers.size===0) return safeReply(interaction,{content:"No users are currently blacklisted.",ephemeral:true});
+    return safeReply(interaction,{content:`🚫 **Blacklisted users:**\n${[...blacklistedUsers].map(id=>`<@${id}> (\`${id}\`)`).join("\n")}`,ephemeral:true});
+  }
+
+  if(!targetUser) return safeReply(interaction,{content:"You need to specify a user for this action.",ephemeral:true});
+
+  if(action==="add"){
+    if(OWNER_IDS.includes(targetUser.id)) return safeReply(interaction,{content:"❌ Can't blacklist an owner.",ephemeral:true});
+    if(blacklistedUsers.has(targetUser.id)) return safeReply(interaction,{content:`<@${targetUser.id}> is already blacklisted.`,ephemeral:true});
+    blacklistedUsers.add(targetUser.id);
+    saveDataAndCommitNow().catch(()=>{});
+    return safeReply(interaction,{content:`🚫 <@${targetUser.id}> has been blacklisted from RoyalBot. They can no longer use any command or feature of the bot.`,ephemeral:true});
+  }
+
+  if(action==="remove"){
+    if(!blacklistedUsers.has(targetUser.id)) return safeReply(interaction,{content:`<@${targetUser.id}> is not blacklisted.`,ephemeral:true});
+    blacklistedUsers.delete(targetUser.id);
+    saveDataAndCommitNow().catch(()=>{});
+    return safeReply(interaction,{content:`✅ <@${targetUser.id}> has been removed from the blacklist.`,ephemeral:true});
+  }
+
   return;
 }
 
