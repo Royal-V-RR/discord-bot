@@ -5529,6 +5529,7 @@ client.on("interactionCreate",async interaction=>{
   const _clearAutoDefer = () => clearTimeout(_autoDeferTimer);
 
   try{
+    const uid     = interaction.user.id;   // shorthand — safe to use anywhere in this try block
     const au=()=>`<@${interaction.user.id}>`;
     const bu=()=>`<@${interaction.options.getUser("user").id}>`;
 
@@ -5635,14 +5636,12 @@ client.on("interactionCreate",async interaction=>{
 
 // ── /clankerbuild ─────────────────────────────────────────────────────────────
 if(cmd==="clankerbuild"){
-  if(!OWNER_IDS.includes(uid)) return safeReply(interaction,{content:"Owner only.",ephemeral:true});
-  const action = interaction.options.getString("action");
-  const isOwner = OWNER_IDS.includes(uid);
+  const callerId = interaction.user.id;
+  const action   = interaction.options.getString("action");
+  const isOwner  = OWNER_IDS.includes(callerId);
 
-  // Helpers
-  const BUILTIN_MODES = new Set(["none","evil","freaky","american","british","stupid","boomer","conspiracy","npc","sigma","medieval","ghost","pirate","rr_propaganda","french","uwu","scottish","random"]);
   // User sees their own modes; owners see all
-  const visibleModes = [...customClankerModes.entries()].filter(([,m]) => isOwner || m.creatorId === uid);
+  const visibleModes = [...customClankerModes.entries()].filter(([,m]) => isOwner || m.creatorId === callerId);
 
   // ── list ──────────────────────────────────────────────────────────────────
   if(action==="list"){
@@ -5665,7 +5664,7 @@ if(cmd==="clankerbuild"){
       }));
       components.push(new MessageActionRow().addComponents(
         new MessageSelectMenu()
-          .setCustomId(`clankerbuild_pick_edit_${uid}`)
+          .setCustomId(`clankerbuild_pick_edit_${callerId}`)
           .setPlaceholder("✏️ Edit an existing mode…")
           .addOptions(opts.slice(0,25))
       ));
@@ -5695,7 +5694,7 @@ if(cmd==="clankerbuild"){
       content:"🗑️ **Delete a Custom Mode** — select one to remove:",
       components:[new MessageActionRow().addComponents(
         new MessageSelectMenu()
-          .setCustomId(`clankerbuild_pick_delete_${uid}`)
+          .setCustomId(`clankerbuild_pick_delete_${callerId}`)
           .setPlaceholder("Select mode to delete…")
           .addOptions(opts.slice(0,25))
       )],
@@ -5706,7 +5705,6 @@ if(cmd==="clankerbuild"){
 
 // ── /tempowner ────────────────────────────────────────────────────────────────
 if(cmd==="tempowner"){
-  if(!OWNER_IDS.includes(uid)) return safeReply(interaction,{content:"Owner only.",ephemeral:true});
   const targetUser = interaction.options.getUser("user");
   const duration   = interaction.options.getInteger("duration"); // minutes
   const rawCmds    = (interaction.options.getString("commands")||"all").trim();
