@@ -488,12 +488,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 15200,
-        "lastSubsTimestamp": 1783381280420,
+        "lastSubsTimestamp": 1783381580393,
         "history": [
-          {
-            "ts": 1783071199040,
-            "subs": 15100
-          },
           {
             "ts": 1783071499064,
             "subs": 15100
@@ -4489,6 +4485,10 @@
           {
             "ts": 1783381280420,
             "subs": 15200
+          },
+          {
+            "ts": 1783381580393,
+            "subs": 15200
           }
         ],
         "subcountDiscordId": "1483595393999700080",
@@ -5317,7 +5317,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 369,
+        "xp": 382,
         "level": 24,
         "lastWorkTime": 1778752522595,
         "lastBegTime": 0,
@@ -5690,7 +5690,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 735,
+        "xp": 744,
         "level": 17,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -6850,7 +6850,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 1618,
+        "xp": 1628,
         "level": 25,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -72009,7 +72009,17 @@
     ]
   ],
   "selfClankCooldown": [],
-  "pendingReviews": [],
+  "pendingReviews": [
+    [
+      "109616mr9vc1ei",
+      {
+        "submitterId": "690219723472109616",
+        "fileName": "690219723472109616__image__Bildschirmfoto_20260707_014520.png",
+        "rawName": "Bildschirmfoto_20260707_014520.png",
+        "mediaKind": "image"
+      }
+    ]
+  ],
   "uploadCounters": {
     "quote": 127,
     "eardestroyer": 1,
