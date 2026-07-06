@@ -4906,7 +4906,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-27",
-        "xp": 3067,
+        "xp": 3076,
         "level": 25,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -5317,7 +5317,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 382,
+        "xp": 393,
         "level": 24,
         "lastWorkTime": 1778752522595,
         "lastBegTime": 0,
@@ -5690,7 +5690,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 744,
+        "xp": 749,
         "level": 17,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -6850,7 +6850,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 1628,
+        "xp": 1641,
         "level": 25,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -29208,7 +29208,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 220,
+        "xp": 228,
         "level": 6,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -29217,9 +29217,11 @@
         "inventory": [],
         "marriedTo": null,
         "pendingProposal": null,
-        "imagesUploaded": 0,
+        "imagesUploaded": 1,
         "forceMarried": false,
-        "uploadedImages": []
+        "uploadedImages": [
+          "quote_128.jpg"
+        ]
       }
     ],
     [
@@ -72021,7 +72023,7 @@
     ]
   ],
   "uploadCounters": {
-    "quote": 127,
+    "quote": 128,
     "eardestroyer": 1,
     "eyebleacher": 3
   },
