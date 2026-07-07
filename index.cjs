@@ -187,6 +187,40 @@ function rebuildDmRelayReverseMap() {
   dmRelayChannelsByChannel.clear();
   for (const [userId, channelId] of dmRelayChannels) dmRelayChannelsByChannel.set(channelId, userId);
 }
+// Returns (creating if necessary) the relay channel for a user in the configured hub server.
+// Used by /dmconfig (manual open) and automatically the instant someone DMs the bot for the first time.
+async function ensureDmRelayChannel(user) {
+  if (!dmRelayGuildId) return null;
+  const hubGuild = client.guilds.cache.get(dmRelayGuildId);
+  if (!hubGuild) return null;
+
+  const existingChannelId = dmRelayChannels.get(user.id);
+  if (existingChannelId) {
+    const existingChannel = hubGuild.channels.cache.get(existingChannelId);
+    if (existingChannel) return existingChannel;
+    // stale entry (channel deleted) — fall through and recreate
+  }
+
+  try {
+    let category = hubGuild.channels.cache.find(c => c.type === "GUILD_CATEGORY" && c.name === "DM Relays");
+    if (!category) category = await hubGuild.channels.create("DM Relays", { type: "GUILD_CATEGORY" }).catch(() => null);
+
+    const channelName = `dm-${user.username}`.toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").slice(0, 90) || `dm-${user.id}`;
+    const channel = await hubGuild.channels.create(channelName, {
+      type: "GUILD_TEXT",
+      parent: category ? category.id : undefined,
+      topic: `DM relay for ${user.tag} (${user.id}) — messages sent here go to their DMs; their DM replies show up here.`,
+    });
+
+    setDmRelayChannel(user.id, channel.id);
+    saveData();
+    await channel.send(`📨 This channel now relays DMs with **${user.tag}**. Anything sent here goes to their DMs, and their replies show up here.`).catch(() => {});
+    return channel;
+  } catch (e) {
+    console.error("ensureDmRelayChannel error:", e.message);
+    return null;
+  }
+}
 
 // ── Upload counters & persistent status ───────────────────────────────────────
 // Global sequential counters for /upload + /requestupload filenames (persisted in botdata.json)
@@ -2745,6 +2779,15 @@ function resolveEmoji(name, msg) {
 // Renders the 👍 N  👎 N  🗑️ N button row shown beneath every quote image.
 // Uses app emojis from appEmojiCache if available, falls back to plain unicode.
 // Vote counts come from quoteVotes (filename → {up,down}); trash count from trashcanVotes.
+// Looks up which user uploaded a given quote filename, by scanning each user's uploadedImages list.
+// Returns a userId, or null if there's no upload record (e.g. quotes added directly, pre-tracking).
+function findQuoteUploader(filename) {
+  for (const [userId, s] of scores) {
+    if (Array.isArray(s.uploadedImages) && s.uploadedImages.includes(filename)) return userId;
+  }
+  return null;
+}
+
 function makeQuoteVoteButtons(msgId, votes, trashData) {
   const v      = votes || { up: 0, down: 0 };
   const trash  = trashData?.voters?.size ?? 0;
@@ -2772,6 +2815,11 @@ function makeQuoteVoteButtons(msgId, votes, trashData) {
       .setLabel("Who?")
       .setStyle("SECONDARY")
       .setEmoji({ name: "👥" }),
+    new MessageButton()
+      .setCustomId(`qvote_uploader_${msgId}`)
+      .setLabel("Uploader")
+      .setStyle("SECONDARY")
+      .setEmoji({ name: "🖼️" }),
   )];
 }
 
@@ -2858,26 +2906,25 @@ client.on("messageCreate", async msg => {
   if (msg.guild) {
     // guild messages handled below
   } else {
-    // ── DM relay: if this user has an active relay channel, forward there ──────
-    const relayChannelId = dmRelayChannels.get(msg.author.id);
-    if (relayChannelId) {
-      try {
-        const hubGuild = dmRelayGuildId ? client.guilds.cache.get(dmRelayGuildId) : null;
-        const relayChannel = hubGuild ? hubGuild.channels.cache.get(relayChannelId) : null;
-        if (relayChannel) {
-          const files = msg.attachments.size > 0 ? [...msg.attachments.values()].map(a => a.url) : undefined;
-          if (msg.content || files) await relayChannel.send({ content: msg.content || undefined, files });
-          if (msg.stickers.size > 0) {
-            await relayChannel.send(msg.stickers.map(s => `🎭 **Sticker:** ${s.name}`).join("\n")).catch(() => {});
-          }
-          return; // handled — skip the generic owner-DM notification below
+    if (OWNER_IDS.includes(msg.author.id)) return; // owners DMing the bot — no relay, no notification
+
+    // ── DM relay: forward to this user's relay channel, auto-creating it on their first DM ──
+    try {
+      const relayChannel = await ensureDmRelayChannel(msg.author).catch(() => null);
+      if (relayChannel) {
+        const files = msg.attachments.size > 0 ? [...msg.attachments.values()].map(a => a.url) : undefined;
+        if (msg.content || files) await relayChannel.send({ content: msg.content || undefined, files });
+        if (msg.stickers.size > 0) {
+          await relayChannel.send(msg.stickers.map(s => `🎭 **Sticker:** ${s.name}`).join("\n")).catch(() => {});
         }
-      } catch(e) { console.error("dmRelay (DM→channel) forward error:", e.message); }
-    }
+        return; // handled — skip the generic owner-DM notification below
+      }
+    } catch(e) { console.error("dmRelay (DM→channel) forward error:", e.message); }
+
+    // Fallback — no relay hub configured yet, so just notify the owner directly.
     try {
       const owner = await client.users.fetch(OWNER_ID);
       const ownerDM = await owner.createDM();
-      if (OWNER_IDS.includes(msg.author.id)) return;
       const displayName = msg.member?.displayName || msg.author.displayName || msg.author.globalName || msg.author.username;
       const header =
         `📬 **DM received**\n` +
@@ -2925,6 +2972,10 @@ client.on("messageCreate",async msg=>{
   if(msg.guildId === dmRelayGuildId){
     const relayUserId = dmRelayChannelsByChannel.get(msg.channelId);
     if(relayUserId){
+      if(blacklistedUsers.has(relayUserId)){
+        await msg.react("🚫").catch(() => {});
+        return; // blacklisted — don't relay outgoing messages to their DMs either
+      }
       try{
         const files = msg.attachments.size > 0 ? [...msg.attachments.values()].map(a => a.url) : undefined;
         if(msg.content || files){
@@ -3992,9 +4043,9 @@ client.on("interactionCreate",async interaction=>{
     }
 
     // ── Quote vote buttons ─────────────────────────────────────────────────────
-    // qvote_up_{msgId}, qvote_down_{msgId}, qvote_trash_{msgId}, qvote_who_{msgId}
-    if(cid.startsWith("qvote_up_") || cid.startsWith("qvote_down_") || cid.startsWith("qvote_trash_") || cid.startsWith("qvote_who_")){
-      const [,direction,msgId] = cid.match(/^qvote_(up|down|trash|who)_(.+)$/)||[];
+    // qvote_up_{msgId}, qvote_down_{msgId}, qvote_trash_{msgId}, qvote_who_{msgId}, qvote_uploader_{msgId}
+    if(cid.startsWith("qvote_up_") || cid.startsWith("qvote_down_") || cid.startsWith("qvote_trash_") || cid.startsWith("qvote_who_") || cid.startsWith("qvote_uploader_")){
+      const [,direction,msgId] = cid.match(/^qvote_(up|down|trash|who|uploader)_(.+)$/)||[];
       if(!msgId){ try{await interaction.reply({content:"❌ Invalid vote button.",ephemeral:true});}catch{} return; }
 
       const filename = quoteVoteMessages.get(msgId);
@@ -4037,6 +4088,19 @@ client.on("interactionCreate",async interaction=>{
           `${badStr} **Bad (${votes.down}):** ${fmt(downNames)}`,
           `${trashStr} **Flagged (${trashIds.length}):** ${fmt(trashNames)}`,
         ].join("\n")}).catch(()=>{});
+        return;
+      }
+
+      // ── Who uploaded this quote? (ephemeral) ─────────────────────────────────
+      if(direction==="uploader"){
+        await interaction.deferReply({ephemeral:true}).catch(()=>{});
+        const uploaderId = findQuoteUploader(filename);
+        if(!uploaderId){
+          await interaction.editReply({content:`🖼️ No upload record found for \`${filename}\` — it was likely added directly, before upload tracking existed.`}).catch(()=>{});
+          return;
+        }
+        const uploaderName = await client.users.fetch(uploaderId).then(u=>u.globalName||u.username).catch(()=>null);
+        await interaction.editReply({content:`🖼️ \`${filename}\` was uploaded by ${uploaderName?`**${uploaderName}** `:""}<@${uploaderId}>`}).catch(()=>{});
         return;
       }
 
@@ -5127,24 +5191,6 @@ client.on("interactionCreate",async interaction=>{
       return;
     }
 
-    try{await interaction.deferUpdate();}catch{}
-    return;
-    } catch(btnErr) {
-      console.error("[button/select handler error]", btnErr);
-      try {
-        if(!interaction.replied && !interaction.deferred)
-          await interaction.reply({content:"❌ Something went wrong. Please try again.", ephemeral:true});
-        else
-          await interaction.followUp({content:"❌ Something went wrong. Please try again.", ephemeral:true}).catch(()=>{});
-      } catch {}
-    }
-  }
-
-  // ── Modal submits ─────────────────────────────────────────────────────────────
-  if(interaction.isModalSubmit()){
-    const uid = interaction.user.id;
-    const cid = interaction.customId;
-
     // ── /clankerbuild_new — open blank create modal ────────────────────────────
     if(cid === "clankerbuild_new"){
       if(!OWNER_IDS.includes(uid)){ try{await interaction.reply({content:"Owner only.",ephemeral:true});}catch{} return; }
@@ -5228,6 +5274,24 @@ client.on("interactionCreate",async interaction=>{
       try{await interaction.update({content:"Cancelled.", components:[]});}catch{}
       return;
     }
+
+    try{await interaction.deferUpdate();}catch{}
+    return;
+    } catch(btnErr) {
+      console.error("[button/select handler error]", btnErr);
+      try {
+        if(!interaction.replied && !interaction.deferred)
+          await interaction.reply({content:"❌ Something went wrong. Please try again.", ephemeral:true});
+        else
+          await interaction.followUp({content:"❌ Something went wrong. Please try again.", ephemeral:true}).catch(()=>{});
+      } catch {}
+    }
+  }
+
+  // ── Modal submits ─────────────────────────────────────────────────────────────
+  if(interaction.isModalSubmit()){
+    const uid = interaction.user.id;
+    const cid = interaction.customId;
 
     // ── /clankerbuild modal submit ────────────────────────────────────────────
     if(cid === "clankerbuild_modal_NEW" || cid.startsWith("clankerbuild_modal_EDIT_")){
@@ -5811,6 +5875,22 @@ if(cmd==="blacklist"){
     if(blacklistedUsers.has(targetUser.id)) return safeReply(interaction,{content:`<@${targetUser.id}> is already blacklisted.`,ephemeral:true});
     blacklistedUsers.add(targetUser.id);
     saveDataAndCommitNow().catch(()=>{});
+
+    // Notify them, then cut off their relay channel — all further DMs (either direction) are ignored from here on.
+    try {
+      const dm = await targetUser.createDM();
+      await dm.send("You've been blacklisted.");
+    } catch(e) { console.error("[blacklist] DM notify failed:", e.message); }
+
+    const relayChannelId = dmRelayChannels.get(targetUser.id);
+    if(relayChannelId){
+      try{
+        const hubGuild = dmRelayGuildId ? client.guilds.cache.get(dmRelayGuildId) : null;
+        const relayChannel = hubGuild ? hubGuild.channels.cache.get(relayChannelId) : null;
+        if(relayChannel) await relayChannel.send("🚫 This user has been blacklisted — DMs no longer relay through this channel.").catch(()=>{});
+      } catch(e) { console.error("[blacklist] relay notice failed:", e.message); }
+    }
+
     return safeReply(interaction,{content:`🚫 <@${targetUser.id}> has been blacklisted from RoyalBot. They can no longer use any command or feature of the bot.`,ephemeral:true});
   }
 
@@ -6734,26 +6814,9 @@ if(cmd==="gif"){
       }
       // (if existingChannelId pointed at a channel that no longer exists, fall through and recreate it)
 
-      try{
-        // Keep relay channels tidy under a shared category — reuse one if it already exists.
-        let category = hubGuild.channels.cache.find(c => c.type === "GUILD_CATEGORY" && c.name === "DM Relays");
-        if(!category) category = await hubGuild.channels.create("DM Relays", { type: "GUILD_CATEGORY" }).catch(() => null);
-
-        const channelName = `dm-${targetUser.username}`.toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").slice(0, 90) || `dm-${targetUser.id}`;
-        const channel = await hubGuild.channels.create(channelName, {
-          type: "GUILD_TEXT",
-          parent: category ? category.id : undefined,
-          topic: `DM relay for ${targetUser.tag} (${targetUser.id}) — messages sent here go to their DMs; their DM replies show up here.`,
-        });
-
-        setDmRelayChannel(targetUser.id, channel.id);
-        saveData();
-        await channel.send(`📨 This channel now relays DMs with **${targetUser.tag}**. Anything sent here goes to their DMs, and their replies show up here.`).catch(() => {});
-        return safeReply(interaction,{content:`✅ Opened relay channel for <@${targetUser.id}>: <#${channel.id}>`,ephemeral:true});
-      }catch(e){
-        console.error("dmconfig open error:", e.message);
-        return safeReply(interaction,{content:`❌ Couldn't create a relay channel: ${e.message}`,ephemeral:true});
-      }
+      const channel = await ensureDmRelayChannel(targetUser);
+      if(!channel) return safeReply(interaction,{content:"❌ Couldn't create a relay channel.",ephemeral:true});
+      return safeReply(interaction,{content:`✅ Opened relay channel for <@${targetUser.id}>: <#${channel.id}>`,ephemeral:true});
     }
     if(cmd==="fakemessage"){
       if(!interaction.guildId)return safeReply(interaction,{content:"Server only.",ephemeral:true});
