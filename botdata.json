@@ -4917,7 +4917,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-27",
-        "xp": 4349,
+        "xp": 4356,
         "level": 25,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -72361,23 +72361,6 @@
     ]
   ],
   "customClankerModes": [
-    [
-      "test_again",
-      {
-        "emoji": "😞",
-        "displayNameFormat": "{name} the tester",
-        "words": [
-          [
-            "Test",
-            "tester"
-          ]
-        ],
-        "signoffs": [],
-        "messageStart": "",
-        "creatorId": "969280648667889764",
-        "creatorName": "Royal V-"
-      }
-    ],
     [
       "respawn_raccoon",
       {
