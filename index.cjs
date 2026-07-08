@@ -3689,6 +3689,24 @@ client.on("messageCreate",async msg=>{
           }
         }
 
+        // ── Custom mode (built with /clankerbuild) — must run BEFORE sendOpts is built ──
+        if(mode && customClankerModes.has(mode)){
+          const cm = customClankerModes.get(mode);
+          const rawName = member?.displayName || msg.author.displayName || msg.author.globalName || msg.author.username;
+          displayName = (cm.displayNameFormat || "{name}").replace("{name}", rawName);
+          if(sendContent){
+            let t = sendContent;
+            for(const [from, to] of (cm.words || [])){
+              // Case-insensitive, and \s+ so multi-word phrases like "New York" still match spacing variations.
+              const pattern = from.trim().replace(/[.*+?^${}()|[\]\\]/g,"\\$&").replace(/\s+/g, "\\s+");
+              t = t.replace(new RegExp(`\\b${pattern}\\b`, "gi"), to);
+            }
+            if(cm.messageStart) t = cm.messageStart + t;
+            if(cm.signoffs?.length) t += " " + cm.signoffs[Math.floor(Math.random()*cm.signoffs.length)];
+            sendContent = t;
+          }
+        }
+
         // Get or create a webhook for this channel
         const webhooks = await msg.channel.fetchWebhooks().catch(()=>null);
         let webhook    = webhooks?.find(w => w.owner?.id === CLIENT_ID && w.name === "RoyalBot Proxy");
@@ -3703,21 +3721,6 @@ client.on("messageCreate",async msg=>{
         // If only stickers (no content/attachments), send sticker names as text
         if(!sendContent && !attachFiles.length && stickers.length){
           sendOpts.content = stickers.map(n => `[Sticker: ${n}]`).join(" ");
-        }
-        // ── Custom mode (built with /clankerbuild) ────────────────────────────
-        if(mode && customClankerModes.has(mode)){
-          const cm = customClankerModes.get(mode);
-          const rawName = member?.displayName || msg.author.displayName || msg.author.globalName || msg.author.username;
-          displayName = (cm.displayNameFormat || "{name}").replace("{name}", rawName);
-          if(sendContent){
-            let t = sendContent;
-            for(const [from, to] of (cm.words || [])){
-              t = t.replace(new RegExp(`\\b${from.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")}\\b`, "gi"), to);
-            }
-            if(cm.messageStart) t = cm.messageStart + t;
-            if(cm.signoffs?.length) t += " " + cm.signoffs[Math.floor(Math.random()*cm.signoffs.length)];
-            sendContent = t;
-          }
         }
 
         if(sendOpts.content || sendOpts.files){
@@ -5193,7 +5196,6 @@ client.on("interactionCreate",async interaction=>{
 
     // ── /clankerbuild_new — open blank create modal ────────────────────────────
     if(cid === "clankerbuild_new"){
-      if(!OWNER_IDS.includes(uid)){ try{await interaction.reply({content:"Owner only.",ephemeral:true});}catch{} return; }
       await interaction.showModal({
         title:"🛠️ New Clanker Mode",
         custom_id:"clankerbuild_modal_NEW",
@@ -5210,7 +5212,6 @@ client.on("interactionCreate",async interaction=>{
 
     // ── /clankerbuild pick-to-edit select ──────────────────────────────────────
     if(cid.startsWith("clankerbuild_pick_edit_")){
-      if(!OWNER_IDS.includes(uid)){ try{await interaction.reply({content:"Owner only.",ephemeral:true});}catch{} return; }
       const modeName = interaction.values[0];
       const existing = customClankerModes.get(modeName) || {};
       // Only the creator or an owner can edit
@@ -5234,7 +5235,6 @@ client.on("interactionCreate",async interaction=>{
 
     // ── /clankerbuild pick-to-delete select ────────────────────────────────────
     if(cid.startsWith("clankerbuild_pick_delete_")){
-      if(!OWNER_IDS.includes(uid)){ try{await interaction.reply({content:"Owner only.",ephemeral:true});}catch{} return; }
       const modeName = interaction.values[0];
       const existing = customClankerModes.get(modeName);
       if(!existing){ try{await interaction.reply({content:"Mode not found.",ephemeral:true});}catch{} return; }
@@ -5257,7 +5257,6 @@ client.on("interactionCreate",async interaction=>{
 
     // ── /clankerbuild delete confirm / cancel ──────────────────────────────────
     if(cid.startsWith("clankerbuild_delconfirm_")){
-      if(!OWNER_IDS.includes(uid)){ try{await interaction.reply({content:"Owner only.",ephemeral:true});}catch{} return; }
       const modeName = cid.slice("clankerbuild_delconfirm_".length);
       const existing = customClankerModes.get(modeName);
       if(!existing){ try{await interaction.update({content:"Mode not found.",components:[]});}catch{} return; }
@@ -5295,7 +5294,6 @@ client.on("interactionCreate",async interaction=>{
 
     // ── /clankerbuild modal submit ────────────────────────────────────────────
     if(cid === "clankerbuild_modal_NEW" || cid.startsWith("clankerbuild_modal_EDIT_")){
-      if(!OWNER_IDS.includes(uid)) return safeReply(interaction,{content:"Owner only.",ephemeral:true});
       const isNew    = cid === "clankerbuild_modal_NEW";
       const modeName = isNew
         ? (interaction.fields.getTextInputValue("cb_name")||"").trim().toLowerCase().replace(/\s+/g,"_")
