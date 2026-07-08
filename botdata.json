@@ -250,6 +250,13 @@
         "mode": "uwu",
         "ownerClanked": true
       }
+    ],
+    [
+      "1254388539890860083",
+      {
+        "expiresAt": 1783471536904,
+        "mode": "rr_propaganda"
+      }
     ]
   ],
   "reactionRoles": [
@@ -4710,7 +4717,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-15",
-        "xp": 3768,
+        "xp": 3782,
         "level": 24,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -72258,7 +72265,9 @@
   "selfClankUsers": [
     [
       "1048053656035020911",
-      []
+      [
+        "1254388539890860083"
+      ]
     ],
     [
       "1408975996715139084",
