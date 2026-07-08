@@ -72289,10 +72289,12 @@
       "1524354425744003255",
       {
         "filename": "Untitled_6_Conflicted_copy_from_localhost_on_2026-05-18-23-25-37_conflict.png",
-        "voters": [],
+        "voters": [
+          "1520763926105821276"
+        ],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
-        "sentToDeleter": false
+        "sentToDeleter": true
       }
     ]
   ],
