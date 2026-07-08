@@ -250,13 +250,6 @@
         "mode": "uwu",
         "ownerClanked": true
       }
-    ],
-    [
-      "1099756603667910696",
-      {
-        "expiresAt": 1783516738660,
-        "mode": "north_korean"
-      }
     ]
   ],
   "reactionRoles": [
@@ -5939,7 +5932,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 2211,
+        "xp": 2220,
         "level": 15,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -6870,7 +6863,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 2449,
+        "xp": 2458,
         "level": 25,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -72306,9 +72299,7 @@
   "selfClankUsers": [
     [
       "1048053656035020911",
-      [
-        "1099756603667910696"
-      ]
+      []
     ],
     [
       "1408975996715139084",
@@ -72318,7 +72309,7 @@
   "selfClankCooldown": [
     [
       "1099756603667910696",
-      1783516377079
+      1783517338677
     ]
   ],
   "pendingReviews": [],
