@@ -72313,7 +72313,25 @@
       }
     ]
   ],
-  "customClankerModes": [],
+  "customClankerModes": [
+    [
+      "test_mode",
+      {
+        "emoji": "🫪",
+        "displayNameFormat": "The tester called {name}",
+        "words": [
+          [
+            "Omg",
+            "Holy guacamole"
+          ]
+        ],
+        "signoffs": [],
+        "messageStart": "",
+        "creatorId": "969280648667889764",
+        "creatorName": "Royal V-"
+      }
+    ]
+  ],
   "quoteUserVotes": [
     [
       "quote_1470144647933460571.png",
