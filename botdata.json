@@ -72260,16 +72260,19 @@
   "selfClankUsers": [
     [
       "1048053656035020911",
-      [
-        "969280648667889764"
-      ]
+      []
     ],
     [
       "1408975996715139084",
       []
     ]
   ],
-  "selfClankCooldown": [],
+  "selfClankCooldown": [
+    [
+      "969280648667889764",
+      1783504746399
+    ]
+  ],
   "pendingReviews": [],
   "uploadCounters": {
     "quote": 141,
