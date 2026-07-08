@@ -250,13 +250,6 @@
         "mode": "uwu",
         "ownerClanked": true
       }
-    ],
-    [
-      "1099756603667910696",
-      {
-        "expiresAt": 1783515777063,
-        "mode": "north_korean"
-      }
     ]
   ],
   "reactionRoles": [
@@ -72306,16 +72299,19 @@
   "selfClankUsers": [
     [
       "1048053656035020911",
-      [
-        "1099756603667910696"
-      ]
+      []
     ],
     [
       "1408975996715139084",
       []
     ]
   ],
-  "selfClankCooldown": [],
+  "selfClankCooldown": [
+    [
+      "1099756603667910696",
+      1783516377079
+    ]
+  ],
   "pendingReviews": [],
   "uploadCounters": {
     "quote": 141,
