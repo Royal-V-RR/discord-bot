@@ -4525,8 +4525,8 @@
       "1515972755424673902",
       {
         "guildId": "1048053656035020911",
-        "count": 45,
-        "lastUserId": "363149593787105291",
+        "count": 46,
+        "lastUserId": "302271848748417034",
         "highScore": 177
       }
     ]
@@ -17055,7 +17055,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 819,
+        "xp": 824,
         "level": 13,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -72359,12 +72359,7 @@
       []
     ]
   ],
-  "selfClankCooldown": [
-    [
-      "1520763926105821276",
-      1783549736422
-    ]
-  ],
+  "selfClankCooldown": [],
   "pendingReviews": [],
   "uploadCounters": {
     "quote": 144,
