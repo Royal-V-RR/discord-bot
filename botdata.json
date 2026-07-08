@@ -488,12 +488,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 15200,
-        "lastSubsTimestamp": 1783542251879,
+        "lastSubsTimestamp": 1783542551894,
         "history": [
-          {
-            "ts": 1783234683118,
-            "subs": 15100
-          },
           {
             "ts": 1783234983157,
             "subs": 15100
@@ -4488,6 +4484,10 @@
           },
           {
             "ts": 1783542251879,
+            "subs": 15200
+          },
+          {
+            "ts": 1783542551894,
             "subs": 15200
           }
         ],
@@ -34664,6 +34664,30 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 7,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1290352056116187181",
+      {
+        "username": "littleduckling0807",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 15,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
