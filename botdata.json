@@ -4909,7 +4909,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-27",
-        "xp": 5730,
+        "xp": 5742,
         "level": 25,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -72671,10 +72671,12 @@
       "1524850136751144990",
       {
         "filename": "quote_119.png",
-        "voters": [],
+        "voters": [
+          "1520763926105821276"
+        ],
         "guildId": "1048053656035020911",
         "channelId": "1508151472863580322",
-        "sentToDeleter": false
+        "sentToDeleter": true
       }
     ],
     [
