@@ -36219,7 +36219,7 @@
     [
       "quote_1498689610841325669.png",
       {
-        "up": 7,
+        "up": 8,
         "down": 1
       }
     ],
@@ -72741,7 +72741,17 @@
     ]
   ],
   "selfClankCooldown": [],
-  "pendingReviews": [],
+  "pendingReviews": [
+    [
+      "604966mrdvw428",
+      {
+        "submitterId": "1391972162285604966",
+        "fileName": "1391972162285604966__image__IMG_2520.png",
+        "rawName": "IMG_2520.png",
+        "mediaKind": "image"
+      }
+    ]
+  ],
   "uploadCounters": {
     "quote": 149,
     "eardestroyer": 1,
@@ -74044,6 +74054,15 @@
         [
           "1082452773787942922",
           "down"
+        ]
+      ]
+    ],
+    [
+      "quote_1498689610841325669.png",
+      [
+        [
+          "1391972162285604966",
+          "up"
         ]
       ]
     ]
