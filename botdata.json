@@ -34800,24 +34800,7 @@
       }
     ]
   ],
-  "activityChecks": [
-    [
-      "1524882493432397854",
-      {
-        "guildId": "1048053656035020911",
-        "channelId": "1469261541311512701",
-        "roleIds": [
-          "1493701557341130752"
-        ],
-        "excludedIds": [
-          "1497738566048944318",
-          "1497738615558639796"
-        ],
-        "deadline": 1783717117659,
-        "messageId": "1524882493432397854"
-      }
-    ]
-  ],
+  "activityChecks": [],
   "scheduledChecks": [],
   "dailyQuoteChannels": [
     [
