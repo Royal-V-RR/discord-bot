@@ -2259,7 +2259,7 @@ const OWNER_ONLY_CMDS = new Set([
   "legendrandom","fakemessage","fakequote","dmconfig","leaveserver","restart","refreshcmds",
   "botstats","setstatus","adminuser","adminreset","adminconfig","admingive",
   "shadowdelete","clankerify","forcemarry","forcedivorce","echo","paranoia",
-  "tempowner","blacklist",
+  "tempowner","blacklist","theremnant",
   // Owner context-menu commands
   "Reaction Bomb","Clank This","Expose",
 ]);
@@ -2569,6 +2569,11 @@ function buildCommands(){
         {name:"List",  value:"list"},
       ]},
       {name:"user",description:"User to blacklist / unblacklist",type:6,required:false},
+    ]},
+
+    // ── [Owner] The Remnant ───────────────────────────────────────────────────
+    {name:"theremnant", description:"[Owner] Send a mysterious dimensional transmission to this channel",options:[
+      {name:"message",description:"The text to transmit",type:3,required:true,max_length:1000},
     ]},
 
   ];
@@ -5274,6 +5279,18 @@ client.on("interactionCreate",async interaction=>{
       return;
     }
 
+    // ── /TheRemnant — public "Respond" button opens a reply modal ──────────────
+    if(cid === "theremnant_respond"){
+      await interaction.showModal({
+        title:"👁️ Respond to the Remnant",
+        custom_id:"theremnant_modal",
+        components:[
+          {type:1,components:[{type:4,custom_id:"remnant_reply",label:"Your message",style:2,required:true,placeholder:"Speak into the rift…",max_length:1500}]},
+        ],
+      }).catch(e=>console.error("[theremnant_respond modal]",e.message));
+      return;
+    }
+
     try{await interaction.deferUpdate();}catch{}
     return;
     } catch(btnErr) {
@@ -5291,6 +5308,36 @@ client.on("interactionCreate",async interaction=>{
   if(interaction.isModalSubmit()){
     const uid = interaction.user.id;
     const cid = interaction.customId;
+
+    // ── /TheRemnant — reply modal submit ────────────────────────────────────────
+    // Silently relays into the user's DM relay channel (creating one if needed).
+    // No public confirmation and no attribution in the message itself — the
+    // relay channel is already scoped to the user, and that's the only place
+    // this shows up.
+    if(cid === "theremnant_modal"){
+      const replyText = (interaction.fields.getTextInputValue("remnant_reply")||"").trim();
+      if(!replyText) return safeReply(interaction,{content:"❌ Message can't be empty.",ephemeral:true});
+      if(blacklistedUsers.has(uid)) return safeReply(interaction,{content:"❌ You can't do that.",ephemeral:true});
+
+      try{
+        const relayChannel = await ensureDmRelayChannel(interaction.user);
+        if(!relayChannel){
+          return safeReply(interaction,{content:"❌ The rift isn't open right now — try again later.",ephemeral:true});
+        }
+        await relayChannel.send({
+          embeds:[{
+            description: replyText,
+            color: 0x8E44AD,
+            footer:{text:"📡 Received via The Remnant"},
+            timestamp: new Date().toISOString(),
+          }],
+        }).catch(()=>{});
+        return safeReply(interaction,{content:"📡 Your message has been sent into the rift…",ephemeral:true});
+      } catch(e){
+        console.error("[theremnant_modal]", e.message);
+        return safeReply(interaction,{content:"❌ Something went wrong sending your message.",ephemeral:true});
+      }
+    }
 
     // ── /clankerbuild modal submit ────────────────────────────────────────────
     if(cid === "clankerbuild_modal_NEW" || cid.startsWith("clankerbuild_modal_EDIT_")){
@@ -5599,7 +5646,7 @@ client.on("interactionCreate",async interaction=>{
   const cmd=interaction.commandName;
   const inGuild=!!interaction.guildId;
 
-  const ownerOnly=["servers","broadcast","requester","deleter","fakecrash","identitycrisis","botolympics","sentience","legendrandom","dmconfig","leaveserver","restart","refreshcmds","botstats","setstatus","adminuser","adminreset","adminconfig","admingive","echo","shadowdelete","clankerify","fakemessage","fakequote","forcemarry","forcedivorce","paranoia","tempowner","blacklist"];
+  const ownerOnly=["servers","broadcast","requester","deleter","fakecrash","identitycrisis","botolympics","sentience","legendrandom","dmconfig","leaveserver","restart","refreshcmds","botstats","setstatus","adminuser","adminreset","adminconfig","admingive","echo","shadowdelete","clankerify","fakemessage","fakequote","forcemarry","forcedivorce","paranoia","tempowner","blacklist","theremnant"];
   if(ownerOnly.includes(cmd)&&!isEffectiveOwner(interaction.user.id, cmd))return safeReply(interaction,{content:"Owner only.",ephemeral:true});
 
   const manageServerCmds=["channelpicker","counting","xpconfig","setwelcome","setleave","setwelcomemsg","setleavemsg","disableownermsg","serverconfig","autorole","setboostmsg","invitecomp","purge","reactionrole","ticketsetup","ytsetup","subgoal","subcount","milestones","dailyquote"];
@@ -5898,6 +5945,55 @@ if(cmd==="blacklist"){
     saveDataAndCommitNow().catch(()=>{});
     return safeReply(interaction,{content:`✅ <@${targetUser.id}> has been removed from the blacklist.`,ephemeral:true});
   }
+
+  return;
+}
+
+if(cmd==="theremnant"){
+  const text    = interaction.options.getString("message");
+  const channel = interaction.channel;
+  if(!channel) return safeReply(interaction,{content:"❌ Couldn't resolve this channel.",ephemeral:true});
+
+  // Ack the owner privately and instantly — the actual show plays out publicly below.
+  await safeReply(interaction,{content:"📡 Transmission initiated…",ephemeral:true});
+
+  (async () => {
+    try{
+      const beat = (ms) => new Promise(res=>setTimeout(res,ms));
+
+      await channel.sendTyping().catch(()=>{});
+      await beat(1800);
+      await channel.send("*Capturing stray dimensional data…*").catch(()=>{});
+
+      await channel.sendTyping().catch(()=>{});
+      await beat(1800);
+      await channel.send("*Data successfully captured!*").catch(()=>{});
+
+      await channel.sendTyping().catch(()=>{});
+      await beat(1600);
+      await channel.send("*Translating…*").catch(()=>{});
+
+      await channel.sendTyping().catch(()=>{});
+      await beat(2200);
+
+      const row = new MessageActionRow().addComponents(
+        new MessageButton().setCustomId("theremnant_respond").setLabel("📡 Respond").setStyle("PRIMARY")
+      );
+
+      await channel.send({
+        embeds:[{
+          title:"👁️ The Remnant",
+          description: text,
+          color: 0x8E44AD,
+          footer:{text:"A signal from somewhere else…"},
+          timestamp: new Date().toISOString(),
+        }],
+        components:[row],
+      }).catch(()=>{});
+    } catch(e){
+      console.error("[theremnant] sequence error:", e.message);
+    }
+  })();
 
   return;
 }
