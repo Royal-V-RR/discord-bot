@@ -4909,7 +4909,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-27",
-        "xp": 1379,
+        "xp": 1390,
         "level": 26,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -6887,7 +6887,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 4327,
+        "xp": 4336,
         "level": 25,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -34874,20 +34874,7 @@
     ]
   ],
   "activeEffects": [],
-  "reminders": [
-    {
-      "userId": "969280648667889764",
-      "channelId": "1508151472863580322",
-      "time": 1783885052437,
-      "message": "Ping <@&1508151142096441484>"
-    },
-    {
-      "userId": "969280648667889764",
-      "channelId": "1508151472863580322",
-      "time": 1783885062974,
-      "message": "Ping <@&1508151142096441484> for no reason lol"
-    }
-  ],
+  "reminders": [],
   "inviteComps": [],
   "premieres": [],
   "raConfig": [
