@@ -4619,7 +4619,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 1337,
+        "xp": 1351,
         "level": 15,
         "lastWorkTime": 1778930588496,
         "lastBegTime": 1778930582404,
@@ -17918,7 +17918,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-06-04",
-        "xp": 495,
+        "xp": 513,
         "level": 19,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -17998,7 +17998,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 2146,
+        "xp": 2164,
         "level": 15,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -34944,7 +34944,7 @@
       {
         "channelId": "1408975997272854611",
         "hour": 9,
-        "_lastFire": "1408975996715139084:2026-6-12:9"
+        "_lastFire": "1408975996715139084:2026-6-13:9"
       }
     ],
     [
@@ -56617,6 +56617,10 @@
     [
       "1525840736501891164",
       "list of people to pray for.png"
+    ],
+    [
+      "1526151307096883222",
+      "quote_1499145018231754753.png"
     ]
   ],
   "reviewChannelId": "1503045026866004071",
@@ -73056,6 +73060,16 @@
         "voters": [],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
+        "sentToDeleter": false
+      }
+    ],
+    [
+      "1526151307096883222",
+      {
+        "filename": "quote_1499145018231754753.png",
+        "voters": [],
+        "guildId": "1408975996715139084",
+        "channelId": "1408975997272854611",
         "sentToDeleter": false
       }
     ]
