@@ -480,12 +480,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 15200,
-        "lastSubsTimestamp": 1784046401464,
+        "lastSubsTimestamp": 1784046701476,
         "history": [
-          {
-            "ts": 1783736423469,
-            "subs": 15200
-          },
           {
             "ts": 1783736723476,
             "subs": 15200
@@ -4480,6 +4476,10 @@
           },
           {
             "ts": 1784046401464,
+            "subs": 15200
+          },
+          {
+            "ts": 1784046701476,
             "subs": 15200
           }
         ],
@@ -34926,6 +34926,30 @@
         "lastDailyDate": "",
         "xp": 27,
         "level": 2,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1373398574137872550",
+      {
+        "username": "vinybobgt",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 15,
+        "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
         "lastCrimeTime": 0,
