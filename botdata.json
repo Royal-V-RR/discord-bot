@@ -480,12 +480,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 15300,
-        "lastSubsTimestamp": 1784070587582,
+        "lastSubsTimestamp": 1784070887573,
         "history": [
-          {
-            "ts": 1783760084498,
-            "subs": 15200
-          },
           {
             "ts": 1783760384485,
             "subs": 15200
@@ -4481,6 +4477,10 @@
           {
             "ts": 1784070587582,
             "subs": 15300
+          },
+          {
+            "ts": 1784070887573,
+            "subs": 15300
           }
         ],
         "subcountDiscordId": "1483595393999700080",
@@ -4701,7 +4701,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-15",
-        "xp": 5863,
+        "xp": 5871,
         "level": 24,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -5238,7 +5238,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 2853,
+        "xp": 2860,
         "level": 24,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -5341,7 +5341,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 1273,
+        "xp": 1283,
         "level": 24,
         "lastWorkTime": 1778752522595,
         "lastBegTime": 0,
@@ -8431,7 +8431,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 472,
+        "xp": 477,
         "level": 8,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -8745,7 +8745,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 296,
+        "xp": 303,
         "level": 9,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -17751,7 +17751,7 @@
         "dailyStreak": 1,
         "bestStreak": 4,
         "lastDailyDate": "2026-06-13",
-        "xp": 1084,
+        "xp": 1094,
         "level": 15,
         "lastWorkTime": 1778166713164,
         "lastBegTime": 1778166374950,
