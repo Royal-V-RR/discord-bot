@@ -5241,7 +5241,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 3177,
+        "xp": 3192,
         "level": 24,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -7889,7 +7889,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 1539,
+        "xp": 1551,
         "level": 12,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -40724,6 +40724,13 @@
       "IMG_5790.png",
       {
         "up": 3,
+        "down": 0
+      }
+    ],
+    [
+      "quote_95.png",
+      {
+        "up": 1,
         "down": 0
       }
     ]
@@ -75179,6 +75186,15 @@
         ],
         [
           "1300613150487351366",
+          "up"
+        ]
+      ]
+    ],
+    [
+      "quote_95.png",
+      [
+        [
+          "1082452773787942922",
           "up"
         ]
       ]
