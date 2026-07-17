@@ -77,6 +77,35 @@ const guildChannels    = new Map();
 const welcomeChannels  = new Map();
 const leaveChannels    = new Map();
 const boostChannels    = new Map();
+// boostHistory: guildId -> Map<userId, {count, firstBoostAt, lastBoostAt}>
+// Tracks how many times each member has *started* boosting this server (not
+// simultaneous Nitro boost slots — Discord's API doesn't expose that count,
+// only whether a member is currently boosting). Members already boosting when
+// this feature first sees them are seeded at count:1.
+const boostHistory = new Map();
+function ensureBoostGuildMap(guildId){
+  if(!boostHistory.has(guildId)) boostHistory.set(guildId, new Map());
+  return boostHistory.get(guildId);
+}
+function recordBoost(guildId, userId){
+  const m = ensureBoostGuildMap(guildId);
+  const rec = m.get(userId) || {count:0, firstBoostAt:Date.now(), lastBoostAt:Date.now()};
+  rec.count += 1; rec.lastBoostAt = Date.now();
+  m.set(userId, rec);
+  saveData();
+}
+async function seedBoostHistory(guild){
+  const m = ensureBoostGuildMap(guild.id);
+  try{ await guild.members.fetch(); }catch{}
+  let changed = false;
+  for(const [id, member] of guild.members.cache){
+    if(member.premiumSince && !m.has(id)){
+      m.set(id, {count:1, firstBoostAt:member.premiumSinceTimestamp||Date.now(), lastBoostAt:member.premiumSinceTimestamp||Date.now()});
+      changed = true;
+    }
+  }
+  if(changed) saveData();
+}
 const autoRoles        = new Map();
 const reactionRoles    = new Map();
 const disabledOwnerMsg = new Set();
@@ -838,6 +867,7 @@ function buildDataObject() {
     paranoiaWatchers:     [...paranoiaWatchers.entries()],
     customClankerModes:   [...customClankerModes.entries()],
     serverStatsConfig:    [...serverStatsConfig.entries()],
+    boostHistory:         [...boostHistory.entries()].map(([gid,m]) => [gid, [...m.entries()]]),
     quoteUserVotes:       [...quoteUserVotes.entries()].map(([fn, m]) => [fn, [...m.entries()]]),
   };
 }
@@ -1051,6 +1081,7 @@ function loadData() {
     if (data.paranoiaWatchers) data.paranoiaWatchers.forEach(([k,v]) => paranoiaWatchers.set(k, v));
     if (data.customClankerModes) data.customClankerModes.forEach(([k,v]) => customClankerModes.set(k, v));
     if (data.serverStatsConfig) data.serverStatsConfig.forEach(([k,v]) => serverStatsConfig.set(k, v));
+    if (data.boostHistory) data.boostHistory.forEach(([gid,arr]) => { boostHistory.set(gid, new Map(arr)); });
     if (data.quoteUserVotes) data.quoteUserVotes.forEach(([fn, entries]) => quoteUserVotes.set(fn, new Map(entries)));
 
     console.log(`✅ Data loaded — ${ticketConfigs.size} ticket configs, ${reactionRoles.size} reaction roles, ${scores.size} scores, ${guildChannels.size} channels, ${activeEffects.size} active effects, ${reminders.length} reminders, ${inviteComps.size} active competitions, ${premieres.size} premieres, ${activityChecks.size} activity checks, ${raConfig.size} RA configs, ${dailyQuoteChannels.size} daily quote channels`);
@@ -2442,7 +2473,7 @@ const OWNER_ONLY_CMDS = new Set([
   "legendrandom","fakemessage","fakequote","dmconfig","leaveserver","restart","refreshcmds",
   "botstats","setstatus","adminuser","adminreset","adminconfig","admingive",
   "shadowdelete","clankerify","forcemarry","forcedivorce","echo","paranoia",
-  "tempowner","blacklist","theremnant",
+  "tempowner","blacklist","theremnant","boostsmanage",
   // Owner context-menu commands
   "Reaction Bomb","Clank This","Expose",
 ]);
@@ -2519,6 +2550,11 @@ function buildCommands(){
     {name:"score",            description:"Check game stats 🏆",options:uReq(false)},
     {name:"leaderboard",      description:"Global leaderboard 🌍",options:[{name:"type",description:"Type",type:3,required:false,choices:[{name:"Wins",value:"wins"},{name:"Coins",value:"coins"},{name:"Streak",value:"streak"},{name:"Best Streak",value:"beststreak"},{name:"Games Played",value:"games"},{name:"Win Rate",value:"winrate"},{name:"Images Uploaded",value:"images"}]}]},
     {name:"serverleaderboard",description:"Server leaderboard 🏠",options:[{name:"type",description:"Type",type:3,required:false,choices:[{name:"Wins",value:"wins"},{name:"Coins",value:"coins"},{name:"Streak",value:"streak"},{name:"Best Streak",value:"beststreak"},{name:"Games Played",value:"games"},{name:"Win Rate",value:"winrate"},{name:"Images Uploaded",value:"images"}]}]},
+    {name:"boostleaderboard",description:"See who's boosted the server the most 🚀"},
+    {name:"boostsmanage",description:"[Owner] Manually adjust a user's tracked boost count",options:[
+      {name:"user",description:"User to adjust",type:6,required:true},
+      {name:"amount",description:"Amount to add (negative to subtract, default 1)",type:4,required:false},
+    ]},
     // Games — solo
     {name:"games",        description:"Play a solo game 🎮",options:[{name:"game",description:"Which game",type:3,required:true,choices:[
       {name:"Hangman 🪢",          value:"hangman"},
@@ -2938,6 +2974,7 @@ client.on("guildMemberRemove",async member=>{
 });
 client.on("guildMemberUpdate",async(oldMember,newMember)=>{
   if(!oldMember.premiumSince&&newMember.premiumSince){
+    recordBoost(newMember.guild.id, newMember.id);
     const cfg=boostChannels.get(newMember.guild.id);if(!cfg)return;
     const ch=newMember.guild.channels.cache.get(cfg.channelId);if(!ch)return;
     const msg=(cfg.message||"🚀 **{user}** just boosted **{server}**! Thank you! 💜").replace("{user}",`<@${newMember.user.id}>`).replace("{server}",newMember.guild.name);
@@ -6107,7 +6144,7 @@ client.on("interactionCreate",async interaction=>{
   const cmd=interaction.commandName;
   const inGuild=!!interaction.guildId;
 
-  const ownerOnly=["servers","broadcast","requester","deleter","fakecrash","identitycrisis","botolympics","sentience","legendrandom","dmconfig","leaveserver","restart","refreshcmds","botstats","setstatus","adminuser","adminreset","adminconfig","admingive","echo","shadowdelete","clankerify","fakemessage","fakequote","forcemarry","forcedivorce","paranoia","tempowner","blacklist","theremnant"];
+  const ownerOnly=["servers","broadcast","requester","deleter","fakecrash","identitycrisis","botolympics","sentience","legendrandom","dmconfig","leaveserver","restart","refreshcmds","botstats","setstatus","adminuser","adminreset","adminconfig","admingive","echo","shadowdelete","clankerify","fakemessage","fakequote","forcemarry","forcedivorce","paranoia","tempowner","blacklist","theremnant","boostsmanage"];
   if(ownerOnly.includes(cmd)&&!isEffectiveOwner(interaction.user.id, cmd))return safeReply(interaction,{content:"Owner only.",ephemeral:true});
 
   const manageServerCmds=["channelpicker","counting","xpconfig","setwelcome","setleave","setwelcomemsg","setleavemsg","disableownermsg","serverconfig","autorole","setboostmsg","invitecomp","purge","reactionrole","ticketsetup","ytsetup","subgoal","subcount","milestones","dailyquote","serverstats"];
@@ -6973,6 +7010,50 @@ if(cmd==="gif"){
       const entries=[...scores.entries()].filter(([id])=>mids.has(id));
       if(!entries.length)return safeReply(interaction,"No scores in this server yet!");
       return safeReply(interaction,buildLeaderboard(entries,interaction.options.getString("type")||"wins",`🏠 ${interaction.guild.name}`));
+    }
+    if(cmd==="boostleaderboard"){
+      if(!inGuild)return safeReply(interaction,{content:"Server only.",ephemeral:true});
+      await interaction.deferReply(); _clearAutoDefer();
+      const guild=interaction.guild;
+      await seedBoostHistory(guild).catch(()=>{});
+      const gMap=boostHistory.get(guild.id);
+      const entries=gMap?[...gMap.entries()]:[];
+      if(!entries.length){
+        return safeReply(interaction,{embeds:[{
+          title:"🚀 Boost Leaderboard",
+          description:"No boosts recorded yet — be the first! 💜",
+          color:0xF47FFF,
+        }]});
+      }
+      const sorted=entries.sort((a,b)=>b[1].count-a[1].count||a[1].firstBoostAt-b[1].firstBoostAt).slice(0,15);
+      const medals=["🥇","🥈","🥉"];
+      const nowBoosting=new Set(guild.members.cache.filter(m=>m.premiumSince).map(m=>m.id));
+      const lines=sorted.map(([id,rec],i)=>{
+        const rank=medals[i]||`#${i+1}`;
+        const live=nowBoosting.has(id)?" 🟢":"";
+        return `${rank} <@${id}> — **${rec.count}** boost${rec.count!==1?"s":""}${live}`;
+      });
+      return safeReply(interaction,{embeds:[{
+        title:"🚀 Boost Leaderboard",
+        description:`**${guild.name}** has **${guild.premiumSubscriptionCount||0}** total boosts (Level ${guild.premiumTier||0})\n🟢 = currently boosting\n\n${lines.join("\n")}`,
+        color:0xF47FFF,
+        footer:{text:`${sorted.length} booster${sorted.length!==1?"s":""} • # = times each person has started boosting (Discord doesn't expose simultaneous boosts)`},
+        timestamp:new Date().toISOString(),
+      }]});
+    }
+    if(cmd==="boostsmanage"){
+      if(!inGuild)return safeReply(interaction,{content:"Server only.",ephemeral:true});
+      const target=interaction.options.getUser("user");
+      const amount=interaction.options.getInteger("amount")??1;
+      const m=ensureBoostGuildMap(interaction.guildId);
+      const existed=m.has(target.id);
+      const rec=m.get(target.id)||{count:0,firstBoostAt:Date.now(),lastBoostAt:Date.now()};
+      rec.count=Math.max(0,rec.count+amount);
+      rec.lastBoostAt=Date.now();
+      if(!existed) rec.firstBoostAt=Date.now();
+      m.set(target.id,rec);
+      saveData();
+      return safeReply(interaction,{content:`✅ ${amount>=0?"Added":"Removed"} **${Math.abs(amount)}** boost${Math.abs(amount)!==1?"s":""} ${amount>=0?"to":"from"} <@${target.id}>. New total: **${rec.count}**.`,ephemeral:true});
     }
 
     // Daily challenge
