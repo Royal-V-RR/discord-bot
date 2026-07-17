@@ -139,6 +139,174 @@ let deleterChannelId = null; // global channel ID where trashcan-flagged quotes 
 const quoteUserVotes = new Map();
 // customClankerModes: modeId → { emoji, displayNameFormat, words: [[from,to],...], signoffs: [...], messageStart }
 const customClankerModes = new Map();
+
+// ── Server Stats ("/serverstats") ────────────────────────────────────────────
+// serverStatsConfig: guildId → {
+//   categoryId, channels: [{id, type, label, emoji, roleId?}],
+//   intervalMinutes, locked, lastUpdate
+// }
+const serverStatsConfig = new Map();
+
+const SS_STAT_TYPES = {
+  all:           {emoji:"👥",label:"All Members",   desc:"Humans + bots combined"},
+  humans:        {emoji:"🙋",label:"Members",       desc:"Human members only"},
+  bots:          {emoji:"🤖",label:"Bots",          desc:"Bot accounts only"},
+  boosts:        {emoji:"🚀",label:"Boosts",        desc:"Server boost count"},
+  boostTier:     {emoji:"💎",label:"Boost Level",   desc:"Current boost tier (0-3)"},
+  textChannels:  {emoji:"💬",label:"Text Channels", desc:"Number of text channels"},
+  voiceChannels: {emoji:"🔊",label:"Voice Channels",desc:"Number of voice channels"},
+  categories:    {emoji:"📁",label:"Categories",    desc:"Number of categories"},
+  channels:      {emoji:"📺",label:"Total Channels",desc:"All channels combined"},
+  roles:         {emoji:"🎭",label:"Roles",         desc:"Number of roles"},
+  role:          {emoji:"🏷️",label:"Role Count",   desc:"Members with a specific role"},
+};
+const SS_MAX_CHANNELS = 10;
+const SS_MIN_INTERVAL_MIN = 10; // Discord only allows ~2 channel renames per 10 minutes
+
+function ssComputeValue(guild, entry){
+  switch(entry.type){
+    case "all":           return guild.memberCount;
+    case "humans":        return guild.members.cache.filter(m=>!m.user.bot).size;
+    case "bots":          return guild.members.cache.filter(m=>m.user.bot).size;
+    case "boosts":        return guild.premiumSubscriptionCount||0;
+    case "boostTier":     return `Lvl ${guild.premiumTier||0}`;
+    case "textChannels":  return guild.channels.cache.filter(c=>c.type==="GUILD_TEXT").size;
+    case "voiceChannels": return guild.channels.cache.filter(c=>c.type==="GUILD_VOICE").size;
+    case "categories":    return guild.channels.cache.filter(c=>c.type==="GUILD_CATEGORY").size;
+    case "channels":      return guild.channels.cache.size;
+    case "roles":         return guild.roles.cache.size;
+    case "role": {
+      const r = entry.roleId ? guild.roles.cache.get(entry.roleId) : null;
+      return r ? r.members.size : 0;
+    }
+    default: return 0;
+  }
+}
+function ssChannelName(guild, entry){
+  const value = ssComputeValue(guild, entry);
+  const name = entry.emoji ? `${entry.emoji} ${entry.label}: ${value}` : `${entry.label}: ${value}`;
+  return name.slice(0, 100);
+}
+function ssNeedsMembers(cfg){
+  return cfg.channels.some(e => e.type==="humans" || e.type==="bots" || e.type==="role");
+}
+async function ssUpdateGuildChannels(guild, cfg, opts={}){
+  if(!cfg || !cfg.channels?.length) return;
+  const now = Date.now();
+  const intervalMs = Math.max(SS_MIN_INTERVAL_MIN, cfg.intervalMinutes||15) * 60 * 1000;
+  if(!opts.force && cfg.lastUpdate && now - cfg.lastUpdate < intervalMs) return;
+  if(ssNeedsMembers(cfg)){ try{ await guild.members.fetch(); }catch{} }
+  let changed = false;
+  for(const entry of cfg.channels){
+    const ch = guild.channels.cache.get(entry.id);
+    if(!ch) continue;
+    const newName = ssChannelName(guild, entry);
+    if(ch.name !== newName){
+      await ch.setName(newName).catch(e=>console.error("[serverstats] rename failed:", e.message));
+      changed = true;
+    }
+  }
+  cfg.lastUpdate = now;
+  if(changed) saveData();
+}
+function ssBuildMainPanel(guild){
+  const cfg = serverStatsConfig.get(guild.id);
+  if(!cfg || !cfg.categoryId || !guild.channels.cache.has(cfg.categoryId)){
+    return {content:[
+      "## 📊 Server Stats",
+      "Set up live, auto-updating voice channels that show your server's stats at a glance — the classic locked-VC counter setup.",
+      "",
+      "You'll start with **All Members**, **Members**, and **Bots** counters, then you can add, remove, reorder, or restyle any stat afterward.",
+    ].join("\n"), components:[new MessageActionRow().addComponents(
+      new MessageButton().setCustomId("ss_setup").setLabel("🚀 Set Up Server Stats").setStyle("SUCCESS")
+    )]};
+  }
+  const lines = cfg.channels.map(e=>{
+    const ch = guild.channels.cache.get(e.id);
+    const val = ssComputeValue(guild, e);
+    return `${e.emoji||"📊"} **${e.label}** — \`${val}\``;
+  });
+  const intervalStr = `${cfg.intervalMinutes||15}m`;
+  const lockedStr = cfg.locked===false ? "🔓 Unlocked (joinable)" : "🔒 Locked (view only)";
+  const content = [
+    "## 📊 Server Stats",
+    `📁 Category: \`${guild.channels.cache.get(cfg.categoryId)?.name||"?"}\``,
+    `⏱️ Updates every **${intervalStr}** • ${lockedStr}`,
+    "",
+    cfg.channels.length ? lines.join("\n") : "*No stat channels yet — add one below.*",
+  ].join("\n");
+  const row1 = new MessageActionRow().addComponents(
+    new MessageButton().setCustomId("ss_add").setLabel("➕ Add Stat").setStyle("SUCCESS").setDisabled(cfg.channels.length>=SS_MAX_CHANNELS),
+    new MessageButton().setCustomId("ss_manage").setLabel("✏️ Edit / Remove").setStyle("PRIMARY").setDisabled(!cfg.channels.length),
+    new MessageButton().setCustomId("ss_settings").setLabel("⚙️ Settings").setStyle("SECONDARY"),
+  );
+  const row2 = new MessageActionRow().addComponents(
+    new MessageButton().setCustomId("ss_refresh").setLabel("🔄 Refresh Now").setStyle("SECONDARY"),
+    new MessageButton().setCustomId("ss_delete").setLabel("🗑️ Delete All").setStyle("DANGER"),
+  );
+  return {content, components:[row1,row2]};
+}
+function ssBuildAddMenu(cfg){
+  const existingTypes = new Set(cfg.channels.map(e=>e.type));
+  const remaining = SS_MAX_CHANNELS - cfg.channels.length;
+  const opts = Object.entries(SS_STAT_TYPES)
+    .filter(([type])=> type==="role" || !existingTypes.has(type))
+    .map(([type,meta])=>({label:meta.label, value:type, description:meta.desc, emoji:{name:meta.emoji}}));
+  const row1 = new MessageActionRow().addComponents(
+    new MessageSelectMenu().setCustomId("ss_add_sel").setPlaceholder("Choose stat(s) to add…")
+      .setMinValues(1).setMaxValues(Math.max(1,Math.min(remaining,opts.length))).setOptions(opts)
+  );
+  const row2 = new MessageActionRow().addComponents(new MessageButton().setCustomId("ss_back").setLabel("← Back").setStyle("SECONDARY"));
+  return [row1,row2];
+}
+function ssBuildManageList(guild,cfg){
+  const opts = cfg.channels.map(e=>{
+    const ch = guild.channels.cache.get(e.id);
+    return {label:(ch?.name||e.label).slice(0,100), value:e.id, description:`Type: ${SS_STAT_TYPES[e.type]?.label||e.type}`, emoji:{name:e.emoji||"📊"}};
+  }).slice(0,25);
+  const row1 = new MessageActionRow().addComponents(
+    new MessageSelectMenu().setCustomId("ss_manage_sel").setPlaceholder("Select a stat to edit…")
+      .setOptions(opts.length?opts:[{label:"No stats yet",value:"none"}]).setDisabled(!opts.length)
+  );
+  const row2 = new MessageActionRow().addComponents(new MessageButton().setCustomId("ss_back").setLabel("← Back").setStyle("SECONDARY"));
+  return [row1,row2];
+}
+function ssBuildEditActions(guild,cfg,entryId){
+  const idx = cfg.channels.findIndex(e=>e.id===entryId);
+  if(idx===-1) return ssBuildMainPanel(guild);
+  const e = cfg.channels[idx];
+  const content = `## ✏️ Editing: ${e.emoji||""} ${e.label}\nType: **${SS_STAT_TYPES[e.type]?.label||e.type}**\nCurrent value: \`${ssComputeValue(guild,e)}\``;
+  const row1 = new MessageActionRow().addComponents(
+    new MessageButton().setCustomId(`ss_editlabel_${entryId}`).setLabel("✏️ Rename Label").setStyle("PRIMARY"),
+    new MessageButton().setCustomId(`ss_editemoji_${entryId}`).setLabel("😀 Change Emoji").setStyle("PRIMARY"),
+  );
+  const row2 = new MessageActionRow().addComponents(
+    new MessageButton().setCustomId(`ss_moveup_${entryId}`).setLabel("⬆️ Move Up").setStyle("SECONDARY").setDisabled(idx<=0),
+    new MessageButton().setCustomId(`ss_movedown_${entryId}`).setLabel("⬇️ Move Down").setStyle("SECONDARY").setDisabled(idx>=cfg.channels.length-1),
+    new MessageButton().setCustomId(`ss_remove_${entryId}`).setLabel("🗑️ Remove").setStyle("DANGER"),
+  );
+  const row3 = new MessageActionRow().addComponents(new MessageButton().setCustomId("ss_manage").setLabel("← Back to List").setStyle("SECONDARY"));
+  return {content, components:[row1,row2,row3]};
+}
+function ssBuildSettingsPanel(guild,cfg){
+  const content = [
+    "## ⚙️ Server Stats Settings",
+    `📁 Category name: \`${guild.channels.cache.get(cfg.categoryId)?.name||"?"}\``,
+    `⏱️ Update interval: **${cfg.intervalMinutes||15} minutes** *(minimum 10 — Discord limits how often channel names can change)*`,
+    `${cfg.locked===false ? "🔓 Channels are unlocked (members can join)" : "🔒 Channels are locked (view-only, can't join)"}`,
+  ].join("\n");
+  const row1 = new MessageActionRow().addComponents(
+    new MessageSelectMenu().setCustomId("ss_interval_sel").setPlaceholder("Change update interval…").setOptions(
+      [10,15,30,60,120,360,720,1440].map(m=>({label:m<60?`${m} minutes`:`${m/60} hour${m>60?"s":""}`, value:String(m), default:(cfg.intervalMinutes||15)===m}))
+    )
+  );
+  const row2 = new MessageActionRow().addComponents(
+    new MessageButton().setCustomId("ss_togglelock").setLabel(cfg.locked===false?"🔒 Lock Channels":"🔓 Unlock Channels").setStyle("SECONDARY"),
+    new MessageButton().setCustomId("ss_renamecat").setLabel("✏️ Rename Category").setStyle("SECONDARY"),
+  );
+  const row3 = new MessageActionRow().addComponents(new MessageButton().setCustomId("ss_back").setLabel("← Back").setStyle("SECONDARY"));
+  return {content, components:[row1,row2,row3]};
+}
 // tempOwnerGrants: userId → { commands: Set<string>, expiresAt: number, timerId }
 // Must be at module level so isEffectiveOwner() is available before the try block in interactionCreate.
 const tempOwnerGrants = new Map();
@@ -669,6 +837,7 @@ function buildDataObject() {
     dmRelayChannels:      [...dmRelayChannels.entries()],
     paranoiaWatchers:     [...paranoiaWatchers.entries()],
     customClankerModes:   [...customClankerModes.entries()],
+    serverStatsConfig:    [...serverStatsConfig.entries()],
     quoteUserVotes:       [...quoteUserVotes.entries()].map(([fn, m]) => [fn, [...m.entries()]]),
   };
 }
@@ -881,6 +1050,7 @@ function loadData() {
     }
     if (data.paranoiaWatchers) data.paranoiaWatchers.forEach(([k,v]) => paranoiaWatchers.set(k, v));
     if (data.customClankerModes) data.customClankerModes.forEach(([k,v]) => customClankerModes.set(k, v));
+    if (data.serverStatsConfig) data.serverStatsConfig.forEach(([k,v]) => serverStatsConfig.set(k, v));
     if (data.quoteUserVotes) data.quoteUserVotes.forEach(([fn, entries]) => quoteUserVotes.set(fn, new Map(entries)));
 
     console.log(`✅ Data loaded — ${ticketConfigs.size} ticket configs, ${reactionRoles.size} reaction roles, ${scores.size} scores, ${guildChannels.size} channels, ${activeEffects.size} active effects, ${reminders.length} reminders, ${inviteComps.size} active competitions, ${premieres.size} premieres, ${activityChecks.size} activity checks, ${raConfig.size} RA configs, ${dailyQuoteChannels.size} daily quote channels`);
@@ -2242,6 +2412,19 @@ setInterval(async () => {
   }
 }, 5 * 60 * 1000);
 
+// ── Server Stats auto-refresh ────────────────────────────────────────────────
+// Ticks every 5 minutes; each guild only actually updates once its own
+// configured interval (min 10m, to respect Discord's channel-rename rate limit)
+// has elapsed.
+setInterval(async () => {
+  for (const [guildId, cfg] of serverStatsConfig.entries()) {
+    if (!cfg.channels?.length) continue;
+    const guild = client.guilds.cache.get(guildId);
+    if (!guild) continue;
+    await ssUpdateGuildChannels(guild, cfg).catch(e => console.error("[serverstats interval]", e.message));
+  }
+}, 5 * 60 * 1000);
+
 // ── Discord client ─────────────────────────────────────────────────────────────
 const client=new Client({
   intents:[Intents.FLAGS.GUILDS,Intents.FLAGS.GUILD_MEMBERS,Intents.FLAGS.GUILD_INVITES,
@@ -2396,6 +2579,7 @@ function buildCommands(){
     ]},
     // Tickets
     {name:"ticketsetup",     description:"Open the ticket system setup dashboard (Manage Server)"},
+    {name:"serverstats",     description:"Set up and manage live server stat channels 📊 (Manage Server)"},
     {name:"closeticket",     description:"Close this ticket"},
     {name:"addtoticket",     description:"Add a user to this ticket",options:[{name:"user",description:"User to add",type:6,required:true}]},
     {name:"removefromticket",description:"Remove a user from this ticket",options:[{name:"user",description:"User to remove",type:6,required:true}]},
@@ -5291,6 +5475,248 @@ client.on("interactionCreate",async interaction=>{
       return;
     }
 
+    // ── /serverstats — interactive panel ────────────────────────────────────────
+    if(cid.startsWith("ss_")){
+      if(!interaction.guildId) return;
+      const guild=interaction.guild;
+      const canManage=OWNER_IDS.includes(uid)||interaction.member?.permissions.has("MANAGE_GUILD");
+      if(!canManage){ await btnEphemeral(interaction,"❌ You need **Manage Server** permission to do that."); return; }
+      let cfg=serverStatsConfig.get(guild.id);
+
+      if(cid==="ss_setup"){
+        if(!await btnAck(interaction)) return;
+        if(!cfg) cfg={categoryId:null,channels:[],intervalMinutes:15,locked:true,lastUpdate:0};
+        try{
+          const category=await guild.channels.create("📊 SERVER STATS",{type:"GUILD_CATEGORY"});
+          cfg.categoryId=category.id;
+          await guild.members.fetch().catch(()=>{});
+          cfg.channels=[];
+          for(const type of ["all","humans","bots"]){
+            const meta=SS_STAT_TYPES[type];
+            const entry={id:null,type,label:meta.label,emoji:""};
+            const name=ssChannelName(guild,entry);
+            const overwrites=cfg.locked!==false?[{id:guild.roles.everyone,deny:["CONNECT"],allow:["VIEW_CHANNEL"]}]:[];
+            const ch=await guild.channels.create(name,{type:"GUILD_VOICE",parent:category.id,permissionOverwrites:overwrites});
+            entry.id=ch.id;
+            cfg.channels.push(entry);
+          }
+          cfg.lastUpdate=Date.now();
+          serverStatsConfig.set(guild.id,cfg);
+          saveData();
+        }catch(e){
+          console.error("[serverstats setup]",e.message);
+          await interaction.followUp({content:"❌ I couldn't create the stat channels — check that I have **Manage Channels** permission.",ephemeral:true}).catch(()=>{});
+          return;
+        }
+        await interaction.editReply(ssBuildMainPanel(guild)).catch(()=>{});
+        return;
+      }
+
+      if(!cfg){ await btnEphemeral(interaction,"❌ Server stats aren't set up yet."); return; }
+
+      if(cid==="ss_back"){
+        if(!await btnAck(interaction)) return;
+        await interaction.editReply(ssBuildMainPanel(guild)).catch(()=>{});
+        return;
+      }
+
+      if(cid==="ss_add"){
+        if(!await btnAck(interaction)) return;
+        const [row1,row2]=ssBuildAddMenu(cfg);
+        await interaction.editReply({content:"## ➕ Add a Stat\nPick one or more stats to add as live channels.",components:[row1,row2]}).catch(()=>{});
+        return;
+      }
+
+      if(cid==="ss_add_sel"){
+        const values=interaction.values||[];
+        if(!await btnAck(interaction)) return;
+        try{ await guild.members.fetch(); }catch{}
+        const roleWanted=values.includes("role");
+        const simple=values.filter(v=>v!=="role");
+        for(const type of simple){
+          if(cfg.channels.length>=SS_MAX_CHANNELS) break;
+          const meta=SS_STAT_TYPES[type];
+          const entry={id:null,type,label:meta.label,emoji:""};
+          const name=ssChannelName(guild,entry);
+          const overwrites=cfg.locked!==false?[{id:guild.roles.everyone,deny:["CONNECT"],allow:["VIEW_CHANNEL"]}]:[];
+          try{
+            const ch=await guild.channels.create(name,{type:"GUILD_VOICE",parent:cfg.categoryId||undefined,permissionOverwrites:overwrites});
+            entry.id=ch.id;
+            cfg.channels.push(entry);
+          }catch(e){console.error("[serverstats add]",e.message);}
+        }
+        saveData();
+        if(roleWanted && cfg.channels.length<SS_MAX_CHANNELS){
+          const roles=[...guild.roles.cache.filter(r=>!r.managed&&r.id!==guild.id).sort((a,b)=>b.position-a.position).values()].slice(0,25);
+          const opts=roles.map(r=>({label:r.name.slice(0,100),value:r.id,emoji:{name:"🏷️"}}));
+          const row=new MessageActionRow().addComponents(new MessageSelectMenu().setCustomId("ss_addrole_sel").setPlaceholder("Which role should be counted?").setOptions(opts.length?opts:[{label:"No roles found",value:"none"}]).setDisabled(!opts.length));
+          const backRow=new MessageActionRow().addComponents(new MessageButton().setCustomId("ss_back").setLabel("← Back").setStyle("SECONDARY"));
+          await interaction.editReply({content:"## 🏷️ Add a Role Stat\nPick the role you want a live member counter for.",components:[row,backRow]}).catch(()=>{});
+          return;
+        }
+        await interaction.editReply(ssBuildMainPanel(guild)).catch(()=>{});
+        return;
+      }
+
+      if(cid==="ss_addrole_sel"){
+        const roleId=interaction.values?.[0];
+        if(!await btnAck(interaction)) return;
+        if(!roleId||roleId==="none"){ await interaction.editReply(ssBuildMainPanel(guild)).catch(()=>{}); return; }
+        const role=guild.roles.cache.get(roleId);
+        if(!role || cfg.channels.length>=SS_MAX_CHANNELS){ await interaction.editReply(ssBuildMainPanel(guild)).catch(()=>{}); return; }
+        try{ await guild.members.fetch(); }catch{}
+        const entry={id:null,type:"role",roleId:role.id,label:role.name,emoji:""};
+        const name=ssChannelName(guild,entry);
+        const overwrites=cfg.locked!==false?[{id:guild.roles.everyone,deny:["CONNECT"],allow:["VIEW_CHANNEL"]}]:[];
+        try{
+          const ch=await guild.channels.create(name,{type:"GUILD_VOICE",parent:cfg.categoryId||undefined,permissionOverwrites:overwrites});
+          entry.id=ch.id;
+          cfg.channels.push(entry);
+          saveData();
+        }catch(e){console.error("[serverstats addrole]",e.message);}
+        await interaction.editReply(ssBuildMainPanel(guild)).catch(()=>{});
+        return;
+      }
+
+      if(cid==="ss_manage"){
+        if(!await btnAck(interaction)) return;
+        const [row1,row2]=ssBuildManageList(guild,cfg);
+        await interaction.editReply({content:"## ✏️ Edit / Remove a Stat\nPick a stat channel below.",components:[row1,row2]}).catch(()=>{});
+        return;
+      }
+
+      if(cid==="ss_manage_sel"){
+        const entryId=interaction.values?.[0];
+        if(!await btnAck(interaction)) return;
+        if(!entryId||entryId==="none"){ await interaction.editReply(ssBuildMainPanel(guild)).catch(()=>{}); return; }
+        await interaction.editReply(ssBuildEditActions(guild,cfg,entryId)).catch(()=>{});
+        return;
+      }
+
+      if(cid.startsWith("ss_moveup_")||cid.startsWith("ss_movedown_")){
+        const entryId=cid.replace(/^ss_(moveup|movedown)_/,"");
+        if(!await btnAck(interaction)) return;
+        const idx=cfg.channels.findIndex(e=>e.id===entryId);
+        if(idx===-1){ await interaction.editReply(ssBuildMainPanel(guild)).catch(()=>{}); return; }
+        const dir=cid.startsWith("ss_moveup_")?-1:1;
+        const swapIdx=idx+dir;
+        if(swapIdx>=0 && swapIdx<cfg.channels.length){
+          [cfg.channels[idx],cfg.channels[swapIdx]]=[cfg.channels[swapIdx],cfg.channels[idx]];
+          saveData();
+          try{
+            for(let i=0;i<cfg.channels.length;i++){
+              const ch=guild.channels.cache.get(cfg.channels[i].id);
+              if(ch) await ch.setPosition(i).catch(()=>{});
+            }
+          }catch{}
+        }
+        await interaction.editReply(ssBuildEditActions(guild,cfg,entryId)).catch(()=>{});
+        return;
+      }
+
+      if(cid.startsWith("ss_remove_")){
+        const entryId=cid.replace("ss_remove_","");
+        if(!await btnAck(interaction)) return;
+        const idx=cfg.channels.findIndex(e=>e.id===entryId);
+        if(idx!==-1){
+          const ch=guild.channels.cache.get(entryId);
+          if(ch) await ch.delete().catch(()=>{});
+          cfg.channels.splice(idx,1);
+          saveData();
+        }
+        await interaction.editReply(ssBuildMainPanel(guild)).catch(()=>{});
+        return;
+      }
+
+      if(cid.startsWith("ss_editlabel_")||cid.startsWith("ss_editemoji_")){
+        const isEmoji=cid.startsWith("ss_editemoji_");
+        const entryId=cid.replace(isEmoji?"ss_editemoji_":"ss_editlabel_","");
+        const entry=cfg.channels.find(e=>e.id===entryId);
+        if(!entry) return;
+        await interaction.showModal({
+          title:isEmoji?"Change Emoji":"Rename Label",
+          custom_id:`ss_modal_${isEmoji?"emoji":"label"}_${entryId}`,
+          components:[{type:1,components:[{type:4,custom_id:"ss_input",label:isEmoji?"New emoji (leave blank for none)":"New label text",style:1,required:!isEmoji,max_length:isEmoji?10:60,value:isEmoji?(entry.emoji||""):entry.label}]}],
+        }).catch(e=>console.error("[serverstats modal]",e.message));
+        return;
+      }
+
+      if(cid==="ss_settings"){
+        if(!await btnAck(interaction)) return;
+        await interaction.editReply(ssBuildSettingsPanel(guild,cfg)).catch(()=>{});
+        return;
+      }
+
+      if(cid==="ss_interval_sel"){
+        const minutes=parseInt(interaction.values?.[0],10);
+        if(!await btnAck(interaction)) return;
+        if(minutes>=SS_MIN_INTERVAL_MIN){ cfg.intervalMinutes=minutes; saveData(); }
+        await interaction.editReply(ssBuildSettingsPanel(guild,cfg)).catch(()=>{});
+        return;
+      }
+
+      if(cid==="ss_togglelock"){
+        if(!await btnAck(interaction)) return;
+        cfg.locked = cfg.locked===false ? true : false;
+        try{
+          for(const entry of cfg.channels){
+            const ch=guild.channels.cache.get(entry.id);
+            if(!ch) continue;
+            if(cfg.locked===false) await ch.permissionOverwrites.edit(guild.roles.everyone,{CONNECT:null}).catch(()=>{});
+            else await ch.permissionOverwrites.edit(guild.roles.everyone,{CONNECT:false,VIEW_CHANNEL:true}).catch(()=>{});
+          }
+        }catch{}
+        saveData();
+        await interaction.editReply(ssBuildSettingsPanel(guild,cfg)).catch(()=>{});
+        return;
+      }
+
+      if(cid==="ss_renamecat"){
+        await interaction.showModal({
+          title:"Rename Category",
+          custom_id:"ss_modal_renamecat",
+          components:[{type:1,components:[{type:4,custom_id:"ss_input",label:"New category name",style:1,required:true,max_length:100,value:guild.channels.cache.get(cfg.categoryId)?.name||"📊 SERVER STATS"}]}],
+        }).catch(e=>console.error("[serverstats renamecat modal]",e.message));
+        return;
+      }
+
+      if(cid==="ss_refresh"){
+        if(!await btnAck(interaction)) return;
+        await ssUpdateGuildChannels(guild,cfg,{force:true}).catch(()=>{});
+        await interaction.editReply(ssBuildMainPanel(guild)).catch(()=>{});
+        return;
+      }
+
+      if(cid==="ss_delete"){
+        if(!await btnAck(interaction)) return;
+        const row=new MessageActionRow().addComponents(
+          new MessageButton().setCustomId("ss_delete_confirm").setLabel("🗑️ Yes, delete everything").setStyle("DANGER"),
+          new MessageButton().setCustomId("ss_back").setLabel("Cancel").setStyle("SECONDARY"),
+        );
+        await interaction.editReply({content:"## ⚠️ Are you sure?\nThis will delete the stats category and all its channels. This can't be undone.",components:[row]}).catch(()=>{});
+        return;
+      }
+
+      if(cid==="ss_delete_confirm"){
+        if(!await btnAck(interaction)) return;
+        try{
+          for(const entry of cfg.channels){
+            const ch=guild.channels.cache.get(entry.id);
+            if(ch) await ch.delete().catch(()=>{});
+          }
+          const cat=guild.channels.cache.get(cfg.categoryId);
+          if(cat) await cat.delete().catch(()=>{});
+        }catch{}
+        serverStatsConfig.delete(guild.id);
+        saveData();
+        await interaction.editReply(ssBuildMainPanel(guild)).catch(()=>{});
+        return;
+      }
+
+      try{await interaction.deferUpdate();}catch{}
+      return;
+    }
+
     try{await interaction.deferUpdate();}catch{}
     return;
     } catch(btnErr) {
@@ -5337,6 +5763,41 @@ client.on("interactionCreate",async interaction=>{
         console.error("[theremnant_modal]", e.message);
         return safeReply(interaction,{content:"❌ Something went wrong sending your message.",ephemeral:true});
       }
+    }
+
+    // ── /serverstats modal submits ──────────────────────────────────────────────
+    if(cid.startsWith("ss_modal_label_")||cid.startsWith("ss_modal_emoji_")){
+      if(!interaction.guildId) return;
+      const guild=interaction.guild;
+      const cfg=serverStatsConfig.get(guild.id);
+      const isEmoji=cid.startsWith("ss_modal_emoji_");
+      const entryId=cid.replace(isEmoji?"ss_modal_emoji_":"ss_modal_label_","");
+      const entry=cfg?.channels.find(e=>e.id===entryId);
+      const value=(interaction.fields.getTextInputValue("ss_input")||"").trim();
+      if(!entry) return safeReply(interaction,{content:"❌ Something went wrong.",ephemeral:true});
+      if(!isEmoji && !value) return safeReply(interaction,{content:"❌ Label can't be empty.",ephemeral:true});
+      if(isEmoji) entry.emoji=value.slice(0,10); else entry.label=value.slice(0,60);
+      saveData();
+      try{
+        const ch=guild.channels.cache.get(entry.id);
+        if(ch) await ch.setName(ssChannelName(guild,entry)).catch(()=>{});
+      }catch{}
+      return safeReply(interaction,{...ssBuildEditActions(guild,cfg,entryId),ephemeral:true});
+    }
+
+    if(cid==="ss_modal_renamecat"){
+      if(!interaction.guildId) return;
+      const guild=interaction.guild;
+      const cfg=serverStatsConfig.get(guild.id);
+      if(!cfg) return safeReply(interaction,{content:"❌ Server stats aren't set up.",ephemeral:true});
+      const value=(interaction.fields.getTextInputValue("ss_input")||"").trim();
+      if(!value) return safeReply(interaction,{content:"❌ Name can't be empty.",ephemeral:true});
+      try{
+        const cat=guild.channels.cache.get(cfg.categoryId);
+        if(cat) await cat.setName(value.slice(0,100)).catch(()=>{});
+      }catch{}
+      saveData();
+      return safeReply(interaction,{...ssBuildSettingsPanel(guild,cfg),ephemeral:true});
     }
 
     // ── /clankerbuild modal submit ────────────────────────────────────────────
@@ -5649,7 +6110,7 @@ client.on("interactionCreate",async interaction=>{
   const ownerOnly=["servers","broadcast","requester","deleter","fakecrash","identitycrisis","botolympics","sentience","legendrandom","dmconfig","leaveserver","restart","refreshcmds","botstats","setstatus","adminuser","adminreset","adminconfig","admingive","echo","shadowdelete","clankerify","fakemessage","fakequote","forcemarry","forcedivorce","paranoia","tempowner","blacklist","theremnant"];
   if(ownerOnly.includes(cmd)&&!isEffectiveOwner(interaction.user.id, cmd))return safeReply(interaction,{content:"Owner only.",ephemeral:true});
 
-  const manageServerCmds=["channelpicker","counting","xpconfig","setwelcome","setleave","setwelcomemsg","setleavemsg","disableownermsg","serverconfig","autorole","setboostmsg","invitecomp","purge","reactionrole","ticketsetup","ytsetup","subgoal","subcount","milestones","dailyquote"];
+  const manageServerCmds=["channelpicker","counting","xpconfig","setwelcome","setleave","setwelcomemsg","setleavemsg","disableownermsg","serverconfig","autorole","setboostmsg","invitecomp","purge","reactionrole","ticketsetup","ytsetup","subgoal","subcount","milestones","dailyquote","serverstats"];
   if(manageServerCmds.includes(cmd)){
     if(!inGuild)return safeReply(interaction,{content:"Server only.",ephemeral:true});
     if(!OWNER_IDS.includes(interaction.user.id)&&!interaction.member.permissions.has("MANAGE_GUILD"))
@@ -7466,6 +7927,11 @@ if(cmd==="gif"){
         return{content:header,components};
       }
       return safeReply(interaction,buildStep());
+    }
+    // Server stats command
+    if(cmd==="serverstats"){
+      if(!inGuild)return safeReply(interaction,{content:"Server only.",ephemeral:true});
+      return safeReply(interaction,{...ssBuildMainPanel(interaction.guild),ephemeral:true});
     }
     if(cmd==="closeticket"){
       if(!inGuild)return safeReply(interaction,{content:"Server only.",ephemeral:true});
