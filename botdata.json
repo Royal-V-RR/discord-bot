@@ -32266,13 +32266,14 @@
         "inventory": [],
         "marriedTo": null,
         "pendingProposal": null,
-        "imagesUploaded": 4,
+        "imagesUploaded": 5,
         "forceMarried": false,
         "uploadedImages": [
           "quote_105.jpg",
           "quote_110.png",
           "quote_112.jpg",
-          "quote_114.png"
+          "quote_114.png",
+          "quote_182.jpg"
         ]
       }
     ],
@@ -73609,19 +73610,9 @@
     ]
   ],
   "selfClankCooldown": [],
-  "pendingReviews": [
-    [
-      "604194mrp2je66",
-      {
-        "submitterId": "1213866609362604194",
-        "fileName": "1213866609362604194__image__Screenshot_2026-07-17-18-03-53-930-edit_com.discord.jpg",
-        "rawName": "Screenshot_2026-07-17-18-03-53-930-edit_com.discord.jpg",
-        "mediaKind": "image"
-      }
-    ]
-  ],
+  "pendingReviews": [],
   "uploadCounters": {
-    "quote": 181,
+    "quote": 182,
     "eardestroyer": 1,
     "eyebleacher": 3
   },
