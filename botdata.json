@@ -73768,6 +73768,37 @@
       }
     ]
   ],
+  "serverStatsConfig": [
+    [
+      "1048053656035020911",
+      {
+        "categoryId": "1527639957764575472",
+        "channels": [
+          {
+            "id": "1527639959652143165",
+            "type": "all",
+            "label": "All Members",
+            "emoji": ""
+          },
+          {
+            "id": "1527639960679874591",
+            "type": "humans",
+            "label": "Members",
+            "emoji": ""
+          },
+          {
+            "id": "1527639961862406334",
+            "type": "bots",
+            "label": "Bots",
+            "emoji": ""
+          }
+        ],
+        "intervalMinutes": 15,
+        "locked": true,
+        "lastUpdate": 1784288149165
+      }
+    ]
+  ],
   "quoteUserVotes": [
     [
       "quote_1470144647933460571.png",
