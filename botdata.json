@@ -35047,7 +35047,14 @@
     ]
   ],
   "activeEffects": [],
-  "reminders": [],
+  "reminders": [
+    {
+      "userId": "969280648667889764",
+      "channelId": "1510029978643730577",
+      "time": 1784424498226,
+      "message": "Ping @everyone to tell them something funny"
+    }
+  ],
   "inviteComps": [],
   "premieres": [],
   "raConfig": [
