@@ -2412,7 +2412,12 @@ function obamifyComputeAssignment(baseRaw, targetRaw, canvasSize, grid) {
 }
 
 // Renders one frame (t in [0,1]) of the morph as a flat RGBA raw buffer.
-function obamifyRenderFrame(baseRaw, targetRaw, canvasSize, grid, pairs, t) {
+// `beta`: when true, tiles keep their ORIGINAL base colour the entire time —
+// only position is animated, nothing is colour-blended. This is closer to how
+// the real obamify works: the base image's own pixels are physically
+// rearranged (by the luminance-rank assignment) until their positions alone
+// approximate the target's shape, rather than faking it with a colour fade.
+function obamifyRenderFrame(baseRaw, targetRaw, canvasSize, grid, pairs, t, beta) {
   const cellPx = canvasSize / grid;
   const te = obamifyEase(t);
   const out = new Uint8ClampedArray(canvasSize * canvasSize * 4);
@@ -2434,11 +2439,18 @@ function obamifyRenderFrame(baseRaw, targetRaw, canvasSize, grid, pairs, t) {
         const cx = px + tx;
         if(cx < 0 || cx >= canvasSize) continue;
         const srcIdx = ((sy+ty) * canvasSize + (sx+tx)) * 4;
-        const dstIdx = ((ey+ty) * canvasSize + (ex+tx)) * 4;
         const outIdx = (cy * canvasSize + cx) * 4;
-        out[outIdx]   = baseRaw[srcIdx]   + (targetRaw[dstIdx]   - baseRaw[srcIdx])   * te;
-        out[outIdx+1] = baseRaw[srcIdx+1] + (targetRaw[dstIdx+1] - baseRaw[srcIdx+1]) * te;
-        out[outIdx+2] = baseRaw[srcIdx+2] + (targetRaw[dstIdx+2] - baseRaw[srcIdx+2]) * te;
+        if(beta){
+          // Colour never changes — always the tile's original base pixel.
+          out[outIdx]   = baseRaw[srcIdx];
+          out[outIdx+1] = baseRaw[srcIdx+1];
+          out[outIdx+2] = baseRaw[srcIdx+2];
+        } else {
+          const dstIdx = ((ey+ty) * canvasSize + (ex+tx)) * 4;
+          out[outIdx]   = baseRaw[srcIdx]   + (targetRaw[dstIdx]   - baseRaw[srcIdx])   * te;
+          out[outIdx+1] = baseRaw[srcIdx+1] + (targetRaw[dstIdx+1] - baseRaw[srcIdx+1]) * te;
+          out[outIdx+2] = baseRaw[srcIdx+2] + (targetRaw[dstIdx+2] - baseRaw[srcIdx+2]) * te;
+        }
         out[outIdx+3] = 255;
       }
     }
@@ -2447,10 +2459,10 @@ function obamifyRenderFrame(baseRaw, targetRaw, canvasSize, grid, pairs, t) {
 }
 
 function obamifyBuildFrames(pending) {
-  const { baseRaw, targetRaw, canvasSize, grid, pairs } = pending;
+  const { baseRaw, targetRaw, canvasSize, grid, pairs, beta } = pending;
   const frames = new Array(OBAMIFY_FRAMES);
   for(let f = 0; f < OBAMIFY_FRAMES; f++){
-    frames[f] = obamifyRenderFrame(baseRaw, targetRaw, canvasSize, grid, pairs, f/(OBAMIFY_FRAMES-1));
+    frames[f] = obamifyRenderFrame(baseRaw, targetRaw, canvasSize, grid, pairs, f/(OBAMIFY_FRAMES-1), beta);
   }
   return frames;
 }
@@ -2479,9 +2491,14 @@ function obamifyEncodeGif(frames, canvasSize, reverse) {
 }
 
 // Renders just the final (fully-transformed) frame as a PNG buffer.
+// Non-beta: this is exactly the target image (every cell lands on its target
+// tile with target colour). Beta: same positions, but each tile still shows
+// its own base colour, so the result is the base image's pixels rearranged
+// into the target's shape rather than the target image itself.
 async function obamifyFinalPng(pending) {
-  const { targetRaw, canvasSize } = pending;
-  return sharp(Buffer.from(targetRaw), { raw: { width: canvasSize, height: canvasSize, channels: 4 } }).png().toBuffer();
+  const { baseRaw, targetRaw, canvasSize, grid, pairs, beta } = pending;
+  const finalRaw = obamifyRenderFrame(baseRaw, targetRaw, canvasSize, grid, pairs, 1, beta);
+  return sharp(Buffer.from(finalRaw), { raw: { width: canvasSize, height: canvasSize, channels: 4 } }).png().toBuffer();
 }
 
 // ── YouTube polling tick (runs every 5 minutes) ───────────────────────────────
@@ -2903,6 +2920,7 @@ function buildCommands(){
     {name:"obamify", description:"Pixel-mosaic morph one image into another",options:[
       {name:"base",   description:"The starting image",              type:11,required:true},
       {name:"target", description:"The image to transform it into",  type:11,required:true},
+      {name:"beta",   description:"Beta code: move pixels into place without recolouring them (experimental)", type:5, required:false},
     ]},
 
     // ── Community Modes ────────────────────────────────────────────────────────
@@ -8892,6 +8910,8 @@ if(cmd==="gif"){
       if(baseAtt.size > MAX_SIZE || targetAtt.size > MAX_SIZE)
         return safeReply(interaction,{content:"❌ Both images must be under 10 MB.",ephemeral:true});
 
+      const beta = interaction.options.getBoolean("beta") ?? false;
+
       await interaction.deferReply({ephemeral:true});
 
       try{
@@ -8905,7 +8925,7 @@ if(cmd==="gif"){
         const token = `${interaction.user.id.slice(-6)}${Date.now().toString(36)}`;
         obamifyPending.set(token, {
           baseRaw, targetRaw,
-          canvasSize: OBAMIFY_CANVAS, grid: OBAMIFY_GRID, pairs,
+          canvasSize: OBAMIFY_CANVAS, grid: OBAMIFY_GRID, pairs, beta,
           userId: interaction.user.id,
         });
         setTimeout(() => obamifyPending.delete(token), 10 * 60 * 1000);
@@ -8915,7 +8935,8 @@ if(cmd==="gif"){
           new MessageButton().setCustomId(`obamify_gif_${token}`).setLabel("🎬 Transforming GIF").setStyle("PRIMARY"),
           new MessageButton().setCustomId(`obamify_reverse_${token}`).setLabel("⏪ Reversed GIF").setStyle("PRIMARY"),
         );
-        return safeReply(interaction,{content:"🎨 Images processed! How should I send the result?",components:[row],ephemeral:true});
+        const betaNote = beta ? " *(beta code: pixels keep their original colour, only positions move)*" : "";
+        return safeReply(interaction,{content:`🎨 Images processed! How should I send the result?${betaNote}`,components:[row],ephemeral:true});
       }catch(e){
         console.error("obamify decode error:", e.message);
         return safeReply(interaction,{content:`❌ Couldn't process those images: ${e.message}`,ephemeral:true});
