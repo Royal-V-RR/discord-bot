@@ -362,6 +362,11 @@ const selfClankCooldown = new Map();
 // embedding the full filename in the button ID.
 const pendingReviews = new Map(); // token -> { submitterId, fileName, rawName, mediaKind }
 
+// ── /obamify pending jobs (token -> decoded canvases + cell assignment) ──────
+// Populated when the command runs (decoding is cheap); consumed by whichever
+// delivery-mode button the user picks. Auto-expires so memory doesn't grow.
+const obamifyPending = new Map();
+
 // ── Tomato This pending settings (messageId -> { count, speed, authorTag, msgContent }) ──
 const tomatoPending = new Map();
 
@@ -2348,6 +2353,137 @@ function indexFrameToPalette(rgbaData, width, height, palette, colorMap) {
   return pixels;
 }
 
+// ── /obamify — pixel-mosaic image morph ───────────────────────────────────────
+// Inspired by https://github.com/Spu7Nix/obamify: both images are cover-cropped
+// to a square canvas and divided into an NxN grid of cells. Each base cell is
+// paired with a target cell (matched by sorting both grids by luminance and
+// pairing same-rank cells — a cheap 1-D approximation of the optimal-transport
+// assignment the original app computes), then animated flying from its base
+// position/colour to its paired target position/colour.
+const OBAMIFY_CANVAS = 320;   // output width & height in px
+const OBAMIFY_GRID   = 16;    // cells per side (320/16 = 20px cells)
+const OBAMIFY_FRAMES = 20;    // frames in the forward transformation
+
+function obamifyEase(t){ return t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t + 2, 3) / 2; }
+
+// Fetches + decodes an image attachment into a square RGBA raw buffer.
+async function obamifyDecodeToRaw(url, canvasSize) {
+  const res = await fetch(url);
+  if(!res.ok) throw new Error(`Could not fetch image (HTTP ${res.status})`);
+  const buf = Buffer.from(await res.arrayBuffer());
+  const { data } = await sharp(buf)
+    .resize(canvasSize, canvasSize, { fit: "cover", position: "attention" })
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  return data; // Buffer — read-only source, indexes like a Uint8Array (0-255 per byte)
+}
+
+function obamifyCellLuminance(raw, canvasSize, x0, y0, cellPx) {
+  let sum = 0;
+  for(let ty = 0; ty < cellPx; ty++){
+    for(let tx = 0; tx < cellPx; tx++){
+      const idx = ((y0+ty) * canvasSize + (x0+tx)) * 4;
+      sum += 0.299*raw[idx] + 0.587*raw[idx+1] + 0.114*raw[idx+2];
+    }
+  }
+  return sum / (cellPx*cellPx);
+}
+
+// Pairs base grid cells with target grid cells by matching luminance rank —
+// cheap stand-in for a full 2-D optimal-assignment solve, but keeps visually
+// similar regions moving the least.
+function obamifyComputeAssignment(baseRaw, targetRaw, canvasSize, grid) {
+  const cellPx = canvasSize / grid;
+  const baseCells = [], targetCells = [];
+  for(let r = 0; r < grid; r++){
+    for(let c = 0; c < grid; c++){
+      const idx = r*grid + c;
+      const x0 = c*cellPx, y0 = r*cellPx;
+      baseCells.push({ idx, lum: obamifyCellLuminance(baseRaw, canvasSize, x0, y0, cellPx) });
+      targetCells.push({ idx, lum: obamifyCellLuminance(targetRaw, canvasSize, x0, y0, cellPx) });
+    }
+  }
+  baseCells.sort((a,b) => a.lum - b.lum);
+  targetCells.sort((a,b) => a.lum - b.lum);
+  const pairs = new Array(baseCells.length);
+  for(let k = 0; k < baseCells.length; k++) pairs[k] = { baseIdx: baseCells[k].idx, targetIdx: targetCells[k].idx };
+  return pairs;
+}
+
+// Renders one frame (t in [0,1]) of the morph as a flat RGBA raw buffer.
+function obamifyRenderFrame(baseRaw, targetRaw, canvasSize, grid, pairs, t) {
+  const cellPx = canvasSize / grid;
+  const te = obamifyEase(t);
+  const out = new Uint8ClampedArray(canvasSize * canvasSize * 4);
+  // Discord-dark background fill so gaps between mid-flight tiles blend in.
+  for(let i = 0; i < canvasSize*canvasSize; i++){ out[i*4]=0x36; out[i*4+1]=0x39; out[i*4+2]=0x3f; out[i*4+3]=255; }
+
+  for(const { baseIdx, targetIdx } of pairs){
+    const bRow = Math.floor(baseIdx/grid),   bCol = baseIdx%grid;
+    const tRow = Math.floor(targetIdx/grid), tCol = targetIdx%grid;
+    const sx = bCol*cellPx, sy = bRow*cellPx;
+    const ex = tCol*cellPx, ey = tRow*cellPx;
+    const px = Math.round(sx + (ex-sx)*te);
+    const py = Math.round(sy + (ey-sy)*te);
+
+    for(let ty = 0; ty < cellPx; ty++){
+      const cy = py + ty;
+      if(cy < 0 || cy >= canvasSize) continue;
+      for(let tx = 0; tx < cellPx; tx++){
+        const cx = px + tx;
+        if(cx < 0 || cx >= canvasSize) continue;
+        const srcIdx = ((sy+ty) * canvasSize + (sx+tx)) * 4;
+        const dstIdx = ((ey+ty) * canvasSize + (ex+tx)) * 4;
+        const outIdx = (cy * canvasSize + cx) * 4;
+        out[outIdx]   = baseRaw[srcIdx]   + (targetRaw[dstIdx]   - baseRaw[srcIdx])   * te;
+        out[outIdx+1] = baseRaw[srcIdx+1] + (targetRaw[dstIdx+1] - baseRaw[srcIdx+1]) * te;
+        out[outIdx+2] = baseRaw[srcIdx+2] + (targetRaw[dstIdx+2] - baseRaw[srcIdx+2]) * te;
+        out[outIdx+3] = 255;
+      }
+    }
+  }
+  return out;
+}
+
+function obamifyBuildFrames(pending) {
+  const { baseRaw, targetRaw, canvasSize, grid, pairs } = pending;
+  const frames = new Array(OBAMIFY_FRAMES);
+  for(let f = 0; f < OBAMIFY_FRAMES; f++){
+    frames[f] = obamifyRenderFrame(baseRaw, targetRaw, canvasSize, grid, pairs, f/(OBAMIFY_FRAMES-1));
+  }
+  return frames;
+}
+
+// Encodes a sequence of raw RGBA frames into a GIF using the same shared-palette
+// approach as buildTomatoGif. `order` lets the caller play the frames forward
+// (transforming) or reversed (detransforming) without re-rendering anything.
+function obamifyEncodeGif(frames, canvasSize, reverse) {
+  let GifWriter;
+  try { GifWriter = require("omggif").GifWriter; }
+  catch(e){ throw new Error("omggif not installed — run: npm install omggif"); }
+
+  const ordered = reverse ? frames.slice().reverse() : frames;
+  const { palette, colorMap } = buildSharedPalette(ordered, canvasSize, canvasSize);
+  const packedPalette = palette.map(([r,g,b]) => (r<<16)|(g<<8)|b);
+
+  const outBuf = Buffer.alloc(canvasSize * canvasSize * ordered.length * 4 + 1024*64);
+  const writer = new GifWriter(outBuf, canvasSize, canvasSize, { palette: packedPalette, loop: 0 });
+  const HOLD_CS = 150, STEP_CS = 4; // 1.5s hold on first/last frame, fast steps between
+  for(let f = 0; f < ordered.length; f++){
+    const indexed = indexFrameToPalette(ordered[f], canvasSize, canvasSize, palette, colorMap);
+    const delay = (f === 0 || f === ordered.length-1) ? HOLD_CS : STEP_CS;
+    writer.addFrame(0, 0, canvasSize, canvasSize, indexed, { delay, disposal: 2 });
+  }
+  return Buffer.from(outBuf.buffer, 0, writer.end());
+}
+
+// Renders just the final (fully-transformed) frame as a PNG buffer.
+async function obamifyFinalPng(pending) {
+  const { targetRaw, canvasSize } = pending;
+  return sharp(Buffer.from(targetRaw), { raw: { width: canvasSize, height: canvasSize, channels: 4 } }).png().toBuffer();
+}
+
 // ── YouTube polling tick (runs every 5 minutes) ───────────────────────────────
 setInterval(async () => {
   for (const [guildId, cfg] of ytConfig.entries()) {
@@ -2763,6 +2899,10 @@ function buildCommands(){
     // Quote review
     {name:"requestupload",   description:"Submit an image, audio, or video file to be reviewed for the quotes folder",options:[
       {name:"source",description:"File to submit (image/audio/video)",type:11,required:true},
+    ]},
+    {name:"obamify", description:"Pixel-mosaic morph one image into another",options:[
+      {name:"base",   description:"The starting image",              type:11,required:true},
+      {name:"target", description:"The image to transform it into",  type:11,required:true},
     ]},
 
     // ── Community Modes ────────────────────────────────────────────────────────
@@ -4070,6 +4210,40 @@ client.on("interactionCreate",async interaction=>{
     const uid=interaction.user.id;
     const cid=interaction.customId;
     try {
+
+    // ── /obamify: delivery-mode picker ───────────────────────────────────────
+    if(cid.startsWith("obamify_final_")||cid.startsWith("obamify_gif_")||cid.startsWith("obamify_reverse_")){
+      let mode, token;
+      if(cid.startsWith("obamify_final_"))        { mode="final";   token=cid.slice("obamify_final_".length); }
+      else if(cid.startsWith("obamify_reverse_")) { mode="reverse"; token=cid.slice("obamify_reverse_".length); }
+      else                                         { mode="gif";     token=cid.slice("obamify_gif_".length); }
+
+      const pending = obamifyPending.get(token);
+      if(!pending){ await btnEphemeral(interaction,"❌ This obamify session has expired — run `/obamify` again."); return; }
+      if(pending.userId !== uid){ await btnEphemeral(interaction,"❌ Only the person who ran `/obamify` can pick a delivery mode."); return; }
+
+      if(!await btnAck(interaction)) return;
+      try{
+        if(mode === "final"){
+          const png = await obamifyFinalPng(pending);
+          await interaction.editReply({content:"🖼️ Transformation complete!",files:[{attachment:png,name:"obamify.png"}],components:[]});
+        } else {
+          const frames = obamifyBuildFrames(pending);
+          const gif = obamifyEncodeGif(frames, pending.canvasSize, mode === "reverse");
+          await interaction.editReply({
+            content: mode === "reverse" ? "⏪ Detransforming…" : "🎬 Transforming…",
+            files: [{attachment:gif, name: mode === "reverse" ? "obamify-reverse.gif" : "obamify.gif"}],
+            components: [],
+          });
+        }
+      }catch(e){
+        console.error("obamify render error:", e.message);
+        await interaction.editReply({content:`❌ Failed to generate the image: ${e.message}`,components:[]}).catch(()=>{});
+      } finally {
+        obamifyPending.delete(token);
+      }
+      return;
+    }
 
     // ── Quote review: accept / reject ────────────────────────────────────────
     if(cid.startsWith("qr_accept_")||cid.startsWith("qr_reject_")){
@@ -8700,6 +8874,52 @@ if(cmd==="gif"){
       reviewChannelId = ch.id;
       saveData();
       return safeReply(interaction,{content:`✅ Global quote review channel set to <#${ch.id}>. All \`/requestupload\` submissions will go there.`,ephemeral:true});
+    }
+
+    // ── /obamify — pixel-mosaic morph one image into another ───────────────────
+    if(cmd==="obamify"){
+      const baseAtt   = interaction.options.getAttachment("base");
+      const targetAtt = interaction.options.getAttachment("target");
+
+      const baseInfo   = detectMediaKind(baseAtt.contentType, baseAtt.name);
+      const targetInfo = detectMediaKind(targetAtt.contentType, targetAtt.name);
+      if(!baseInfo || baseInfo.kind !== "image")
+        return safeReply(interaction,{content:"❌ The base file must be an image.",ephemeral:true});
+      if(!targetInfo || targetInfo.kind !== "image")
+        return safeReply(interaction,{content:"❌ The target file must be an image.",ephemeral:true});
+
+      const MAX_SIZE = 10_000_000; // 10 MB per image
+      if(baseAtt.size > MAX_SIZE || targetAtt.size > MAX_SIZE)
+        return safeReply(interaction,{content:"❌ Both images must be under 10 MB.",ephemeral:true});
+
+      await interaction.deferReply({ephemeral:true});
+
+      try{
+        const [baseRaw, targetRaw] = await Promise.all([
+          obamifyDecodeToRaw(baseAtt.url,   OBAMIFY_CANVAS),
+          obamifyDecodeToRaw(targetAtt.url, OBAMIFY_CANVAS),
+        ]);
+        const pairs = obamifyComputeAssignment(baseRaw, targetRaw, OBAMIFY_CANVAS, OBAMIFY_GRID);
+
+        // Short token — keeps custom_id well under Discord's 100-char limit.
+        const token = `${interaction.user.id.slice(-6)}${Date.now().toString(36)}`;
+        obamifyPending.set(token, {
+          baseRaw, targetRaw,
+          canvasSize: OBAMIFY_CANVAS, grid: OBAMIFY_GRID, pairs,
+          userId: interaction.user.id,
+        });
+        setTimeout(() => obamifyPending.delete(token), 10 * 60 * 1000);
+
+        const row = new MessageActionRow().addComponents(
+          new MessageButton().setCustomId(`obamify_final_${token}`).setLabel("🖼️ Already Transformed").setStyle("SECONDARY"),
+          new MessageButton().setCustomId(`obamify_gif_${token}`).setLabel("🎬 Transforming GIF").setStyle("PRIMARY"),
+          new MessageButton().setCustomId(`obamify_reverse_${token}`).setLabel("⏪ Reversed GIF").setStyle("PRIMARY"),
+        );
+        return safeReply(interaction,{content:"🎨 Images processed! How should I send the result?",components:[row],ephemeral:true});
+      }catch(e){
+        console.error("obamify decode error:", e.message);
+        return safeReply(interaction,{content:`❌ Couldn't process those images: ${e.message}`,ephemeral:true});
+      }
     }
 
     // ── /requestupload — anyone submits an image for review ────────────────────
