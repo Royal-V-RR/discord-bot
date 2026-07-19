@@ -480,12 +480,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 15300,
-        "lastSubsTimestamp": 1784424323837,
+        "lastSubsTimestamp": 1784424623882,
         "history": [
-          {
-            "ts": 1784113726627,
-            "subs": 15300
-          },
           {
             "ts": 1784114026612,
             "subs": 15300
@@ -4481,6 +4477,10 @@
           {
             "ts": 1784424323837,
             "subs": 15300
+          },
+          {
+            "ts": 1784424623882,
+            "subs": 15300
           }
         ],
         "subcountDiscordId": "1483595393999700080",
@@ -4899,7 +4899,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-27",
-        "xp": 5672,
+        "xp": 5696,
         "level": 26,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -35047,14 +35047,7 @@
     ]
   ],
   "activeEffects": [],
-  "reminders": [
-    {
-      "userId": "969280648667889764",
-      "channelId": "1510029978643730577",
-      "time": 1784424498226,
-      "message": "Ping @everyone to tell them something funny"
-    }
-  ],
+  "reminders": [],
   "inviteComps": [],
   "premieres": [],
   "raConfig": [
@@ -74134,7 +74127,7 @@
         ],
         "intervalMinutes": 15,
         "locked": true,
-        "lastUpdate": 1784423723746
+        "lastUpdate": 1784424623777
       }
     ]
   ],
