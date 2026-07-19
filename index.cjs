@@ -362,10 +362,10 @@ const selfClankCooldown = new Map();
 // embedding the full filename in the button ID.
 const pendingReviews = new Map(); // token -> { submitterId, fileName, rawName, mediaKind }
 
-// ── /obamify pending jobs (token -> decoded canvases + cell assignment) ──────
+// ── /colorscheme pending jobs (token -> decoded canvases + recolour result) ──
 // Populated when the command runs (decoding is cheap); consumed by whichever
 // delivery-mode button the user picks. Auto-expires so memory doesn't grow.
-const obamifyPending = new Map();
+const colorschemePending = new Map();
 
 // ── Tomato This pending settings (messageId -> { count, speed, authorTag, msgContent }) ──
 const tomatoPending = new Map();
@@ -2353,21 +2353,19 @@ function indexFrameToPalette(rgbaData, width, height, palette, colorMap) {
   return pixels;
 }
 
-// ── /obamify — pixel-mosaic image morph ───────────────────────────────────────
-// Inspired by https://github.com/Spu7Nix/obamify: both images are cover-cropped
-// to a square canvas and divided into an NxN grid of cells. Each base cell is
-// paired with a target cell (matched by sorting both grids by luminance and
-// pairing same-rank cells — a cheap 1-D approximation of the optimal-transport
-// assignment the original app computes), then animated flying from its base
-// position/colour to its paired target position/colour.
-const OBAMIFY_CANVAS = 320;   // output width & height in px
-const OBAMIFY_GRID   = 16;    // cells per side (320/16 = 20px cells)
-const OBAMIFY_FRAMES = 20;    // frames in the forward transformation
+// ── /colorscheme — transfer one image's colour palette onto another ──────────
+// Uses Reinhard-style statistical colour transfer (CIE L*a*b*): the target
+// image's per-channel mean/std are shifted to match the palette image's
+// mean/std, so the target keeps its own shape/detail but is repainted with
+// the palette image's tones. Delivery-mode animation is a simple crossfade
+// between the original target pixels and the recoloured result.
+const COLORSCHEME_CANVAS = 320;   // output width & height in px
+const COLORSCHEME_FRAMES = 20;    // frames in the forward transformation
 
-function obamifyEase(t){ return t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t + 2, 3) / 2; }
+function colorschemeEase(t){ return t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t + 2, 3) / 2; }
 
 // Fetches + decodes an image attachment into a square RGBA raw buffer.
-async function obamifyDecodeToRaw(url, canvasSize) {
+async function colorschemeDecodeToRaw(url, canvasSize) {
   const res = await fetch(url);
   if(!res.ok) throw new Error(`Could not fetch image (HTTP ${res.status})`);
   const buf = Buffer.from(await res.arrayBuffer());
@@ -2379,98 +2377,102 @@ async function obamifyDecodeToRaw(url, canvasSize) {
   return data; // Buffer — read-only source, indexes like a Uint8Array (0-255 per byte)
 }
 
-function obamifyCellLuminance(raw, canvasSize, x0, y0, cellPx) {
-  let sum = 0;
-  for(let ty = 0; ty < cellPx; ty++){
-    for(let tx = 0; tx < cellPx; tx++){
-      const idx = ((y0+ty) * canvasSize + (x0+tx)) * 4;
-      sum += 0.299*raw[idx] + 0.587*raw[idx+1] + 0.114*raw[idx+2];
-    }
-  }
-  return sum / (cellPx*cellPx);
+// ── sRGB <-> CIE L*a*b* (D65 white point) ─────────────────────────────────────
+function srgbToLinear(c){ c/=255; return c<=0.04045 ? c/12.92 : Math.pow((c+0.055)/1.055, 2.4); }
+function linearToSrgb(c){ return c<=0.0031308 ? c*12.92 : 1.055*Math.pow(c, 1/2.4) - 0.055; }
+function rgbToLab(r,g,b){
+  const rl=srgbToLinear(r), gl=srgbToLinear(g), bl=srgbToLinear(b);
+  let X = (rl*0.4124564 + gl*0.3575761 + bl*0.1804375) / 0.95047;
+  let Y = (rl*0.2126729 + gl*0.7151522 + bl*0.0721750) / 1.00000;
+  let Z = (rl*0.0193339 + gl*0.1191920 + bl*0.9503041) / 1.08883;
+  const f = t => t > 0.008856 ? Math.cbrt(t) : (7.787*t + 16/116);
+  const fx=f(X), fy=f(Y), fz=f(Z);
+  return [116*fy - 16, 500*(fx-fy), 200*(fy-fz)];
+}
+function labToRgb(L,a,b){
+  const fy=(L+16)/116, fx=fy+a/500, fz=fy-b/200;
+  const finv = t => { const t3=t*t*t; return t3 > 0.008856 ? t3 : (t-16/116)/7.787; };
+  const X=finv(fx)*0.95047, Y=finv(fy)*1.00000, Z=finv(fz)*1.08883;
+  const rl =  X*3.2404542 + Y*-1.5371385 + Z*-0.4985314;
+  const gl =  X*-0.9692660 + Y*1.8760108 + Z*0.0415560;
+  const bl =  X*0.0556434 + Y*-0.2040259 + Z*1.0572252;
+  return [linearToSrgb(rl)*255, linearToSrgb(gl)*255, linearToSrgb(bl)*255];
 }
 
-// Pairs base grid cells with target grid cells by matching luminance rank —
-// cheap stand-in for a full 2-D optimal-assignment solve, but keeps visually
-// similar regions moving the least.
-function obamifyComputeAssignment(baseRaw, targetRaw, canvasSize, grid) {
-  const cellPx = canvasSize / grid;
-  const baseCells = [], targetCells = [];
-  for(let r = 0; r < grid; r++){
-    for(let c = 0; c < grid; c++){
-      const idx = r*grid + c;
-      const x0 = c*cellPx, y0 = r*cellPx;
-      baseCells.push({ idx, lum: obamifyCellLuminance(baseRaw, canvasSize, x0, y0, cellPx) });
-      targetCells.push({ idx, lum: obamifyCellLuminance(targetRaw, canvasSize, x0, y0, cellPx) });
-    }
+// Converts a whole RGBA canvas to per-pixel Lab plus per-channel mean/std.
+function colorschemeLabStats(raw, canvasSize) {
+  const n = canvasSize*canvasSize;
+  const labs = new Float32Array(n*3);
+  let sumL=0, suma=0, sumb=0;
+  for(let i=0; i<n; i++){
+    const idx = i*4;
+    const [L,a,b] = rgbToLab(raw[idx], raw[idx+1], raw[idx+2]);
+    labs[i*3]=L; labs[i*3+1]=a; labs[i*3+2]=b;
+    sumL+=L; suma+=a; sumb+=b;
   }
-  baseCells.sort((a,b) => a.lum - b.lum);
-  targetCells.sort((a,b) => a.lum - b.lum);
-  const pairs = new Array(baseCells.length);
-  for(let k = 0; k < baseCells.length; k++) pairs[k] = { baseIdx: baseCells[k].idx, targetIdx: targetCells[k].idx };
-  return pairs;
+  const meanL=sumL/n, meana=suma/n, meanb=sumb/n;
+  let varL=0, vara=0, varb=0;
+  for(let i=0; i<n; i++){
+    varL += (labs[i*3]  -meanL)**2;
+    vara += (labs[i*3+1]-meana)**2;
+    varb += (labs[i*3+2]-meanb)**2;
+  }
+  return {
+    labs,
+    mean:[meanL, meana, meanb],
+    std:[Math.sqrt(varL/n)||1e-6, Math.sqrt(vara/n)||1e-6, Math.sqrt(varb/n)||1e-6],
+  };
 }
 
-// Renders one frame (t in [0,1]) of the morph as a flat RGBA raw buffer.
-// `beta`: when true, tiles keep their ORIGINAL base colour the entire time —
-// only position is animated, nothing is colour-blended. This is closer to how
-// the real obamify works: the base image's own pixels are physically
-// rearranged (by the luminance-rank assignment) until their positions alone
-// approximate the target's shape, rather than faking it with a colour fade.
-function obamifyRenderFrame(baseRaw, targetRaw, canvasSize, grid, pairs, t, beta) {
-  const cellPx = canvasSize / grid;
-  const te = obamifyEase(t);
-  const out = new Uint8ClampedArray(canvasSize * canvasSize * 4);
-  // Discord-dark background fill so gaps between mid-flight tiles blend in.
-  for(let i = 0; i < canvasSize*canvasSize; i++){ out[i*4]=0x36; out[i*4+1]=0x39; out[i*4+2]=0x3f; out[i*4+3]=255; }
-
-  for(const { baseIdx, targetIdx } of pairs){
-    const bRow = Math.floor(baseIdx/grid),   bCol = baseIdx%grid;
-    const tRow = Math.floor(targetIdx/grid), tCol = targetIdx%grid;
-    const sx = bCol*cellPx, sy = bRow*cellPx;
-    const ex = tCol*cellPx, ey = tRow*cellPx;
-    const px = Math.round(sx + (ex-sx)*te);
-    const py = Math.round(sy + (ey-sy)*te);
-
-    for(let ty = 0; ty < cellPx; ty++){
-      const cy = py + ty;
-      if(cy < 0 || cy >= canvasSize) continue;
-      for(let tx = 0; tx < cellPx; tx++){
-        const cx = px + tx;
-        if(cx < 0 || cx >= canvasSize) continue;
-        const srcIdx = ((sy+ty) * canvasSize + (sx+tx)) * 4;
-        const outIdx = (cy * canvasSize + cx) * 4;
-        if(beta){
-          // Colour never changes — always the tile's original base pixel.
-          out[outIdx]   = baseRaw[srcIdx];
-          out[outIdx+1] = baseRaw[srcIdx+1];
-          out[outIdx+2] = baseRaw[srcIdx+2];
-        } else {
-          const dstIdx = ((ey+ty) * canvasSize + (ex+tx)) * 4;
-          out[outIdx]   = baseRaw[srcIdx]   + (targetRaw[dstIdx]   - baseRaw[srcIdx])   * te;
-          out[outIdx+1] = baseRaw[srcIdx+1] + (targetRaw[dstIdx+1] - baseRaw[srcIdx+1]) * te;
-          out[outIdx+2] = baseRaw[srcIdx+2] + (targetRaw[dstIdx+2] - baseRaw[srcIdx+2]) * te;
-        }
-        out[outIdx+3] = 255;
-      }
-    }
+// Recolours the target to match the palette image's Lab mean/std, preserving
+// the target's own shape and detail (Reinhard, "Color Transfer between Images", 2001).
+function colorschemeComputeRecolor(paletteRaw, targetRaw, canvasSize) {
+  const paletteStats = colorschemeLabStats(paletteRaw, canvasSize);
+  const targetStats  = colorschemeLabStats(targetRaw, canvasSize);
+  const n = canvasSize*canvasSize;
+  const out = new Uint8ClampedArray(n*4);
+  for(let i=0; i<n; i++){
+    const L = targetStats.labs[i*3],   a = targetStats.labs[i*3+1],   b = targetStats.labs[i*3+2];
+    const L2 = (L - targetStats.mean[0]) * (paletteStats.std[0]/targetStats.std[0]) + paletteStats.mean[0];
+    const a2 = (a - targetStats.mean[1]) * (paletteStats.std[1]/targetStats.std[1]) + paletteStats.mean[1];
+    const b2 = (b - targetStats.mean[2]) * (paletteStats.std[2]/targetStats.std[2]) + paletteStats.mean[2];
+    const [r,g,bch] = labToRgb(L2, a2, b2);
+    const idx = i*4;
+    out[idx]=r; out[idx+1]=g; out[idx+2]=bch; out[idx+3]=255;
   }
   return out;
 }
 
-function obamifyBuildFrames(pending) {
-  const { baseRaw, targetRaw, canvasSize, grid, pairs, beta } = pending;
-  const frames = new Array(OBAMIFY_FRAMES);
-  for(let f = 0; f < OBAMIFY_FRAMES; f++){
-    frames[f] = obamifyRenderFrame(baseRaw, targetRaw, canvasSize, grid, pairs, f/(OBAMIFY_FRAMES-1), beta);
+// Renders one frame (t in [0,1]) as a crossfade between the original target
+// pixels and the fully recoloured result.
+function colorschemeRenderFrame(targetRaw, recoloredRaw, canvasSize, t) {
+  const te = colorschemeEase(t);
+  const n = canvasSize*canvasSize;
+  const out = new Uint8ClampedArray(n*4);
+  for(let i=0; i<n; i++){
+    const idx = i*4;
+    out[idx]   = targetRaw[idx]   + (recoloredRaw[idx]   - targetRaw[idx])   * te;
+    out[idx+1] = targetRaw[idx+1] + (recoloredRaw[idx+1] - targetRaw[idx+1]) * te;
+    out[idx+2] = targetRaw[idx+2] + (recoloredRaw[idx+2] - targetRaw[idx+2]) * te;
+    out[idx+3] = 255;
+  }
+  return out;
+}
+
+function colorschemeBuildFrames(pending) {
+  const { targetRaw, recoloredRaw, canvasSize } = pending;
+  const frames = new Array(COLORSCHEME_FRAMES);
+  for(let f = 0; f < COLORSCHEME_FRAMES; f++){
+    frames[f] = colorschemeRenderFrame(targetRaw, recoloredRaw, canvasSize, f/(COLORSCHEME_FRAMES-1));
   }
   return frames;
 }
 
 // Encodes a sequence of raw RGBA frames into a GIF using the same shared-palette
-// approach as buildTomatoGif. `order` lets the caller play the frames forward
-// (transforming) or reversed (detransforming) without re-rendering anything.
-function obamifyEncodeGif(frames, canvasSize, reverse) {
+// approach as buildTomatoGif. `reverse` lets the caller play the frames
+// forward (recolouring) or reversed (fading back to the original) without
+// re-rendering anything.
+function colorschemeEncodeGif(frames, canvasSize, reverse) {
   let GifWriter;
   try { GifWriter = require("omggif").GifWriter; }
   catch(e){ throw new Error("omggif not installed — run: npm install omggif"); }
@@ -2490,15 +2492,10 @@ function obamifyEncodeGif(frames, canvasSize, reverse) {
   return Buffer.from(outBuf.buffer, 0, writer.end());
 }
 
-// Renders just the final (fully-transformed) frame as a PNG buffer.
-// Non-beta: this is exactly the target image (every cell lands on its target
-// tile with target colour). Beta: same positions, but each tile still shows
-// its own base colour, so the result is the base image's pixels rearranged
-// into the target's shape rather than the target image itself.
-async function obamifyFinalPng(pending) {
-  const { baseRaw, targetRaw, canvasSize, grid, pairs, beta } = pending;
-  const finalRaw = obamifyRenderFrame(baseRaw, targetRaw, canvasSize, grid, pairs, 1, beta);
-  return sharp(Buffer.from(finalRaw), { raw: { width: canvasSize, height: canvasSize, channels: 4 } }).png().toBuffer();
+// Renders just the final (fully recoloured) frame as a PNG buffer.
+async function colorschemeFinalPng(pending) {
+  const { recoloredRaw, canvasSize } = pending;
+  return sharp(Buffer.from(recoloredRaw), { raw: { width: canvasSize, height: canvasSize, channels: 4 } }).png().toBuffer();
 }
 
 // ── YouTube polling tick (runs every 5 minutes) ───────────────────────────────
@@ -2917,10 +2914,9 @@ function buildCommands(){
     {name:"requestupload",   description:"Submit an image, audio, or video file to be reviewed for the quotes folder",options:[
       {name:"source",description:"File to submit (image/audio/video)",type:11,required:true},
     ]},
-    {name:"obamify", description:"Pixel-mosaic morph one image into another",options:[
-      {name:"base",   description:"The starting image",              type:11,required:true},
-      {name:"target", description:"The image to transform it into",  type:11,required:true},
-      {name:"beta",   description:"Beta code: move pixels into place without recolouring them (experimental)", type:5, required:false},
+    {name:"colorscheme", description:"Repaint one image using another image's colour scheme",options:[
+      {name:"palette", description:"The image whose colour scheme to use",     type:11,required:true},
+      {name:"target",  description:"The image to repaint with that scheme",    type:11,required:true},
     ]},
 
     // ── Community Modes ────────────────────────────────────────────────────────
@@ -4229,36 +4225,36 @@ client.on("interactionCreate",async interaction=>{
     const cid=interaction.customId;
     try {
 
-    // ── /obamify: delivery-mode picker ───────────────────────────────────────
-    if(cid.startsWith("obamify_final_")||cid.startsWith("obamify_gif_")||cid.startsWith("obamify_reverse_")){
+    // ── /colorscheme: delivery-mode picker ───────────────────────────────────
+    if(cid.startsWith("colorscheme_final_")||cid.startsWith("colorscheme_gif_")||cid.startsWith("colorscheme_reverse_")){
       let mode, token;
-      if(cid.startsWith("obamify_final_"))        { mode="final";   token=cid.slice("obamify_final_".length); }
-      else if(cid.startsWith("obamify_reverse_")) { mode="reverse"; token=cid.slice("obamify_reverse_".length); }
-      else                                         { mode="gif";     token=cid.slice("obamify_gif_".length); }
+      if(cid.startsWith("colorscheme_final_"))        { mode="final";   token=cid.slice("colorscheme_final_".length); }
+      else if(cid.startsWith("colorscheme_reverse_")) { mode="reverse"; token=cid.slice("colorscheme_reverse_".length); }
+      else                                             { mode="gif";     token=cid.slice("colorscheme_gif_".length); }
 
-      const pending = obamifyPending.get(token);
-      if(!pending){ await btnEphemeral(interaction,"❌ This obamify session has expired — run `/obamify` again."); return; }
-      if(pending.userId !== uid){ await btnEphemeral(interaction,"❌ Only the person who ran `/obamify` can pick a delivery mode."); return; }
+      const pending = colorschemePending.get(token);
+      if(!pending){ await btnEphemeral(interaction,"❌ This colorscheme session has expired — run `/colorscheme` again."); return; }
+      if(pending.userId !== uid){ await btnEphemeral(interaction,"❌ Only the person who ran `/colorscheme` can pick a delivery mode."); return; }
 
       if(!await btnAck(interaction)) return;
       try{
         if(mode === "final"){
-          const png = await obamifyFinalPng(pending);
-          await interaction.editReply({content:"🖼️ Transformation complete!",files:[{attachment:png,name:"obamify.png"}],components:[]});
+          const png = await colorschemeFinalPng(pending);
+          await interaction.editReply({content:"🖼️ Recolour complete!",files:[{attachment:png,name:"colorscheme.png"}],components:[]});
         } else {
-          const frames = obamifyBuildFrames(pending);
-          const gif = obamifyEncodeGif(frames, pending.canvasSize, mode === "reverse");
+          const frames = colorschemeBuildFrames(pending);
+          const gif = colorschemeEncodeGif(frames, pending.canvasSize, mode === "reverse");
           await interaction.editReply({
-            content: mode === "reverse" ? "⏪ Detransforming…" : "🎬 Transforming…",
-            files: [{attachment:gif, name: mode === "reverse" ? "obamify-reverse.gif" : "obamify.gif"}],
+            content: mode === "reverse" ? "⏪ Fading back to the original…" : "🎬 Repainting…",
+            files: [{attachment:gif, name: mode === "reverse" ? "colorscheme-reverse.gif" : "colorscheme.gif"}],
             components: [],
           });
         }
       }catch(e){
-        console.error("obamify render error:", e.message);
+        console.error("colorscheme render error:", e.message);
         await interaction.editReply({content:`❌ Failed to generate the image: ${e.message}`,components:[]}).catch(()=>{});
       } finally {
-        obamifyPending.delete(token);
+        colorschemePending.delete(token);
       }
       return;
     }
@@ -8894,51 +8890,48 @@ if(cmd==="gif"){
       return safeReply(interaction,{content:`✅ Global quote review channel set to <#${ch.id}>. All \`/requestupload\` submissions will go there.`,ephemeral:true});
     }
 
-    // ── /obamify — pixel-mosaic morph one image into another ───────────────────
-    if(cmd==="obamify"){
-      const baseAtt   = interaction.options.getAttachment("base");
-      const targetAtt = interaction.options.getAttachment("target");
+    // ── /colorscheme — repaint one image using another's colour scheme ─────────
+    if(cmd==="colorscheme"){
+      const paletteAtt = interaction.options.getAttachment("palette");
+      const targetAtt  = interaction.options.getAttachment("target");
 
-      const baseInfo   = detectMediaKind(baseAtt.contentType, baseAtt.name);
-      const targetInfo = detectMediaKind(targetAtt.contentType, targetAtt.name);
-      if(!baseInfo || baseInfo.kind !== "image")
-        return safeReply(interaction,{content:"❌ The base file must be an image.",ephemeral:true});
+      const paletteInfo = detectMediaKind(paletteAtt.contentType, paletteAtt.name);
+      const targetInfo  = detectMediaKind(targetAtt.contentType, targetAtt.name);
+      if(!paletteInfo || paletteInfo.kind !== "image")
+        return safeReply(interaction,{content:"❌ The palette file must be an image.",ephemeral:true});
       if(!targetInfo || targetInfo.kind !== "image")
         return safeReply(interaction,{content:"❌ The target file must be an image.",ephemeral:true});
 
       const MAX_SIZE = 10_000_000; // 10 MB per image
-      if(baseAtt.size > MAX_SIZE || targetAtt.size > MAX_SIZE)
+      if(paletteAtt.size > MAX_SIZE || targetAtt.size > MAX_SIZE)
         return safeReply(interaction,{content:"❌ Both images must be under 10 MB.",ephemeral:true});
-
-      const beta = interaction.options.getBoolean("beta") ?? false;
 
       await interaction.deferReply({ephemeral:true});
 
       try{
-        const [baseRaw, targetRaw] = await Promise.all([
-          obamifyDecodeToRaw(baseAtt.url,   OBAMIFY_CANVAS),
-          obamifyDecodeToRaw(targetAtt.url, OBAMIFY_CANVAS),
+        const [paletteRaw, targetRaw] = await Promise.all([
+          colorschemeDecodeToRaw(paletteAtt.url, COLORSCHEME_CANVAS),
+          colorschemeDecodeToRaw(targetAtt.url,  COLORSCHEME_CANVAS),
         ]);
-        const pairs = obamifyComputeAssignment(baseRaw, targetRaw, OBAMIFY_CANVAS, OBAMIFY_GRID);
+        const recoloredRaw = colorschemeComputeRecolor(paletteRaw, targetRaw, COLORSCHEME_CANVAS);
 
         // Short token — keeps custom_id well under Discord's 100-char limit.
         const token = `${interaction.user.id.slice(-6)}${Date.now().toString(36)}`;
-        obamifyPending.set(token, {
-          baseRaw, targetRaw,
-          canvasSize: OBAMIFY_CANVAS, grid: OBAMIFY_GRID, pairs, beta,
+        colorschemePending.set(token, {
+          targetRaw, recoloredRaw,
+          canvasSize: COLORSCHEME_CANVAS,
           userId: interaction.user.id,
         });
-        setTimeout(() => obamifyPending.delete(token), 10 * 60 * 1000);
+        setTimeout(() => colorschemePending.delete(token), 10 * 60 * 1000);
 
         const row = new MessageActionRow().addComponents(
-          new MessageButton().setCustomId(`obamify_final_${token}`).setLabel("🖼️ Already Transformed").setStyle("SECONDARY"),
-          new MessageButton().setCustomId(`obamify_gif_${token}`).setLabel("🎬 Transforming GIF").setStyle("PRIMARY"),
-          new MessageButton().setCustomId(`obamify_reverse_${token}`).setLabel("⏪ Reversed GIF").setStyle("PRIMARY"),
+          new MessageButton().setCustomId(`colorscheme_final_${token}`).setLabel("🖼️ Already Transformed").setStyle("SECONDARY"),
+          new MessageButton().setCustomId(`colorscheme_gif_${token}`).setLabel("🎬 Transforming GIF").setStyle("PRIMARY"),
+          new MessageButton().setCustomId(`colorscheme_reverse_${token}`).setLabel("⏪ Reversed GIF").setStyle("PRIMARY"),
         );
-        const betaNote = beta ? " *(beta code: pixels keep their original colour, only positions move)*" : "";
-        return safeReply(interaction,{content:`🎨 Images processed! How should I send the result?${betaNote}`,components:[row],ephemeral:true});
+        return safeReply(interaction,{content:"🎨 Images processed! How should I send the result?",components:[row],ephemeral:true});
       }catch(e){
-        console.error("obamify decode error:", e.message);
+        console.error("colorscheme decode error:", e.message);
         return safeReply(interaction,{content:`❌ Couldn't process those images: ${e.message}`,ephemeral:true});
       }
     }
