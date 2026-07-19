@@ -2498,6 +2498,148 @@ async function colorschemeFinalPng(pending) {
   return sharp(Buffer.from(recoloredRaw), { raw: { width: canvasSize, height: canvasSize, channels: 4 } }).png().toBuffer();
 }
 
+// ── /pixeltxt — RLE + palette compressed pixel <-> image codec ───────────────
+// Port of the PIXELTXT v2 web tool's format:
+//   PIXELTXT v2
+//   SIZE WxH
+//   PALETTE n
+//   #rrggbb[aa]              ← one colour per line (index 0,1,2…)
+//   DATA
+//   count:palIdx[,count:palIdx…]   ← RLE runs per row, row by row
+//   END
+// Also decodes the legacy "(x,y): #hex[aa]" sparse-pixel format.
+const PIXELTXT_MAX_PIXELS = 4_000_000; // safety cap on encode input & decode SIZE header
+
+function pixeltxtHex2(n){ return n.toString(16).padStart(2,"0"); }
+
+// Encodes a raw RGBA Buffer (W*H*4 bytes) into the PIXELTXT v2 text format.
+function pixeltxtEncode(raw, W, H) {
+  const total = W * H;
+  const palMap = new Map(); // packed RGBA key -> palette index
+  const palArr = [];        // palette index -> packed RGBA key
+
+  const keyAt = (i) => {
+    const idx = i * 4;
+    return raw[idx]*16777216 + raw[idx+1]*65536 + raw[idx+2]*256 + raw[idx+3];
+  };
+
+  for(let i = 0; i < total; i++){
+    const key = keyAt(i);
+    if(!palMap.has(key)){ palMap.set(key, palArr.length); palArr.push(key); }
+  }
+
+  const lines = [`PIXELTXT v2`, `SIZE ${W}x${H}`, `PALETTE ${palArr.length}`];
+  for(const key of palArr){
+    const r = Math.floor(key / 16777216) & 0xff;
+    const g = Math.floor(key / 65536)    & 0xff;
+    const b = Math.floor(key / 256)      & 0xff;
+    const a = key & 0xff;
+    lines.push("#" + pixeltxtHex2(r) + pixeltxtHex2(g) + pixeltxtHex2(b) + (a < 255 ? pixeltxtHex2(a) : ""));
+  }
+  lines.push("DATA");
+
+  let totalRuns = 0;
+  for(let y = 0; y < H; y++){
+    const rowStart = y * W;
+    const rowParts = [];
+    let runLen = 1;
+    let runKey = keyAt(rowStart);
+    for(let x = 1; x < W; x++){
+      const key = keyAt(rowStart + x);
+      if(key === runKey){ runLen++; }
+      else { rowParts.push(runLen + ":" + palMap.get(runKey)); totalRuns++; runLen = 1; runKey = key; }
+    }
+    rowParts.push(runLen + ":" + palMap.get(runKey)); totalRuns++;
+    lines.push(rowParts.join(","));
+  }
+  lines.push("END");
+
+  return { text: lines.join("\n") + "\n", paletteSize: palArr.length, totalRuns };
+}
+
+// Decodes PIXELTXT v2 text back into { W, H, pixels: Buffer(RGBA) }.
+function pixeltxtDecodeV2(text) {
+  const lines = text.split("\n");
+  let li = 1; // skip 'PIXELTXT v2'
+
+  const sizeLine = (lines[li++]||"").trim();
+  if(!sizeLine.startsWith("SIZE ")) throw new Error("Missing SIZE line");
+  const [W, H] = sizeLine.slice(5).split("x").map(Number);
+  if(!W || !H) throw new Error("Bad SIZE line");
+  if(W*H > PIXELTXT_MAX_PIXELS) throw new Error(`Image is too large (${W}×${H} — max ${PIXELTXT_MAX_PIXELS.toLocaleString()} px)`);
+
+  const palLine = (lines[li++]||"").trim();
+  if(!palLine.startsWith("PALETTE ")) throw new Error("Missing PALETTE line");
+  const palSize = parseInt(palLine.slice(8), 10);
+  if(!Number.isFinite(palSize) || palSize < 0) throw new Error("Bad PALETTE line");
+
+  const palette = new Array(palSize);
+  for(let i = 0; i < palSize; i++){
+    const s = (lines[li++]||"").trim();
+    if(!s.startsWith("#") || s.length < 7) throw new Error(`Bad palette entry at index ${i}`);
+    const r = parseInt(s.slice(1,3), 16), g = parseInt(s.slice(3,5), 16), b = parseInt(s.slice(5,7), 16);
+    const a = s.length >= 9 ? parseInt(s.slice(7,9), 16) : 255;
+    if([r,g,b,a].some(Number.isNaN)) throw new Error(`Bad palette colour at index ${i}`);
+    palette[i] = [r,g,b,a];
+  }
+
+  if((lines[li++]||"").trim() !== "DATA") throw new Error("Missing DATA line");
+
+  const pixels = Buffer.alloc(W*H*4);
+  let pixPos = 0;
+  for(let row = 0; row < H; row++){
+    const line = lines[li++];
+    if(line === undefined || line.trim() === "END") break;
+    let ci = 0;
+    const ll = line.length;
+    while(ci < ll){
+      let count = 0;
+      while(ci < ll && line.charCodeAt(ci) >= 48 && line.charCodeAt(ci) <= 57){ count = count*10 + (line.charCodeAt(ci)-48); ci++; }
+      if(line.charCodeAt(ci) !== 58){ ci++; continue; } // ':'
+      ci++;
+      let idx = 0;
+      while(ci < ll && line.charCodeAt(ci) >= 48 && line.charCodeAt(ci) <= 57){ idx = idx*10 + (line.charCodeAt(ci)-48); ci++; }
+      if(line.charCodeAt(ci) === 44) ci++; // ','
+      const col = palette[idx];
+      if(!col) throw new Error(`Palette index ${idx} out of range on row ${row}`);
+      const [r,g,b,a] = col;
+      const end = Math.min(pixPos + count, W*H);
+      for(let p = pixPos; p < end; p++){ const o=p*4; pixels[o]=r; pixels[o+1]=g; pixels[o+2]=b; pixels[o+3]=a; }
+      pixPos = end;
+    }
+  }
+  return { W, H, pixels };
+}
+
+// Decodes the legacy "(x,y): #hex[aa]" sparse format back into { W, H, pixels }.
+function pixeltxtDecodeLegacy(text) {
+  const lineRe = /^\s*\((\d+)\s*,\s*(\d+)\)\s*:\s*#([0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?)\s*$/;
+  const lines = text.split("\n");
+  let maxX = 0, maxY = 0;
+  const parsed = [];
+  for(const line of lines){
+    const m = lineRe.exec(line);
+    if(!m) continue;
+    const x = parseInt(m[1],10), y = parseInt(m[2],10);
+    const hex = m[3];
+    const r = parseInt(hex.slice(0,2),16), g = parseInt(hex.slice(2,4),16), b = parseInt(hex.slice(4,6),16);
+    const a = hex.length === 8 ? parseInt(hex.slice(6,8),16) : 255;
+    parsed.push({x,y,r,g,b,a});
+    if(x > maxX) maxX = x;
+    if(y > maxY) maxY = y;
+  }
+  if(!parsed.length) throw new Error("No valid pixel entries found (expected \"(x,y): #hex\" lines or a PIXELTXT v2 header)");
+  const W = maxX+1, H = maxY+1;
+  if(W*H > PIXELTXT_MAX_PIXELS) throw new Error(`Image is too large (${W}×${H} — max ${PIXELTXT_MAX_PIXELS.toLocaleString()} px)`);
+  const pixels = Buffer.alloc(W*H*4);
+  for(const {x,y,r,g,b,a} of parsed){ const o=(y*W+x)*4; pixels[o]=r; pixels[o+1]=g; pixels[o+2]=b; pixels[o+3]=a; }
+  return { W, H, pixels };
+}
+
+function pixeltxtDecode(text) {
+  return text.trimStart().startsWith("PIXELTXT v2") ? pixeltxtDecodeV2(text) : pixeltxtDecodeLegacy(text);
+}
+
 // ── YouTube polling tick (runs every 5 minutes) ───────────────────────────────
 setInterval(async () => {
   for (const [guildId, cfg] of ytConfig.entries()) {
@@ -2917,6 +3059,13 @@ function buildCommands(){
     {name:"colorscheme", description:"Repaint one image using another image's colour scheme",options:[
       {name:"palette", description:"The image whose colour scheme to use",     type:11,required:true},
       {name:"target",  description:"The image to repaint with that scheme",    type:11,required:true},
+    ]},
+    {name:"pixeltxt", description:"Convert an image to a compressed PIXELTXT file, or turn one back into an image",options:[
+      {name:"action", description:"Structure an image into text, or destructure text back into an image", type:3, required:true, choices:[
+        {name:"Structure (image → text)", value:"structure"},
+        {name:"Destructure (text → image)", value:"destructure"},
+      ]},
+      {name:"file", description:"Image to structure, or a PIXELTXT .txt file to destructure", type:11, required:true},
     ]},
 
     // ── Community Modes ────────────────────────────────────────────────────────
@@ -6847,9 +6996,9 @@ if(cmd==="gif"){
         const chosen = await nextQuoteImage();
         if(!chosen) return safeReply(interaction, "Couldn't load quotes right now.");
         let sent;
-        // ~5% chance to also show the upload promo message
-        if(Math.random() < 0.05){
-          sent = await safeReply(interaction, { content: "Do you want to be able to upload images to be used in /quote? Add **genuineleafy** or **royalvmusic** in discord to do so!", files: [chosen.download_url] });
+        // ~10% chance to also show the upload promo message
+        if(Math.random() < 0.10){
+          sent = await safeReply(interaction, { content: "Do you wish to contribute to /quote? run /requestupload to send in your best quotes, screenshots or memes!", files: [chosen.download_url] });
         } else {
           sent = await safeReply(interaction, { files: [chosen.download_url] });
         }
@@ -6886,7 +7035,7 @@ if(cmd==="gif"){
         const chosen = await nextGoodQuoteImage();
         if(!chosen) return safeReply(interaction, "Couldn't load quotes right now.");
         let sent;
-        if(Math.random() < 0.05){
+        if(Math.random() < 0.10){
           sent = await safeReply(interaction, { content: "Do you wish to contribute to /quote? run /requestupload to send in your best quotes, screenshots or memes!", files: [chosen.download_url] });
         } else {
           sent = await safeReply(interaction, { files: [chosen.download_url] });
@@ -6923,8 +7072,8 @@ if(cmd==="gif"){
         const chosen = await nextBadQuoteImage();
         if(!chosen) return safeReply(interaction, "Couldn't load quotes right now.");
         let sent;
-        if(Math.random() < 0.05){
-          sent = await safeReply(interaction, { content: "Do you want to be able to upload images to be used in /quote? Add **genuineleafy** or **royalvmusic** in discord to do so!", files: [chosen.download_url] });
+        if(Math.random() < 0.10){
+          sent = await safeReply(interaction, { content: "Do you wish to contribute to /quote? run /requestupload to send in your best quotes, screenshots or memes!", files: [chosen.download_url] });
         } else {
           sent = await safeReply(interaction, { files: [chosen.download_url] });
         }
@@ -8933,6 +9082,68 @@ if(cmd==="gif"){
       }catch(e){
         console.error("colorscheme decode error:", e.message);
         return safeReply(interaction,{content:`❌ Couldn't process those images: ${e.message}`,ephemeral:true});
+      }
+    }
+
+    // ── /pixeltxt — structure an image into PIXELTXT text, or destructure it back ─
+    if(cmd==="pixeltxt"){
+      const action = interaction.options.getString("action");
+      const file = interaction.options.getAttachment("file");
+      const PIXELTXT_PROMO = "Try the website version of this command at https://royal-v-rr.github.io/pixeltxt/";
+      const promoContent = () => Math.random() < 0.05 ? PIXELTXT_PROMO : undefined;
+
+      if(action === "structure"){
+        const info = detectMediaKind(file.contentType, file.name);
+        if(!info || info.kind !== "image")
+          return safeReply(interaction,{content:"❌ For structuring, attach an image file.",ephemeral:true});
+
+        const MAX_SIZE = 10_000_000; // 10 MB
+        if(file.size > MAX_SIZE)
+          return safeReply(interaction,{content:"❌ Image must be under 10 MB.",ephemeral:true});
+
+        await interaction.deferReply();
+        try{
+          const res = await fetch(file.url);
+          if(!res.ok) throw new Error(`Could not fetch image (HTTP ${res.status})`);
+          const buf = Buffer.from(await res.arrayBuffer());
+          const { data, info: meta } = await sharp(buf).ensureAlpha().raw().toBuffer({resolveWithObject:true});
+          const W = meta.width, H = meta.height;
+          if(W*H > PIXELTXT_MAX_PIXELS)
+            return safeReply(interaction,{content:`❌ That image is ${W}×${H} (${(W*H).toLocaleString()} px) — too large to structure. Max is ${PIXELTXT_MAX_PIXELS.toLocaleString()} px, try resizing it down first.`});
+
+          const { text } = pixeltxtEncode(data, W, H);
+
+          return safeReply(interaction,{
+            content: promoContent(),
+            files:[{attachment: Buffer.from(text,"utf8"), name:"pixels.txt"}],
+          });
+        }catch(e){
+          console.error("pixeltxt structure error:", e.message);
+          return safeReply(interaction,{content:`❌ Failed to structure: ${e.message}`,ephemeral:true});
+        }
+      }
+
+      // action === "destructure"
+      const MAX_TXT_SIZE = 8_000_000; // 8 MB
+      if(file.size > MAX_TXT_SIZE)
+        return safeReply(interaction,{content:"❌ Text file must be under 8 MB.",ephemeral:true});
+
+      await interaction.deferReply();
+      try{
+        const res = await fetch(file.url);
+        if(!res.ok) throw new Error(`Could not fetch file (HTTP ${res.status})`);
+        const text = await res.text();
+
+        const { W, H, pixels } = pixeltxtDecode(text);
+        const png = await sharp(pixels, { raw:{ width:W, height:H, channels:4 } }).png().toBuffer();
+
+        return safeReply(interaction,{
+          content: promoContent(),
+          files:[{attachment: png, name:"restructured.png"}],
+        });
+      }catch(e){
+        console.error("pixeltxt destructure error:", e.message);
+        return safeReply(interaction,{content:`❌ Failed to destructure: ${e.message}`,ephemeral:true});
       }
     }
 
