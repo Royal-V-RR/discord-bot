@@ -480,12 +480,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 15400,
-        "lastSubsTimestamp": 1784555396955,
+        "lastSubsTimestamp": 1784555696969,
         "history": [
-          {
-            "ts": 1784240771919,
-            "subs": 15300
-          },
           {
             "ts": 1784241071922,
             "subs": 15300
@@ -4481,6 +4477,10 @@
           {
             "ts": 1784555396955,
             "subs": 15400
+          },
+          {
+            "ts": 1784555696969,
+            "subs": 15400
           }
         ],
         "subcountDiscordId": "1483595393999700080",
@@ -6110,7 +6110,7 @@
         "marriedTo": null,
         "pendingProposal": null,
         "forceMarried": false,
-        "imagesUploaded": 8,
+        "imagesUploaded": 9,
         "uploadedImages": [
           "IMG_2841.png",
           "mommy.png",
@@ -6118,7 +6118,8 @@
           "quote.png",
           "Screenshot_2026-05-28-23-59-27-62_40deb401b9ffe8e1df2f1cc5ba480b12.jpg",
           "Screenshot_20260614_233751_Discord.jpg",
-          "quote_56.png"
+          "quote_56.png",
+          "quote_194.png"
         ]
       }
     ],
@@ -74096,7 +74097,7 @@
   "selfClankCooldown": [],
   "pendingReviews": [],
   "uploadCounters": {
-    "quote": 193,
+    "quote": 194,
     "eardestroyer": 1,
     "eyebleacher": 3
   },
