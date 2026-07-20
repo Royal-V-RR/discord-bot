@@ -5726,7 +5726,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 578,
+        "xp": 588,
         "level": 18,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -33884,7 +33884,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 737,
+        "xp": 752,
         "level": 8,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -74119,7 +74119,17 @@
     ]
   ],
   "selfClankCooldown": [],
-  "pendingReviews": [],
+  "pendingReviews": [
+    [
+      "189800mrtnnlvs",
+      {
+        "submitterId": "1413943805203189800",
+        "fileName": "1413943805203189800__image__Screenshot_20260720-2104592.jpg",
+        "rawName": "Screenshot_20260720-2104592.jpg",
+        "mediaKind": "image"
+      }
+    ]
+  ],
   "uploadCounters": {
     "quote": 194,
     "eardestroyer": 1,
