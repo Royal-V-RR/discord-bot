@@ -1585,8 +1585,24 @@ setInterval(async()=>{
 },30000);
 
 // ── /messageschedule helpers ─────────────────────────────────────────────────
-const SCHEDULE_UNIT_MS = { minutes:60000, hours:3_600_000, days:86_400_000, weeks:604_800_000, months:2_592_000_000 };
+const SCHEDULE_UNIT_MS    = { minutes:60000, hours:3_600_000, days:86_400_000, weeks:604_800_000, months:2_592_000_000 };
 const SCHEDULE_UNIT_LABEL = { minutes:"minute", hours:"hour", days:"day", weeks:"week", months:"month" };
+// Parses free-text durations like "5 hours", "2 days", "1 week", "1 month" into { amount, unit, ms }.
+function parseScheduleTime(str){
+  const m = String(str||"").trim().toLowerCase().match(/^(\d+)\s*(min(?:ute)?s?|hrs?|hours?|days?|weeks?|wks?|months?|mos?)$/);
+  if(!m) return null;
+  const amount = parseInt(m[1], 10);
+  if(!amount || amount < 1) return null;
+  const raw = m[2];
+  let unit;
+  if(/^min/.test(raw))            unit = "minutes";
+  else if(/^h(r|our)/.test(raw))  unit = "hours";
+  else if(/^day/.test(raw))       unit = "days";
+  else if(/^w(k|eek)/.test(raw))  unit = "weeks";
+  else if(/^mo/.test(raw))        unit = "months";
+  if(!unit) return null;
+  return { amount, unit, ms: amount*SCHEDULE_UNIT_MS[unit] };
+}
 function genScheduleId(){
   let id;
   do { id = Math.random().toString(36).slice(2,8); } while(scheduledMessages.has(id));
@@ -2901,23 +2917,8 @@ function buildCommands(){
       {name:"title",    description:"Video title (optional, shown in the countdown)", type:3, required:false},
     ]},
     {name:"messageschedule", description:"Schedule a message to be sent later as you, via webhook 📨",options:[
-      {name:"action",   description:"What to do",  type:3, required:true, choices:[
-        {name:"Schedule a new message", value:"schedule"},
-        {name:"List your scheduled messages", value:"list"},
-        {name:"Cancel a scheduled message", value:"cancel"},
-      ]},
-      {name:"amount",   description:"How many (for Schedule) — e.g. 5",                 type:4, required:false, min_value:1, max_value:999},
-      {name:"unit",     description:"Time unit (for Schedule)",                          type:3, required:false, choices:[
-        {name:"Minutes", value:"minutes"},
-        {name:"Hours",   value:"hours"},
-        {name:"Days",    value:"days"},
-        {name:"Weeks",   value:"weeks"},
-        {name:"Months",  value:"months"},
-      ]},
-      {name:"message",  description:"The message to send later (for Schedule)",         type:3, required:false},
-      {name:"image",    description:"Optional image to send along with it (for Schedule)",type:11,required:false},
-      {name:"channel",  description:"Channel to send it in (for Schedule — default: this channel)",type:7,required:false},
-      {name:"id",       description:"Scheduled message ID (for Cancel — see /messageschedule action:List)",type:3,required:false},
+      {name:"time",    description:"When to send it — e.g. 5 hours, 2 days, 1 month, 1 week", type:3, required:true},
+      {name:"message", description:"The message to send later",                              type:3, required:true},
     ]},
     {name:"serverinfo",     description:"Server information 🏠"},
     {name:"userprofile",    description:"Full profile card — stats, economy, XP, inventory & more 📋",options:uReq(false)},
@@ -5511,7 +5512,7 @@ client.on("interactionCreate",async interaction=>{
       if(!(await btnAck(interaction)))return;
       const HELP_PAGES=[
         {title:"🎉 Fun & Social  —  Page 1 / 8",description:["**Interactions**","`/action type:… user:…` — Hug, pat, poke, stare, wave, high five, boop, oil, diddle, or kill someone","`/punch` `/hug` `/kiss` `/slap` `/throw` — Quick social actions","`/rate type:… user:…` — Rate someone (gay, autistic, simp, cursed, npc, villain, sigma)","`/ppsize user:…` — Check pp size","`/ship user1:… user2:…` — Ship compatibility %","","**Romance**","`/marry user:…` — Propose 💍 — target gets Accept/Decline buttons","`/divorce` — End the marriage 💔","`/partner [user]` — See who someone is married to","","**Party Games**","`/party type:truth|dare|neverhavei` — Truth, Dare, or Never Have I Ever","","**Conversation**","`/topic` — Random conversation starter","`/roast [user]` — Roast someone 🔥","`/compliment user:…` — Compliment someone 💖","`/advice` — Life advice 🧙","`/fact` — Random fun fact 📚","`/horoscope sign:…` — Your daily horoscope ✨","`/poll question:…` — Quick yes/no poll (server only)"].join("\n")},
-        {title:"📡 Media & Utility  —  Page 2 / 8",description:["**Media**","`/gif animal:…` — Random animal GIF 🐾 (cat, dog, fox, panda, duck, bunny, koala, raccoon)","`/joke` — Random joke 😂","`/meme` — Random meme 🐸","`/quote` — Inspirational quote image ✨","`/trivia` — Trivia question with spoiler answer 🧠","`/avatar user:…` — Get someone\'s avatar","","**Utility**","`/ping` — Bot latency 🏓","`/coinflip` — Heads or tails 🪙","`/roll [sides]` — Roll a dice (default d6) 🎲","`/choose options:a,b,c` — Pick from comma-separated options","`/echo [message] [embed] [image] [title] [color] [replyto]` — Make the bot say something","`/remind time:… message:…` — Set a reminder (1 min – 1 week)","`/messageschedule action:…` — Schedule a message to send later, as you, via webhook 📨","`/upload source|link:…` — Upload an image/audio/video to the quotes folder 🖼️🔊🎬 *(server only, authorized users)*","","**Info**","`/botinfo` — Bot stats","`/serverinfo` — Server member/channel/role info","`/userprofile [user]` — Full profile: level, XP, coins, items, cooldowns"].join("\n")},
+        {title:"📡 Media & Utility  —  Page 2 / 8",description:["**Media**","`/gif animal:…` — Random animal GIF 🐾 (cat, dog, fox, panda, duck, bunny, koala, raccoon)","`/joke` — Random joke 😂","`/meme` — Random meme 🐸","`/quote` — Inspirational quote image ✨","`/trivia` — Trivia question with spoiler answer 🧠","`/avatar user:…` — Get someone\'s avatar","","**Utility**","`/ping` — Bot latency 🏓","`/coinflip` — Heads or tails 🪙","`/roll [sides]` — Roll a dice (default d6) 🎲","`/choose options:a,b,c` — Pick from comma-separated options","`/echo [message] [embed] [image] [title] [color] [replyto]` — Make the bot say something","`/remind time:… message:…` — Set a reminder (1 min – 1 week)","`/messageschedule time:… message:…` — Schedule a message to send later, as you, via webhook 📨 (e.g. `5 hours`, `2 days`, `1 week`, `1 month`)","`/upload source|link:…` — Upload an image/audio/video to the quotes folder 🖼️🔊🎬 *(server only, authorized users)*","","**Info**","`/botinfo` — Bot stats","`/serverinfo` — Server member/channel/role info","`/userprofile [user]` — Full profile: level, XP, coins, items, cooldowns"].join("\n")},
         {title:"📈 XP & Leaderboards  —  Page 3 / 8",description:["**XP**","You earn XP by sending messages (1 min cooldown). 5–15 XP per message.","Level formula: `floor(50 × level^1.5)` XP per level","","`/xp [user]` — Check XP, level, and progress bar","`/xpleaderboard [scope:global|server]` — Top 10 by XP","","**Stats & Leaderboards**","`/score [user]` — Wins, losses, win rate, streak","`/userprofile [user]` — Everything in one embed","`/leaderboard [type]` — Global top 10","`/serverleaderboard [type]` — Server top 10","> Types: `wins` `coins` `streak` `beststreak` `games` `winrate` `images`"].join("\n")},
         {title:"🎮 Games  —  Page 4 / 8",description:["**Solo** — `/games game:…`","> 🪢 Hangman · 🐍 Snake · 💣 Minesweeper (Easy/Med/Hard)","> 🔢 Number Guess · 🔀 Word Scramble · 📅 Daily Challenge","","**2-Player** — `/2playergames game:… [opponent:…]`","> ❌⭕ Tic Tac Toe *(server only)*","> 🔴🔵 Connect 4 *(server only)*","> ✊ Rock Paper Scissors *(choices sent via DM)*","> 🧮 Math Race · 🏁 Word Race · 🧠 Trivia Battle *(server only)*","> 🔢 Count Game — count to 100 together, no opponent needed *(server only)*","> 🏁 Scramble Race — 5-round word unscramble *(server only)*","","Wins award coins. Check `/score` or `/userprofile` for stats."].join("\n")},
         {title:"⚙️ Server Config  —  Page 5 / 8",description:["Most commands here require **Manage Server** permission.","","**Channels & Messages**","`/channelpicker channel:… [levelup]` — Set the bot\'s main channel","`/xpconfig setting:…` — Level-up messages (on/off, ping toggle, channel)","`/setwelcome channel:… [message]` — Welcome message (`{user}` `{server}` `{count}`)","`/setleave channel:… [message]` — Leave message","`/setboostmsg channel:… [message]` — Boost announcement","`/disableownermsg enabled:…` — Toggle bot owner broadcasts","`/purge amount:…` — Bulk delete (needs Manage Messages)","`/counting action:set|remove|status` — Set a permanent counting channel","","**Roles**","`/autorole [role]` — Auto-assign role on join (blank to disable)","`/reactionrole action:add|remove|list …` — Emoji reaction roles","`/rolespingfix` — List & fix roles that can @everyone","","**Competitions & Tickets**","`/invitecomp hours:…` — Invite competition with coin rewards","`/ticketsetup` · `/closeticket` · `/addtoticket` · `/removefromticket`","","**Overview**","`/serverconfig` — View all current settings"].join("\n")},
@@ -7253,82 +7254,47 @@ if(cmd==="gif"){
     }
 
     if(cmd==="messageschedule"){
-      const action = interaction.options.getString("action");
       const MAX_PENDING_PER_USER = 25;
+      const timeStr = interaction.options.getString("time");
+      const content = (interaction.options.getString("message")||"").trim();
+      const channel = interaction.channel;
 
-      // ── List ──────────────────────────────────────────────────────────────
-      if(action==="list"){
-        const mine=[...scheduledMessages.values()].filter(sm=>sm.userId===uid).sort((a,b)=>a.sendAt-b.sendAt);
-        if(!mine.length)return safeReply(interaction,{content:"📭 You have no scheduled messages. Use `/messageschedule action:Schedule a new message` to create one.",ephemeral:true});
-        const lines=mine.map(sm=>{
-          const preview=(sm.content||"*(image only)*").slice(0,60).replace(/\n/g," ");
-          return `\`${sm.id}\` → <#${sm.channelId}> <t:${Math.floor(sm.sendAt/1000)}:R> — ${preview}${sm.content&&sm.content.length>60?"…":""}`;
-        });
-        return safeReply(interaction,{content:`📬 **Your scheduled messages** (${mine.length})\n\n${lines.join("\n")}\n\nUse \`/messageschedule action:Cancel id:<id>\` to cancel one.`,ephemeral:true});
+      const parsed = parseScheduleTime(timeStr);
+      if(!parsed)return safeReply(interaction,{content:"❌ Couldn't understand that time — try something like `5 hours`, `2 days`, `1 week`, or `1 month`.",ephemeral:true});
+      if(!content)return safeReply(interaction,{content:"❌ Provide a message to send later.",ephemeral:true});
+      if(content.length>1900)return safeReply(interaction,{content:"❌ Message is too long — please keep it under 1900 characters.",ephemeral:true});
+      if(inGuild){
+        const perms=channel.permissionsFor?.(interaction.guild.members.me);
+        if(perms && (!perms.has("MANAGE_WEBHOOKS")||!perms.has("VIEW_CHANNEL")))
+          return safeReply(interaction,{content:`❌ I need **Manage Webhooks** permission in ${channel} to schedule messages there.`,ephemeral:true});
       }
 
-      // ── Cancel ────────────────────────────────────────────────────────────
-      if(action==="cancel"){
-        const id=interaction.options.getString("id");
-        if(!id)return safeReply(interaction,{content:"❌ Provide the `id` of the scheduled message to cancel — see `/messageschedule action:List`.",ephemeral:true});
-        const sm=scheduledMessages.get(id.trim());
-        if(!sm||(sm.userId!==uid && !isEffectiveOwner(uid,"messageschedule")))return safeReply(interaction,{content:"❌ No scheduled message with that ID belongs to you.",ephemeral:true});
-        scheduledMessages.delete(sm.id);
-        saveData();
-        return safeReply(interaction,{content:`🗑️ Cancelled scheduled message \`${sm.id}\` (was going to send in <#${sm.channelId}>).`,ephemeral:true});
-      }
+      const myPending=[...scheduledMessages.values()].filter(sm=>sm.userId===uid).length;
+      if(myPending>=MAX_PENDING_PER_USER)return safeReply(interaction,{content:`❌ You already have ${MAX_PENDING_PER_USER} scheduled messages pending.`,ephemeral:true});
 
-      // ── Schedule ──────────────────────────────────────────────────────────
-      if(action==="schedule"){
-        const amount   = interaction.options.getInteger("amount");
-        const unit     = interaction.options.getString("unit");
-        const content  = (interaction.options.getString("message")||"").trim();
-        const image    = interaction.options.getAttachment("image");
-        const channel  = interaction.options.getChannel("channel") || interaction.channel;
+      const delayMs = parsed.ms;
+      if(delayMs < 60000)return safeReply(interaction,{content:"❌ Scheduled time must be at least 1 minute from now.",ephemeral:true});
+      if(delayMs > 366*86400000)return safeReply(interaction,{content:"❌ Scheduled time can't be more than a year out.",ephemeral:true});
 
-        if(!amount||!unit)return safeReply(interaction,{content:"❌ Provide both `amount` and `unit` — e.g. `amount:5 unit:Hours`.",ephemeral:true});
-        if(!content && !image)return safeReply(interaction,{content:"❌ Provide a `message`, an `image`, or both.",ephemeral:true});
-        if(content.length>1900)return safeReply(interaction,{content:"❌ Message is too long — please keep it under 1900 characters.",ephemeral:true});
-        if(inGuild){
-          const perms=channel.permissionsFor?.(interaction.guild.members.me);
-          if(perms && (!perms.has("MANAGE_WEBHOOKS")||!perms.has("VIEW_CHANNEL")))
-            return safeReply(interaction,{content:`❌ I need **Manage Webhooks** permission in ${channel} to schedule messages there.`,ephemeral:true});
-        }
+      const id = genScheduleId();
+      const sendAt = Date.now()+delayMs;
+      scheduledMessages.set(id, {
+        id, userId:uid, guildId:interaction.guildId||null, channelId:channel.id,
+        content, sendAt, createdAt: Date.now(), imageURL:null, imageName:null,
+      });
+      saveData();
 
-        const myPending=[...scheduledMessages.values()].filter(sm=>sm.userId===uid).length;
-        if(myPending>=MAX_PENDING_PER_USER)return safeReply(interaction,{content:`❌ You already have ${MAX_PENDING_PER_USER} scheduled messages pending — cancel one with \`/messageschedule action:Cancel\` before adding more.`,ephemeral:true});
-
-        const unitMs = SCHEDULE_UNIT_MS[unit];
-        if(!unitMs)return safeReply(interaction,{content:"❌ Unknown time unit.",ephemeral:true});
-        const delayMs = amount*unitMs;
-        if(delayMs < 60000)return safeReply(interaction,{content:"❌ Scheduled time must be at least 1 minute from now.",ephemeral:true});
-        if(delayMs > 366*86400000)return safeReply(interaction,{content:"❌ Scheduled time can't be more than a year out.",ephemeral:true});
-
-        const id = genScheduleId();
-        const sendAt = Date.now()+delayMs;
-        const sm = {
-          id, userId:uid, guildId:interaction.guildId||null, channelId:channel.id,
-          content: content||null, sendAt, createdAt: Date.now(),
-          imageURL: image?.url || null, imageName: image?.name || null,
-        };
-        scheduledMessages.set(id, sm);
-        saveData();
-
-        const ts = Math.floor(sendAt/1000);
-        return safeReply(interaction,{
-          content: [
-            `📨 **Message scheduled!**`,
-            `**When:** <t:${ts}:F> (<t:${ts}:R>, in ${fmtScheduleUnit(amount,unit)})`,
-            `**Where:** ${channel}`,
-            `**As:** you, via webhook`,
-            content ? `**Message:** ${content}` : null,
-            image ? `**Image:** attached ✅` : null,
-            ``,
-            `ID: \`${id}\` — use \`/messageschedule action:Cancel id:${id}\` to cancel it.`,
-          ].filter(Boolean).join("\n"),
-          ephemeral:true,
-        });
-      }
+      const ts = Math.floor(sendAt/1000);
+      return safeReply(interaction,{
+        content: [
+          `📨 **Message scheduled!**`,
+          `**When:** <t:${ts}:F> (<t:${ts}:R>, in ${fmtScheduleUnit(parsed.amount,parsed.unit)})`,
+          `**Where:** ${channel}`,
+          `**As:** you, via webhook`,
+          `**Message:** ${content}`,
+        ].join("\n"),
+        ephemeral:true,
+      });
     }
 
     if(cmd==="premiere"){
@@ -7445,7 +7411,7 @@ if(cmd==="gif"){
     if(cmd==="help"){
       const HELP_PAGES=[
         {title:"🎉 Fun & Social  —  Page 1 / 7",description:["**Interactions**","`/action type:… user:…` — Hug, pat, poke, stare, wave, high five, boop, oil, diddle, or kill someone","`/punch` `/hug` `/kiss` `/slap` `/throw` — Quick social actions","`/rate type:… user:…` — Rate someone (gay, autistic, simp, cursed, npc, villain, sigma)","`/ppsize user:…` — Check pp size","`/ship user1:… user2:…` — Ship compatibility %","","**Romance**","`/marry user:…` — Propose 💍 — target gets Accept/Decline buttons","`/divorce` — End the marriage 💔","`/partner [user]` — See who someone is married to","","**Party Games**","`/party type:truth|dare|neverhavei` — Truth, Dare, or Never Have I Ever","","**Conversation**","`/topic` — Random conversation starter","`/roast [user]` — Roast someone 🔥","`/compliment user:…` — Compliment someone 💖","`/advice` — Life advice 🧙","`/fact` — Random fun fact 📚","`/horoscope sign:…` — Your daily horoscope ✨","`/poll question:…` — Quick yes/no poll (server only)"].join("\n")},
-        {title:"📡 Media & Utility  —  Page 2 / 7",description:["**Media**","`/gif animal:…` — Random animal GIF 🐾 (cat, dog, fox, panda, duck, bunny, koala, raccoon)","`/joke` — Random joke 😂","`/meme` — Random meme 🐸","`/quote` — Inspirational quote image ✨","`/trivia` — Trivia question with spoiler answer 🧠","`/avatar user:…` — Get someone\'s avatar","","**Utility**","`/ping` — Bot latency 🏓","`/coinflip` — Heads or tails 🪙","`/roll [sides]` — Roll a dice (default d6) 🎲","`/choose options:a,b,c` — Pick from comma-separated options","`/echo [message] [embed] [image] [title] [color] [replyto]` — Make the bot say something","`/remind time:… message:…` — Set a reminder (1 min – 1 week)","`/messageschedule action:…` — Schedule a message to send later, as you, via webhook 📨","`/upload source|link:…` — Upload an image/audio/video to the quotes folder 🖼️🔊🎬 *(server only, authorized users)*","","**Info**","`/botinfo` — Bot stats","`/serverinfo` — Server member/channel/role info","`/userprofile [user]` — Full profile: level, XP, coins, items, cooldowns"].join("\n")},
+        {title:"📡 Media & Utility  —  Page 2 / 7",description:["**Media**","`/gif animal:…` — Random animal GIF 🐾 (cat, dog, fox, panda, duck, bunny, koala, raccoon)","`/joke` — Random joke 😂","`/meme` — Random meme 🐸","`/quote` — Inspirational quote image ✨","`/trivia` — Trivia question with spoiler answer 🧠","`/avatar user:…` — Get someone\'s avatar","","**Utility**","`/ping` — Bot latency 🏓","`/coinflip` — Heads or tails 🪙","`/roll [sides]` — Roll a dice (default d6) 🎲","`/choose options:a,b,c` — Pick from comma-separated options","`/echo [message] [embed] [image] [title] [color] [replyto]` — Make the bot say something","`/remind time:… message:…` — Set a reminder (1 min – 1 week)","`/messageschedule time:… message:…` — Schedule a message to send later, as you, via webhook 📨 (e.g. `5 hours`, `2 days`, `1 week`, `1 month`)","`/upload source|link:…` — Upload an image/audio/video to the quotes folder 🖼️🔊🎬 *(server only, authorized users)*","","**Info**","`/botinfo` — Bot stats","`/serverinfo` — Server member/channel/role info","`/userprofile [user]` — Full profile: level, XP, coins, items, cooldowns"].join("\n")},
         {title:"📈 XP & Leaderboards  —  Page 3 / 7",description:["**XP**","You earn XP by sending messages (1 min cooldown). 5–15 XP per message.","Level formula: `floor(50 × level^1.5)` XP per level","","`/xp [user]` — Check XP, level, and progress bar","`/xpleaderboard [scope:global|server]` — Top 10 by XP","","**Stats & Leaderboards**","`/score [user]` — Wins, losses, win rate, streak","`/userprofile [user]` — Everything in one embed","`/leaderboard [type]` — Global top 10","`/serverleaderboard [type]` — Server top 10","> Types: `wins` `coins` `streak` `beststreak` `games` `winrate` `images`"].join("\n")},
         {title:"🎮 Games  —  Page 4 / 7",description:["**Solo** — `/games game:…`","> 🪢 Hangman · 🐍 Snake · 💣 Minesweeper (Easy/Med/Hard)","> 🔢 Number Guess · 🔀 Word Scramble · 📅 Daily Challenge","","**2-Player** — `/2playergames game:… [opponent:…]`","> ❌⭕ Tic Tac Toe *(server only)*","> 🔴🔵 Connect 4 *(server only)*","> ✊ Rock Paper Scissors *(choices sent via DM)*","> 🧮 Math Race · 🏁 Word Race · 🧠 Trivia Battle *(server only)*","> 🔢 Count Game — count to 100 together, no opponent needed *(server only)*","> 🏁 Scramble Race — 5-round word unscramble *(server only)*","","Wins award coins. Check `/score` or `/userprofile` for stats."].join("\n")},
         {title:"⚙️ Server Config  —  Page 5 / 7",description:["Most commands here require **Manage Server** permission.","","**Channels & Messages**","`/channelpicker channel:… [levelup]` — Set the bot\'s main channel","`/xpconfig setting:…` — Level-up messages (on/off, ping toggle, channel)","`/setwelcome channel:… [message]` — Welcome message (`{user}` `{server}` `{count}`)","`/setleave channel:… [message]` — Leave message","`/setboostmsg channel:… [message]` — Boost announcement","`/disableownermsg enabled:…` — Toggle bot owner broadcasts","`/purge amount:…` — Bulk delete (needs Manage Messages)","`/counting action:set|remove|status` — Set a permanent counting channel","","**Roles**","`/autorole [role]` — Auto-assign role on join (blank to disable)","`/reactionrole action:add|remove|list …` — Emoji reaction roles","`/rolespingfix` — List & fix roles that can @everyone","","**Competitions & Tickets**","`/invitecomp hours:…` — Invite competition with coin rewards","`/ticketsetup` · `/closeticket` · `/addtoticket` · `/removefromticket`","","**Overview**","`/serverconfig` — View all current settings"].join("\n")},
