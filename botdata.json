@@ -74435,10 +74435,12 @@
       "1530164814377259058",
       {
         "filename": "IMG_4144.png",
-        "voters": [],
+        "voters": [
+          "1413943805203189800"
+        ],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
-        "sentToDeleter": false
+        "sentToDeleter": true
       }
     ]
   ],
