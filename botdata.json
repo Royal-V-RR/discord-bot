@@ -6898,7 +6898,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 3627,
+        "xp": 3635,
         "level": 26,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -35240,22 +35240,7 @@
   ],
   "activeEffects": [],
   "reminders": [],
-  "scheduledMessages": [
-    [
-      "ffpgq9",
-      {
-        "id": "ffpgq9",
-        "userId": "969280648667889764",
-        "guildId": "1048053656035020911",
-        "channelId": "1048055007712387162",
-        "content": "test",
-        "sendAt": 1784932466976,
-        "createdAt": 1784932166976,
-        "imageURL": null,
-        "imageName": null
-      }
-    ]
-  ],
+  "scheduledMessages": [],
   "inviteComps": [],
   "premieres": [],
   "raConfig": [
