@@ -4899,7 +4899,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-27",
-        "xp": 2977,
+        "xp": 2984,
         "level": 27,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -35240,7 +35240,22 @@
   ],
   "activeEffects": [],
   "reminders": [],
-  "scheduledMessages": [],
+  "scheduledMessages": [
+    [
+      "82fyy7",
+      {
+        "id": "82fyy7",
+        "userId": "969280648667889764",
+        "guildId": "1048053656035020911",
+        "channelId": "1048055007712387162",
+        "content": "Test",
+        "sendAt": 1784932745578,
+        "createdAt": 1784932685578,
+        "imageURL": null,
+        "imageName": null
+      }
+    ]
+  ],
   "inviteComps": [],
   "premieres": [],
   "raConfig": [
@@ -75281,7 +75296,7 @@
         ],
         "intervalMinutes": 15,
         "locked": true,
-        "lastUpdate": 1784931747049
+        "lastUpdate": 1784932647068
       }
     ]
   ],
