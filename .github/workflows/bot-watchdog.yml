@@ -1,0 +1,95 @@
+name: Bot Watchdog
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 1
+
+      - name: Check heartbeat and alert if stale
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          node <<'EOF'
+          const fs = require("fs");
+          const https = require("https");
+
+          // How long without a heartbeat before we consider the bot down.
+          // Heartbeats are written every 60s by the bot. Note: this workflow's
+          // cron only runs every 5 minutes (GitHub Actions' minimum scheduling
+          // interval), so real-world alert latency is bounded by that, not by
+          // this number — this just avoids adding extra delay on top of it.
+          const STALE_AFTER_MS = 60 * 1000;
+          const STATE_FILE = "./watchdog_state.json";
+
+          function loadState() {
+            try { return JSON.parse(fs.readFileSync(STATE_FILE, "utf8")); }
+            catch { return { alerted: false }; }
+          }
+          function saveState(state) {
+            fs.writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
+          }
+          function sendDiscordAlert(content) {
+            const url = process.env.DISCORD_WEBHOOK_URL;
+            if (!url) { console.error("No DISCORD_WEBHOOK_URL set — skipping alert."); return Promise.resolve(); }
+            const body = JSON.stringify({ content });
+            const u = new URL(url);
+            return new Promise((resolve) => {
+              const req = https.request({
+                hostname: u.hostname, path: u.pathname + u.search, method: "POST",
+                headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(body) },
+              }, res => { res.on("data", () => {}); res.on("end", resolve); });
+              req.on("error", e => { console.error("Webhook error:", e.message); resolve(); });
+              req.write(body); req.end();
+            });
+          }
+
+          (async () => {
+            let status;
+            try { status = JSON.parse(fs.readFileSync("./status.json", "utf8")); }
+            catch {
+              console.log("No status.json found yet — bot may not have started once. Skipping.");
+              return;
+            }
+
+            const now = Date.now();
+            const age = now - status.lastHeartbeat;
+            const isDown = age > STALE_AFTER_MS;
+            const state = loadState();
+
+            if (isDown && !state.alerted) {
+              const mins = Math.round(age / 60000);
+              await sendDiscordAlert(
+                `🔴 **RoyalBot appears to be down.** Last heartbeat was **${mins} minute(s) ago**.\n` +
+                `Instance: \`${status.instanceId || "unknown"}\` — check the Actions tab for \`run-bot\`.`
+              );
+              saveState({ alerted: true });
+              console.log("Alerted: bot is down.");
+            } else if (!isDown && state.alerted) {
+              await sendDiscordAlert(`🟢 **RoyalBot is back online.** Heartbeat received ${Math.round(age/1000)}s ago.`);
+              saveState({ alerted: false });
+              console.log("Alerted: bot recovered.");
+            } else {
+              console.log(isDown ? "Still down, already alerted." : "Bot is healthy.");
+            }
+          })();
+          EOF
+
+      - name: Commit watchdog state
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add watchdog_state.json
+          git diff --cached --quiet || git commit -m "chore: update watchdog state"
+          git push || true
