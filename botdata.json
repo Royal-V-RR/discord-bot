@@ -242,13 +242,6 @@
         "mode": "uwu",
         "ownerClanked": true
       }
-    ],
-    [
-      "969280648667889764",
-      {
-        "expiresAt": 1784990870022,
-        "mode": "uwu"
-      }
     ]
   ],
   "reactionRoles": [
@@ -75111,16 +75104,19 @@
   "selfClankUsers": [
     [
       "1048053656035020911",
-      [
-        "969280648667889764"
-      ]
+      []
     ],
     [
       "1408975996715139084",
       []
     ]
   ],
-  "selfClankCooldown": [],
+  "selfClankCooldown": [
+    [
+      "969280648667889764",
+      1784991470033
+    ]
+  ],
   "pendingReviews": [],
   "uploadCounters": {
     "quote": 212,
