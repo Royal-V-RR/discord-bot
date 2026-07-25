@@ -28,9 +28,8 @@ jobs:
           // How long without a heartbeat before we consider the bot down.
           // Heartbeats are written every 60s by the bot. Note: this workflow's
           // cron only runs every 5 minutes (GitHub Actions' minimum scheduling
-          // interval), so real-world alert latency is bounded by that, not by
-          // this number — this just avoids adding extra delay on top of it.
-          const STALE_AFTER_MS = 60 * 1000;
+          // interval), so alert latency is bounded by that regardless of this number.
+          const STALE_AFTER_MS = 5 * 60 * 1000;
           const STATE_FILE = "./watchdog_state.json";
 
           function loadState() {
@@ -69,11 +68,7 @@ jobs:
             const state = loadState();
 
             if (isDown && !state.alerted) {
-              const mins = Math.round(age / 60000);
-              await sendDiscordAlert(
-                `🔴 **RoyalBot appears to be down.** Last heartbeat was **${mins} minute(s) ago**.\n` +
-                `Instance: \`${status.instanceId || "unknown"}\` — check the Actions tab for \`run-bot\`.`
-              );
+              await sendDiscordAlert(`<@969280648667889764>, RoyalBot is down!`);
               saveState({ alerted: true });
               console.log("Alerted: bot is down.");
             } else if (!isDown && state.alerted) {
