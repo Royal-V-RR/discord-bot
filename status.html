@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RoyalBot Status</title>
+<style>
+  :root{
+    --bg:#0f1115; --card:#171a21; --border:#262b36;
+    --text:#e7e9ee; --muted:#8b93a3;
+    --online:#3ecf8e; --offline:#ef4d5e; --unknown:#c9a227;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center;
+    background:var(--bg); color:var(--text);
+    font-family:'Segoe UI',Roboto,Arial,sans-serif;
+  }
+  .card{
+    width:100%; max-width:440px; background:var(--card); border:1px solid var(--border);
+    border-radius:16px; padding:32px; box-shadow:0 20px 60px rgba(0,0,0,.4);
+  }
+  h1{font-size:1.3rem; margin:0 0 4px; display:flex; align-items:center; gap:10px;}
+  .sub{color:var(--muted); font-size:.85rem; margin-bottom:24px;}
+  .dot{width:12px; height:12px; border-radius:50%; background:var(--unknown); flex-shrink:0;}
+  .dot.online{background:var(--online); box-shadow:0 0 10px var(--online);}
+  .dot.offline{background:var(--offline); box-shadow:0 0 10px var(--offline);}
+  .status-label{font-weight:600;}
+  .rows{display:flex; flex-direction:column; gap:16px;}
+  .row{display:flex; justify-content:space-between; align-items:baseline; border-top:1px solid var(--border); padding-top:14px;}
+  .row .k{color:var(--muted); font-size:.85rem;}
+  .row .v{font-size:1rem; font-weight:600; font-variant-numeric:tabular-nums;}
+  footer{margin-top:24px; color:var(--muted); font-size:.75rem; text-align:center;}
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1><span class="dot" id="dot"></span><span id="statusLabel">Checking…</span></h1>
+    <div class="sub">RoyalBot live status</div>
+    <div class="rows">
+      <div class="row"><span class="k">Uptime</span><span class="v" id="uptime">—</span></div>
+      <div class="row"><span class="k">Next scheduled restart</span><span class="v" id="countdown">—</span></div>
+      <div class="row"><span class="k">Servers</span><span class="v" id="guilds">—</span></div>
+      <div class="row"><span class="k">Last heartbeat</span><span class="v" id="lastSeen">—</span></div>
+    </div>
+    <footer id="footer">Loading…</footer>
+  </div>
+
+<script>
+// ── Config ─────────────────────────────────────────────────────────────────
+const STATUS_URL = "https://raw.githubusercontent.com/Royal-V-RR/discord-bot/main/status.json";
+// Heartbeats are written every 60s — if we haven't seen one in this long, treat as offline.
+const STALE_AFTER_MS = 150 * 1000;
+const REFRESH_MS = 15 * 1000;
+
+function fmtDuration(ms){
+  if (ms < 0) ms = 0;
+  const s = Math.floor(ms/1000);
+  const d = Math.floor(s/86400);
+  const h = Math.floor((s%86400)/3600);
+  const m = Math.floor((s%3600)/60);
+  const sec = s%60;
+  const parts = [];
+  if(d) parts.push(d+"d");
+  if(d||h) parts.push(h+"h");
+  if(d||h||m) parts.push(m+"m");
+  parts.push(sec+"s");
+  return parts.join(" ");
+}
+
+async function refresh(){
+  const dot = document.getElementById("dot");
+  const label = document.getElementById("statusLabel");
+  const footer = document.getElementById("footer");
+  try{
+    const res = await fetch(STATUS_URL + "?t=" + Date.now(), { cache: "no-store" });
+    if(!res.ok) throw new Error("HTTP " + res.status);
+    const data = await res.json();
+
+    const now = Date.now();
+    const age = now - data.lastHeartbeat;
+    const isOnline = age <= STALE_AFTER_MS;
+
+    dot.className = "dot " + (isOnline ? "online" : "offline");
+    label.textContent = isOnline ? "Online" : "Offline";
+
+    document.getElementById("uptime").textContent = isOnline ? fmtDuration(now - data.startedAt) : "—";
+    const untilRestart = data.nextScheduledRestart - now;
+    document.getElementById("countdown").textContent = isOnline
+      ? (untilRestart > 0 ? "in " + fmtDuration(untilRestart) : "overdue")
+      : "—";
+    document.getElementById("guilds").textContent = data.guildCount ?? "—";
+    document.getElementById("lastSeen").textContent = new Date(data.lastHeartbeat).toLocaleString();
+
+    footer.textContent = "Updated " + new Date().toLocaleTimeString();
+  }catch(e){
+    dot.className = "dot offline";
+    label.textContent = "Unknown";
+    footer.textContent = "Couldn't load status: " + e.message;
+  }
+}
+
+refresh();
+setInterval(refresh, REFRESH_MS);
+</script>
+</body>
+</html>
