@@ -72,6 +72,90 @@ async function acquireInstanceLock(ownerUser) {
   } catch(e) { console.error("Lock failed:", e); instanceLocked = true; }
 }
 
+// ── Heartbeat / status page support ───────────────────────────────────────────
+// Writes a small status.json (start time, last heartbeat, estimated next restart)
+// to the repo every 60s, so an external status page and watchdog workflow can
+// tell whether the bot is alive without needing any inbound connection to it.
+const STATUS_FILE = "./status.json";
+const BOT_START_TIME = Date.now();
+// Mirrors bot.yml's `timeout-minutes` — the GitHub Actions job (and this bot
+// process along with it) gets killed and a fresh run dispatched once this many
+// minutes have elapsed since the process started. Only used to show an estimated
+// countdown on the status page — if bot.yml's timeout-minutes ever changes,
+// update this too so the countdown stays accurate.
+const RESTART_TIMEOUT_MIN = 401;
+
+function buildStatusObject() {
+  return {
+    startedAt: BOT_START_TIME,
+    lastHeartbeat: Date.now(),
+    nextScheduledRestart: BOT_START_TIME + RESTART_TIMEOUT_MIN * 60 * 1000,
+    guildCount: client?.guilds?.cache?.size ?? null,
+    instanceId: INSTANCE_ID,
+  };
+}
+
+// Same "fetch SHA, PUT, retry on conflict" pattern as commitDataToGitHub, but
+// targets status.json on its own timer so heartbeat writes never fight with
+// botdata.json saves for the same file.
+async function commitStatusToGitHub() {
+  if (!GH_TOKEN || !GH_REPO) return;
+  const jsonString = JSON.stringify(buildStatusObject(), null, 2);
+  try { fs.writeFileSync(STATUS_FILE, jsonString); } catch(e) { console.error("status write error:", e.message); }
+
+  async function fetchSHA() {
+    return new Promise(resolve => {
+      const req = https.request({
+        hostname: "api.github.com", port: 443,
+        path: `/repos/${GH_REPO}/contents/status.json`,
+        method: "GET",
+        headers: { Authorization: `Bearer ${GH_TOKEN}`, "User-Agent": "discord-bot", Accept: "application/vnd.github+json" }
+      }, res => {
+        let b = ""; res.on("data", c => b += c);
+        res.on("end", () => { try { resolve(JSON.parse(b)?.sha || null); } catch { resolve(null); } });
+      });
+      req.on("error", () => resolve(null));
+      req.end();
+    });
+  }
+  async function tryPut(sha) {
+    const encoded = Buffer.from(jsonString).toString("base64");
+    const body = JSON.stringify({ message: "chore: heartbeat", content: encoded, ...(sha ? { sha } : {}) });
+    return new Promise((resolve, reject) => {
+      const req = https.request({
+        hostname: "api.github.com", port: 443,
+        path: `/repos/${GH_REPO}/contents/status.json`,
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${GH_TOKEN}`, "User-Agent": "discord-bot",
+          Accept: "application/vnd.github+json",
+          "Content-Type": "application/json", "Content-Length": Buffer.byteLength(body),
+        }
+      }, res => {
+        let b = ""; res.on("data", c => b += c);
+        res.on("end", () => resolve({ status: res.statusCode, body: b }));
+      });
+      req.on("error", reject);
+      req.write(body); req.end();
+    });
+  }
+
+  try {
+    let sha = await fetchSHA();
+    let result = await tryPut(sha);
+    if (result.status === 409 || result.status === 422) {
+      sha = await fetchSHA();
+      result = await tryPut(sha);
+    }
+    if (result.status !== 200 && result.status !== 201) {
+      console.error(`❌ status.json commit failed HTTP ${result.status}: ${result.body.slice(0,200)}`);
+    }
+  } catch(e) { console.error("commitStatusToGitHub error:", e.message); }
+}
+
+// Heartbeat tick — every 60s for as long as the process is alive.
+setInterval(() => { commitStatusToGitHub().catch(()=>{}); }, 60 * 1000);
+
 // ── State ─────────────────────────────────────────────────────────────────────
 const guildChannels    = new Map();
 const welcomeChannels  = new Map();
@@ -3300,6 +3384,10 @@ client.once("ready", async () => {
   console.log(`Not even sure that this is real: ${client.user.tag} [${INSTANCE_ID}] in ${client.guilds.cache.size} servers`);
   try { const owner = await client.users.fetch(OWNER_ID); await acquireInstanceLock(owner); }
   catch(e) { console.error("Lock error:", e); instanceLocked = true; }
+
+  // Write the first heartbeat immediately rather than waiting up to 60s —
+  // so the status page shows "online" right away after a restart.
+  commitStatusToGitHub().catch(()=>{});
 
   // Restore persistent status (set via /setstatus) so it survives restarts/redeploys
   if (botStatus && botStatus.text) {
