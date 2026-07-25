@@ -45,6 +45,47 @@ const GAY_IDS   = ["1245284545452834857","1413943805203189800","1057320311453913
 // Mutable — managed via /managememers (owner only), persisted in botdata.json
 const MEMERS = new Set(["1419803002771865722","1259223683826712729","1254388539890860083","1082452773787942922","1193150033864949811","1413943805203189800","969280648667889764","690219723472109616"]); // Users allowed to use /upload
 
+// ── Restart webhook notice ────────────────────────────────────────────────────
+// Announces every reboot in Discord: an immediate "restarting" ping the instant
+// the process starts (works even before the bot has logged in), which then gets
+// edited in place once ready into a live uptime/next-reset status. Uses Discord's
+// native <t:...:R> timestamp formatting, which renders as "in 3 hours" and updates
+// itself client-side automatically — no repeated edits needed to keep it live.
+const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL || null;
+let restartMessageId = null;
+
+async function postWebhookMessage(content) {
+  if (!DISCORD_WEBHOOK_URL) return null;
+  try {
+    const res = await fetch(`${DISCORD_WEBHOOK_URL}?wait=true`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content }),
+    });
+    if (!res.ok) { console.error("webhook post failed:", res.status); return null; }
+    const data = await res.json();
+    return data?.id || null;
+  } catch(e) { console.error("webhook post error:", e.message); return null; }
+}
+
+async function editWebhookMessage(messageId, content) {
+  if (!DISCORD_WEBHOOK_URL || !messageId) return false;
+  try {
+    const res = await fetch(`${DISCORD_WEBHOOK_URL}/messages/${messageId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content }),
+    });
+    if (!res.ok) { console.error("webhook edit failed:", res.status); return false; }
+    return true;
+  } catch(e) { console.error("webhook edit error:", e.message); return false; }
+}
+
+// Fire the "restarting" notice immediately — don't block startup on it.
+postWebhookMessage("🔄 RoyalBot restarting, please give us a few seconds…")
+  .then(id => { restartMessageId = id; })
+  .catch(() => {});
+
 // ── App emoji cache (populated on ready) ─────────────────────────────────────
 const appEmojiCache = new Map(); // name → { id, name, animated }
 
@@ -3388,6 +3429,21 @@ client.once("ready", async () => {
   // Write the first heartbeat immediately rather than waiting up to 60s —
   // so the status page shows "online" right away after a restart.
   commitStatusToGitHub().catch(()=>{});
+
+  // Turn the "restarting" notice into a live status message — Discord's own
+  // <t:...:R> rendering keeps the relative times ("in 3 hours") current without
+  // us needing to re-edit this on a timer.
+  (async () => {
+    const startTs = Math.floor(BOT_START_TIME / 1000);
+    const resetTs = Math.floor((BOT_START_TIME + RESTART_TIMEOUT_MIN * 60 * 1000) / 1000);
+    const statusMsg = `Bot has been online since <t:${startTs}:f> (<t:${startTs}:R>)\nNext bot reset will be at <t:${resetTs}:f> (<t:${resetTs}:R>)`;
+    if (restartMessageId) {
+      const ok = await editWebhookMessage(restartMessageId, statusMsg);
+      if (!ok) restartMessageId = await postWebhookMessage(statusMsg);
+    } else {
+      restartMessageId = await postWebhookMessage(statusMsg);
+    }
+  })().catch(()=>{});
 
   // Restore persistent status (set via /setstatus) so it survives restarts/redeploys
   if (botStatus && botStatus.text) {
