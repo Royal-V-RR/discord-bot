@@ -85,6 +85,10 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add watchdog_state.json
-          git diff --cached --quiet || git commit -m "chore: update watchdog state"
-          git push || true
+          if [ -f watchdog_state.json ]; then
+            git add watchdog_state.json
+            git diff --cached --quiet || git commit -m "chore: update watchdog state"
+            git push || true
+          else
+            echo "No watchdog_state.json yet — nothing to commit."
+          fi
