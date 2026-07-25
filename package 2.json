@@ -1,0 +1,17 @@
+{
+  "name": "royalbot",
+  "version": "1.0.0",
+  "license": "MIT",
+  "main": "index.cjs",
+  "scripts": {
+    "start": "node index.cjs"
+  },
+  "dependencies": {
+    "discord.js": "^13.17.1",
+    "sharp": "^0.33.5",
+    "omggif": "^1.0.10"
+  },
+  "keywords": [],
+  "author": "",
+  "description": ""
+}
