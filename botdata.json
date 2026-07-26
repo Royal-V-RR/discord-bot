@@ -35294,7 +35294,7 @@
       {
         "channelId": "1408975997272854611",
         "hour": 9,
-        "_lastFire": "1408975996715139084:2026-6-24:9"
+        "_lastFire": "1408975996715139084:2026-6-26:9"
       }
     ],
     [
@@ -57563,6 +57563,10 @@
     [
       "1530586055269683410",
       "attachment.gif"
+    ],
+    [
+      "1530862255816704071",
+      "laughing in loud.png"
     ]
   ],
   "reviewChannelId": "1503045026866004071",
@@ -75116,6 +75120,16 @@
         "channelId": "1477294439180537980",
         "sentToDeleter": false
       }
+    ],
+    [
+      "1530862255816704071",
+      {
+        "filename": "laughing in loud.png",
+        "voters": [],
+        "guildId": "1408975996715139084",
+        "channelId": "1408975997272854611",
+        "sentToDeleter": false
+      }
     ]
   ],
   "selfClankUsers": [
@@ -75339,7 +75353,7 @@
         ],
         "intervalMinutes": 15,
         "locked": true,
-        "lastUpdate": 1785055442852
+        "lastUpdate": 1785056342899
       }
     ]
   ],
