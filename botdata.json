@@ -75125,10 +75125,12 @@
       "1530862255816704071",
       {
         "filename": "laughing in loud.png",
-        "voters": [],
+        "voters": [
+          "1254388539890860083"
+        ],
         "guildId": "1408975996715139084",
         "channelId": "1408975997272854611",
-        "sentToDeleter": false
+        "sentToDeleter": true
       }
     ]
   ],
