@@ -721,6 +721,34 @@ async function splitToFit(filePath, workDir, jobId, ext, limitBytes, knownDurati
   return [];
 }
 
+// YouTube sometimes rejects the default web client (bot-check errors, or player-response
+// quirks that hit Shorts more often) — retrying with alternate client spoofs is yt-dlp's own
+// documented workaround. `client` is null for the default attempt, else passed as extractor-args.
+const YT_CLIENT_FALLBACKS = [null, "android", "ios", "web_safari"];
+function ytExtractorArgs(client) { return client ? { extractorArgs: `youtube:player_client=${client}` } : {}; }
+
+// Fetches --dump-single-json metadata, retrying across client spoofs until one works.
+// Returns { info, client } so the caller can reuse whichever client succeeded for the
+// actual download step too (metadata working with client X is the best predictor download
+// will also work with client X).
+async function ytFetchInfoWithFallback(url) {
+  let lastErr;
+  for (const client of YT_CLIENT_FALLBACKS) {
+    try {
+      const info = await youtubedl(url, { dumpSingleJson:true, noPlaylist:true, noWarnings:true, ...ytExtractorArgs(client) });
+      return { info, client };
+    } catch(e) { lastErr = e; }
+  }
+  throw lastErr;
+}
+function ytErrorMessage(e) {
+  const raw = (e.stderr || e.shortMessage || e.message || "Unknown error").toString();
+  // Trim to the last real "ERROR:" line yt-dlp printed, which is the actual reason — the
+  // rest is just the invoked command line, which isn't useful to a Discord user.
+  const m = raw.match(/ERROR:.*/);
+  return (m ? m[0] : raw).slice(0, 350);
+}
+
 function shuffleArray(arr) {
   for (let i = arr.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -9625,7 +9653,7 @@ if(cmd==="gif"){
       if(!/^https?:\/\/(www\.|m\.|music\.)?(youtube\.com|youtu\.be)\//i.test(url))
         return safeReply(interaction,{content:"❌ That doesn't look like a YouTube URL.",ephemeral:true});
 
-      await interaction.deferReply();
+      await interaction.deferReply({ephemeral:true});
 
       const jobId   = crypto.randomUUID().slice(0,8);
       const workDir = path.join(os.tmpdir(), `dl_${jobId}`);
@@ -9633,39 +9661,46 @@ if(cmd==="gif"){
       const cleanup = () => { try{ fs.rmSync(workDir,{recursive:true,force:true}); }catch{} };
 
       try {
-        await safeReply(interaction,{content:"⏳ Fetching video info…"});
+        await safeReply(interaction,{content:"⏳ Fetching video info…",ephemeral:true});
 
-        let info;
+        let info, workingClient;
         try {
-          info = await youtubedl(url, { dumpSingleJson:true, noPlaylist:true, noWarnings:true });
+          ({ info, client: workingClient } = await ytFetchInfoWithFallback(url));
         } catch(e) {
-          throw new Error(`Couldn't read that video (${e.shortMessage || e.stderr || e.message}).`);
+          throw new Error(`Couldn't read that video — ${ytErrorMessage(e)}`);
         }
 
         const title = (info.title || "video").replace(/[\\/:*?"<>|]/g,"").trim().slice(0,60) || "video";
         const outTemplate = path.join(workDir, `${jobId}.%(ext)s`);
+        const clientArgs = ytExtractorArgs(workingClient);
 
-        await safeReply(interaction,{content:`⏳ Downloading **${title}**…`});
+        await safeReply(interaction,{content:`⏳ Downloading **${title}**…`,ephemeral:true});
 
-        if(format === "mp3"){
-          await youtubedl(url, {
-            output: outTemplate,
-            noPlaylist: true,
-            extractAudio: true,
-            audioFormat: "mp3",
-            audioQuality: 0,
-            ffmpegLocation: ffmpegPath,
-          });
-        } else {
-          const heightMap = {"1080p":1080,"720p":720,"480p":480,"360p":360,"240p":240,"144p":144};
-          const maxHeight = heightMap[resolution] || 1080;
-          await youtubedl(url, {
-            output: outTemplate,
-            noPlaylist: true,
-            format: `bestvideo[height<=${maxHeight}]+bestaudio/best[height<=${maxHeight}]`,
-            mergeOutputFormat: "mp4",
-            ffmpegLocation: ffmpegPath,
-          });
+        try {
+          if(format === "mp3"){
+            await youtubedl(url, {
+              output: outTemplate,
+              noPlaylist: true,
+              extractAudio: true,
+              audioFormat: "mp3",
+              audioQuality: 0,
+              ffmpegLocation: ffmpegPath,
+              ...clientArgs,
+            });
+          } else {
+            const heightMap = {"1080p":1080,"720p":720,"480p":480,"360p":360,"240p":240,"144p":144};
+            const maxHeight = heightMap[resolution] || 1080;
+            await youtubedl(url, {
+              output: outTemplate,
+              noPlaylist: true,
+              format: `bestvideo[height<=${maxHeight}]+bestaudio/best[height<=${maxHeight}]`,
+              mergeOutputFormat: "mp4",
+              ffmpegLocation: ffmpegPath,
+              ...clientArgs,
+            });
+          }
+        } catch(e) {
+          throw new Error(`Download failed — ${ytErrorMessage(e)}`);
         }
 
         const produced = fs.readdirSync(workDir).find(f => f.startsWith(`${jobId}.`));
@@ -9678,22 +9713,23 @@ if(cmd==="gif"){
         const fileSize    = fs.statSync(filePath).size;
 
         if(fileSize <= limitBytes){
-          await safeReply(interaction,{ content:`✅ **${title}**`, files:[{attachment:filePath, name:finalName}] });
+          await safeReply(interaction,{ content:`✅ **${title}**`, files:[{attachment:filePath, name:finalName}], ephemeral:true });
           cleanup();
           return;
         }
 
         // Too big for one message — split into the minimum number of parts that fit.
-        await safeReply(interaction,{content:`⏳ **${title}** is ${(fileSize/1024/1024).toFixed(1)} MB — splitting it to fit Discord's ${(limitBytes/1024/1024).toFixed(0)} MB limit…`});
+        await safeReply(interaction,{content:`⏳ **${title}** is ${(fileSize/1024/1024).toFixed(1)} MB — splitting it to fit Discord's ${(limitBytes/1024/1024).toFixed(0)} MB limit…`,ephemeral:true});
 
         const parts = await splitToFit(filePath, workDir, jobId, ext, limitBytes, info.duration || null);
         if(!parts.length) throw new Error("Couldn't split the file into small enough parts — it may have very sparse keyframes.");
 
-        await safeReply(interaction,{content:`✅ **${title}** — split into **${parts.length}** part${parts.length!==1?"s":""}:`});
+        await safeReply(interaction,{content:`✅ **${title}** — split into **${parts.length}** part${parts.length!==1?"s":""}:`,ephemeral:true});
         for(let i=0;i<parts.length;i++){
           await interaction.followUp({
             content:`Part ${i+1}/${parts.length}`,
             files:[{attachment:parts[i], name:`${title}_part${i+1}.${ext}`}],
+            ephemeral:true,
           }).catch(e=>console.error("download part send error:",e.message));
         }
         cleanup();
@@ -9701,7 +9737,7 @@ if(cmd==="gif"){
       } catch(e) {
         cleanup();
         console.error("download error:", e.message);
-        return safeReply(interaction,{content:`❌ Download failed: ${e.message}`,ephemeral:true});
+        return safeReply(interaction,{content:`❌ ${e.message}`,ephemeral:true});
       }
     }
 
