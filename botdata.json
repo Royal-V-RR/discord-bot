@@ -6124,7 +6124,7 @@
         "marriedTo": null,
         "pendingProposal": null,
         "forceMarried": false,
-        "imagesUploaded": 11,
+        "imagesUploaded": 12,
         "uploadedImages": [
           "IMG_2841.png",
           "mommy.png",
@@ -6135,7 +6135,8 @@
           "quote_56.png",
           "quote_194.png",
           "quote_202.png",
-          "quote_203.png"
+          "quote_203.png",
+          "quote_228.png"
         ]
       }
     ],
@@ -32309,7 +32310,7 @@
         "inventory": [],
         "marriedTo": null,
         "pendingProposal": null,
-        "imagesUploaded": 6,
+        "imagesUploaded": 7,
         "forceMarried": false,
         "uploadedImages": [
           "quote_105.jpg",
@@ -32317,7 +32318,8 @@
           "quote_112.jpg",
           "quote_114.png",
           "quote_182.jpg",
-          "quote_225.jpg"
+          "quote_225.jpg",
+          "quote_229.jpg"
         ]
       }
     ],
@@ -75594,28 +75596,10 @@
         "rawName": "IMG_9326.png",
         "mediaKind": "image"
       }
-    ],
-    [
-      "604194ms3aj4eu",
-      {
-        "submitterId": "1213866609362604194",
-        "fileName": "1213866609362604194__image__Screenshot_2026-07-27-16-56-17-069-edit_com.discord.jpg",
-        "rawName": "Screenshot_2026-07-27-16-56-17-069-edit_com.discord.jpg",
-        "mediaKind": "image"
-      }
-    ],
-    [
-      "942922ms3l55po",
-      {
-        "submitterId": "1082452773787942922",
-        "fileName": "1082452773787942922__image__image.png",
-        "rawName": "image.png",
-        "mediaKind": "image"
-      }
     ]
   ],
   "uploadCounters": {
-    "quote": 227,
+    "quote": 229,
     "eardestroyer": 1,
     "eyebleacher": 3
   },
