@@ -5,6 +5,10 @@ const https = require("https");
 const http  = require("http");
 const fs    = require("fs");
 const path  = require("path");
+const os    = require("os");
+const { spawn } = require("child_process");
+const youtubedl  = require("yt-dlp-exec");
+const ffmpegPath = require("ffmpeg-static");
 
 // ── Bundled font registration (for /fakequote card rendering) ────────────────
 // Sharp renders SVG text through fontconfig, which depends on whatever fonts
@@ -598,6 +602,125 @@ function nextUploadNumber(prefix) {
   return uploadCounters[prefix];
 }
 
+// ── Quote source folders ──────────────────────────────────────────────────────
+// Quotes are read from BOTH folders below (merged), but /upload and /requestupload
+// approvals only ever WRITE into the last one (quotes2) — see those handlers.
+const QUOTE_FOLDERS = ["quotes", "quotes2"];
+
+// Cache: fileName -> folder it actually lives in. Populated whenever we list a folder
+// (fetchAllQuoteFiles) or write a file (upload/approve), so call sites that only have a
+// bare filename (library browser, quote manager, trashcan review) can build the right
+// raw.githubusercontent.com URL or GitHub API path without an extra network round trip.
+const quoteFileFolderCache = new Map();
+function cacheQuoteFolder(fileName, folder) { quoteFileFolderCache.set(fileName, folder); }
+
+// Builds a raw.githubusercontent.com URL for a quote file, using the cached folder if known.
+function quoteRawUrl(fileName, folderHint) {
+  const folder = folderHint || quoteFileFolderCache.get(fileName) || "quotes";
+  return `https://raw.githubusercontent.com/Royal-V-RR/discord-bot/main/${folder}/${encodeURIComponent(fileName)}`;
+}
+
+// Lists the contents of a single quote folder via the GitHub Contents API, tagging every
+// file with which folder it came from and populating the folder cache as a side effect.
+async function fetchQuoteFolderFiles(folder) {
+  try {
+    const res = await fetch(`https://api.github.com/repos/${GH_REPO || "Royal-V-RR/discord-bot"}/contents/${folder}`, {
+      headers: { "User-Agent": "RoyalBot", "Authorization": `token ${GH_TOKEN}` }
+    });
+    if (!res.ok) return [];
+    const files = await res.json();
+    if (!Array.isArray(files)) return [];
+    return files.filter(f => f.type === "file").map(f => { cacheQuoteFolder(f.name, folder); return { ...f, folder }; });
+  } catch(e) { console.error(`Quote folder fetch failed (${folder}):`, e.message); return []; }
+}
+
+// Merges the listings of every quote folder (quotes + quotes2) into one array. Each file
+// object keeps its real `download_url` from the GitHub API, so nothing downstream needs to
+// know or care which folder it actually came from.
+async function fetchAllQuoteFiles() {
+  const perFolder = await Promise.all(QUOTE_FOLDERS.map(fetchQuoteFolderFiles));
+  return perFolder.flat();
+}
+
+// Resolves the GitHub Contents API path (folder/filename) for an existing quote file that
+// we only know the bare filename for (e.g. from a delete button). Checks the folder cache
+// first, then falls back to probing each folder directly.
+async function resolveQuoteGhPath(fileName) {
+  const cached = quoteFileFolderCache.get(fileName);
+  if (cached) return `${cached}/${fileName}`;
+  for (const folder of QUOTE_FOLDERS) {
+    const res = await fetch(`https://api.github.com/repos/${GH_REPO || "Royal-V-RR/discord-bot"}/contents/${folder}/${encodeURIComponent(fileName)}`, {
+      headers: { "User-Agent": "RoyalBot", "Authorization": `token ${GH_TOKEN}`, "Accept": "application/vnd.github+json" }
+    });
+    if (res.ok) { cacheQuoteFolder(fileName, folder); return `${folder}/${fileName}`; }
+  }
+  return `quotes/${fileName}`; // fallback default — matches legacy behavior
+}
+
+// ── /download helpers (YouTube fetch + split-to-fit) ─────────────────────────
+// Discord's per-guild upload cap depends on server boost tier. DMs / no guild use the base
+// tier. A small margin is shaved off to leave headroom for multipart/container overhead.
+function getUploadLimitBytes(guild) {
+  const tier = guild?.premiumTier || 0;
+  const raw = tier >= 3 ? 100_000_000 : tier === 2 ? 50_000_000 : 8_000_000;
+  return Math.floor(raw * 0.92);
+}
+
+// Probes a media file's duration (seconds) by parsing ffmpeg's own stderr banner — avoids
+// needing a separate ffprobe binary since ffmpeg-static already ships one binary we reuse.
+function probeDuration(filePath) {
+  return new Promise((resolve) => {
+    const proc = spawn(ffmpegPath, ["-i", filePath], { stdio: ["ignore","ignore","pipe"] });
+    let stderr = "";
+    proc.stderr.on("data", d => stderr += d.toString());
+    proc.on("close", () => {
+      const m = stderr.match(/Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)/);
+      resolve(m ? (+m[1])*3600 + (+m[2])*60 + parseFloat(m[3]) : null);
+    });
+    proc.on("error", () => resolve(null));
+  });
+}
+function runFfmpeg(args) {
+  return new Promise((resolve, reject) => {
+    const proc = spawn(ffmpegPath, args, { stdio: ["ignore","ignore","pipe"] });
+    let stderr = "";
+    proc.stderr.on("data", d => stderr += d.toString());
+    proc.on("close", code => code === 0 ? resolve() : reject(new Error(`ffmpeg exited ${code}: ${stderr.slice(-400)}`)));
+    proc.on("error", reject);
+  });
+}
+
+// Splits a media file into the minimum number of equal-length, stream-copied parts such that
+// every resulting part fits under limitBytes. Starts at 2 parts and grows by 1 each retry
+// (rather than jumping straight to many tiny parts) until every part fits, or gives up.
+async function splitToFit(filePath, workDir, jobId, ext, limitBytes, knownDuration) {
+  const duration = knownDuration || await probeDuration(filePath);
+  if (!duration) throw new Error("Couldn't determine the video's duration to split it.");
+
+  const MAX_ATTEMPTS = 40;
+  for (let numParts = 2; numParts <= MAX_ATTEMPTS; numParts++) {
+    for (const f of fs.readdirSync(workDir)) if (f.startsWith(`${jobId}_p`)) fs.rmSync(path.join(workDir, f));
+
+    const segTime  = duration / numParts;
+    const pattern  = path.join(workDir, `${jobId}_p%03d.${ext}`);
+    await runFfmpeg([
+      "-y", "-i", filePath,
+      "-c", "copy", "-map", "0",
+      "-f", "segment", "-segment_time", String(segTime),
+      "-reset_timestamps", "1",
+      pattern,
+    ]);
+
+    const produced = fs.readdirSync(workDir)
+      .filter(f => f.startsWith(`${jobId}_p`))
+      .sort()
+      .map(f => path.join(workDir, f));
+
+    if (produced.length && produced.every(p => fs.statSync(p).size <= limitBytes)) return produced;
+  }
+  return [];
+}
+
 function shuffleArray(arr) {
   for (let i = arr.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -610,11 +733,7 @@ async function refillQuoteQueue() {
   if (quoteFetching) return;
   quoteFetching = true;
   try {
-    const res = await fetch("https://api.github.com/repos/Royal-V-RR/discord-bot/contents/quotes", {
-      headers: { "User-Agent": "RoyalBot", "Authorization": `token ${GH_TOKEN}` }
-    });
-    if (!res.ok) { quoteFetching = false; return; }
-    const files  = await res.json();
+    const files  = await fetchAllQuoteFiles();
     const images = files.filter(f => /\.(png|jpe?g|gif|webp)$/i.test(f.name));
     if (images.length) quoteQueue = shuffleArray([...images]);
   } catch(e) { console.error("Quote queue refill failed:", e); }
@@ -672,11 +791,7 @@ async function refillGoodQuoteQueue() {
   if (goodQuoteFetching) return;
   goodQuoteFetching = true;
   try {
-    const res = await fetch("https://api.github.com/repos/Royal-V-RR/discord-bot/contents/quotes", {
-      headers: { "User-Agent": "RoyalBot", "Authorization": `token ${GH_TOKEN}` }
-    });
-    if (!res.ok) { goodQuoteFetching = false; return; }
-    const files  = await res.json();
+    const files  = await fetchAllQuoteFiles();
     const images = files.filter(f => /\.(png|jpe?g|gif|webp)$/i.test(f.name));
     if (images.length) goodQuoteQueue = goodShuffleQuotes(images);
   } catch(e) { console.error("Good quote queue refill failed:", e); }
@@ -687,11 +802,7 @@ async function refillBadQuoteQueue() {
   if (badQuoteFetching) return;
   badQuoteFetching = true;
   try {
-    const res = await fetch("https://api.github.com/repos/Royal-V-RR/discord-bot/contents/quotes", {
-      headers: { "User-Agent": "RoyalBot", "Authorization": `token ${GH_TOKEN}` }
-    });
-    if (!res.ok) { badQuoteFetching = false; return; }
-    const files  = await res.json();
+    const files  = await fetchAllQuoteFiles();
     const images = files.filter(f => /\.(png|jpe?g|gif|webp)$/i.test(f.name));
     if (images.length) badQuoteQueue = badShuffleQuotes(images);
   } catch(e) { console.error("Bad quote queue refill failed:", e); }
@@ -3195,7 +3306,7 @@ function buildCommands(){
       {name:"duration", description:"Duration in minutes (1–5), or 0 to cancel early",type:4,required:true},
     ]},
 
-    {name:"upload",            description:"Upload an image, audio, or video file to the quotes folder",options:[
+    {name:"upload",            description:"Upload an image, audio, or video file to quotes2",options:[
       {name:"source",          description:"[Memers only] Upload a file directly from your device (image/audio/video)",type:11,required:false},
       {name:"link",            description:"[Memers only] Submit a file via URL link (image/audio/video)",type:3,required:false},
     ]},
@@ -3268,7 +3379,7 @@ function buildCommands(){
     { name:"Quote This",      type:3 },
     { name:"Fetch Emoji",     type:3 },
     // Quote review
-    {name:"requestupload",   description:"Submit an image, audio, or video file to be reviewed for the quotes folder",options:[
+    {name:"requestupload",   description:"Submit an image, audio, or video file to be reviewed for quotes2",options:[
       {name:"source",description:"File to submit (image/audio/video)",type:11,required:true},
     ]},
     {name:"colorscheme", description:"Repaint one image using another image's colour scheme",options:[
@@ -3312,6 +3423,23 @@ function buildCommands(){
     // ── [Owner] The Remnant ───────────────────────────────────────────────────
     {name:"theremnant", description:"[Owner] Send a mysterious dimensional transmission to this channel",options:[
       {name:"message",description:"The text to transmit",type:3,required:true,max_length:1000},
+    ]},
+
+    // ── YouTube download ───────────────────────────────────────────────────────
+    {name:"download", description:"Download a YouTube video as MP4 or MP3",options:[
+      {name:"url",        description:"YouTube video URL",type:3,required:true},
+      {name:"format",     description:"File format (default: MP4)",type:3,required:false,choices:[
+        {name:"MP4 (video)", value:"mp4"},
+        {name:"MP3 (audio)", value:"mp3"},
+      ]},
+      {name:"resolution", description:"Max video resolution, ignored for MP3 (default: 1080p)",type:3,required:false,choices:[
+        {name:"1080p", value:"1080p"},
+        {name:"720p",  value:"720p"},
+        {name:"480p",  value:"480p"},
+        {name:"360p",  value:"360p"},
+        {name:"240p",  value:"240p"},
+        {name:"144p",  value:"144p"},
+      ]},
     ]},
 
   ];
@@ -4719,21 +4847,21 @@ client.on("interactionCreate",async interaction=>{
           const fileName = `${prefix}_${num}.${ext}`;
           try{
             await interaction.editReply({
-              content:`⚠️ **Submission approved** by <@${uid}>, but \`${fileName}\` is ${(fileBuffer.length/1024/1024).toFixed(1)} MB — too large for the GitHub quotes folder (1 MB limit), so it wasn't saved there.`,
+              content:`⚠️ **Submission approved** by <@${uid}>, but \`${fileName}\` is ${(fileBuffer.length/1024/1024).toFixed(1)} MB — too large for \`quotes2\` (1 MB limit), so it wasn't saved there.`,
               components:[],
               files:[{attachment:fileBuffer, name:fileName}],
             });
           }catch{}
           try{
             const submitter = await client.users.fetch(submitterId).catch(()=>null);
-            if(submitter) await submitter.send(`✅ Your quote submission \`${rawName}\` was **approved**, but it was too large to store in the quotes folder (1 MB limit). A reviewer has it as \`${fileName}\`.`).catch(()=>{});
+            if(submitter) await submitter.send(`✅ Your quote submission \`${rawName}\` was **approved**, but it was too large to store in \`quotes2\` (1 MB limit). A reviewer has it as \`${fileName}\`.`).catch(()=>{});
           }catch{}
           return;
         }
 
         const num = nextUploadNumber(prefix);
         const fileName = `${prefix}_${num}.${ext}`;
-        const ghPath  = `quotes/${fileName}`;
+        const ghPath  = `quotes2/${fileName}`; // approved submissions always land in quotes2
         const encoded = fileBuffer.toString("base64");
 
         const checkRes = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/${ghPath}`,{
@@ -4755,6 +4883,7 @@ client.on("interactionCreate",async interaction=>{
           await interaction.followUp({content:`❌ GitHub upload failed (HTTP ${putRes.status}).`,ephemeral:true}).catch(()=>{});
           return;
         }
+        cacheQuoteFolder(fileName, "quotes2");
 
         // Credit the uploader
         const s = getScore(submitterId, null);
@@ -4765,7 +4894,7 @@ client.on("interactionCreate",async interaction=>{
 
         try{
           await interaction.editReply({
-            content:`✅ **Quote approved** by <@${uid}>\n\`${fileName}\` has been uploaded to the quotes folder!`,
+            content:`✅ **Quote approved** by <@${uid}>\n\`${fileName}\` has been uploaded to \`quotes2\`!`,
             components:[]
           });
         }catch{}
@@ -4773,7 +4902,7 @@ client.on("interactionCreate",async interaction=>{
         // Notify submitter
         try{
           const submitter = await client.users.fetch(submitterId).catch(()=>null);
-          if(submitter) await submitter.send(`✅ Your quote submission \`${rawName}\` was **approved** and added to the quotes folder as \`${fileName}\`! 🎉`).catch(()=>{});
+          if(submitter) await submitter.send(`✅ Your quote submission \`${rawName}\` was **approved** and added as \`${fileName}\`! 🎉`).catch(()=>{});
         }catch{}
       }catch(e){
         console.error("qr_accept error:",e.message);
@@ -4804,7 +4933,7 @@ client.on("interactionCreate",async interaction=>{
       // del_delete_{filename}
       const fileName = cid.slice(11);
       try {
-        const ghPath = `quotes/${fileName}`;
+        const ghPath = await resolveQuoteGhPath(fileName);
         const checkRes = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/${ghPath}`,{
           headers:{"User-Agent":"RoyalBot","Authorization":`token ${GH_TOKEN}`,"Accept":"application/vnd.github+json"}
         });
@@ -4926,7 +5055,7 @@ client.on("interactionCreate",async interaction=>{
                 const gId = tv.guildId || "@me";
                 const cId = tv.channelId || "0";
                 const msgLink = `https://discord.com/channels/${gId}/${cId}/${msgId}`;
-                const imageUrl = `https://raw.githubusercontent.com/Royal-V-RR/discord-bot/main/quotes/${encodeURIComponent(tv.filename)}`;
+                const imageUrl = quoteRawUrl(tv.filename);
                 const row = new MessageActionRow().addComponents(
                   new MessageButton().setCustomId(`del_keep_${msgId}`).setLabel("✅ Keep").setStyle("SUCCESS"),
                   new MessageButton().setCustomId(`del_delete_${tv.filename}`).setLabel("🗑️ Delete").setStyle("DANGER"),
@@ -5359,7 +5488,7 @@ client.on("interactionCreate",async interaction=>{
           try{ await m.delete(); }catch{}
           const gotoIdx = Math.max(0, Math.min(parseInt(m.content.trim()) - 1, files.length - 1));
           const fileName = files[gotoIdx];
-          const imageUrl = `https://raw.githubusercontent.com/Royal-V-RR/discord-bot/main/quotes/${encodeURIComponent(fileName)}`;
+          const imageUrl = quoteRawUrl(fileName);
           const row = new MessageActionRow().addComponents(
             new MessageButton().setCustomId(`lib_prev_${targetUserId}_${gotoIdx}`).setLabel("◀ Prev").setStyle("SECONDARY").setDisabled(gotoIdx===0),
             new MessageButton().setCustomId(`lib_goto_${targetUserId}_${gotoIdx}`).setLabel("🔢 Go to #").setStyle("PRIMARY"),
@@ -5380,7 +5509,7 @@ client.on("interactionCreate",async interaction=>{
       // ── Prev / Next ───────────────────────────────────────────────────────
       const newIdx = dir==="prev" ? Math.max(0,currentIdx-1) : Math.min(files.length-1,currentIdx+1);
       const fileName = files[newIdx];
-      const imageUrl = `https://raw.githubusercontent.com/Royal-V-RR/discord-bot/main/quotes/${encodeURIComponent(fileName)}`;
+      const imageUrl = quoteRawUrl(fileName);
       const row = new MessageActionRow().addComponents(
         new MessageButton().setCustomId(`lib_prev_${targetUserId}_${newIdx}`).setLabel("◀ Prev").setStyle("SECONDARY").setDisabled(newIdx===0),
         new MessageButton().setCustomId(`lib_goto_${targetUserId}_${newIdx}`).setLabel("🔢 Go to #").setStyle("PRIMARY"),
@@ -5404,7 +5533,7 @@ client.on("interactionCreate",async interaction=>{
         const fileName = cid.slice(10);
         if(!(await btnAck(interaction))) return;
         try {
-          const ghPath = `quotes/${fileName}`;
+          const ghPath = await resolveQuoteGhPath(fileName);
           const checkRes = await fetch(`https://api.github.com/repos/Royal-V-RR/discord-bot/contents/${ghPath}`,{
             headers:{"User-Agent":"RoyalBot","Authorization":`token ${GH_TOKEN}`,"Accept":"application/vnd.github+json"}
           });
@@ -5437,15 +5566,11 @@ client.on("interactionCreate",async interaction=>{
       const curIdx   = parseInt(parts_qm[2]);
       if(!(await btnAck(interaction))) return;
       try {
-        const listRes = await fetch("https://api.github.com/repos/Royal-V-RR/discord-bot/contents/quotes",{
-          headers:{"User-Agent":"RoyalBot","Authorization":`token ${GH_TOKEN}`,"Accept":"application/vnd.github+json"}
-        });
-        if(!listRes.ok){ await interaction.followUp({content:`❌ GitHub API error (HTTP ${listRes.status}).`,ephemeral:true}); return; }
-        const files_qm = (await listRes.json()).filter(f=>f.type==="file"&&/\.(png|jpe?g|gif|webp)$/i.test(f.name));
-        if(!files_qm.length){ await interaction.editReply({content:"📭 No images left in the quotes folder.",components:[]}); return; }
+        const files_qm = (await fetchAllQuoteFiles()).filter(f=>/\.(png|jpe?g|gif|webp)$/i.test(f.name));
+        if(!files_qm.length){ await interaction.editReply({content:"📭 No images left in the quotes folders.",components:[]}); return; }
         const newIdx_qm = dir_qm==="prev" ? Math.max(0,curIdx-1) : Math.min(files_qm.length-1,curIdx+1);
         const file_qm = files_qm[newIdx_qm];
-        const imageUrl_qm = `https://raw.githubusercontent.com/Royal-V-RR/discord-bot/main/quotes/${encodeURIComponent(file_qm.name)}`;
+        const imageUrl_qm = quoteRawUrl(file_qm.name, file_qm.folder);
         const navRow_qm = new MessageActionRow().addComponents(
           new MessageButton().setCustomId(`qm_prev_${newIdx_qm}`).setLabel("◀ Prev").setStyle("SECONDARY").setDisabled(newIdx_qm===0),
           new MessageButton().setCustomId(`qm_next_${newIdx_qm}_${files_qm.length}`).setLabel("Next ▶").setStyle("SECONDARY").setDisabled(newIdx_qm>=files_qm.length-1),
@@ -8019,16 +8144,11 @@ if(cmd==="gif"){
       const ui=await getUserAppInstalls();
       const appUserCount=userInstalls.size;
 
-      // Fetch quotes folder count from GitHub
+      // Fetch quotes folder count from GitHub (quotes + quotes2 combined)
       let quotesCount = "?";
       try {
-        const ghRes = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/quotes`,{
-          headers:{"User-Agent":"RoyalBot","Authorization":`token ${GH_TOKEN}`,"Accept":"application/vnd.github+json"}
-        });
-        if(ghRes.ok){
-          const files = await ghRes.json();
-          if(Array.isArray(files)) quotesCount = files.filter(f=>f.type==="file").length;
-        }
+        const files = await fetchAllQuoteFiles();
+        quotesCount = files.length;
       } catch(e){ console.error("botstats quotes fetch:",e.message); }
 
       const content=`**Bot Stats**\nServers: **${client.guilds.cache.size.toLocaleString()}**\nTotal users (across servers): **${totalUsers.toLocaleString()}**\nApp installs (Discord estimate): **${typeof ui==="number"?ui.toLocaleString():ui}**\nTracked app users (interacted outside servers): **${appUserCount}**\n🖼️ Images in quotes folder: **${quotesCount}**\n\n${serverList}`;
@@ -8710,7 +8830,7 @@ if(cmd==="gif"){
       const pageArg = interaction.options.getInteger("page") ?? 1;
       const idx = Math.max(0, Math.min(pageArg - 1, files.length - 1));
       const fileName = files[idx];
-      const imageUrl = `https://raw.githubusercontent.com/Royal-V-RR/discord-bot/main/quotes/${encodeURIComponent(fileName)}`;
+      const imageUrl = quoteRawUrl(fileName);
       const row = new MessageActionRow().addComponents(
         new MessageButton().setCustomId(`lib_prev_${targetUser.id}_${idx}`).setLabel("◀ Prev").setStyle("SECONDARY").setDisabled(idx===0),
         new MessageButton().setCustomId(`lib_goto_${targetUser.id}_${idx}`).setLabel("🔢 Go to #").setStyle("PRIMARY"),
@@ -8828,16 +8948,11 @@ if(cmd==="gif"){
       else {
         await interaction.deferReply({ephemeral:true});
         try {
-          const listRes = await fetch("https://api.github.com/repos/Royal-V-RR/discord-bot/contents/quotes",{
-            headers:{"User-Agent":"RoyalBot","Authorization":`token ${GH_TOKEN}`,"Accept":"application/vnd.github+json"}
-          });
-          if(!listRes.ok) return safeReply(interaction,{content:`❌ GitHub API error (HTTP ${listRes.status}).`,ephemeral:true});
-          const files = await listRes.json();
-          const images = files.filter(f=>f.type==="file"&&/\.(png|jpe?g|gif|webp)$/i.test(f.name));
-          if(!images.length) return safeReply(interaction,{content:"📭 No images in the quotes folder.",ephemeral:true});
+          const images = (await fetchAllQuoteFiles()).filter(f=>/\.(png|jpe?g|gif|webp)$/i.test(f.name));
+          if(!images.length) return safeReply(interaction,{content:"📭 No images in the quotes folders.",ephemeral:true});
           const startIdx = Math.max(0, Math.min((interaction.options.getInteger("index")||1)-1, images.length-1));
           const file = images[startIdx];
-          const imageUrl = `https://raw.githubusercontent.com/Royal-V-RR/discord-bot/main/quotes/${encodeURIComponent(file.name)}`;
+          const imageUrl = quoteRawUrl(file.name, file.folder);
           const navRow = new MessageActionRow().addComponents(
             new MessageButton().setCustomId(`qm_prev_${startIdx}`).setLabel("◀ Prev").setStyle("SECONDARY").setDisabled(startIdx===0),
             new MessageButton().setCustomId(`qm_next_${startIdx}_${images.length}`).setLabel("Next ▶").setStyle("SECONDARY").setDisabled(startIdx>=images.length-1),
@@ -8859,15 +8974,10 @@ if(cmd==="gif"){
         return safeReply(interaction,{content:"❌ Owner only.",ephemeral:true});
       await interaction.deferReply({ephemeral:true});
       try {
-        const listRes = await fetch("https://api.github.com/repos/Royal-V-RR/discord-bot/contents/quotes",{
-          headers:{"User-Agent":"RoyalBot","Authorization":`token ${GH_TOKEN}`,"Accept":"application/vnd.github+json"}
-        });
-        if(!listRes.ok) return safeReply(interaction,{content:`❌ GitHub API error (HTTP ${listRes.status}).`,ephemeral:true});
-        const files = await listRes.json();
-        const images = files.filter(f => f.type==="file" && /\.(png|jpe?g|gif|webp)$/i.test(f.name));
-        if(!images.length) return safeReply(interaction,{content:"📭 No images in the quotes folder.",ephemeral:true});
+        const images = (await fetchAllQuoteFiles()).filter(f => /\.(png|jpe?g|gif|webp)$/i.test(f.name));
+        if(!images.length) return safeReply(interaction,{content:"📭 No images in the quotes folders.",ephemeral:true});
         // Split into chunks of 50 filenames per message to stay under Discord's 2000 char limit
-        const names = images.map((f,i) => `${i+1}. \`${f.name}\``);
+        const names = images.map((f,i) => `${i+1}. \`${f.name}\` _(${f.folder})_`);
         const chunks = [];
         let chunk = [];
         for(const line of names){
@@ -8875,7 +8985,7 @@ if(cmd==="gif"){
           chunk.push(line);
         }
         if(chunk.length) chunks.push(chunk);
-        await safeReply(interaction,{content:`🖼️ **Quotes folder — ${images.length} image${images.length!==1?"s":""}:**\n${chunks[0].join("\n")}`,ephemeral:true});
+        await safeReply(interaction,{content:`🖼️ **Quotes — ${images.length} image${images.length!==1?"s":""} across quotes + quotes2:**\n${chunks[0].join("\n")}`,ephemeral:true});
         for(let i=1;i<chunks.length;i++){
           await interaction.followUp({content:chunks[i].join("\n"),ephemeral:true}).catch(()=>{});
         }
@@ -8892,12 +9002,12 @@ if(cmd==="gif"){
       const fileName = interaction.options.getString("filename").trim();
       await interaction.deferReply({ephemeral:true});
       try {
-        const ghPath = `quotes/${fileName}`;
+        const ghPath = await resolveQuoteGhPath(fileName);
         // Fetch the file's SHA (required for deletion)
         const checkRes = await fetch(`https://api.github.com/repos/Royal-V-RR/discord-bot/contents/${ghPath}`,{
           headers:{"User-Agent":"RoyalBot","Authorization":`token ${GH_TOKEN}`,"Accept":"application/vnd.github+json"}
         });
-        if(checkRes.status===404) return safeReply(interaction,{content:`❌ File \`${fileName}\` not found in the quotes folder.`,ephemeral:true});
+        if(checkRes.status===404) return safeReply(interaction,{content:`❌ File \`${fileName}\` not found in either quotes folder.`,ephemeral:true});
         if(!checkRes.ok) return safeReply(interaction,{content:`❌ GitHub API error (HTTP ${checkRes.status}).`,ephemeral:true});
         const fileData = await checkRes.json();
         const sha = fileData.sha;
@@ -8920,7 +9030,7 @@ if(cmd==="gif"){
           }
         }
         saveData();
-        return safeReply(interaction,{content:`🗑️ \`${fileName}\` deleted from the quotes folder.`,ephemeral:true});
+        return safeReply(interaction,{content:`🗑️ \`${fileName}\` deleted (was in \`${ghPath.split("/")[0]}\`).`,ephemeral:true});
       } catch(e) {
         console.error("quotedelete error:",e);
         return safeReply(interaction,{content:"❌ Something went wrong during deletion.",ephemeral:true});
@@ -8981,7 +9091,7 @@ if(cmd==="gif"){
           const num = nextUploadNumber(mediaInfo.prefix);
           const fileName = `${mediaInfo.prefix}_${num}.${mediaInfo.ext}`;
           return safeReply(interaction,{
-            content:`⚠️ \`${fileName}\` is ${(fileBuffer.length/1024/1024).toFixed(1)} MB — too large for the GitHub quotes folder (1 MB limit), so it wasn't saved there. Here it is instead:`,
+            content:`⚠️ \`${fileName}\` is ${(fileBuffer.length/1024/1024).toFixed(1)} MB — too large for \`quotes2\` (1 MB limit), so it wasn't saved there. Here it is instead:`,
             files:[{attachment:fileBuffer, name:fileName}],
             ephemeral:true
           });
@@ -8989,7 +9099,7 @@ if(cmd==="gif"){
 
         const num = nextUploadNumber(mediaInfo.prefix);
         const fileName = `${mediaInfo.prefix}_${num}.${mediaInfo.ext}`;
-        const ghPath  = `quotes/${fileName}`;
+        const ghPath  = `quotes2/${fileName}`; // /upload always writes to quotes2, never quotes
         const encoded = fileBuffer.toString("base64");
 
         const checkRes = await fetch(`https://api.github.com/repos/Royal-V-RR/discord-bot/contents/${ghPath}`,{
@@ -9018,13 +9128,14 @@ if(cmd==="gif"){
           uploadCounters[mediaInfo.prefix] = Math.max(0,(uploadCounters[mediaInfo.prefix]||1)-1);
           return safeReply(interaction,{content:`❌ GitHub upload failed (HTTP ${putRes.status}).`,ephemeral:true});
         }
+        cacheQuoteFolder(fileName, "quotes2");
 
         const s = getScore(interaction.user.id, interaction.user.username);
         s.imagesUploaded = (s.imagesUploaded || 0) + 1;
         if (!Array.isArray(s.uploadedImages)) s.uploadedImages = [];
         if (!s.uploadedImages.includes(fileName)) s.uploadedImages.push(fileName);
         saveData();
-        return safeReply(interaction,{content:`✅ \`${fileName}\` uploaded to the quotes folder!`,ephemeral:true});
+        return safeReply(interaction,{content:`✅ \`${fileName}\` uploaded to \`quotes2\`!`,ephemeral:true});
       } catch(e) {
         console.error("upload error:",e);
         return safeReply(interaction,{content:"❌ Something went wrong during upload.",ephemeral:true});
@@ -9502,6 +9613,95 @@ if(cmd==="gif"){
       }catch(e){
         console.error("requestupload send error:",e.message);
         return safeReply(interaction,{content:`❌ Failed to send to review channel: ${e.message}`,ephemeral:true});
+      }
+    }
+
+    // ── /download — fetch a YouTube video as MP4/MP3, splitting into parts if too big ─
+    if(cmd==="download"){
+      const url        = interaction.options.getString("url");
+      const format      = interaction.options.getString("format") || "mp4";
+      const resolution   = interaction.options.getString("resolution") || "1080p";
+
+      if(!/^https?:\/\/(www\.|m\.|music\.)?(youtube\.com|youtu\.be)\//i.test(url))
+        return safeReply(interaction,{content:"❌ That doesn't look like a YouTube URL.",ephemeral:true});
+
+      await interaction.deferReply();
+
+      const jobId   = crypto.randomUUID().slice(0,8);
+      const workDir = path.join(os.tmpdir(), `dl_${jobId}`);
+      fs.mkdirSync(workDir,{recursive:true});
+      const cleanup = () => { try{ fs.rmSync(workDir,{recursive:true,force:true}); }catch{} };
+
+      try {
+        await safeReply(interaction,{content:"⏳ Fetching video info…"});
+
+        let info;
+        try {
+          info = await youtubedl(url, { dumpSingleJson:true, noPlaylist:true, noWarnings:true });
+        } catch(e) {
+          throw new Error(`Couldn't read that video (${e.shortMessage || e.stderr || e.message}).`);
+        }
+
+        const title = (info.title || "video").replace(/[\\/:*?"<>|]/g,"").trim().slice(0,60) || "video";
+        const outTemplate = path.join(workDir, `${jobId}.%(ext)s`);
+
+        await safeReply(interaction,{content:`⏳ Downloading **${title}**…`});
+
+        if(format === "mp3"){
+          await youtubedl(url, {
+            output: outTemplate,
+            noPlaylist: true,
+            extractAudio: true,
+            audioFormat: "mp3",
+            audioQuality: 0,
+            ffmpegLocation: ffmpegPath,
+          });
+        } else {
+          const heightMap = {"1080p":1080,"720p":720,"480p":480,"360p":360,"240p":240,"144p":144};
+          const maxHeight = heightMap[resolution] || 1080;
+          await youtubedl(url, {
+            output: outTemplate,
+            noPlaylist: true,
+            format: `bestvideo[height<=${maxHeight}]+bestaudio/best[height<=${maxHeight}]`,
+            mergeOutputFormat: "mp4",
+            ffmpegLocation: ffmpegPath,
+          });
+        }
+
+        const produced = fs.readdirSync(workDir).find(f => f.startsWith(`${jobId}.`));
+        if(!produced) throw new Error("Download finished but no output file was found.");
+        const filePath  = path.join(workDir, produced);
+        const ext       = format === "mp3" ? "mp3" : "mp4";
+        const finalName = `${title}.${ext}`;
+
+        const limitBytes = getUploadLimitBytes(interaction.guild);
+        const fileSize    = fs.statSync(filePath).size;
+
+        if(fileSize <= limitBytes){
+          await safeReply(interaction,{ content:`✅ **${title}**`, files:[{attachment:filePath, name:finalName}] });
+          cleanup();
+          return;
+        }
+
+        // Too big for one message — split into the minimum number of parts that fit.
+        await safeReply(interaction,{content:`⏳ **${title}** is ${(fileSize/1024/1024).toFixed(1)} MB — splitting it to fit Discord's ${(limitBytes/1024/1024).toFixed(0)} MB limit…`});
+
+        const parts = await splitToFit(filePath, workDir, jobId, ext, limitBytes, info.duration || null);
+        if(!parts.length) throw new Error("Couldn't split the file into small enough parts — it may have very sparse keyframes.");
+
+        await safeReply(interaction,{content:`✅ **${title}** — split into **${parts.length}** part${parts.length!==1?"s":""}:`});
+        for(let i=0;i<parts.length;i++){
+          await interaction.followUp({
+            content:`Part ${i+1}/${parts.length}`,
+            files:[{attachment:parts[i], name:`${title}_part${i+1}.${ext}`}],
+          }).catch(e=>console.error("download part send error:",e.message));
+        }
+        cleanup();
+        return;
+      } catch(e) {
+        cleanup();
+        console.error("download error:", e.message);
+        return safeReply(interaction,{content:`❌ Download failed: ${e.message}`,ephemeral:true});
       }
     }
 
