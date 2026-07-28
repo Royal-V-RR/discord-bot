@@ -4899,7 +4899,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-27",
-        "xp": 5865,
+        "xp": 5879,
         "level": 27,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -18032,7 +18032,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 2401,
+        "xp": 2406,
         "level": 18,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -35345,6 +35345,20 @@
         "content": "Longest test",
         "sendAt": 1785686399449,
         "createdAt": 1785081599449,
+        "imageURL": null,
+        "imageName": null
+      }
+    ],
+    [
+      "ntrrit",
+      {
+        "id": "ntrrit",
+        "userId": "969280648667889764",
+        "guildId": "1048053656035020911",
+        "channelId": "1508151472863580322",
+        "content": "<@&1508151142096441484>",
+        "sendAt": 1785237842055,
+        "createdAt": 1785234242055,
         "imageURL": null,
         "imageName": null
       }
