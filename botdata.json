@@ -5256,7 +5256,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 3802,
+        "xp": 3815,
         "level": 24,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -32659,7 +32659,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 92,
+        "xp": 104,
         "level": 2,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -39255,7 +39255,7 @@
     [
       "IMG_5099.png",
       {
-        "up": 5,
+        "up": 6,
         "down": 0
       }
     ],
@@ -57666,6 +57666,10 @@
     [
       "1531602231713988709",
       "Screenshot_20260516-1730512.png"
+    ],
+    [
+      "1531695306192982147",
+      "IMG_5099.png"
     ]
   ],
   "reviewChannelId": "1503045026866004071",
@@ -75295,6 +75299,16 @@
         "channelId": "1477294439180537980",
         "sentToDeleter": false
       }
+    ],
+    [
+      "1531695306192982147",
+      {
+        "filename": "IMG_5099.png",
+        "voters": [],
+        "guildId": "1048053656035020911",
+        "channelId": "1477294439180537980",
+        "sentToDeleter": false
+      }
     ]
   ],
   "selfClankUsers": [
@@ -77690,6 +77704,15 @@
       [
         [
           "1099756603667910696",
+          "up"
+        ]
+      ]
+    ],
+    [
+      "IMG_5099.png",
+      [
+        [
+          "363149593787105291",
           "up"
         ]
       ]
