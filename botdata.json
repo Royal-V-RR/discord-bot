@@ -4899,7 +4899,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-27",
-        "xp": 6739,
+        "xp": 6752,
         "level": 27,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -4913,7 +4913,7 @@
         "marriedTo": null,
         "pendingProposal": null,
         "forceMarried": false,
-        "imagesUploaded": 339,
+        "imagesUploaded": 340,
         "uploadedImages": [
           "IMG_4186.png",
           "quote_1498252621922832514.png",
@@ -5234,7 +5234,8 @@
           "quote_213.png",
           "quote_214.png",
           "quote_217.png",
-          "quote_219.png"
+          "quote_219.png",
+          "quote_220.png"
         ],
         "lastFishTime": 0,
         "lastMineTime": 0,
@@ -9582,7 +9583,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 1035,
+        "xp": 1041,
         "level": 8,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -17114,7 +17115,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 2015,
+        "xp": 2030,
         "level": 13,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -23482,7 +23483,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 806,
+        "xp": 814,
         "level": 13,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -75667,19 +75668,10 @@
         "rawName": "IMG_9339.png",
         "mediaKind": "image"
       }
-    ],
-    [
-      "889764ms58dtkt",
-      {
-        "submitterId": "969280648667889764",
-        "fileName": "969280648667889764__image__IMG_7555.png",
-        "rawName": "IMG_7555.png",
-        "mediaKind": "image"
-      }
     ]
   ],
   "uploadCounters": {
-    "quote": 219,
+    "quote": 220,
     "eardestroyer": 1,
     "eyebleacher": 3
   },
