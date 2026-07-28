@@ -242,13 +242,6 @@
         "mode": "uwu",
         "ownerClanked": true
       }
-    ],
-    [
-      "690219723472109616",
-      {
-        "expiresAt": 1785256109016,
-        "mode": "pirate"
-      }
     ]
   ],
   "reactionRoles": [
@@ -487,12 +480,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 15500,
-        "lastSubsTimestamp": 1785255807504,
+        "lastSubsTimestamp": 1785256107550,
         "history": [
-          {
-            "ts": 1784938494535,
-            "subs": 15400
-          },
           {
             "ts": 1784938794556,
             "subs": 15400
@@ -4488,6 +4477,10 @@
           {
             "ts": 1785255807504,
             "subs": 15500
+          },
+          {
+            "ts": 1785256107550,
+            "subs": 15500
           }
         ],
         "subcountDiscordId": "1483595393999700080",
@@ -4906,7 +4899,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-27",
-        "xp": 6120,
+        "xp": 6131,
         "level": 27,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -34566,7 +34559,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 193,
+        "xp": 199,
         "level": 6,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -35310,7 +35303,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 40,
+        "xp": 55,
         "level": 4,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -75493,16 +75486,19 @@
   "selfClankUsers": [
     [
       "1048053656035020911",
-      [
-        "690219723472109616"
-      ]
+      []
     ],
     [
       "1408975996715139084",
       []
     ]
   ],
-  "selfClankCooldown": [],
+  "selfClankCooldown": [
+    [
+      "690219723472109616",
+      1785256709028
+    ]
+  ],
   "pendingReviews": [
     [
       "821276ms264st6",
