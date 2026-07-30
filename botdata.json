@@ -76041,10 +76041,12 @@
       "1532346245962530818",
       {
         "filename": "quote_1494502628107878451.png",
-        "voters": [],
+        "voters": [
+          "1213866609362604194"
+        ],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
-        "sentToDeleter": false
+        "sentToDeleter": true
       }
     ]
   ],
