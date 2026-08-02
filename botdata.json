@@ -480,12 +480,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 15600,
-        "lastSubsTimestamp": 1785694398000,
+        "lastSubsTimestamp": 1785694697985,
         "history": [
-          {
-            "ts": 1785387800993,
-            "subs": 15500
-          },
           {
             "ts": 1785388101005,
             "subs": 15500
@@ -4481,6 +4477,10 @@
           {
             "ts": 1785694398000,
             "subs": 15600
+          },
+          {
+            "ts": 1785694697985,
+            "subs": 15600
           }
         ],
         "subcountDiscordId": "1483595393999700080",
@@ -4701,7 +4701,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-15",
-        "xp": 5963,
+        "xp": 5972,
         "level": 25,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -4899,7 +4899,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-27",
-        "xp": 2642,
+        "xp": 2655,
         "level": 28,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -5370,7 +5370,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 5337,
+        "xp": 5346,
         "level": 24,
         "lastWorkTime": 1778752522595,
         "lastBegTime": 0,
@@ -17825,7 +17825,7 @@
         "dailyStreak": 1,
         "bestStreak": 4,
         "lastDailyDate": "2026-06-13",
-        "xp": 74,
+        "xp": 95,
         "level": 17,
         "lastWorkTime": 1778166713164,
         "lastBegTime": 1778166374950,
@@ -17889,7 +17889,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 1732,
+        "xp": 1744,
         "level": 17,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -78345,7 +78345,7 @@
         ],
         "intervalMinutes": 15,
         "locked": true,
-        "lastUpdate": 1785693797862
+        "lastUpdate": 1785694697879
       }
     ]
   ],
