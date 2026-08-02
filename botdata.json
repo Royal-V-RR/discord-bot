@@ -242,6 +242,13 @@
         "mode": "uwu",
         "ownerClanked": true
       }
+    ],
+    [
+      "1254388539890860083",
+      {
+        "expiresAt": 1785678459516,
+        "mode": "stupid"
+      }
     ]
   ],
   "reactionRoles": [
@@ -4899,7 +4906,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-27",
-        "xp": 2382,
+        "xp": 2389,
         "level": 28,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -5746,7 +5753,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 2171,
+        "xp": 2178,
         "level": 18,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -77564,7 +77571,9 @@
   "selfClankUsers": [
     [
       "1048053656035020911",
-      []
+      [
+        "1254388539890860083"
+      ]
     ],
     [
       "1408975996715139084",
