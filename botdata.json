@@ -77601,10 +77601,12 @@
       "1533475028459327731",
       {
         "filename": "quote_1511475391938691222.png",
-        "voters": [],
+        "voters": [
+          "1413943805203189800"
+        ],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
-        "sentToDeleter": false
+        "sentToDeleter": true
       }
     ]
   ],
