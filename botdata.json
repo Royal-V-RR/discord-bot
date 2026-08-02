@@ -5267,7 +5267,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 4813,
+        "xp": 4823,
         "level": 24,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -6917,7 +6917,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 965,
+        "xp": 970,
         "level": 27,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -8932,7 +8932,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 2410,
+        "xp": 2417,
         "level": 19,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -77485,7 +77485,17 @@
     ]
   ],
   "selfClankCooldown": [],
-  "pendingReviews": [],
+  "pendingReviews": [
+    [
+      "860083msbrvi9e",
+      {
+        "submitterId": "1254388539890860083",
+        "fileName": "1254388539890860083__image__quote_1533450173110423694.png",
+        "rawName": "quote_1533450173110423694.png",
+        "mediaKind": "image"
+      }
+    ]
+  ],
   "uploadCounters": {
     "quote": 250,
     "eardestroyer": 1,
