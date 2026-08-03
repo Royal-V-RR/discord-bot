@@ -78636,10 +78636,12 @@
       "1533954942124032080",
       {
         "filename": "quote_1474805284508532929.png",
-        "voters": [],
+        "voters": [
+          "1213866609362604194"
+        ],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
-        "sentToDeleter": false
+        "sentToDeleter": true
       }
     ]
   ],
