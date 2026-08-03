@@ -32339,7 +32339,7 @@
         "inventory": [],
         "marriedTo": null,
         "pendingProposal": null,
-        "imagesUploaded": 7,
+        "imagesUploaded": 8,
         "forceMarried": false,
         "uploadedImages": [
           "quote_105.jpg",
@@ -32348,7 +32348,8 @@
           "quote_114.png",
           "quote_182.jpg",
           "quote_225.jpg",
-          "quote_229.jpg"
+          "quote_229.jpg",
+          "quote_263.jpg"
         ]
       }
     ],
@@ -78103,19 +78104,9 @@
     ]
   ],
   "selfClankCooldown": [],
-  "pendingReviews": [
-    [
-      "604194msd7m9e5",
-      {
-        "submitterId": "1213866609362604194",
-        "fileName": "1213866609362604194__image__Screenshot_2026-08-03-15-32-27-835-edit_com.discord.jpg",
-        "rawName": "Screenshot_2026-08-03-15-32-27-835-edit_com.discord.jpg",
-        "mediaKind": "image"
-      }
-    ]
-  ],
+  "pendingReviews": [],
   "uploadCounters": {
-    "quote": 262,
+    "quote": 263,
     "eardestroyer": 1,
     "eyebleacher": 3
   },
