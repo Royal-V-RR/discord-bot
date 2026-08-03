@@ -1656,6 +1656,17 @@ function openItemMysteryBox(){
   return {type:"item", itemId:result};
 }
 
+// ── Patreon promo — small random chance shown after a command finishes ───────
+const PROMO_CHANCE   = 0.08; // ~8% chance per command
+const PROMO_MESSAGE  = "Enjoying the commands? How about you get to be a part of the creative process? It is unfortunately paid, but please consider https://www.patreon.com/c/RoyalV_/membership";
+async function maybeSendPromo(interaction) {
+  try {
+    if (Math.random() >= PROMO_CHANCE) return;
+    if (!interaction.replied && !interaction.deferred) return; // nothing to follow up on
+    await interaction.followUp({ content: PROMO_MESSAGE, ephemeral: true }).catch(() => {});
+  } catch {}
+}
+
 async function safeReply(interaction, payload) {
   try {
     const p = typeof payload==="string" ? {content:payload} : payload;
@@ -9748,6 +9759,9 @@ if(cmd==="gif"){
     // If the interaction has already timed out (INTERACTION_ALREADY_REPLIED or unknown),
     // safeReply will silently swallow the error — that's intentional.
     safeReply(interaction, {content:"❌ An error occurred processing that command.", ephemeral:true});
+  } finally {
+    // Fires after every command, no matter which branch/return path handled it.
+    maybeSendPromo(interaction);
   }
 });
 
