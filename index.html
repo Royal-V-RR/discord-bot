@@ -9,6 +9,7 @@
     --bg:#0f1115; --card:#171a21; --border:#262b36;
     --text:#e7e9ee; --muted:#8b93a3;
     --online:#3ecf8e; --offline:#ef4d5e; --unknown:#c9a227;
+    --patreon:#ff424d;
   }
   *{box-sizing:border-box;}
   body{
@@ -31,6 +32,22 @@
   .row .k{color:var(--muted); font-size:.85rem;}
   .row .v{font-size:1rem; font-weight:600; font-variant-numeric:tabular-nums;}
   footer{margin-top:24px; color:var(--muted); font-size:.75rem; text-align:center;}
+
+  .patreon-btn{
+    display:flex; align-items:center; justify-content:center; gap:10px;
+    margin-top:24px;
+    width:100%;
+    background:var(--patreon);
+    color:#fff;
+    text-decoration:none;
+    font-weight:600;
+    font-size:.85rem;
+    padding:12px 16px;
+    border-radius:10px;
+    transition:filter .15s ease, transform .15s ease;
+  }
+  .patreon-btn:hover{filter:brightness(1.08); transform:translateY(-1px);}
+  .patreon-btn svg{width:18px; height:18px; flex-shrink:0;}
 </style>
 </head>
 <body>
@@ -43,6 +60,15 @@
       <div class="row"><span class="k">Servers</span><span class="v" id="guilds">—</span></div>
       <div class="row"><span class="k">Last heartbeat</span><span class="v" id="lastSeen">—</span></div>
     </div>
+
+    <a class="patreon-btn" href="https://www.patreon.com/c/RoyalV_/membership" target="_blank" rel="noopener noreferrer">
+      <svg viewBox="0 0 569 546" xmlns="http://www.w3.org/2000/svg" fill="currentColor" aria-hidden="true">
+        <circle cx="362.6" cy="204.6" r="204.6"/>
+        <rect x="0" y="0" width="100" height="546"/>
+      </svg>
+      <span>Pls help me get an actual bot hosting website</span>
+    </a>
+
     <footer id="footer">Loading…</footer>
   </div>
 
