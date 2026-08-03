@@ -480,12 +480,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 15600,
-        "lastSubsTimestamp": 1785760101840,
+        "lastSubsTimestamp": 1785760401865,
         "history": [
-          {
-            "ts": 1785453669049,
-            "subs": 15500
-          },
           {
             "ts": 1785453969061,
             "subs": 15500
@@ -4481,6 +4477,10 @@
           {
             "ts": 1785760101840,
             "subs": 15600
+          },
+          {
+            "ts": 1785760401865,
+            "subs": 15600
           }
         ],
         "subcountDiscordId": "1483595393999700080",
@@ -5751,7 +5751,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 2755,
+        "xp": 2765,
         "level": 18,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -6924,7 +6924,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 1580,
+        "xp": 1591,
         "level": 27,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -78101,7 +78101,17 @@
     ]
   ],
   "selfClankCooldown": [],
-  "pendingReviews": [],
+  "pendingReviews": [
+    [
+      "604194msd7m9e5",
+      {
+        "submitterId": "1213866609362604194",
+        "fileName": "1213866609362604194__image__Screenshot_2026-08-03-15-32-27-835-edit_com.discord.jpg",
+        "rawName": "Screenshot_2026-08-03-15-32-27-835-edit_com.discord.jpg",
+        "mediaKind": "image"
+      }
+    ]
+  ],
   "uploadCounters": {
     "quote": 262,
     "eardestroyer": 1,
