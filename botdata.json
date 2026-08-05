@@ -480,12 +480,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 15600,
-        "lastSubsTimestamp": 1785942767644,
+        "lastSubsTimestamp": 1785943067630,
         "history": [
-          {
-            "ts": 1785635906873,
-            "subs": 15600
-          },
           {
             "ts": 1785636206870,
             "subs": 15600
@@ -4481,6 +4477,10 @@
           {
             "ts": 1785942767644,
             "subs": 15600
+          },
+          {
+            "ts": 1785943067630,
+            "subs": 15600
           }
         ],
         "subcountDiscordId": "1483595393999700080",
@@ -4701,7 +4701,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-15",
-        "xp": 106,
+        "xp": 116,
         "level": 26,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -5371,7 +5371,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 577,
+        "xp": 585,
         "level": 25,
         "lastWorkTime": 1778752522595,
         "lastBegTime": 0,
@@ -6925,7 +6925,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 3153,
+        "xp": 3167,
         "level": 27,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -30218,7 +30218,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 17,
+        "xp": 32,
         "level": 3,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -32330,7 +32330,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 899,
+        "xp": 913,
         "level": 10,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -34600,7 +34600,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 635,
+        "xp": 661,
         "level": 8,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -80202,6 +80202,15 @@
         "submitterId": "1254388539890860083",
         "fileName": "1254388539890860083__image__IMG_9417.png",
         "rawName": "IMG_9417.png",
+        "mediaKind": "image"
+      }
+    ],
+    [
+      "109616msg8e2ek",
+      {
+        "submitterId": "690219723472109616",
+        "fileName": "690219723472109616__image__quote_1534580880809525299.png",
+        "rawName": "quote_1534580880809525299.png",
         "mediaKind": "image"
       }
     ]
