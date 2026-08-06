@@ -6936,9 +6936,9 @@
         "lastCrimeTime": 0,
         "lastRobTime": 0,
         "inventory": [],
-        "marriedTo": "1155891168098394113",
+        "marriedTo": null,
         "pendingProposal": null,
-        "forceMarried": true,
+        "forceMarried": false,
         "imagesUploaded": 170,
         "uploadedImages": [
           "IMG_7934.png",
@@ -35334,10 +35334,10 @@
         "lastCrimeTime": 0,
         "lastRobTime": 0,
         "inventory": [],
-        "marriedTo": "1254388539890860083",
+        "marriedTo": null,
         "pendingProposal": null,
         "imagesUploaded": 0,
-        "forceMarried": true,
+        "forceMarried": false,
         "uploadedImages": []
       }
     ],
