@@ -4526,8 +4526,8 @@
       "1515972755424673902",
       {
         "guildId": "1048053656035020911",
-        "count": 57,
-        "lastUserId": "1155891168098394113",
+        "count": 0,
+        "lastUserId": null,
         "highScore": 229
       }
     ]
@@ -6143,7 +6143,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 145,
+        "xp": 156,
         "level": 10,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -81423,7 +81423,7 @@
         ],
         "intervalMinutes": 15,
         "locked": true,
-        "lastUpdate": 1786142105917
+        "lastUpdate": 1786143005942
       }
     ]
   ],
