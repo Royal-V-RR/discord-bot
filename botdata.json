@@ -4911,7 +4911,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-27",
-        "xp": 5,
+        "xp": 15,
         "level": 29,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -35698,7 +35698,22 @@
   ],
   "activeEffects": [],
   "reminders": [],
-  "scheduledMessages": [],
+  "scheduledMessages": [
+    [
+      "4yk2nc",
+      {
+        "id": "4yk2nc",
+        "userId": "969280648667889764",
+        "guildId": "1048053656035020911",
+        "channelId": "1528365180033962125",
+        "content": "<@1391972162285604966>",
+        "sendAt": 1786245863937,
+        "createdAt": 1786238663937,
+        "imageURL": null,
+        "imageName": null
+      }
+    ]
+  ],
   "inviteComps": [],
   "premieres": [],
   "raConfig": [
