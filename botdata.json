@@ -81535,10 +81535,12 @@
       "1535842612202700870",
       {
         "filename": "quote_1512186838029176993.png",
-        "voters": [],
+        "voters": [
+          "1082452773787942922"
+        ],
         "guildId": "1408975996715139084",
         "channelId": "1408975997272854611",
-        "sentToDeleter": false
+        "sentToDeleter": true
       }
     ]
   ],
