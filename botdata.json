@@ -81735,10 +81735,12 @@
       "1535588569131917352",
       {
         "filename": "quote_1507550842838843432.png",
-        "voters": [],
+        "voters": [
+          "1300613150487351366"
+        ],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
-        "sentToDeleter": false
+        "sentToDeleter": true
       }
     ],
     [
