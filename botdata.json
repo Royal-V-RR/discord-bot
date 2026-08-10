@@ -82224,10 +82224,12 @@
       "1535951614425432165",
       {
         "filename": "quote_1503085681696837834.png",
-        "voters": [],
+        "voters": [
+          "1300613150487351366"
+        ],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
-        "sentToDeleter": false
+        "sentToDeleter": true
       }
     ],
     [
