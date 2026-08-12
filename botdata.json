@@ -498,12 +498,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 16300,
-        "lastSubsTimestamp": 1786570132358,
+        "lastSubsTimestamp": 1786570432378,
         "history": [
-          {
-            "ts": 1786257986584,
-            "subs": 15800
-          },
           {
             "ts": 1786258361386,
             "subs": 15800
@@ -4499,6 +4495,10 @@
           {
             "ts": 1786570132358,
             "subs": 16300
+          },
+          {
+            "ts": 1786570432378,
+            "subs": 16300
           }
         ],
         "subcountDiscordId": "1483595393999700080",
@@ -5396,7 +5396,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 2680,
+        "xp": 2690,
         "level": 25,
         "lastWorkTime": 1778752522595,
         "lastBegTime": 0,
@@ -6953,7 +6953,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 709,
+        "xp": 721,
         "level": 28,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -17871,7 +17871,7 @@
         "dailyStreak": 1,
         "bestStreak": 4,
         "lastDailyDate": "2026-06-13",
-        "xp": 1832,
+        "xp": 1844,
         "level": 17,
         "lastWorkTime": 1778166713164,
         "lastBegTime": 1778166374950,
@@ -36304,6 +36304,30 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 11,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1443270342914211861",
+      {
+        "username": "trophy33_96603",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 15,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -83560,7 +83584,7 @@
         ],
         "intervalMinutes": 15,
         "locked": true,
-        "lastUpdate": 1786569532224
+        "lastUpdate": 1786570432247
       }
     ]
   ],
