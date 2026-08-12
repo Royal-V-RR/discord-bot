@@ -4921,7 +4921,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-27",
-        "xp": 3742,
+        "xp": 3754,
         "level": 29,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -35051,7 +35051,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 165,
+        "xp": 173,
         "level": 10,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -35363,7 +35363,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 277,
+        "xp": 283,
         "level": 6,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -36344,7 +36344,22 @@
   ],
   "activeEffects": [],
   "reminders": [],
-  "scheduledMessages": [],
+  "scheduledMessages": [
+    [
+      "qy521t",
+      {
+        "id": "qy521t",
+        "userId": "969280648667889764",
+        "guildId": "1048053656035020911",
+        "channelId": "1530580164126183444",
+        "content": "<@969280648667889764>",
+        "sendAt": 1786574531872,
+        "createdAt": 1786571051872,
+        "imageURL": null,
+        "imageName": null
+      }
+    ]
+  ],
   "inviteComps": [],
   "premieres": [],
   "raConfig": [
