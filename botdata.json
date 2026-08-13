@@ -36688,7 +36688,22 @@
   ],
   "activeEffects": [],
   "reminders": [],
-  "scheduledMessages": [],
+  "scheduledMessages": [
+    [
+      "27k3ob",
+      {
+        "id": "27k3ob",
+        "userId": "969280648667889764",
+        "guildId": "1048053656035020911",
+        "channelId": "1048055007712387162",
+        "content": "<@1413943805203189800> Message me",
+        "sendAt": 1786700313983,
+        "createdAt": 1786664313983,
+        "imageURL": null,
+        "imageName": null
+      }
+    ]
+  ],
   "inviteComps": [],
   "premieres": [],
   "raConfig": [
