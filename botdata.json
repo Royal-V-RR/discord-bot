@@ -498,12 +498,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 16300,
-        "lastSubsTimestamp": 1786617262354,
+        "lastSubsTimestamp": 1786617562390,
         "history": [
-          {
-            "ts": 1786306153882,
-            "subs": 15900
-          },
           {
             "ts": 1786306453793,
             "subs": 15900
@@ -4498,6 +4494,10 @@
           },
           {
             "ts": 1786617262354,
+            "subs": 16300
+          },
+          {
+            "ts": 1786617562390,
             "subs": 16300
           }
         ],
@@ -36498,6 +36498,30 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 14,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1529048513122406470",
+      {
+        "username": "dasugd.",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 12,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -83782,7 +83806,7 @@
         ],
         "intervalMinutes": 15,
         "locked": true,
-        "lastUpdate": 1786616662236
+        "lastUpdate": 1786617562260
       }
     ]
   ],
