@@ -498,12 +498,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 16300,
-        "lastSubsTimestamp": 1786616962337,
+        "lastSubsTimestamp": 1786617262354,
         "history": [
-          {
-            "ts": 1786305853771,
-            "subs": 15900
-          },
           {
             "ts": 1786306153882,
             "subs": 15900
@@ -4498,6 +4494,10 @@
           },
           {
             "ts": 1786616962337,
+            "subs": 16300
+          },
+          {
+            "ts": 1786617262354,
             "subs": 16300
           }
         ],
@@ -36474,6 +36474,30 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 11,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "813764807609155604",
+      {
+        "username": "gfungisgreat",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 14,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
