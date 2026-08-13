@@ -18033,7 +18033,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-06-04",
-        "xp": 4059,
+        "xp": 4069,
         "level": 21,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -33992,7 +33992,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 58,
+        "xp": 73,
         "level": 10,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -61183,6 +61183,10 @@
     [
       "1537400422829138011",
       "363149593787105291_IMG_5026.png"
+    ],
+    [
+      "1537441878763372554",
+      "Chim Baka.png"
     ]
   ],
   "reviewChannelId": "1503045026866004071",
@@ -83537,6 +83541,16 @@
         "channelId": "1477294439180537980",
         "sentToDeleter": false
       }
+    ],
+    [
+      "1537441878763372554",
+      {
+        "filename": "Chim Baka.png",
+        "voters": [],
+        "guildId": "1534954147382820895",
+        "channelId": "1534954147823095941",
+        "sentToDeleter": false
+      }
     ]
   ],
   "selfClankUsers": [
@@ -83837,7 +83851,7 @@
         ],
         "intervalMinutes": 15,
         "locked": true,
-        "lastUpdate": 1786624124807
+        "lastUpdate": 1786625024811
       }
     ]
   ],
