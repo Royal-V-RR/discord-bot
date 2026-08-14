@@ -36712,6 +36712,30 @@
         "forceMarried": false,
         "uploadedImages": []
       }
+    ],
+    [
+      "1537772452329951284",
+      {
+        "username": "heavenly_hare_10751",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 15,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
     ]
   ],
   "activeEffects": [],
@@ -41777,7 +41801,7 @@
     [
       "IMG_8729.png",
       {
-        "up": 2,
+        "up": 3,
         "down": 0
       }
     ],
@@ -88068,6 +88092,10 @@
       [
         [
           "690219723472109616",
+          "up"
+        ],
+        [
+          "1082452773787942922",
           "up"
         ]
       ]
