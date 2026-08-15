@@ -498,12 +498,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 16500,
-        "lastSubsTimestamp": 1786807843845,
+        "lastSubsTimestamp": 1786808143862,
         "history": [
-          {
-            "ts": 1786496421360,
-            "subs": 16200
-          },
           {
             "ts": 1786496721349,
             "subs": 16200
@@ -4499,6 +4495,10 @@
           {
             "ts": 1786807843845,
             "subs": 16500
+          },
+          {
+            "ts": 1786808143862,
+            "subs": 16500
           }
         ],
         "subcountDiscordId": "1483595393999700080",
@@ -6230,7 +6230,7 @@
         "marriedTo": null,
         "pendingProposal": null,
         "forceMarried": false,
-        "imagesUploaded": 47,
+        "imagesUploaded": 48,
         "uploadedImages": [
           "image.png",
           "Zrzut_ekranu_2026-05-08_224109.png",
@@ -6250,7 +6250,8 @@
           "1193150033864949811_Screenshot_20260609_152602_Discord.jpg",
           "1193150033864949811_Screenshot_20260609_175810_Discord.jpg",
           "1193150033864949811_Screenshot_20260612_121857_Discord.jpg",
-          "1193150033864949811_Screenshot_20260613_164220_Discord.jpg"
+          "1193150033864949811_Screenshot_20260613_164220_Discord.jpg",
+          "quote_310.png"
         ],
         "lastFishTime": 0,
         "lastMineTime": 0,
@@ -35836,7 +35837,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 10,
+        "xp": 20,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -84348,28 +84349,10 @@
         "rawName": "IMG_3328.png",
         "mediaKind": "image"
       }
-    ],
-    [
-      "949811msuj12xt",
-      {
-        "submitterId": "1193150033864949811",
-        "fileName": "1193150033864949811__image__image.png",
-        "rawName": "image.png",
-        "mediaKind": "image"
-      }
-    ],
-    [
-      "949811msujav6n",
-      {
-        "submitterId": "1193150033864949811",
-        "fileName": "1193150033864949811__image__image.png",
-        "rawName": "image.png",
-        "mediaKind": "image"
-      }
     ]
   ],
   "uploadCounters": {
-    "quote": 309,
+    "quote": 310,
     "eardestroyer": 1,
     "eyebleacher": 3
   },
@@ -84644,7 +84627,7 @@
         ],
         "intervalMinutes": 15,
         "locked": true,
-        "lastUpdate": 1786807243766
+        "lastUpdate": 1786808143786
       }
     ]
   ],
