@@ -35863,7 +35863,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 230,
+        "xp": 244,
         "level": 4,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -35935,7 +35935,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 215,
+        "xp": 228,
         "level": 6,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -43347,6 +43347,13 @@
       "IMG_5009.png",
       {
         "up": 2,
+        "down": 0
+      }
+    ],
+    [
+      "quote_94.png",
+      {
+        "up": 1,
         "down": 0
       }
     ]
@@ -88809,6 +88816,15 @@
         ],
         [
           "1391972162285604966",
+          "up"
+        ]
+      ]
+    ],
+    [
+      "quote_94.png",
+      [
+        [
+          "895906953535049728",
           "up"
         ]
       ]
