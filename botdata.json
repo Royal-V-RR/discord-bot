@@ -498,12 +498,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 16600,
-        "lastSubsTimestamp": 1786985803085,
+        "lastSubsTimestamp": 1786986104572,
         "history": [
-          {
-            "ts": 1786671485308,
-            "subs": 16400
-          },
           {
             "ts": 1786671785321,
             "subs": 16400
@@ -4499,6 +4495,10 @@
           {
             "ts": 1786985803085,
             "subs": 16600
+          },
+          {
+            "ts": 1786986104572,
+            "subs": 16600
           }
         ],
         "subcountDiscordId": "1483595393999700080",
@@ -5780,7 +5780,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 1547,
+        "xp": 1554,
         "level": 19,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -37137,6 +37137,30 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 8,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1537120776703057972",
+      {
+        "username": "dunka899021",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 13,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
