@@ -37323,6 +37323,32 @@
         "forceMarried": false,
         "uploadedImages": []
       }
+    ],
+    [
+      "860083mt06fwa",
+      {
+        "username": null,
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 0,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 1,
+        "forceMarried": false,
+        "uploadedImages": [
+          "quote_322.jpg"
+        ]
+      }
     ]
   ],
   "activeEffects": [],
@@ -85148,19 +85174,10 @@
         "rawName": "IMG_3328.png",
         "mediaKind": "image"
       }
-    ],
-    [
-      "860083mt06fwai",
-      {
-        "submitterId": "1254388539890860083",
-        "fileName": "1254388539890860083__image__quote_1539639549745963058.png",
-        "rawName": "quote_1539639549745963058.png",
-        "mediaKind": "image"
-      }
     ]
   ],
   "uploadCounters": {
-    "quote": 321,
+    "quote": 322,
     "eardestroyer": 1,
     "eyebleacher": 3
   },
