@@ -498,12 +498,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 16800,
-        "lastSubsTimestamp": 1787165865079,
+        "lastSubsTimestamp": 1787166165120,
         "history": [
-          {
-            "ts": 1786849221602,
-            "subs": 16500
-          },
           {
             "ts": 1786849521605,
             "subs": 16500
@@ -4499,6 +4495,10 @@
           {
             "ts": 1787165865079,
             "subs": 16800
+          },
+          {
+            "ts": 1787166165120,
+            "subs": 16800
           }
         ],
         "subcountDiscordId": "1483595393999700080",
@@ -6965,7 +6965,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 4299,
+        "xp": 4313,
         "level": 28,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -37362,6 +37362,30 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 6,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "776920416274219009",
+      {
+        "username": "kendrickrupp0",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 13,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -85477,7 +85501,7 @@
         ],
         "intervalMinutes": 15,
         "locked": true,
-        "lastUpdate": 1787165265014
+        "lastUpdate": 1787166165017
       }
     ]
   ],
