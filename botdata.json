@@ -6968,7 +6968,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 4668,
+        "xp": 4680,
         "level": 28,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -62513,6 +62513,10 @@
     [
       "1540131832618684436",
       "brikit tung sahur.png"
+    ],
+    [
+      "1540131869344141443",
+      "quote_157.png"
     ]
   ],
   "reviewChannelId": "1503045026866004071",
@@ -85530,6 +85534,16 @@
       "1540131832618684436",
       {
         "filename": "brikit tung sahur.png",
+        "voters": [],
+        "guildId": "1048053656035020911",
+        "channelId": "1477294439180537980",
+        "sentToDeleter": false
+      }
+    ],
+    [
+      "1540131869344141443",
+      {
+        "filename": "quote_157.png",
         "voters": [],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
