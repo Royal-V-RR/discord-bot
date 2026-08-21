@@ -88210,10 +88210,12 @@
       "1540239121161912362",
       {
         "filename": "quote_1497935020147343471.png",
-        "voters": [],
+        "voters": [
+          "1254388539890860083"
+        ],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
-        "sentToDeleter": false,
+        "sentToDeleter": true,
         "type": "quote"
       }
     ],
