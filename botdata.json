@@ -37845,7 +37845,22 @@
   ],
   "activeEffects": [],
   "reminders": [],
-  "scheduledMessages": [],
+  "scheduledMessages": [
+    [
+      "cs8g9l",
+      {
+        "id": "cs8g9l",
+        "userId": "363149593787105291",
+        "guildId": "1048053656035020911",
+        "channelId": "1527099086522814574",
+        "content": "<@302271848748417034> This is your scheduled reminder to give me answers for this",
+        "sendAt": 1787503019429,
+        "createdAt": 1787416619429,
+        "imageURL": null,
+        "imageName": null
+      }
+    ]
+  ],
   "inviteComps": [],
   "premieres": [],
   "raConfig": [
