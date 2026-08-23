@@ -44006,7 +44006,7 @@
     [
       "quote_101.png",
       {
-        "up": 1,
+        "up": 0,
         "down": 0
       }
     ],
@@ -63381,6 +63381,14 @@
     [
       "1541061070989561976",
       "quote_101.png"
+    ],
+    [
+      "1541061096507703386",
+      "quote_125.png"
+    ],
+    [
+      "1541061116614934569",
+      "quote_264.jpg"
     ]
   ],
   "reviewChannelId": "1503045026866004071",
@@ -89592,6 +89600,28 @@
         "sentToDeleter": false,
         "type": "quote"
       }
+    ],
+    [
+      "1541061096507703386",
+      {
+        "filename": "quote_125.png",
+        "voters": [],
+        "guildId": "1048053656035020911",
+        "channelId": "1477294439180537980",
+        "sentToDeleter": false,
+        "type": "quote"
+      }
+    ],
+    [
+      "1541061116614934569",
+      {
+        "filename": "quote_264.jpg",
+        "voters": [],
+        "guildId": "1048053656035020911",
+        "channelId": "1477294439180537980",
+        "sentToDeleter": false,
+        "type": "quote"
+      }
     ]
   ],
   "selfClankUsers": [
@@ -92511,12 +92541,7 @@
     ],
     [
       "quote_101.png",
-      [
-        [
-          "690219723472109616",
-          "up"
-        ]
-      ]
+      []
     ],
     [
       "IMG_8827.png",
