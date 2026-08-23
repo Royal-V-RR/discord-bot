@@ -88960,10 +88960,12 @@
       "1540686865936416800",
       {
         "filename": "922582069979275325_IMG_4816.png",
-        "voters": [],
+        "voters": [
+          "1213866609362604194"
+        ],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
-        "sentToDeleter": false,
+        "sentToDeleter": true,
         "type": "quote"
       }
     ],
