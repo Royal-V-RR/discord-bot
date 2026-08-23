@@ -4924,7 +4924,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-27",
-        "xp": 1840,
+        "xp": 1853,
         "level": 30,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -5405,7 +5405,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 4041,
+        "xp": 4048,
         "level": 25,
         "lastWorkTime": 1778752522595,
         "lastBegTime": 0,
@@ -63457,6 +63457,10 @@
     [
       "1541061415912341626",
       "spits again.png"
+    ],
+    [
+      "1541061525538603109",
+      "quote_1500531718178734161.png"
     ]
   ],
   "reviewChannelId": "1503045026866004071",
@@ -89818,6 +89822,17 @@
       "1541061415912341626",
       {
         "filename": "spits again.png",
+        "voters": [],
+        "guildId": "1048053656035020911",
+        "channelId": "1477294439180537980",
+        "sentToDeleter": false,
+        "type": "quote"
+      }
+    ],
+    [
+      "1541061525538603109",
+      {
+        "filename": "quote_1500531718178734161.png",
         "voters": [],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
