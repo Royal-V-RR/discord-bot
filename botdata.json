@@ -44465,6 +44465,13 @@
         "up": 2,
         "down": 1
       }
+    ],
+    [
+      "quote_165.png",
+      {
+        "up": 1,
+        "down": 0
+      }
     ]
   ],
   "quoteVoteMessages": [
@@ -63275,6 +63282,14 @@
     [
       "1541060520692686968",
       "quote_165.png"
+    ],
+    [
+      "1541060553265651783",
+      "suntzu_3.jpg"
+    ],
+    [
+      "1541060555714854912",
+      "IMG_7983.png"
     ]
   ],
   "reviewChannelId": "1503045026866004071",
@@ -89206,6 +89221,28 @@
         "sentToDeleter": false,
         "type": "quote"
       }
+    ],
+    [
+      "1541060553265651783",
+      {
+        "filename": "suntzu_3.jpg",
+        "voters": [],
+        "guildId": "1048053656035020911",
+        "channelId": "1477294439180537980",
+        "sentToDeleter": false,
+        "type": "quote"
+      }
+    ],
+    [
+      "1541060555714854912",
+      {
+        "filename": "IMG_7983.png",
+        "voters": [],
+        "guildId": "1048053656035020911",
+        "channelId": "1477294439180537980",
+        "sentToDeleter": false,
+        "type": "quote"
+      }
     ]
   ],
   "selfClankUsers": [
@@ -94061,6 +94098,15 @@
         ],
         [
           "690219723472109616",
+          "up"
+        ]
+      ]
+    ],
+    [
+      "quote_165.png",
+      [
+        [
+          "969280648667889764",
           "up"
         ]
       ]
