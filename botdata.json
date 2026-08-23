@@ -89878,10 +89878,12 @@
       "1541061588193251438",
       {
         "filename": "Bild_2026-04-25_225715169.png",
-        "voters": [],
+        "voters": [
+          "969280648667889764"
+        ],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
-        "sentToDeleter": false,
+        "sentToDeleter": true,
         "type": "quote"
       }
     ]
