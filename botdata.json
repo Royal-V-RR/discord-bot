@@ -497,13 +497,9 @@
         "ytChannelId": "UC4PeFFYzg1xjkb1VcGZVcqQ",
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
-        "lastSubs": 17000,
-        "lastSubsTimestamp": 1787624380324,
+        "lastSubs": 17100,
+        "lastSubsTimestamp": 1787624712512,
         "history": [
-          {
-            "ts": 1787308782339,
-            "subs": 16900
-          },
           {
             "ts": 1787309082455,
             "subs": 16900
@@ -4499,6 +4495,10 @@
           {
             "ts": 1787624380324,
             "subs": 17000
+          },
+          {
+            "ts": 1787624712512,
+            "subs": 17100
           }
         ],
         "subcountDiscordId": "1483595393999700080",
@@ -18236,7 +18236,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 1197,
+        "xp": 1207,
         "level": 10,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -38310,6 +38310,30 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 5,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1519247734589227018",
+      {
+        "username": "evilmorti2",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 15,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
