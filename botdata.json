@@ -35883,7 +35883,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 92,
+        "xp": 104,
         "level": 6,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -64052,6 +64052,18 @@
     [
       "1542197578995736576",
       "kara dih.png"
+    ],
+    [
+      "1542197596158689341",
+      "quote_1506924534048231534.png"
+    ],
+    [
+      "1542197610276978768",
+      "quote_1504148125969940591.png"
+    ],
+    [
+      "1542197621580365946",
+      "quote_1500137678677479454.png"
     ]
   ],
   "reviewChannelId": "1503045026866004071",
@@ -90650,6 +90662,39 @@
       "1542197578995736576",
       {
         "filename": "kara dih.png",
+        "voters": [],
+        "guildId": "1408975996715139084",
+        "channelId": "1408975997272854611",
+        "sentToDeleter": false,
+        "type": "quote"
+      }
+    ],
+    [
+      "1542197596158689341",
+      {
+        "filename": "quote_1506924534048231534.png",
+        "voters": [],
+        "guildId": "1408975996715139084",
+        "channelId": "1408975997272854611",
+        "sentToDeleter": false,
+        "type": "quote"
+      }
+    ],
+    [
+      "1542197610276978768",
+      {
+        "filename": "quote_1504148125969940591.png",
+        "voters": [],
+        "guildId": "1408975996715139084",
+        "channelId": "1408975997272854611",
+        "sentToDeleter": false,
+        "type": "quote"
+      }
+    ],
+    [
+      "1542197621580365946",
+      {
+        "filename": "quote_1500137678677479454.png",
         "voters": [],
         "guildId": "1408975996715139084",
         "channelId": "1408975997272854611",
