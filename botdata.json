@@ -498,12 +498,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 17100,
-        "lastSubsTimestamp": 1787776224121,
+        "lastSubsTimestamp": 1787776524094,
         "history": [
-          {
-            "ts": 1787460411210,
-            "subs": 17000
-          },
           {
             "ts": 1787460711214,
             "subs": 17000
@@ -4499,6 +4495,10 @@
           {
             "ts": 1787776224121,
             "subs": 17100
+          },
+          {
+            "ts": 1787776524094,
+            "subs": 17100
           }
         ],
         "subcountDiscordId": "1483595393999700080",
@@ -6169,7 +6169,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 276,
+        "xp": 291,
         "level": 11,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -35883,7 +35883,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 131,
+        "xp": 143,
         "level": 6,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -38622,6 +38622,30 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 14,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1540018270068019273",
+      {
+        "username": "modo_delahess",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 12,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
