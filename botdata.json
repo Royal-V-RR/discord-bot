@@ -498,12 +498,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 17100,
-        "lastSubsTimestamp": 1787788578705,
+        "lastSubsTimestamp": 1787788878726,
         "history": [
-          {
-            "ts": 1787473153641,
-            "subs": 17000
-          },
           {
             "ts": 1787473703220,
             "subs": 17000
@@ -4498,6 +4494,10 @@
           },
           {
             "ts": 1787788578705,
+            "subs": 17100
+          },
+          {
+            "ts": 1787788878726,
             "subs": 17100
           }
         ],
@@ -38640,6 +38640,30 @@
       "1540018270068019273",
       {
         "username": "modo_delahess",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 12,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "858180851392315402",
+      {
+        "username": "dark0dian",
         "wins": 0,
         "gamesPlayed": 0,
         "coins": 0,
@@ -91125,7 +91149,7 @@
         ],
         "intervalMinutes": 15,
         "locked": true,
-        "lastUpdate": 1787787978556
+        "lastUpdate": 1787788878588
       }
     ]
   ],
