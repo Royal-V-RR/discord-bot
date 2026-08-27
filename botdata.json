@@ -4548,7 +4548,20 @@
   ],
   "blacklistedUsers": [],
   "silentBlacklistUsers": [],
-  "tempOwnerGrants": [],
+  "tempOwnerGrants": [
+    [
+      "1213866609362604194",
+      {
+        "commands": [
+          "forcedivorce"
+        ],
+        "features": [],
+        "expiresAt": 1787855169057,
+        "grantedBy": "969280648667889764",
+        "grantedAt": 1787854269057
+      }
+    ]
+  ],
   "scores": [
     [
       "1245284545452834857",
@@ -4927,7 +4940,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-27",
-        "xp": 2364,
+        "xp": 2371,
         "level": 30,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -6974,7 +6987,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 7231,
+        "xp": 7242,
         "level": 28,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -17913,7 +17926,7 @@
         "dailyStreak": 1,
         "bestStreak": 4,
         "lastDailyDate": "2026-06-13",
-        "xp": 3095,
+        "xp": 3101,
         "level": 17,
         "lastWorkTime": 1778166713164,
         "lastBegTime": 1778166374950,
@@ -32414,7 +32427,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 1830,
+        "xp": 1844,
         "level": 12,
         "lastWorkTime": 0,
         "lastBegTime": 0,
