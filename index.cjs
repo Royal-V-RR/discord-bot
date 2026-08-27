@@ -256,6 +256,7 @@ const premieres        = new Map(); // premiereId -> { title, endsAt, channelId,
 const disabledLevelUp  = new Set(); // legacy — now superseded by levelUpConfig.enabled
 const userInstalls     = new Set();
 const blacklistedUsers = new Set(); // Users banned from ever running any command or using bot features — persisted in botdata.json
+const silentBlacklistUsers = new Set(); // Subset of blacklistedUsers whose block is completely silent — no DM notice, no reactions, no messages of any kind
 const activityChecks   = new Map(); // messageId -> { guildId, channelId, roleIds, deadline, respondedUsers: Set }
 const scheduledChecks  = new Map(); // `${guildId}:${channelId}` -> { guildId, channelId, dayOfWeek, hour, minute, deadlineHr, customMsg, doPing, roleIds, excludedIds, nextFire }
 const raConfig         = new Map(); // guildId -> { raRoleId, loaRoleId }
@@ -468,18 +469,100 @@ function ssBuildSettingsPanel(guild,cfg){
   const row3 = new MessageActionRow().addComponents(new MessageButton().setCustomId("ss_back").setLabel("← Back").setStyle("SECONDARY"));
   return {content, components:[row1,row2,row3]};
 }
-// tempOwnerGrants: userId → { commands: Set<string>, expiresAt: number, timerId }
+// tempOwnerGrants: userId → { commands: Set<string>, features: Set<string>, expiresAt: number|null, timerId: Timeout|null, grantedBy: string, grantedAt: number }
+// expiresAt === null means a permanent grant (no auto-expiry timer).
 // Must be at module level so isEffectiveOwner() is available before the try block in interactionCreate.
 const tempOwnerGrants = new Map();
 function hasTempOwnerAccess(userId, commandName){
   const grant = tempOwnerGrants.get(userId);
   if(!grant) return false;
-  if(Date.now() > grant.expiresAt){ tempOwnerGrants.delete(userId); return false; }
+  if(grant.expiresAt !== null && Date.now() > grant.expiresAt){ tempOwnerGrants.delete(userId); return false; }
   return grant.commands.has("all") || grant.commands.has(commandName);
+}
+function hasTempOwnerFeature(userId, featureName){
+  const grant = tempOwnerGrants.get(userId);
+  if(!grant) return false;
+  if(grant.expiresAt !== null && Date.now() > grant.expiresAt){ tempOwnerGrants.delete(userId); return false; }
+  return grant.features && grant.features.has(featureName);
 }
 function isEffectiveOwner(userId, commandName){
   return OWNER_IDS.includes(userId) || hasTempOwnerAccess(userId, commandName);
 }
+
+// ── /tempowner — interactive picker ─────────────────────────────────────────
+const GRANTABLE_OWNER_CMDS = ["servers","fakemessage","fakequote","dmconfig","leaveserver","restart","refreshcmds","botstats","setstatus","adminconfig","shadowdelete","clankerify","forcemarry","forcedivorce","echo","paranoia","theremnant"];
+const GRANTABLE_OWNER_FEATURES = [
+  { id:"quote_review", label:"Quote Review — accept/deny submissions" },
+];
+const TEMPOWNER_DURATIONS = [
+  { label:"15 minutes",  value:"15" },
+  { label:"1 hour",      value:"60" },
+  { label:"6 hours",     value:"360" },
+  { label:"24 hours",    value:"1440" },
+  { label:"7 days",      value:"10080" },
+  { label:"♾️ Permanent", value:"permanent" },
+];
+const tempOwnerBuilders = new Map(); // token -> { ownerId, targetUserId, commands:Set, features:Set, duration:string|null }
+
+function formatGrantsList(){
+  if(tempOwnerGrants.size === 0) return "_No active grants._";
+  const now = Date.now();
+  const lines = [];
+  for(const [id, g] of tempOwnerGrants.entries()){
+    if(g.expiresAt !== null && now > g.expiresAt) continue;
+    const cmdsText = g.commands.has("all")
+      ? "**all commands**"
+      : (g.commands.size ? [...g.commands].map(c=>`\`/${c}\``).join(" ") : "_none_");
+    const featsText = g.features && g.features.size
+      ? [...g.features].map(f => GRANTABLE_OWNER_FEATURES.find(x=>x.id===f)?.label || f).join(", ")
+      : "_none_";
+    const expText = g.expiresAt === null ? "♾️ Permanent" : `⏳ expires <t:${Math.floor(g.expiresAt/1000)}:R>`;
+    lines.push(`<@${id}> — ${expText}\n> Commands: ${cmdsText}\n> Features: ${featsText}`);
+  }
+  return lines.length ? lines.join("\n\n") : "_No active grants._";
+}
+
+function buildTempOwnerPanel(token){
+  const b = tempOwnerBuilders.get(token);
+  const cmdOptions = GRANTABLE_OWNER_CMDS.map(c => ({ label:`/${c}`, value:c, default:b.commands.has(c) }));
+  const featOptions = GRANTABLE_OWNER_FEATURES.map(f => ({ label:f.label, value:f.id, default:b.features.has(f.id) }));
+  const durOptions = TEMPOWNER_DURATIONS.map(o => ({ ...o, default: b.duration === o.value }));
+
+  const rows = [
+    new MessageActionRow().addComponents(
+      new MessageSelectMenu().setCustomId(`to_cmds_${token}`).setPlaceholder("Owner commands to grant…").setMinValues(0).setMaxValues(cmdOptions.length).setOptions(cmdOptions)
+    ),
+    new MessageActionRow().addComponents(
+      new MessageSelectMenu().setCustomId(`to_feats_${token}`).setPlaceholder("Non-command features to grant…").setMinValues(0).setMaxValues(featOptions.length).setOptions(featOptions)
+    ),
+    new MessageActionRow().addComponents(
+      new MessageSelectMenu().setCustomId(`to_dur_${token}`).setPlaceholder("Duration…").setMinValues(1).setMaxValues(1).setOptions(durOptions)
+    ),
+    new MessageActionRow().addComponents(
+      new MessageButton().setCustomId(`to_grant_${token}`).setLabel("✅ Grant Access").setStyle("SUCCESS").setDisabled(!b.duration || (b.commands.size===0 && b.features.size===0)),
+      new MessageButton().setCustomId(`to_revoke_${token}`).setLabel("🗑️ Revoke Existing Grant").setStyle("DANGER").setDisabled(!tempOwnerGrants.has(b.targetUserId)),
+      new MessageButton().setCustomId(`to_cancel_${token}`).setLabel("Cancel").setStyle("SECONDARY"),
+    ),
+  ];
+
+  const durLabel = b.duration === "permanent" ? "♾️ Permanent" : (b.duration ? `${b.duration} minute(s)` : "_not set_");
+  const cmdsPreview = b.commands.size ? [...b.commands].map(c=>`\`/${c}\``).join(" ") : "_none selected_";
+  const featsPreview = b.features.size ? [...b.features].map(f=>GRANTABLE_OWNER_FEATURES.find(x=>x.id===f)?.label||f).join(", ") : "_none selected_";
+
+  const content = [
+    `🔑 **Temporary Owner Access** — configuring for <@${b.targetUserId}>`,
+    ``,
+    `**Commands:** ${cmdsPreview}`,
+    `**Features:** ${featsPreview}`,
+    `**Duration:** ${durLabel}`,
+    ``,
+    `**📋 Current grants:**`,
+    formatGrantsList(),
+  ].join("\n");
+
+  return { content, components: rows };
+}
+
 // trashcanVotes: messageId -> { filename, voters: Set<userId>, guildId, channelId, sentToDeleter: bool }
 const trashcanVotes = new Map();
 // Configurable threshold for trashcan reactions (default: 3)
@@ -493,11 +576,6 @@ const selfClankCooldown = new Map();
 // Avoids Discord's 100-char custom_id limit by using a short token instead of
 // embedding the full filename in the button ID.
 const pendingReviews = new Map(); // token -> { submitterId, fileName, rawName, mediaKind }
-
-// ── /colorscheme pending jobs (token -> decoded canvases + recolour result) ──
-// Populated when the command runs (decoding is cheap); consumed by whichever
-// delivery-mode button the user picks. Auto-expires so memory doesn't grow.
-const colorschemePending = new Map();
 
 // ── Tomato This pending settings (messageId -> { count, speed, authorTag, msgContent }) ──
 const tomatoPending = new Map();
@@ -1136,6 +1214,9 @@ function buildDataObject() {
     countingChannels: [...countingChannels.entries()],
     userInstalls:     [...userInstalls],
     blacklistedUsers: [...blacklistedUsers],
+    silentBlacklistUsers: [...silentBlacklistUsers],
+    // Temp/permanent owner grants — expiresAt:null means permanent, so it must survive restarts
+    tempOwnerGrants:  [...tempOwnerGrants.entries()].map(([id,g]) => [id, { commands:[...g.commands], features:[...g.features], expiresAt:g.expiresAt, grantedBy:g.grantedBy, grantedAt:g.grantedAt }]),
     scores:           [...scores.entries()],
     // Active item effects — expiry timestamps so buffs survive restarts
     activeEffects:    [...activeEffects.entries()],
@@ -1233,6 +1314,25 @@ function loadData() {
     if (data.countingChannels) data.countingChannels  .forEach(([k,v]) => countingChannels.set(k, v));
     if (data.userInstalls)     data.userInstalls    .forEach(v => userInstalls.add(v));
     if (data.blacklistedUsers) data.blacklistedUsers.forEach(v => blacklistedUsers.add(v));
+    if (data.silentBlacklistUsers) data.silentBlacklistUsers.forEach(v => silentBlacklistUsers.add(v));
+    if (data.tempOwnerGrants) {
+      data.tempOwnerGrants.forEach(([id, g]) => {
+        const grant = {
+          commands: new Set(g.commands || []),
+          features: new Set(g.features || []),
+          expiresAt: g.expiresAt ?? null,
+          grantedBy: g.grantedBy || null,
+          grantedAt: g.grantedAt || Date.now(),
+          timerId: null,
+        };
+        if (grant.expiresAt !== null) {
+          const remaining = grant.expiresAt - Date.now();
+          if (remaining <= 0) return; // expired while offline — drop it
+          grant.timerId = setTimeout(() => { tempOwnerGrants.delete(id); }, remaining);
+        }
+        tempOwnerGrants.set(id, grant);
+      });
+    }
     if (data.scores)           data.scores          .forEach(([k,v]) => scores.set(k, v));
     if (data.memers)           { MEMERS.clear(); data.memers.forEach(v => MEMERS.add(v)); }
 
@@ -2832,151 +2932,6 @@ function indexFrameToPalette(rgbaData, width, height, palette, colorMap) {
   return pixels;
 }
 
-// ── /colorscheme — transfer one image's colour palette onto another ──────────
-// Uses Reinhard-style statistical colour transfer (CIE L*a*b*): the target
-// image's per-channel mean/std are shifted to match the palette image's
-// mean/std, so the target keeps its own shape/detail but is repainted with
-// the palette image's tones. Delivery-mode animation is a simple crossfade
-// between the original target pixels and the recoloured result.
-const COLORSCHEME_CANVAS = 320;   // output width & height in px
-const COLORSCHEME_FRAMES = 20;    // frames in the forward transformation
-
-function colorschemeEase(t){ return t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t + 2, 3) / 2; }
-
-// Fetches + decodes an image attachment into a square RGBA raw buffer.
-async function colorschemeDecodeToRaw(url, canvasSize) {
-  const res = await fetch(url);
-  if(!res.ok) throw new Error(`Could not fetch image (HTTP ${res.status})`);
-  const buf = Buffer.from(await res.arrayBuffer());
-  const { data } = await sharp(buf)
-    .resize(canvasSize, canvasSize, { fit: "cover", position: "attention" })
-    .ensureAlpha()
-    .raw()
-    .toBuffer({ resolveWithObject: true });
-  return data; // Buffer — read-only source, indexes like a Uint8Array (0-255 per byte)
-}
-
-// ── sRGB <-> CIE L*a*b* (D65 white point) ─────────────────────────────────────
-function srgbToLinear(c){ c/=255; return c<=0.04045 ? c/12.92 : Math.pow((c+0.055)/1.055, 2.4); }
-function linearToSrgb(c){ return c<=0.0031308 ? c*12.92 : 1.055*Math.pow(c, 1/2.4) - 0.055; }
-function rgbToLab(r,g,b){
-  const rl=srgbToLinear(r), gl=srgbToLinear(g), bl=srgbToLinear(b);
-  let X = (rl*0.4124564 + gl*0.3575761 + bl*0.1804375) / 0.95047;
-  let Y = (rl*0.2126729 + gl*0.7151522 + bl*0.0721750) / 1.00000;
-  let Z = (rl*0.0193339 + gl*0.1191920 + bl*0.9503041) / 1.08883;
-  const f = t => t > 0.008856 ? Math.cbrt(t) : (7.787*t + 16/116);
-  const fx=f(X), fy=f(Y), fz=f(Z);
-  return [116*fy - 16, 500*(fx-fy), 200*(fy-fz)];
-}
-function labToRgb(L,a,b){
-  const fy=(L+16)/116, fx=fy+a/500, fz=fy-b/200;
-  const finv = t => { const t3=t*t*t; return t3 > 0.008856 ? t3 : (t-16/116)/7.787; };
-  const X=finv(fx)*0.95047, Y=finv(fy)*1.00000, Z=finv(fz)*1.08883;
-  const rl =  X*3.2404542 + Y*-1.5371385 + Z*-0.4985314;
-  const gl =  X*-0.9692660 + Y*1.8760108 + Z*0.0415560;
-  const bl =  X*0.0556434 + Y*-0.2040259 + Z*1.0572252;
-  return [linearToSrgb(rl)*255, linearToSrgb(gl)*255, linearToSrgb(bl)*255];
-}
-
-// Converts a whole RGBA canvas to per-pixel Lab plus per-channel mean/std.
-function colorschemeLabStats(raw, canvasSize) {
-  const n = canvasSize*canvasSize;
-  const labs = new Float32Array(n*3);
-  let sumL=0, suma=0, sumb=0;
-  for(let i=0; i<n; i++){
-    const idx = i*4;
-    const [L,a,b] = rgbToLab(raw[idx], raw[idx+1], raw[idx+2]);
-    labs[i*3]=L; labs[i*3+1]=a; labs[i*3+2]=b;
-    sumL+=L; suma+=a; sumb+=b;
-  }
-  const meanL=sumL/n, meana=suma/n, meanb=sumb/n;
-  let varL=0, vara=0, varb=0;
-  for(let i=0; i<n; i++){
-    varL += (labs[i*3]  -meanL)**2;
-    vara += (labs[i*3+1]-meana)**2;
-    varb += (labs[i*3+2]-meanb)**2;
-  }
-  return {
-    labs,
-    mean:[meanL, meana, meanb],
-    std:[Math.sqrt(varL/n)||1e-6, Math.sqrt(vara/n)||1e-6, Math.sqrt(varb/n)||1e-6],
-  };
-}
-
-// Recolours the target to match the palette image's Lab mean/std, preserving
-// the target's own shape and detail (Reinhard, "Color Transfer between Images", 2001).
-function colorschemeComputeRecolor(paletteRaw, targetRaw, canvasSize) {
-  const paletteStats = colorschemeLabStats(paletteRaw, canvasSize);
-  const targetStats  = colorschemeLabStats(targetRaw, canvasSize);
-  const n = canvasSize*canvasSize;
-  const out = new Uint8ClampedArray(n*4);
-  for(let i=0; i<n; i++){
-    const L = targetStats.labs[i*3],   a = targetStats.labs[i*3+1],   b = targetStats.labs[i*3+2];
-    const L2 = (L - targetStats.mean[0]) * (paletteStats.std[0]/targetStats.std[0]) + paletteStats.mean[0];
-    const a2 = (a - targetStats.mean[1]) * (paletteStats.std[1]/targetStats.std[1]) + paletteStats.mean[1];
-    const b2 = (b - targetStats.mean[2]) * (paletteStats.std[2]/targetStats.std[2]) + paletteStats.mean[2];
-    const [r,g,bch] = labToRgb(L2, a2, b2);
-    const idx = i*4;
-    out[idx]=r; out[idx+1]=g; out[idx+2]=bch; out[idx+3]=255;
-  }
-  return out;
-}
-
-// Renders one frame (t in [0,1]) as a crossfade between the original target
-// pixels and the fully recoloured result.
-function colorschemeRenderFrame(targetRaw, recoloredRaw, canvasSize, t) {
-  const te = colorschemeEase(t);
-  const n = canvasSize*canvasSize;
-  const out = new Uint8ClampedArray(n*4);
-  for(let i=0; i<n; i++){
-    const idx = i*4;
-    out[idx]   = targetRaw[idx]   + (recoloredRaw[idx]   - targetRaw[idx])   * te;
-    out[idx+1] = targetRaw[idx+1] + (recoloredRaw[idx+1] - targetRaw[idx+1]) * te;
-    out[idx+2] = targetRaw[idx+2] + (recoloredRaw[idx+2] - targetRaw[idx+2]) * te;
-    out[idx+3] = 255;
-  }
-  return out;
-}
-
-function colorschemeBuildFrames(pending) {
-  const { targetRaw, recoloredRaw, canvasSize } = pending;
-  const frames = new Array(COLORSCHEME_FRAMES);
-  for(let f = 0; f < COLORSCHEME_FRAMES; f++){
-    frames[f] = colorschemeRenderFrame(targetRaw, recoloredRaw, canvasSize, f/(COLORSCHEME_FRAMES-1));
-  }
-  return frames;
-}
-
-// Encodes a sequence of raw RGBA frames into a GIF using the same shared-palette
-// approach as buildTomatoGif. `reverse` lets the caller play the frames
-// forward (recolouring) or reversed (fading back to the original) without
-// re-rendering anything.
-function colorschemeEncodeGif(frames, canvasSize, reverse) {
-  let GifWriter;
-  try { GifWriter = require("omggif").GifWriter; }
-  catch(e){ throw new Error("omggif not installed — run: npm install omggif"); }
-
-  const ordered = reverse ? frames.slice().reverse() : frames;
-  const { palette, colorMap } = buildSharedPalette(ordered, canvasSize, canvasSize);
-  const packedPalette = palette.map(([r,g,b]) => (r<<16)|(g<<8)|b);
-
-  const outBuf = Buffer.alloc(canvasSize * canvasSize * ordered.length * 4 + 1024*64);
-  const writer = new GifWriter(outBuf, canvasSize, canvasSize, { palette: packedPalette, loop: 0 });
-  const HOLD_CS = 150, STEP_CS = 4; // 1.5s hold on first/last frame, fast steps between
-  for(let f = 0; f < ordered.length; f++){
-    const indexed = indexFrameToPalette(ordered[f], canvasSize, canvasSize, palette, colorMap);
-    const delay = (f === 0 || f === ordered.length-1) ? HOLD_CS : STEP_CS;
-    writer.addFrame(0, 0, canvasSize, canvasSize, indexed, { delay, disposal: 2 });
-  }
-  return Buffer.from(outBuf.buffer, 0, writer.end());
-}
-
-// Renders just the final (fully recoloured) frame as a PNG buffer.
-async function colorschemeFinalPng(pending) {
-  const { recoloredRaw, canvasSize } = pending;
-  return sharp(Buffer.from(recoloredRaw), { raw: { width: canvasSize, height: canvasSize, channels: 4 } }).png().toBuffer();
-}
-
 // ── /pixeltxt — RLE + palette compressed pixel <-> image codec ───────────────
 // Port of the PIXELTXT v2 web tool's format:
 //   PIXELTXT v2
@@ -3240,11 +3195,10 @@ const client=new Client({
 //    per-guild limits (100 chat_input + 5 context_menu).  They still show default_member_permissions:"0"
 //    so only the bot owner can see/use them.
 const OWNER_ONLY_CMDS = new Set([
-  "servers","broadcast","fakecrash","identitycrisis","botolympics","sentience",
-  "legendrandom","fakemessage","fakequote","dmconfig","leaveserver","restart","refreshcmds",
-  "botstats","setstatus","adminuser","adminreset","adminconfig","admingive",
+  "servers","fakemessage","fakequote","dmconfig","leaveserver","restart","refreshcmds",
+  "botstats","setstatus","adminconfig",
   "shadowdelete","clankerify","forcemarry","forcedivorce","echo","paranoia",
-  "tempowner","blacklist","theremnant","boostsmanage",
+  "tempowner","blacklist","theremnant",
   // Owner context-menu commands
   "Reaction Bomb","Clank This","Expose",
 ]);
@@ -3252,7 +3206,6 @@ const OWNER_ONLY_CMDS = new Set([
 function buildCommands(){
   const uReq=(req=true)=>[{name:"user",description:"User",type:6,required:req}];
   return[
-    // Fun / social
     {name:"ping",        description:"Check latency 🏓"},
     {name:"avatar",      description:"Get a user's avatar",options:uReq()},
     {name:"marry",         description:"Propose to or accept a proposal from someone 💍",options:[{name:"user",description:"User to propose to / accept from",type:6,required:true}]},
@@ -3260,39 +3213,9 @@ function buildCommands(){
     {name:"partner",       description:"Check who you (or someone else) are married to 💑",options:[{name:"user",description:"User to check (default: you)",type:6,required:false}]},
     {name:"forcemarry",    description:"[Owner] Force marry two users 💍",options:[{name:"user1",description:"First user",type:6,required:true},{name:"user2",description:"Second user",type:6,required:true}]},
     {name:"forcedivorce",  description:"[Owner] Force divorce a user 💔",options:[{name:"user",description:"User to divorce",type:6,required:true}]},
-    // Meters / actions
-    {name:"action",      description:"Do an action to someone",options:[{name:"type",description:"Action",type:3,required:true,choices:[{name:"Hug",value:"hug"},{name:"Pat",value:"pat"},{name:"Poke",value:"poke"},{name:"Stare",value:"stare"},{name:"Wave",value:"wave"},{name:"High five",value:"highfive"},{name:"Boop",value:"boop"},{name:"Oil up",value:"oil"},{name:"Diddle",value:"diddle"},{name:"Kill",value:"kill"},{name:"Punch",value:"punch"},{name:"Kiss",value:"kiss"},{name:"Slap",value:"slap"},{name:"Throw",value:"throw"}]},{name:"user",description:"Target",type:6,required:true}]},
-    {name:"rate",        description:"Rate someone on various meters",options:[{name:"type",description:"What to rate",type:3,required:true,choices:[{name:"Gay rate",value:"gayrate"},{name:"Autism meter",value:"howautistic"},{name:"Simp level",value:"simp"},{name:"Cursed energy",value:"cursed"},{name:"NPC %",value:"npc"},{name:"Villain arc",value:"villain"},{name:"Sigma rating",value:"sigma"}]},{name:"user",description:"Target",type:6,required:true}]},
-    {name:"party",       description:"Party games: truth, dare, never have I ever",options:[{name:"type",description:"Game type",type:3,required:true,choices:[{name:"Truth",value:"truth"},{name:"Dare",value:"dare"},{name:"Never Have I Ever",value:"neverhavei"}]}]},
-    {name:"ppsize",      description:"Check pp size",options:uReq()},
-    // Media
-// Media
-    {name:"gif",    description:"Get a random animal GIF 🐾",options:[{name:"animal",description:"Which animal",type:3,required:true,choices:[
-      {name:"Cat 🐱",   value:"cat"},
-      {name:"Dog 🐶",   value:"dog"},
-      {name:"Fox 🦊",   value:"fox"},
-      {name:"Panda 🐼", value:"panda"},
-      {name:"Duck 🦆",  value:"duck"},
-      {name:"Bunny 🐇", value:"bunny"},
-      {name:"Koala 🐨", value:"koala"},
-      {name:"Raccoon 🦝",value:"raccoon"},
-    ]}]},
-    {name:"joke",   description:"Random joke 😂"},
-    {name:"meme",   description:"Random meme 🐸"},
     {name:"quote",     description:"Get a random quote image (ignores ratings) ✨"},
     {name:"goodquote", description:"Get a top-rated quote image ⭐"},
     {name:"badquote",  description:"Get a bottom-rated quote image 💀"},
-    {name:"trivia", description:"Trivia question 🧠"},
-    // Utility
-    {name:"coinflip",       description:"Flip a coin 🪙"},
-    {name:"roll",           description:"Roll a dice 🎲",options:[{name:"sides",description:"Sides (default 6)",type:4,required:false}]},
-    {name:"choose",         description:"Choose between options 🤔",options:[{name:"options",description:"Comma-separated options",type:3,required:true}]},
-    {name:"roast",          description:"Roast someone 🔥",options:uReq(false)},
-    {name:"compliment",     description:"Compliment someone 💖",options:uReq()},
-    {name:"ship",           description:"Ship two users 💘",options:[{name:"user1",description:"User 1",type:6,required:true},{name:"user2",description:"User 2",type:6,required:true}]},
-    {name:"topic",          description:"Conversation starter 💬"},
-    {name:"advice",         description:"Life advice 🧙"},
-    {name:"fact",           description:"Fun fact 📚"},
     {name:"echo",           description:"Make the bot say something 📢",options:[
   {name:"message",     description:"The text to send",                          type:3, required:false},
   {name:"embed",       description:"Turn the message into a rich embed",         type:5, required:false},
@@ -3301,8 +3224,6 @@ function buildCommands(){
   {name:"color",       description:"Embed colour as hex e.g. #ff0000",           type:3, required:false},
   {name:"replyto",     description:"Message ID to reply to in this channel",     type:3, required:false},
 ]},
-    {name:"horoscope",      description:"Your daily horoscope ✨",options:[{name:"sign",description:"Your star sign",type:3,required:true,choices:Object.keys(HOROSCOPES).map(k=>({name:k,value:k}))}]},
-    {name:"poll",           description:"Create a quick yes/no poll 📊",options:[{name:"question",description:"Poll question",type:3,required:true}]},
     {name:"remind",         description:"Set a reminder ⏰",options:[{name:"time",description:"Time in minutes",type:4,required:true},{name:"message",description:"Reminder message",type:3,required:true}]},
     {name:"premiere",       description:"Start a countdown to your video upload 🎬",options:[
       {name:"hours",    description:"How many hours until the video releases",        type:10,required:true},
@@ -3314,48 +3235,13 @@ function buildCommands(){
       {name:"message", description:"The message to send later",                              type:3, required:true},
     ]},
     {name:"serverinfo",     description:"Server information 🏠"},
-    {name:"userprofile",    description:"Full profile card — stats, economy, XP, inventory & more 📋",options:uReq(false)},
     {name:"botinfo",        description:"Bot information 🤖"},
     {name:"help",           description:"Show all commands and how to use the bot 📖"},
-
-    // XP
     {name:"xp",           description:"Check XP and level 📈",options:uReq(false)},
     {name:"xpleaderboard",description:"XP leaderboard 🏆",options:[{name:"scope",description:"global or server",type:3,required:false,choices:[{name:"Global",value:"global"},{name:"Server",value:"server"}]}]},
-    // Scores
     {name:"score",            description:"Check game stats 🏆",options:uReq(false)},
     {name:"leaderboard",      description:"Global leaderboard 🌍",options:[{name:"type",description:"Type",type:3,required:false,choices:[{name:"Wins",value:"wins"},{name:"Coins",value:"coins"},{name:"Streak",value:"streak"},{name:"Best Streak",value:"beststreak"},{name:"Games Played",value:"games"},{name:"Win Rate",value:"winrate"},{name:"Images Uploaded",value:"images"}]}]},
     {name:"serverleaderboard",description:"Server leaderboard 🏠",options:[{name:"type",description:"Type",type:3,required:false,choices:[{name:"Wins",value:"wins"},{name:"Coins",value:"coins"},{name:"Streak",value:"streak"},{name:"Best Streak",value:"beststreak"},{name:"Games Played",value:"games"},{name:"Win Rate",value:"winrate"},{name:"Images Uploaded",value:"images"}]}]},
-    {name:"boostleaderboard",description:"See who's boosted the server the most 🚀"},
-    {name:"boostsmanage",description:"[Owner] Manually adjust a user's tracked boost count",options:[
-      {name:"user",description:"User to adjust",type:6,required:true},
-      {name:"amount",description:"Amount to add (negative to subtract, default 1)",type:4,required:false},
-    ]},
-    // Games — solo
-    {name:"games",        description:"Play a solo game 🎮",options:[{name:"game",description:"Which game",type:3,required:true,choices:[
-      {name:"Hangman 🪢",          value:"hangman"},
-      {name:"Snake 🐍",            value:"snake"},
-      {name:"Minesweeper (Easy) 💣",  value:"minesweeper_easy"},
-      {name:"Minesweeper (Medium) 💣", value:"minesweeper_medium"},
-      {name:"Minesweeper (Hard) 💣",   value:"minesweeper_hard"},
-      {name:"Number Guess 🔢",     value:"numberguess"},
-      {name:"Word Scramble 🔀",    value:"wordscramble"},
-      {name:"Daily Challenge 📅",  value:"daily"},
-    ]}]},
-    // Games — 2 player
-    {name:"2playergames", description:"Challenge someone to a game 🕹️",options:[
-      {name:"game",     description:"Which game",    type:3,required:true,choices:[
-        {name:"Tic Tac Toe ❌⭕",       value:"tictactoe"},
-        {name:"Connect 4 🔴🔵",        value:"connect4"},
-        {name:"Rock Paper Scissors ✊", value:"rps"},
-        {name:"Math Race 🧮",          value:"mathrace"},
-        {name:"Word Race 🏁",          value:"wordrace"},
-        {name:"Trivia Battle 🧠",      value:"triviabattle"},
-        {name:"Count Game 🔢",         value:"countgame"},
-        {name:"Scramble Race 🏁",      value:"scramblerace"},
-      ]},
-      {name:"opponent", description:"Opponent (not needed for Count Game)", type:6,required:false},
-    ]},
-    // Server management
     {name:"channelpicker",   description:"Set bot announcement channel (Manage Server)",options:[{name:"channel",description:"Channel",type:7,required:true},{name:"levelup",description:"Enable level-up notifications? (default: true)",type:5,required:false}]},
     {name:"counting",        description:"Set or remove a permanent counting channel (Manage Server)",options:[
       {name:"action",        description:"What to do",type:3,required:true,choices:[{name:"Set this channel as a counting channel",value:"set"},{name:"Remove counting from this channel",value:"remove"},{name:"Check current count",value:"status"}]},
@@ -3388,13 +3274,11 @@ function buildCommands(){
       ]},
       {name:"contains",    description:"Only delete messages containing this word/phrase", type:3,required:false},
     ]},
-    // Tickets
     {name:"ticketsetup",     description:"Open the ticket system setup dashboard (Manage Server)"},
     {name:"serverstats",     description:"Set up and manage live server stat channels 📊 (Manage Server)"},
     {name:"closeticket",     description:"Close this ticket"},
     {name:"addtoticket",     description:"Add a user to this ticket",options:[{name:"user",description:"User to add",type:6,required:true}]},
     {name:"removefromticket",description:"Remove a user from this ticket",options:[{name:"user",description:"User to remove",type:6,required:true}]},
-    // YouTube
     {name:"ytsetup",         description:"Connect a YouTube channel to this server (Manage Server)",options:[
       {name:"channel",       description:"YouTube handle (@name), channel URL, or channel ID (UC…)", type:3,required:true},
       {name:"discord_channel",description:"Discord channel to post YouTube updates in",              type:7,required:true},
@@ -3412,14 +3296,7 @@ function buildCommands(){
       {name:"subs",          description:"Subscriber count for this milestone (for add/remove)",   type:4,required:false},
       {name:"message",       description:"Custom announcement message (for add, optional)",        type:3,required:false},
     ]},
-    // Owner
     {name:"servers",        description:"[Owner] List servers"},
-    {name:"broadcast",      description:"[Owner] Broadcast to all owners",options:[{name:"message",description:"Message",type:3,required:true}]},
-    {name:"fakecrash",      description:"[Owner] Fake crash"},
-    {name:"identitycrisis", description:"[Owner] Identity crisis DMs"},
-    {name:"botolympics",    description:"[Owner] Start Olympics",options:[{name:"event",description:"Event",type:3,required:true,choices:OLYMPICS_EVENTS.map((e,i)=>({name:e.name,value:String(i)}))}]},
-    {name:"sentience",      description:"[Owner] Trigger sentience"},
-    {name:"legendrandom",   description:"[Owner] Random legend"},
     {name:"fakemessage",    description:"[Owner] Send a message as another user via webhook",options:[{name:"user",description:"User to impersonate",type:6,required:true},{name:"message",description:"Message text to send",type:3,required:false},{name:"file",description:"File to send",type:11,required:false},{name:"mode",description:"Clankerify mode to apply to the message",type:3,required:false,choices:[{name:"No mode (plain)",value:"none"},{name:"Evil",value:"evil"},{name:"Freaky",value:"freaky"},{name:"American",value:"american"},{name:"British",value:"british"},{name:"Stupid",value:"stupid"},{name:"Boomer",value:"boomer"},{name:"Conspiracy",value:"conspiracy"},{name:"NPC",value:"npc"},{name:"Sigma",value:"sigma"},{name:"Medieval",value:"medieval"},{name:"Ghost",value:"ghost"},{name:"Pirate",value:"pirate"},{name:"RespawnRaccoon Propaganda",value:"rr_propaganda"},{name:"French",value:"french"},{name:"UWU / LOLCAT",value:"uwu"},{name:"Scottish",value:"scottish"},{name:"Random",value:"random"}]}]},
     {name:"fakequote",      description:"[Owner] Generate a 'Make it a Quote' style image card for a user",options:[
       {name:"user",         description:"User to feature (pulls their avatar, username & display name)",type:6,required:true},
@@ -3440,10 +3317,7 @@ function buildCommands(){
     {name:"refreshcmds",    description:"[Owner] Force re-register slash commands in this guild"},
     {name:"botstats",       description:"[Owner] Bot stats"},
     {name:"setstatus",      description:"[Owner] Set status",options:[{name:"text",description:"Text",type:3,required:true},{name:"type",description:"Type",type:3,required:false,choices:[{name:"Playing",value:"PLAYING"},{name:"Watching",value:"WATCHING"},{name:"Listening",value:"LISTENING"},{name:"Competing",value:"COMPETING"}]}]},
-    {name:"adminuser",        description:"[Owner] Edit a user's stats",options:[{name:"user",description:"User",type:6,required:true},{name:"field",description:"Field",type:3,required:true,choices:[{name:"Coins",value:"coins"},{name:"Wins",value:"wins"},{name:"Games Played",value:"gamesPlayed"},{name:"Daily Streak",value:"dailyStreak"},{name:"Best Streak",value:"bestStreak"},{name:"XP",value:"xp"},{name:"Level",value:"level"},{name:"Images Uploaded",value:"imagesUploaded"}]},{name:"value",description:"New integer value",type:4,required:true}]},
-    {name:"adminreset",       description:"[Owner] Reset all stats for a user",options:[{name:"user",description:"User",type:6,required:true}]},
     {name:"adminconfig",      description:"[Owner] View/edit global config values",options:[{name:"key",description:"Config key (leave blank to list all)",type:3,required:false},{name:"value",description:"New integer value",type:4,required:false}]},
-    {name:"admingive",        description:"[Owner] Give or take coins/items from a user",options:[{name:"user",description:"Target user",type:6,required:true},{name:"action",description:"Give or take",type:3,required:false,choices:[{name:"Give",value:"give"},{name:"Take",value:"take"}]},{name:"amount",description:"Coins",type:4,required:false},{name:"item",description:"Item",type:3,required:false,choices:[{name:"Lucky Charm 🍀",value:"lucky_charm"},{name:"XP Boost ⚡",value:"xp_boost"},{name:"Shield 🛡️",value:"shield"},{name:"Coin Magnet 🧲",value:"coin_magnet"},{name:"Mystery Box 📦",value:"mystery_box"},{name:"Item Mystery Box 🎲",value:"item_mystery_box"},{name:"Rob Insurance 📋",value:"rob_insurance"}]},{name:"item_quantity",description:"Quantity (default 1)",type:4,required:false}]},
     {name:"staffrole",        description:"Manage RA and LOA roles for a member",options:[
       {name:"type",           description:"Which role",type:3,required:true,choices:[{name:"Reduced Activity",value:"ra"},{name:"Leave of Absence",value:"loa"}]},
       {name:"user",           description:"Member",type:6,required:true},
@@ -3462,7 +3336,6 @@ function buildCommands(){
     {name:"selfclank",  description:"Self-clankerify yourself for 1–5 minutes (0 to cancel, 2 people per server at a time)",options:[
       {name:"duration", description:"Duration in minutes (1–5), or 0 to cancel early",type:4,required:true},
     ]},
-
     {name:"upload",            description:"Upload an image, audio, or video file to quotes2",options:[
       {name:"source",          description:"[Memers only] Upload a file directly from your device (image/audio/video)",type:11,required:false},
       {name:"link",            description:"[Memers only] Submit a file via URL link (image/audio/video)",type:3,required:false},
@@ -3524,28 +3397,20 @@ function buildCommands(){
       ]},
       {name:"role",            description:"Existing role to use (for set_ra / set_loa)",type:8,required:false},
     ]},
-    // ── Message context menu commands (type 3 = MESSAGE, no description/options) ─
-    // Owner-only
     { name:"Reaction Bomb",   type:3, default_member_permissions:"0" },
     { name:"Clank This",      type:3, default_member_permissions:"0" },
     { name:"Expose",          type:3, default_member_permissions:"0" },
-    // Everyone (including Tomato This)
     { name:"Tomato This",     type:3 },
     { name:"Vibe Check",      type:3 },
     { name:"Uwu-ify",         type:3 },
     { name:"Quote This",      type:3 },
     { name:"Fetch Emoji",     type:3 },
-    // Quote review
     {name:"requestupload",   description:"Submit an image, audio, or video file to be reviewed for quotes2",options:[
       {name:"source",description:"File to submit (image/audio/video)",type:11,required:true},
     ]},
     {name:"jarvisdatabase", description:"Upload an image, gif, or video straight to the Jarvis trigger folder",options:[
       {name:"source",description:"File to upload (image/gif/video)",type:11,required:true},
       {name:"name",  description:"Trigger word / filename to save it as — no extension needed",type:3,required:true},
-    ]},
-    {name:"colorscheme", description:"Repaint one image using another image's colour scheme",options:[
-      {name:"palette", description:"The image whose colour scheme to use",     type:11,required:true},
-      {name:"target",  description:"The image to repaint with that scheme",    type:11,required:true},
     ]},
     {name:"pixeltxt", description:"Convert an image to a compressed PIXELTXT file, or turn one back into an image",options:[
       {name:"action", description:"Structure an image into text, or destructure text back into an image", type:3, required:true, choices:[
@@ -3554,8 +3419,6 @@ function buildCommands(){
       ]},
       {name:"file", description:"Image to structure, or a PIXELTXT .txt file to destructure", type:11, required:true},
     ]},
-
-    // ── Community Modes ────────────────────────────────────────────────────────
     {name:"clankerbuild", description:"Build or manage a custom clankerify personality mode",options:[
       {name:"action",description:"What to do",type:3,required:true,choices:[
         {name:"Create / Edit",value:"create"},
@@ -3563,15 +3426,9 @@ function buildCommands(){
         {name:"List all",     value:"list"},
       ]},
     ]},
-
-    // ── [Owner] Temp Owner ────────────────────────────────────────────────────
-    {name:"tempowner", description:"[Owner] Grant a user temporary access to specific owner-only commands",options:[
-      {name:"user",       description:"User to grant access to",type:6,required:true},
-      {name:"duration",   description:"How long in minutes (1–1440)",type:4,required:true,min_value:1,max_value:1440},
-      {name:"commands",   description:"Comma-separated list of command names to grant (or 'all')",type:3,required:false},
+    {name:"tempowner", description:"[Owner] Grant a user temporary or permanent owner access via an interactive picker",options:[
+      {name:"user",       description:"User to grant access to (leave blank to just view current grants)",type:6,required:false},
     ]},
-
-    // ── [Owner] Blacklist ─────────────────────────────────────────────────────
     {name:"blacklist", description:"[Owner] Block a user from ever using RoyalBot",options:[
       {name:"action",description:"What to do",type:3,required:true,choices:[
         {name:"Add",   value:"add"},
@@ -3579,14 +3436,11 @@ function buildCommands(){
         {name:"List",  value:"list"},
       ]},
       {name:"user",description:"User to blacklist / unblacklist",type:6,required:false},
+      {name:"silent",description:"Add only: completely silent block — no DM, no reactions, no messages of any kind (default: false)",type:5,required:false},
     ]},
-
-    // ── [Owner] The Remnant ───────────────────────────────────────────────────
     {name:"theremnant", description:"[Owner] Send a mysterious dimensional transmission to this channel",options:[
       {name:"message",description:"The text to transmit",type:3,required:true,max_length:1000},
     ]},
-
-    // ── YouTube download ───────────────────────────────────────────────────────
     {name:"download", description:"Download a YouTube video as MP4 or MP3",options:[
       {name:"url",        description:"YouTube video URL",type:3,required:true},
       {name:"format",     description:"File format (default: MP4)",type:3,required:false,choices:[
@@ -3601,8 +3455,7 @@ function buildCommands(){
         {name:"240p",  value:"240p"},
         {name:"144p",  value:"144p"},
       ]},
-    ]},
-
+    ]}
   ];
 }
 
@@ -3893,6 +3746,39 @@ function makeQuoteVoteButtons(msgId, votes, trashData) {
   ];
 }
 
+// ── Library embed & components ────────────────────────────────────────────────
+// Renders a user's uploaded-quotes library as an embed (image + prev/next/goto
+// paging), with a 🗑️ button to flag the currently-viewed image for owner review.
+function buildLibraryEmbed(displayName, avatarUrl, fileName, idx, total) {
+  return {
+    embeds: [{
+      author: { name: `${displayName}'s Library`, icon_url: avatarUrl || undefined },
+      title: fileName,
+      image: { url: quoteRawUrl(fileName) },
+      color: 0x5865F2,
+      footer: { text: `Image ${idx + 1} of ${total}` },
+    }],
+  };
+}
+function makeLibraryButtons(targetUserId, idx, total, flagged) {
+  const trashE = appEmojiCache.get("raccoontrashcan");
+  return [
+    new MessageActionRow().addComponents(
+      new MessageButton().setCustomId(`lib_prev_${targetUserId}_${idx}`).setLabel("◀ Prev").setStyle("SECONDARY").setDisabled(idx===0),
+      new MessageButton().setCustomId(`lib_goto_${targetUserId}_${idx}`).setLabel("🔢 Go to #").setStyle("PRIMARY"),
+      new MessageButton().setCustomId(`lib_next_${targetUserId}_${idx}`).setLabel("Next ▶").setStyle("SECONDARY").setDisabled(total<=1||idx>=total-1),
+    ),
+    new MessageActionRow().addComponents(
+      new MessageButton()
+        .setCustomId(`libflag_${targetUserId}_${idx}`)
+        .setLabel(flagged ? "Sent for Review" : "Flag for Review")
+        .setStyle(flagged ? "SECONDARY" : "DANGER")
+        .setEmoji(trashE ? { id: trashE.id, name: trashE.name } : { name: "🗑️" })
+        .setDisabled(!!flagged),
+    ),
+  ];
+}
+
 // ── Reaction roles ────────────────────────────────────────────────────────────
 function emojiKey(reaction){
   if(reaction.emoji.id) return `${reaction.emoji.name}:${reaction.emoji.id}`;
@@ -4032,7 +3918,7 @@ client.on("messageCreate",async msg=>{
 
   // ── Blacklist — blocks all guild message-based features ────────────────────
   if(blacklistedUsers.has(msg.author.id)){
-    if(countingChannels.has(msg.channelId)){
+    if(countingChannels.has(msg.channelId) && !silentBlacklistUsers.has(msg.author.id)){
       await safeSend(msg.channel,`${msg.author} is blacklisted from RoyalBot and cannot count, ignore this message`);
     }
     return;
@@ -4043,7 +3929,7 @@ client.on("messageCreate",async msg=>{
     const relayUserId = dmRelayChannelsByChannel.get(msg.channelId);
     if(relayUserId){
       if(blacklistedUsers.has(relayUserId)){
-        await msg.react("🚫").catch(() => {});
+        if(!silentBlacklistUsers.has(relayUserId)) await msg.react("🚫").catch(() => {});
         return; // blacklisted — don't relay outgoing messages to their DMs either
       }
       try{
@@ -4925,11 +4811,13 @@ client.on("interactionCreate",async interaction=>{
 
   // ── Blacklist — blocks ALL interactions (commands, buttons, menus) ─────────
   if(interaction.user && blacklistedUsers.has(interaction.user.id)){
-    try{
-      const payload={content:`❌ <@${interaction.user.id}> is blacklisted from RoyalBot and cannot use this bot.`,ephemeral:true};
-      if(interaction.deferred||interaction.replied) await interaction.followUp(payload).catch(()=>{});
-      else await interaction.reply(payload).catch(()=>{});
-    }catch{}
+    if(!silentBlacklistUsers.has(interaction.user.id)){
+      try{
+        const payload={content:`❌ <@${interaction.user.id}> is blacklisted from RoyalBot and cannot use this bot.`,ephemeral:true};
+        if(interaction.deferred||interaction.replied) await interaction.followUp(payload).catch(()=>{});
+        else await interaction.reply(payload).catch(()=>{});
+      }catch{}
+    }
     return;
   }
 
@@ -4946,43 +4834,9 @@ client.on("interactionCreate",async interaction=>{
     const cid=interaction.customId;
     try {
 
-    // ── /colorscheme: delivery-mode picker ───────────────────────────────────
-    if(cid.startsWith("colorscheme_final_")||cid.startsWith("colorscheme_gif_")||cid.startsWith("colorscheme_reverse_")){
-      let mode, token;
-      if(cid.startsWith("colorscheme_final_"))        { mode="final";   token=cid.slice("colorscheme_final_".length); }
-      else if(cid.startsWith("colorscheme_reverse_")) { mode="reverse"; token=cid.slice("colorscheme_reverse_".length); }
-      else                                             { mode="gif";     token=cid.slice("colorscheme_gif_".length); }
-
-      const pending = colorschemePending.get(token);
-      if(!pending){ await btnEphemeral(interaction,"❌ This colorscheme session has expired — run `/colorscheme` again."); return; }
-      if(pending.userId !== uid){ await btnEphemeral(interaction,"❌ Only the person who ran `/colorscheme` can pick a delivery mode."); return; }
-
-      if(!await btnAck(interaction)) return;
-      try{
-        if(mode === "final"){
-          const png = await colorschemeFinalPng(pending);
-          await interaction.editReply({content:"🖼️ Recolour complete!",files:[{attachment:png,name:"colorscheme.png"}],components:[]});
-        } else {
-          const frames = colorschemeBuildFrames(pending);
-          const gif = colorschemeEncodeGif(frames, pending.canvasSize, mode === "reverse");
-          await interaction.editReply({
-            content: mode === "reverse" ? "⏪ Fading back to the original…" : "🎬 Repainting…",
-            files: [{attachment:gif, name: mode === "reverse" ? "colorscheme-reverse.gif" : "colorscheme.gif"}],
-            components: [],
-          });
-        }
-      }catch(e){
-        console.error("colorscheme render error:", e.message);
-        await interaction.editReply({content:`❌ Failed to generate the image: ${e.message}`,components:[]}).catch(()=>{});
-      } finally {
-        colorschemePending.delete(token);
-      }
-      return;
-    }
-
     // ── Quote review: accept / reject ────────────────────────────────────────
     if(cid.startsWith("qr_accept_")||cid.startsWith("qr_reject_")){
-      if(!OWNER_IDS.includes(uid)){
+      if(!OWNER_IDS.includes(uid) && !hasTempOwnerFeature(uid,"quote_review")){
         try{await interaction.reply({content:"❌ Only owners can approve quote submissions.",ephemeral:true});}catch{}
         return;
       }
@@ -5121,9 +4975,105 @@ client.on("interactionCreate",async interaction=>{
       return;
     }
 
+    // ── /tempowner interactive panel: selects, grant, revoke, cancel ─────────
+    if(cid.startsWith("to_cmds_")||cid.startsWith("to_feats_")||cid.startsWith("to_dur_")||cid.startsWith("to_grant_")||cid.startsWith("to_revoke_")||cid.startsWith("to_cancel_")){
+      const token = cid.slice(cid.indexOf("_",3)+1);
+      const b = tempOwnerBuilders.get(token);
+      if(!b){ try{await interaction.reply({content:"❌ This panel has expired — run `/tempowner` again.",ephemeral:true});}catch{} return; }
+      if(b.ownerId !== uid){ try{await interaction.reply({content:"❌ Only the owner who ran this command can use this panel.",ephemeral:true});}catch{} return; }
+
+      if(cid.startsWith("to_cmds_")){
+        b.commands = new Set(interaction.values);
+        if(!(await btnAck(interaction))) return;
+        try{ await interaction.editReply(buildTempOwnerPanel(token)); }catch{}
+        return;
+      }
+      if(cid.startsWith("to_feats_")){
+        b.features = new Set(interaction.values);
+        if(!(await btnAck(interaction))) return;
+        try{ await interaction.editReply(buildTempOwnerPanel(token)); }catch{}
+        return;
+      }
+      if(cid.startsWith("to_dur_")){
+        b.duration = interaction.values[0];
+        if(!(await btnAck(interaction))) return;
+        try{ await interaction.editReply(buildTempOwnerPanel(token)); }catch{}
+        return;
+      }
+
+      if(cid.startsWith("to_cancel_")){
+        tempOwnerBuilders.delete(token);
+        if(!(await btnAck(interaction))) return;
+        try{ await interaction.editReply({content:"❌ Cancelled.",components:[]}); }catch{}
+        return;
+      }
+
+      if(cid.startsWith("to_revoke_")){
+        const existing = tempOwnerGrants.get(b.targetUserId);
+        if(existing?.timerId) clearTimeout(existing.timerId);
+        tempOwnerGrants.delete(b.targetUserId);
+        saveDataAndCommitNow().catch(()=>{});
+        tempOwnerBuilders.delete(token);
+        if(!(await btnAck(interaction))) return;
+        try{ await interaction.editReply({content:`🗑️ Revoked all temp-owner access from <@${b.targetUserId}>.`,components:[]}); }catch{}
+        return;
+      }
+
+      // to_grant_
+      if(!b.duration || (b.commands.size===0 && b.features.size===0)){
+        try{await interaction.reply({content:"❌ Pick at least one command or feature, and a duration, first.",ephemeral:true});}catch{}
+        return;
+      }
+      if(!(await btnAck(interaction))) return;
+
+      const existing = tempOwnerGrants.get(b.targetUserId);
+      if(existing?.timerId) clearTimeout(existing.timerId);
+
+      const expiresAt = b.duration === "permanent" ? null : (Date.now() + parseInt(b.duration) * 60_000);
+      const timerId = expiresAt === null ? null : setTimeout(()=>{ tempOwnerGrants.delete(b.targetUserId); }, parseInt(b.duration) * 60_000);
+      tempOwnerGrants.set(b.targetUserId, {
+        commands: new Set(b.commands),
+        features: new Set(b.features),
+        expiresAt,
+        timerId,
+        grantedBy: b.ownerId,
+        grantedAt: Date.now(),
+      });
+      saveDataAndCommitNow().catch(()=>{});
+      tempOwnerBuilders.delete(token);
+
+      const durText = b.duration === "permanent" ? "**permanently**" : `for **${b.duration} minute(s)**`;
+      const cmdsText = b.commands.size ? [...b.commands].map(c=>`\`/${c}\``).join(" ") : "_none_";
+      const featsText = b.features.size ? [...b.features].map(f=>GRANTABLE_OWNER_FEATURES.find(x=>x.id===f)?.label||f).join(", ") : "_none_";
+
+      try{
+        await interaction.editReply({
+          content:`✅ <@${b.targetUserId}> has been granted temp-owner access ${durText}.\n**Commands:** ${cmdsText}\n**Features:** ${featsText}\n\n**📋 Current grants:**\n${formatGrantsList()}`,
+          components:[],
+        });
+      }catch{}
+
+      // DM the target user
+      try{
+        const targetUser = await client.users.fetch(b.targetUserId).catch(()=>null);
+        if(targetUser){
+          const expiryText = expiresAt === null ? "This access is **permanent**." : `Expires <t:${Math.floor(expiresAt/1000)}:R>.`;
+          const dm = await targetUser.createDM();
+          await dm.send([
+            `🔑 **Temporary Owner Access Granted**`,
+            `You've been given owner access on RoyalBot. ${expiryText}`,
+            `**Commands:** ${cmdsText}`,
+            `**Features:** ${featsText}`,
+          ].join("\n"));
+        }
+      }catch(e){ console.warn("[tempowner] DM failed:", e.message); }
+
+      return;
+    }
+
     // ── Deleter: keep or delete a trashcan-flagged quote ─────────────────────
     if(cid.startsWith("del_keep_")||cid.startsWith("del_delete_")){
-      if(!OWNER_IDS.includes(uid)){
+      if(!OWNER_IDS.includes(uid) && !hasTempOwnerFeature(uid,"quote_review")){
         try{await interaction.reply({content:"❌ Only owners can action flagged quotes.",ephemeral:true});}catch{}
         return;
       }
@@ -5724,6 +5674,7 @@ client.on("interactionCreate",async interaction=>{
       if(!files.length){ try{await interaction.reply({content:"No images found.",ephemeral:true});}catch{}return; }
       const targetUser = await client.users.fetch(targetUserId).catch(()=>null);
       const displayName = targetUser?.username || "Unknown";
+      const avatarUrl = targetUser?.displayAvatarURL({ size:128, dynamic:true });
 
       // ── Go-to page prompt ─────────────────────────────────────────────────
       if(dir === "goto"){
@@ -5736,16 +5687,10 @@ client.on("interactionCreate",async interaction=>{
           try{ await m.delete(); }catch{}
           const gotoIdx = Math.max(0, Math.min(parseInt(m.content.trim()) - 1, files.length - 1));
           const fileName = files[gotoIdx];
-          const imageUrl = quoteRawUrl(fileName);
-          const row = new MessageActionRow().addComponents(
-            new MessageButton().setCustomId(`lib_prev_${targetUserId}_${gotoIdx}`).setLabel("◀ Prev").setStyle("SECONDARY").setDisabled(gotoIdx===0),
-            new MessageButton().setCustomId(`lib_goto_${targetUserId}_${gotoIdx}`).setLabel("🔢 Go to #").setStyle("PRIMARY"),
-            new MessageButton().setCustomId(`lib_next_${targetUserId}_${gotoIdx}`).setLabel("Next ▶").setStyle("SECONDARY").setDisabled(gotoIdx>=files.length-1),
-          );
           try{
             await interaction.message.edit({
-              content:`🖼️ **${displayName}'s Library** — Image ${gotoIdx+1} of ${files.length}\n**\`${fileName}\`**\n${imageUrl}`,
-              components:[row]
+              ...buildLibraryEmbed(displayName, avatarUrl, fileName, gotoIdx, files.length),
+              components: makeLibraryButtons(targetUserId, gotoIdx, files.length, false),
             });
           }catch{}
           try{ await interaction.followUp({content:`✅ Jumped to image **#${gotoIdx+1}**.`,ephemeral:true}); }catch{}
@@ -5757,18 +5702,64 @@ client.on("interactionCreate",async interaction=>{
       // ── Prev / Next ───────────────────────────────────────────────────────
       const newIdx = dir==="prev" ? Math.max(0,currentIdx-1) : Math.min(files.length-1,currentIdx+1);
       const fileName = files[newIdx];
-      const imageUrl = quoteRawUrl(fileName);
-      const row = new MessageActionRow().addComponents(
-        new MessageButton().setCustomId(`lib_prev_${targetUserId}_${newIdx}`).setLabel("◀ Prev").setStyle("SECONDARY").setDisabled(newIdx===0),
-        new MessageButton().setCustomId(`lib_goto_${targetUserId}_${newIdx}`).setLabel("🔢 Go to #").setStyle("PRIMARY"),
-        new MessageButton().setCustomId(`lib_next_${targetUserId}_${newIdx}`).setLabel("Next ▶").setStyle("SECONDARY").setDisabled(newIdx>=files.length-1),
-      );
       try{
         await interaction.update({
-          content:`🖼️ **${displayName}'s Library** — Image ${newIdx+1} of ${files.length}\n**\`${fileName}\`**\n${imageUrl}`,
-          components:[row]
+          ...buildLibraryEmbed(displayName, avatarUrl, fileName, newIdx, files.length),
+          components: makeLibraryButtons(targetUserId, newIdx, files.length, false),
         });
       }catch{}
+      return;
+    }
+
+    // ── Library: flag currently-viewed image for review ────────────────────────
+    if(cid.startsWith("libflag_")){
+      const parts = cid.split("_"); // ["libflag", userId, index]
+      const targetUserId = parts[1];
+      const idx = parseInt(parts[2]);
+      const targetScore = getScore(targetUserId, null);
+      const files = targetScore.uploadedImages || [];
+      const fileName = files[idx];
+      if(!fileName){ try{await interaction.reply({content:"❌ Couldn't find that image anymore.",ephemeral:true});}catch{}return; }
+
+      if(!deleterChannelId){
+        try{await interaction.reply({content:"No review channel configured.",ephemeral:true});}catch{}
+        return;
+      }
+
+      if(!(await btnAck(interaction))) return;
+
+      try{
+        const deleterCh = await client.channels.fetch(deleterChannelId).catch(()=>null);
+        if(deleterCh){
+          const imageUrl = quoteRawUrl(fileName);
+          const row = new MessageActionRow().addComponents(
+            new MessageButton().setCustomId(`del_keep_${fileName}`).setLabel("✅ Keep").setStyle("SUCCESS"),
+            new MessageButton().setCustomId(`del_delete_${fileName}`).setLabel("🗑️ Delete").setStyle("DANGER"),
+          );
+          await deleterCh.send({
+            content:[
+              `🗑️ **Quote Flagged for Review**`,
+              `📎 Filename: \`${fileName}\``,
+              `👤 Flagged by <@${uid}> via /library`,
+              `🖼️ ${imageUrl}`,
+            ].join("\n"),
+            components:[row],
+          });
+        }
+      }catch(e){ console.error("[libflag] send to deleter failed:", e.message); }
+
+      // Disable the flag button on the /library message itself
+      try{
+        const targetUser = await client.users.fetch(targetUserId).catch(()=>null);
+        const displayName = targetUser?.username || "Unknown";
+        const avatarUrl = targetUser?.displayAvatarURL({ size:128, dynamic:true });
+        await interaction.editReply({
+          ...buildLibraryEmbed(displayName, avatarUrl, fileName, idx, files.length),
+          components: makeLibraryButtons(targetUserId, idx, files.length, true),
+        });
+      }catch{}
+
+      try{ await interaction.followUp({content:"Flagged for review.",ephemeral:true}); }catch{}
       return;
     }
 
@@ -6028,14 +6019,14 @@ client.on("interactionCreate",async interaction=>{
       if(page<0||page>=TOTAL){try{await interaction.deferUpdate();}catch{}return;}
       if(!(await btnAck(interaction)))return;
       const HELP_PAGES=[
-        {title:"🎉 Fun & Social  —  Page 1 / 8",description:["**Interactions**","`/action type:… user:…` — Hug, pat, poke, stare, wave, high five, boop, oil, diddle, or kill someone","`/punch` `/hug` `/kiss` `/slap` `/throw` — Quick social actions","`/rate type:… user:…` — Rate someone (gay, autistic, simp, cursed, npc, villain, sigma)","`/ppsize user:…` — Check pp size","`/ship user1:… user2:…` — Ship compatibility %","","**Romance**","`/marry user:…` — Propose 💍 — target gets Accept/Decline buttons","`/divorce` — End the marriage 💔","`/partner [user]` — See who someone is married to","","**Party Games**","`/party type:truth|dare|neverhavei` — Truth, Dare, or Never Have I Ever","","**Conversation**","`/topic` — Random conversation starter","`/roast [user]` — Roast someone 🔥","`/compliment user:…` — Compliment someone 💖","`/advice` — Life advice 🧙","`/fact` — Random fun fact 📚","`/horoscope sign:…` — Your daily horoscope ✨","`/poll question:…` — Quick yes/no poll (server only)"].join("\n")},
-        {title:"📡 Media & Utility  —  Page 2 / 8",description:["**Media**","`/gif animal:…` — Random animal GIF 🐾 (cat, dog, fox, panda, duck, bunny, koala, raccoon)","`/joke` — Random joke 😂","`/meme` — Random meme 🐸","`/quote` — Inspirational quote image ✨","`/trivia` — Trivia question with spoiler answer 🧠","`/avatar user:…` — Get someone\'s avatar","","**Utility**","`/ping` — Bot latency 🏓","`/coinflip` — Heads or tails 🪙","`/roll [sides]` — Roll a dice (default d6) 🎲","`/choose options:a,b,c` — Pick from comma-separated options","`/echo [message] [embed] [image] [title] [color] [replyto]` — Make the bot say something","`/remind time:… message:…` — Set a reminder (1 min – 1 week)","`/messageschedule time:… message:…` — Schedule a message to send later, as you, via webhook 📨 (e.g. `5 hours`, `2 days`, `1 week`, `1 month`)","`/upload source|link:…` — Upload an image/audio/video to the quotes folder 🖼️🔊🎬 *(server only, authorized users)*","","**Info**","`/botinfo` — Bot stats","`/serverinfo` — Server member/channel/role info","`/userprofile [user]` — Full profile: level, XP, coins, items, cooldowns"].join("\n")},
-        {title:"📈 XP & Leaderboards  —  Page 3 / 8",description:["**XP**","You earn XP by sending messages (1 min cooldown). 5–15 XP per message.","Level formula: `floor(50 × level^1.5)` XP per level","","`/xp [user]` — Check XP, level, and progress bar","`/xpleaderboard [scope:global|server]` — Top 10 by XP","","**Stats & Leaderboards**","`/score [user]` — Wins, losses, win rate, streak","`/userprofile [user]` — Everything in one embed","`/leaderboard [type]` — Global top 10","`/serverleaderboard [type]` — Server top 10","> Types: `wins` `coins` `streak` `beststreak` `games` `winrate` `images`"].join("\n")},
-        {title:"🎮 Games  —  Page 4 / 8",description:["**Solo** — `/games game:…`","> 🪢 Hangman · 🐍 Snake · 💣 Minesweeper (Easy/Med/Hard)","> 🔢 Number Guess · 🔀 Word Scramble · 📅 Daily Challenge","","**2-Player** — `/2playergames game:… [opponent:…]`","> ❌⭕ Tic Tac Toe *(server only)*","> 🔴🔵 Connect 4 *(server only)*","> ✊ Rock Paper Scissors *(choices sent via DM)*","> 🧮 Math Race · 🏁 Word Race · 🧠 Trivia Battle *(server only)*","> 🔢 Count Game — count to 100 together, no opponent needed *(server only)*","> 🏁 Scramble Race — 5-round word unscramble *(server only)*","","Wins award coins. Check `/score` or `/userprofile` for stats."].join("\n")},
-        {title:"⚙️ Server Config  —  Page 5 / 8",description:["Most commands here require **Manage Server** permission.","","**Channels & Messages**","`/channelpicker channel:… [levelup]` — Set the bot\'s main channel","`/xpconfig setting:…` — Level-up messages (on/off, ping toggle, channel)","`/setwelcome channel:… [message]` — Welcome message (`{user}` `{server}` `{count}`)","`/setleave channel:… [message]` — Leave message","`/setboostmsg channel:… [message]` — Boost announcement","`/disableownermsg enabled:…` — Toggle bot owner broadcasts","`/purge amount:…` — Bulk delete (needs Manage Messages)","`/counting action:set|remove|status` — Set a permanent counting channel","","**Roles**","`/autorole [role]` — Auto-assign role on join (blank to disable)","`/reactionrole action:add|remove|list …` — Emoji reaction roles","`/rolespingfix` — List & fix roles that can @everyone","","**Competitions & Tickets**","`/invitecomp hours:…` — Invite competition with coin rewards","`/ticketsetup` · `/closeticket` · `/addtoticket` · `/removefromticket`","","**Overview**","`/serverconfig` — View all current settings"].join("\n")},
-        {title:"🛡️ Activity & RA/LOA  —  Page 6 / 8",description:["**Activity Checks** *(Manage Server)*","`/activity-check channel:… [deadline] [message] [ping] [schedule]` — Send a check-in to staff","> Specify which roles must respond and who is excluded","> Auto-closes after the deadline and reports who didn\'t check in","> Add `schedule:Monday 09:00` (UTC) to repeat it weekly automatically","","**RA / LOA Setup** *(Manage Server)*","`/raconfig action:create` — Auto-create Reduced Activity + LOA roles","`/raconfig action:set_ra|set_loa role:…` — Use existing roles","`/raconfig action:view` — See current config","","**Assigning Roles** *(Manage Roles)*","`/reduced-activity user:… action:give|remove [duration]` — Give/remove RA role","`/loa user:… action:give|remove [duration]` — Give/remove LOA role","> `duration` is in hours — omit for permanent"].join("\n")},
-        {title:"📺 YouTube Tracking  —  Page 7 / 8",description:["Track a YouTube channel\'s subscriber count live in Discord.","All commands require **Manage Server** permission.","","**Setup (do this first)**","`/ytsetup channel:… discord_channel:… [apikey:…]` — Connect a YouTube channel","> Accepts `@handle`, full URL, or channel ID starting with UC","> Provide your YouTube Data API v3 key on first use — it\'s saved to botdata","> Get a free key at console.cloud.google.com → enable YouTube Data API v3","","**Live Sub Count**","`/subcount threshold:1K|10K` — Post an embed that edits itself every 5 min","","**Sub Goal**","`/subgoal goal:N [message]` — Live progress bar towards a target sub count","> Fires a custom or default message when the goal is reached","","**Milestones**","`/milestones action:add subs:N [message]` — Announce when a sub count is crossed","`/milestones action:remove subs:N` — Remove a milestone","`/milestones action:list` — View all milestones and their status","","**[Owner] Pranks & Chaos**","`/paranoia user:… [chance]` — DM a user creepy paranoia messages (1-100% chance per message)","> Right-click any message → **Tomato This** — splat tomato-splat.gif onto a message card (open to everyone)"].join("\n")},
-        {title:"🤖 Community Modes  —  Page 8 / 8",description:["Clankerify replaces a user\'s messages with a webhook impersonating them in a chosen personality.","","**For Everyone**","`/selfclank duration:1-5` — Clankerify yourself for 1–5 min with any mode","> Choose from built-in modes or any custom modes players have built","> Max 2 self-clanked users per server at once","> `/selfclank duration:0` to cancel early","","**Built-in Modes**","🤖 No mode (plain) · 😈 Evil · 😏 Freaky · 🦅 American · 🫖 British","🪖 Stupid · 📰 Boomer · 🔺 Conspiracy · 🗺️ NPC · 😤 Sigma","⚔️ Medieval · 👻 Ghost · 🏴‍☠️ Pirate · 🦝 RespawnRaccoon Propaganda","🇫🇷 French · 🐱 UWU/LOLCAT · 🏴󠁧󠁢󠁳󠁣󠁴󠁿 Scottish · 🎲 Random","","**Custom Modes** — anyone can build one with `/clankerbuild`","`/clankerbuild action:create name:<id>` — Opens a builder modal with:","  • Display name format  (`{name}` = the user\'s name)","  • Word replacements  (`Test>Test2; friend>pardner, …`)","  • Signoffs  (`yeehaw!;much obliged;git along now`)","  • Message start prefix","  • Emoji shown in the mode selector","`/clankerbuild action:list` — View all custom modes","`/clankerbuild action:delete name:<id>` — Remove a custom mode","","Custom modes appear automatically in the `/clankerify` and `/selfclank` dropdowns.","","**[Owner] Temp Owner Access**","`/tempowner user:… duration:… [commands:…]` — Grant a user temporary access","> Pick specific commands by name (comma-separated) or use `all`","> They receive a DM listing exactly what they can use and for how long"].join("\n")},
+        {title:"🎉 Social & Utility  —  Page 1 / 8",description:["**Romance**","`/marry user:…` — Propose 💍 — target gets Accept/Decline buttons","`/divorce` — End the marriage 💔","`/partner [user]` — See who someone is married to","","**Media**","`/quote` — Inspirational quote image ✨","`/goodquote` — Top-rated quote image ⭐","`/badquote` — Bottom-rated quote image 💀","`/avatar user:…` — Get someone's avatar","","**Utility**","`/ping` — Bot latency 🏓","`/echo [message] [embed] [image] [title] [color] [replyto]` — Make the bot say something","`/remind time:… message:…` — Set a reminder (1 min – 1 week)","`/messageschedule time:… message:…` — Schedule a message to send later, as you, via webhook 📨 (e.g. `5 hours`, `2 days`, `1 week`, `1 month`)","`/premiere hours:… channel:… [title]` — Countdown to a video upload 🎬","`/upload source|link:…` — Upload an image/audio/video to the quotes folder 🖼️🔊🎬 *(authorized users)*","","**Info**","`/botinfo` — Bot stats","`/serverinfo` — Server member/channel/role info"].join("\n")},
+        {title:"📈 XP & Leaderboards  —  Page 2 / 8",description:["**XP**","You earn XP by sending messages (1 min cooldown). 5–15 XP per message.","Level formula: `floor(50 × level^1.5)` XP per level","","`/xp [user]` — Check XP, level, and progress bar","`/xpleaderboard [scope:global|server]` — Top 10 by XP","","**Stats & Leaderboards**","`/score [user]` — Wins, losses, win rate, streak","`/leaderboard [type]` — Global top 10","`/serverleaderboard [type]` — Server top 10","> Types: `wins` `coins` `streak` `beststreak` `games` `winrate` `images`"].join("\n")},
+        {title:"⚙️ Server Config  —  Page 3 / 8",description:["Most commands here require **Manage Server** permission.","","**Channels & Messages**","`/channelpicker channel:… [levelup]` — Set the bot's main channel","`/xpconfig setting:…` — Level-up messages (on/off, ping toggle, channel)","`/setwelcome channel:… [message]` — Welcome message (`{user}` `{server}` `{count}`)","`/setleave channel:… [message]` — Leave message","`/setboostmsg channel:… [message]` — Boost announcement","`/disableownermsg enabled:…` — Toggle bot owner broadcasts","`/purge amount:…` — Bulk delete (needs Manage Messages)","`/counting action:set|remove|status` — Set a permanent counting channel","","**Roles**","`/autorole [role]` — Auto-assign role on join (blank to disable)","`/reactionrole action:add|remove|list …` — Emoji reaction roles","`/rolespingfix` — List & fix roles that can @everyone","","**Competitions & Tickets**","`/invitecomp hours:…` — Invite competition with coin rewards","`/ticketsetup` · `/closeticket` · `/addtoticket` · `/removefromticket`","","**Overview**","`/serverconfig` — View all current settings"].join("\n")},
+        {title:"🛡️ Activity & RA/LOA  —  Page 4 / 8",description:["**Activity Checks** *(Manage Server)*","`/activity-check channel:… [deadline] [message] [ping] [schedule]` — Send a check-in to staff","> Specify which roles must respond and who is excluded","> Auto-closes after the deadline and reports who didn't check in","> Add `schedule:Monday 09:00` (UTC) to repeat it weekly automatically","","**RA / LOA Setup** *(Manage Server)*","`/raconfig action:create` — Auto-create Reduced Activity + LOA roles","`/raconfig action:set_ra|set_loa role:…` — Use existing roles","`/raconfig action:view` — See current config","","**Assigning Roles**","`/staffrole type:ra|loa user:… action:give|remove [duration]` — Give/remove RA or LOA role","> `duration` is in hours — omit for permanent"].join("\n")},
+        {title:"📺 YouTube Tracking  —  Page 5 / 8",description:["Track a YouTube channel's subscriber count live in Discord.","All commands require **Manage Server** permission.","","**Setup (do this first)**","`/ytsetup channel:… discord_channel:… [apikey:…]` — Connect a YouTube channel","> Accepts `@handle`, full URL, or channel ID starting with UC","> Provide your YouTube Data API v3 key on first use — it's saved to botdata","> Get a free key at console.cloud.google.com → enable YouTube Data API v3","","**Live Sub Count**","`/subcount threshold:1K|10K` — Post an embed that edits itself every 5 min","","**Sub Goal**","`/subgoal goal:N [message]` — Live progress bar towards a target sub count","> Fires a custom or default message when the goal is reached","","**Milestones**","`/milestones action:add subs:N [message]` — Announce when a sub count is crossed","`/milestones action:remove subs:N` — Remove a milestone","`/milestones action:list` — View all milestones and their status"].join("\n")},
+        {title:"🤖 Community Modes  —  Page 6 / 8",description:["Clankerify replaces a user's messages with a webhook impersonating them in a chosen personality.","","**For Everyone**","`/selfclank duration:1-5` — Clankerify yourself for 1–5 min with any mode","> Choose from built-in modes or any custom modes players have built","> Max 2 self-clanked users per server at once","> `/selfclank duration:0` to cancel early","","**Built-in Modes**","🤖 No mode (plain) · 😈 Evil · 😏 Freaky · 🦅 American · 🫖 British","🪖 Stupid · 📰 Boomer · 🔺 Conspiracy · 🗺️ NPC · 😤 Sigma","⚔️ Medieval · 👻 Ghost · 🏴‍☠️ Pirate · 🦝 RespawnRaccoon Propaganda","🇫🇷 French · 🐱 UWU/LOLCAT · 🏴󠁧󠁢󠁳󠁣󠁴󠁿 Scottish · 🎲 Random","","**Custom Modes** — anyone can build one with `/clankerbuild`","`/clankerbuild action:create name:<id>` — Opens a builder modal with:","  • Display name format (`{name}` = the user's name)","  • Word replacements (`Test>Test2; friend>pardner, …`)","  • Signoffs (`yeehaw!;much obliged;git along now`)","  • Message start prefix","  • Emoji shown in the mode selector","`/clankerbuild action:list` — View all custom modes","`/clankerbuild action:delete name:<id>` — Remove a custom mode","","Custom modes appear automatically in the `/clankerify` and `/selfclank` dropdowns."].join("\n")},
+        {title:"🖼️ Media & Quotes  —  Page 7 / 8",description:["**Quotes Folder**","`/upload source|link:…` — Upload an image/audio/video *(authorized users)*","`/requestupload source:…` — Submit a file to be reviewed for the quotes folder","`/managememers action:add|remove|list [user]` — [Owner] Manage the upload allowlist","`/quotemanage …` — [Owner] Browse, delete, and configure the quotes folder","`/dailyquote action:set|disable|status [channel] [hour]` — Auto-post a daily quote (Manage Server)","`/library user:… [page]` — Browse a user's uploaded quotes","","**Other Media Tools**","`/pixeltxt action:structure|destructure file:…` — Convert an image to/from a compressed text format","`/jarvisdatabase source:… name:…` — Upload a trigger image/gif/video straight to the Jarvis folder","`/download url:… [format] [resolution]` — Download a YouTube video as MP4 or MP3"].join("\n")},
+        {title:"🔒 Owner Tools  —  Page 8 / 8",description:["**Bot Management**","`/servers` — List servers & invite links","`/botstats` — Bot stats","`/setstatus text:… [type]` — Set bot presence","`/restart` — Restart the bot","`/refreshcmds` — Force re-register slash commands in this guild","`/adminconfig [key] [value]` — View/edit global config values","","**User & Server Actions**","`/forcemarry user1:… user2:…` — Force marry two users","`/forcedivorce user:…` — Force divorce a user","`/leaveserver server:…` — Leave a server","`/blacklist action:add|remove|list [user] [silent]` — Block a user from ever using RoyalBot","`/shadowdelete user:… percentage:…` — Randomly delete a % of a user's messages","`/clankerify user:… [duration]` — Resend a user's messages as a webhook impersonating them","`/paranoia user:… [chance]` — DM a user creepy paranoia messages","`/fakemessage user:… [message] [file] [mode]` — Send a message as another user via webhook","`/fakequote user:… text:… [displayname] [username]` — Generate a 'Make it a Quote' style card","`/theremnant message:…` — Send a mysterious dimensional transmission","","**Access & Relay**","`/tempowner user:… duration:… [commands]` — Grant a user temporary owner access","`/dmconfig [server] [user]` — Set up the DM relay hub or open a relay channel"].join("\n")},
       ];
       const p=HELP_PAGES[page];
       const navRow=new MessageActionRow().addComponents(
@@ -6724,7 +6715,7 @@ client.on("interactionCreate",async interaction=>{
     if(cid === "theremnant_modal"){
       const replyText = (interaction.fields.getTextInputValue("remnant_reply")||"").trim();
       if(!replyText) return safeReply(interaction,{content:"❌ Message can't be empty.",ephemeral:true});
-      if(blacklistedUsers.has(uid)) return safeReply(interaction,{content:"❌ You can't do that.",ephemeral:true});
+      if(blacklistedUsers.has(uid)) return silentBlacklistUsers.has(uid) ? undefined : safeReply(interaction,{content:"❌ You can't do that.",ephemeral:true});
 
       try{
         const relayChannel = await ensureDmRelayChannel(interaction.user);
@@ -7088,7 +7079,7 @@ client.on("interactionCreate",async interaction=>{
   const cmd=interaction.commandName;
   const inGuild=!!interaction.guildId;
 
-  const ownerOnly=["servers","broadcast","requester","deleter","fakecrash","identitycrisis","botolympics","sentience","legendrandom","dmconfig","leaveserver","restart","refreshcmds","botstats","setstatus","adminuser","adminreset","adminconfig","admingive","echo","shadowdelete","clankerify","fakemessage","fakequote","forcemarry","forcedivorce","paranoia","tempowner","blacklist","theremnant","boostsmanage"];
+  const ownerOnly=["servers","requester","deleter","dmconfig","leaveserver","restart","refreshcmds","botstats","setstatus","adminconfig","echo","shadowdelete","clankerify","fakemessage","fakequote","forcemarry","forcedivorce","paranoia","tempowner","blacklist","theremnant"];
   if(ownerOnly.includes(cmd)&&!isEffectiveOwner(interaction.user.id, cmd))return safeReply(interaction,{content:"Owner only.",ephemeral:true});
 
   const manageServerCmds=["channelpicker","counting","xpconfig","setwelcome","setleave","setwelcomemsg","setleavemsg","disableownermsg","serverconfig","autorole","setboostmsg","invitecomp","purge","reactionrole","ticketsetup","ytsetup","subgoal","subcount","milestones","dailyquote","serverstats"];
@@ -7289,70 +7280,38 @@ if(cmd==="clankerbuild"){
 // ── /tempowner ────────────────────────────────────────────────────────────────
 if(cmd==="tempowner"){
   const targetUser = interaction.options.getUser("user");
-  const duration   = interaction.options.getInteger("duration"); // minutes
-  const rawCmds    = (interaction.options.getString("commands")||"all").trim();
 
-  // Parse command list
-  const grantedCmds = rawCmds.toLowerCase()==="all"
-    ? new Set(["all"])
-    : new Set(rawCmds.split(",").map(s=>s.trim()).filter(Boolean));
-
-  // Clear any existing grant for this user
-  const existing = tempOwnerGrants.get(targetUser.id);
-  if(existing?.timerId) clearTimeout(existing.timerId);
-
-  const expiresAt = Date.now() + duration * 60_000;
-  const timerId = setTimeout(()=>{ tempOwnerGrants.delete(targetUser.id); }, duration * 60_000);
-  tempOwnerGrants.set(targetUser.id, { commands: grantedCmds, expiresAt, timerId });
-
-  const KNOWN_OWNER_CMDS = [...OWNER_ONLY_CMDS].filter(c => !c.startsWith("Reaction") && !c.startsWith("Clank") && !c.startsWith("Expose"));
-  const grantDisplay = grantedCmds.has("all")
-    ? `**All owner commands** (${KNOWN_OWNER_CMDS.slice(0,8).join(", ")}…)`
-    : `\`${[...grantedCmds].join("`, `")}\``;
-
-  // Build interactive ephemeral for the target user to see what they got
-  const rows = [];
-  const eligible = grantedCmds.has("all") ? KNOWN_OWNER_CMDS : [...grantedCmds].filter(c=>OWNER_ONLY_CMDS.has(c));
-  // Show in chunks of 5 buttons per row (max 5 rows = 25 buttons)
-  for(let i=0; i<Math.min(eligible.length,25); i+=5){
-    rows.push(new MessageActionRow().addComponents(
-      eligible.slice(i, i+5).map(c =>
-        new MessageButton().setCustomId(`tempowner_info_${c}`).setLabel(`/${c}`).setStyle("SECONDARY").setDisabled(true)
-      )
-    ));
-  }
-
-  // Confirm to the owner
-  await safeReply(interaction,{
-    content:`✅ <@${targetUser.id}> has been granted temporary owner access for **${duration} minute(s)**.\n📋 Granted: ${grantDisplay}`,
-    ephemeral:true,
-  });
-
-  // DM the target user with what they can use
-  try {
-    const expiry = `<t:${Math.floor(expiresAt/1000)}:R>`;
-    const dm = await targetUser.createDM();
-    await dm.send({
-      content: [
-        `🔑 **Temporary Owner Access Granted**`,
-        `You've been given access to the following owner-only commands on RoyalBot for **${duration} minute(s)** (expires ${expiry}):`,
-        grantedCmds.has("all")
-          ? KNOWN_OWNER_CMDS.map(c=>`\`/${c}\``).join("  ")
-          : [...grantedCmds].map(c=>`\`/${c}\``).join("  "),
-      ].join("\n"),
-      ...(rows.length ? { components: rows } : {}),
+  if(!targetUser){
+    return safeReply(interaction,{
+      content:[`🔑 **Temporary Owner Access — Current Grants**`,``,formatGrantsList()].join("\n"),
+      ephemeral:true,
     });
-  } catch(e){ console.warn("[tempowner] DM failed:",e.message); }
-  return;
+  }
+  if(OWNER_IDS.includes(targetUser.id))
+    return safeReply(interaction,{content:"❌ That user is already a permanent owner.",ephemeral:true});
+
+  const token = `${interaction.user.id.slice(-6)}${Date.now().toString(36)}`;
+  const existing = tempOwnerGrants.get(targetUser.id);
+  tempOwnerBuilders.set(token, {
+    ownerId: interaction.user.id,
+    targetUserId: targetUser.id,
+    commands: new Set(existing && !existing.commands.has("all") ? existing.commands : []),
+    features: new Set(existing?.features ?? []),
+    duration: existing ? (existing.expiresAt === null ? "permanent" : null) : null,
+  });
+  setTimeout(()=>tempOwnerBuilders.delete(token), 10*60*1000);
+
+  return safeReply(interaction,{...buildTempOwnerPanel(token), ephemeral:true});
 }
 
 if(cmd==="blacklist"){
   const action = interaction.options.getString("action");
   const targetUser = interaction.options.getUser("user");
+  const silent = interaction.options.getBoolean("silent") || false;
 
   if(action==="list"){
     if(blacklistedUsers.size===0) return safeReply(interaction,{content:"No users are currently blacklisted.",ephemeral:true});
-    return safeReply(interaction,{content:`🚫 **Blacklisted users:**\n${[...blacklistedUsers].map(id=>`<@${id}> (\`${id}\`)`).join("\n")}`,ephemeral:true});
+    return safeReply(interaction,{content:`🚫 **Blacklisted users:**\n${[...blacklistedUsers].map(id=>`<@${id}> (\`${id}\`)${silentBlacklistUsers.has(id)?" 🔇 *silent*":""}`).join("\n")}`,ephemeral:true});
   }
 
   if(!targetUser) return safeReply(interaction,{content:"You need to specify a user for this action.",ephemeral:true});
@@ -7361,29 +7320,33 @@ if(cmd==="blacklist"){
     if(OWNER_IDS.includes(targetUser.id)) return safeReply(interaction,{content:"❌ Can't blacklist an owner.",ephemeral:true});
     if(blacklistedUsers.has(targetUser.id)) return safeReply(interaction,{content:`<@${targetUser.id}> is already blacklisted.`,ephemeral:true});
     blacklistedUsers.add(targetUser.id);
+    if(silent) silentBlacklistUsers.add(targetUser.id); else silentBlacklistUsers.delete(targetUser.id);
     saveDataAndCommitNow().catch(()=>{});
 
-    // Notify them, then cut off their relay channel — all further DMs (either direction) are ignored from here on.
-    try {
-      const dm = await targetUser.createDM();
-      await dm.send("You've been blacklisted.");
-    } catch(e) { console.error("[blacklist] DM notify failed:", e.message); }
+    if(!silent){
+      // Notify them, then cut off their relay channel — all further DMs (either direction) are ignored from here on.
+      try {
+        const dm = await targetUser.createDM();
+        await dm.send("You've been blacklisted.");
+      } catch(e) { console.error("[blacklist] DM notify failed:", e.message); }
 
-    const relayChannelId = dmRelayChannels.get(targetUser.id);
-    if(relayChannelId){
-      try{
-        const hubGuild = dmRelayGuildId ? client.guilds.cache.get(dmRelayGuildId) : null;
-        const relayChannel = hubGuild ? hubGuild.channels.cache.get(relayChannelId) : null;
-        if(relayChannel) await relayChannel.send("🚫 This user has been blacklisted — DMs no longer relay through this channel.").catch(()=>{});
-      } catch(e) { console.error("[blacklist] relay notice failed:", e.message); }
+      const relayChannelId = dmRelayChannels.get(targetUser.id);
+      if(relayChannelId){
+        try{
+          const hubGuild = dmRelayGuildId ? client.guilds.cache.get(dmRelayGuildId) : null;
+          const relayChannel = hubGuild ? hubGuild.channels.cache.get(relayChannelId) : null;
+          if(relayChannel) await relayChannel.send("🚫 This user has been blacklisted — DMs no longer relay through this channel.").catch(()=>{});
+        } catch(e) { console.error("[blacklist] relay notice failed:", e.message); }
+      }
     }
 
-    return safeReply(interaction,{content:`🚫 <@${targetUser.id}> has been blacklisted from RoyalBot. They can no longer use any command or feature of the bot.`,ephemeral:true});
+    return safeReply(interaction,{content:`🚫 <@${targetUser.id}> has been blacklisted from RoyalBot. They can no longer use any command or feature of the bot.${silent?"\n🔇 Silent mode — they will receive no notice or messages of any kind, ever, about this.":""}`,ephemeral:true});
   }
 
   if(action==="remove"){
     if(!blacklistedUsers.has(targetUser.id)) return safeReply(interaction,{content:`<@${targetUser.id}> is not blacklisted.`,ephemeral:true});
     blacklistedUsers.delete(targetUser.id);
+    silentBlacklistUsers.delete(targetUser.id);
     saveDataAndCommitNow().catch(()=>{});
     return safeReply(interaction,{content:`✅ <@${targetUser.id}> has been removed from the blacklist.`,ephemeral:true});
   }
@@ -7521,75 +7484,6 @@ if(cmd==="divorce"){
       return safeReply(interaction,`💑 **${u.username}** is married to <@${s.marriedTo}>.`);
     }
 
-    if(cmd==="action"){
-      const t=interaction.options.getString("type");
-      const u=interaction.options.getUser("user");
-      const au2=`<@${interaction.user.id}>`,bu2=`<@${u.id}>`;
-      const KILL_MESSAGES=[
-        `☠️ ${au2} has **eliminated** ${bu2}. They never saw it coming.`,
-        `🗡️ ${au2} stabbed ${bu2} in the back. Betrayal arc complete.`,
-        `💀 ${au2} destroyed ${bu2} with a single look of disappointment.`,
-        `🔫 ${au2} absolutely ended ${bu2}. RIP.`,
-        `⚔️ ${au2} challenged ${bu2} to a duel. ${bu2} did not survive.`,
-        `🪦 ${au2} has slain ${bu2}. Press F to pay respects.`,
-        `💣 ${au2} dropped ${bu2} without hesitation.`,
-        `🧨 ${au2} went full villain arc and took out ${bu2}.`,
-      ];
-      const msgs={
-        hug:`${au2} hugged ${bu2} 🤗`,
-        pat:`${au2} patted ${bu2} on the head 🖐️`,
-        poke:`${au2} poked ${bu2} 👉`,
-        stare:`${au2} is staring at ${bu2} 👀`,
-        wave:`${au2} waved at ${bu2}! 👋`,
-        highfive:`${au2} high fived ${bu2}! ✋🤚`,
-        boop:`${au2} booped ${bu2} on the nose 👉👃`,
-        oil:`${au2} oiled up ${bu2}`,
-        diddle:`${bu2} was diddled`,
-        kill:pick(KILL_MESSAGES),
-        punch:`${au2} punched ${bu2} 🥊`,
-        kiss:`${au2} kissed ${bu2} 💋`,
-        slap:`${au2} slapped ${bu2} 👋`,
-        throw:`${au2} threw ${pick(THROW_ITEMS)} at ${bu2}!`,
-      };
-      return safeReply(interaction,msgs[t]||`${au2} did something to ${bu2}`);
-    }
-
-    if(cmd==="rate"){
-      const t=interaction.options.getString("type");
-      const u=interaction.options.getUser("user");
-      const val=GAY_IDS.includes(u.id)&&["gayrate","howautistic"].includes(t)?100:r(0,100);
-      const labels={gayrate:"gay",howautistic:"autistic",simp:"a simp 💘",cursed:"cursed energy 🌀",npc:"NPC 🤖",villain:"villain arc 😈",sigma:"sigma 💪"};
-      return safeReply(interaction,`<@${u.id}> is ${val}% ${labels[t]||t}`);
-    }
-    if(cmd==="party"){
-      const t=interaction.options.getString("type");
-      if(t==="truth")return safeReply(interaction,`🫢 **Truth:** ${pick(TRUTH_QUESTIONS)}`);
-      if(t==="dare")return safeReply(interaction,`😈 **Dare:** ${pick(DARE_ACTIONS)}`);
-      if(t==="neverhavei")return safeReply(interaction,`🤚 **Never have I ever${pick(NEVERHAVEI_STMTS)}**\n\nReact 🙋 if you have!`);
-    }
-    if(cmd==="ppsize"){const s=`8${"=".repeat(r(3,30))}D`;return safeReply(interaction,`${bu()}'s pp: ${s}`);}
-;
-
-if(cmd==="gif"){
-      const animal=interaction.options.getString("animal");
-      const fetchers={
-        cat:    getCatGif,
-        dog:    getDogImage,
-        fox:    getFoxImage,
-        panda:  getPandaImage,
-        duck:   getDuckImage,
-        bunny:  getBunnyImage,
-        koala:  getKoalaImage,
-        raccoon:getRaccoonImage,
-      };
-      const labels={cat:"Cat 🐱",dog:"Dog 🐶",fox:"Fox 🦊",panda:"Panda 🐼",duck:"Duck 🦆",bunny:"Bunny 🐇",koala:"Koala 🐨",raccoon:"Raccoon 🦝"};
-      await interaction.deferReply();
-      const url=await (fetchers[animal]?.())||null;
-      if(!url)return safeReply(interaction,`Couldn't fetch a ${labels[animal]||animal} right now, try again!`);
-      return safeReply(interaction,{embeds:[{title:`${labels[animal]||animal}`,image:{url},color:0xffaacc}]});
-    }
-    if(cmd==="joke") {await interaction.deferReply();return safeReply(interaction,await getJoke()      ||"No joke today.");}
-    if(cmd==="meme") {await interaction.deferReply();return safeReply(interaction,await getMeme()      ||"Meme API down 😔");}
     if(cmd==="quote"){
       // 1.5 second per-user cooldown
       const now_q = Date.now();
@@ -7702,25 +7596,6 @@ if(cmd==="gif"){
         return safeReply(interaction, "Something went wrong fetching a bad quote.");
       }
     }
-    if(cmd==="trivia"){
-      await interaction.deferReply();const t=await getTrivia();
-      if(!t)return safeReply(interaction,"Trivia API is down.");
-      return safeReply(interaction,`**${t.question}**\n\n${t.answers.map((a,i)=>`${["🇦","🇧","🇨","🇩"][i]} ${a}`).join("\n")}\n\n||✅ Answer: ${t.correct}||`);
-    }
-
-    if(cmd==="coinflip")      return safeReply(interaction,`🪙 **${Math.random()<0.5?"Heads":"Tails"}!**`);
-    if(cmd==="roll")          {const sides=interaction.options.getInteger("sides")||6;if(sides<2)return safeReply(interaction,{content:"Need at least 2 sides.",ephemeral:true});return safeReply(interaction,`🎲 You rolled **${r(1,sides)}** on a d${sides}!`);}
-    if(cmd==="choose")        {const opts=interaction.options.getString("options").split(",").map(s=>s.trim()).filter(Boolean);if(opts.length<2)return safeReply(interaction,{content:"Give at least 2 options.",ephemeral:true});return safeReply(interaction,`🤔 I choose... **${pick(opts)}**`);}
-    if(cmd==="roast")         {const u=interaction.options.getUser("user");return safeReply(interaction,`🔥 ${u?`<@${u.id}>`:au()}: ${pick(ROASTS)}`);}
-    if(cmd==="compliment")    return safeReply(interaction,`💖 ${bu()}: ${pick(COMPLIMENTS)}`);
-    if(cmd==="ship")          {const u1=interaction.options.getUser("user1"),u2=interaction.options.getUser("user2"),pct=r(0,100),bar="█".repeat(Math.floor(pct/10))+"░".repeat(10-Math.floor(pct/10));return safeReply(interaction,`💘 **${u1.username}** + **${u2.username}**\n\n${bar} **${pct}%**\n\n${pct>=80?"Soulmates 💕":pct>=50?"There's potential 👀":pct>=30?"It's complicated 😬":"Maybe just friends 😅"}`);}
-    if(cmd==="topic")         return safeReply(interaction,`💬 ${pick(TOPICS)}`);
-
-    if(cmd==="advice")        return safeReply(interaction,`🧙 ${pick(ADVICE)}`);
-    if(cmd==="fact")          return safeReply(interaction,`📚 ${pick(FACTS)}`);
-    if(cmd==="horoscope")     return safeReply(interaction,HOROSCOPES[interaction.options.getString("sign")]||"Unknown sign.");
-
-
     if(cmd==="echo"){
   const text      = interaction.options.getString("message")||"";
   const useEmbed  = interaction.options.getBoolean("embed")||false;
@@ -7752,15 +7627,6 @@ if(cmd==="gif"){
   }catch(e){await interaction.followUp({content:`❌ Failed to send: ${e.message}`,ephemeral:true}).catch(()=>{});}
   return;
 }
-
-    if(cmd==="poll"){
-      if(!inGuild)return safeReply(interaction,{content:"Server only.",ephemeral:true});
-      const question=interaction.options.getString("question");
-      await safeReply(interaction,`📊 **Poll:** ${question}`);
-      const msg=await interaction.fetchReply();
-      await msg.react(resolveEmoji("goodquote", msg));await msg.react(resolveEmoji("badquote", msg));await msg.react("🤷");
-      return;
-    }
 
     if(cmd==="remind"){
       const minutes=interaction.options.getInteger("time");
@@ -7851,74 +7717,6 @@ if(cmd==="gif"){
       return safeReply(interaction,`🏠 **${g.name}**\n👑 Owner: <@${g.ownerId}>\n👥 Members: **${g.memberCount}** (${g.memberCount-bots} humans, ${bots} bots)\n📅 Created: <t:${Math.floor(g.createdTimestamp/1000)}:R>\n💬 Channels: **${g.channels.cache.filter(c=>c.type==="GUILD_TEXT").size}** text, **${g.channels.cache.filter(c=>c.type==="GUILD_VOICE").size}** voice\n🎭 Roles: **${g.roles.cache.size}**`);
     }
 
-    if(cmd==="userprofile"){
-      const u = interaction.options.getUser("user") || interaction.user;
-      await interaction.deferReply(); _clearAutoDefer();
-      const s = getScore(u.id, u.username);
-      const { level, xp, needed } = xpInfo(s);
-      const member = inGuild ? await interaction.guild.members.fetch(u.id).catch(()=>null) : null;
-      const createdTs = Math.floor(u.createdTimestamp / 1000);
-      const joinedTs  = member ? Math.floor(member.joinedTimestamp / 1000) : null;
-      const barFilled = Math.floor((xp / needed) * 20);
-      const xpBar = "█".repeat(barFilled) + "░".repeat(20 - barFilled);
-      const winRate = s.gamesPlayed > 0 ? Math.round(s.wins / s.gamesPlayed * 100) : 0;
-      const now2 = Date.now();
-      const cdStr = (last, cd) => {
-        const rem = cd - (now2 - (last||0));
-        if (rem <= 0) return "✅ Ready";
-        const m = Math.ceil(rem / 60000);
-        return m >= 60 ? `⏳ ${Math.floor(m/60)}h ${m%60}m` : `⏳ ${m}m`;
-      };
-      const ITEM_NAMES = { lucky_charm:"Lucky Charm 🍀", xp_boost:"XP Boost ⚡", shield:"Shield 🛡️", coin_magnet:"Coin Magnet 🧲", mystery_box:"Mystery Box 📦", item_mystery_box:"Item Mystery Box 🎲", rob_insurance:"Rob Insurance 📋" };
-      let inventoryText = "Empty";
-      if (s.inventory && s.inventory.length > 0) {
-        const counts = {};
-        s.inventory.forEach(i => counts[i] = (counts[i] || 0) + 1);
-        inventoryText = Object.entries(counts).map(([id, qty]) => `${ITEM_NAMES[id]||id} ×${qty}`).join(", ");
-      }
-      const marriageText = s.marriedTo ? `💍 Married to <@${s.marriedTo}>` : "💔 Single";
-      const today2 = new Date().toISOString().slice(0, 10);
-      const streakStatus = s.lastDailyDate === today2 ? "✅ Done today" : "❌ Not done today";
-      const avatarUrl = u.displayAvatarURL({ size: 256, dynamic: true });
-      const lines = [
-        `**🪪 Account**`,
-        `> 🆔 \`${u.id}\``,
-        `> 📅 Created <t:${createdTs}:R>`,
-        joinedTs ? `> 📥 Joined server <t:${joinedTs}:R>` : null,
-        member   ? `> 🎭 Top role: ${member.roles.highest}` : null,
-        `> ${marriageText}`,
-        ``,
-        `**📈 Level & XP**`,
-        `> 🏅 Level **${level}**  ·  ✨ ${xp.toLocaleString()} / ${needed.toLocaleString()} XP`,
-        `> \`[${xpBar}]\``,
-        ``,
-        `**💰 Economy**`,
-        `> 🪙 Coins: **${s.coins.toLocaleString()}**`,
-        `> 🎒 Inventory: ${inventoryText}`,
-        ``,
-        `**🎮 Game Stats**`,
-        `> 🕹️ Played: **${s.gamesPlayed}**  ·  🏆 Wins: **${s.wins}**  ·  📊 Win rate: **${winRate}%**`,
-        `> 🖼️ Images uploaded: **${(s.imagesUploaded||0).toLocaleString()}**`,
-        ``,
-        `**🔥 Daily Streak**`,
-        `> ${streakStatus}  ·  Current: **${s.dailyStreak}** day${s.dailyStreak!==1?"s":""}  ·  Best: **${s.bestStreak}**`,
-        ``,
-        `**⏱️ Cooldowns**`,
-        `> 💼 Work: ${cdStr(s.lastWorkTime, CONFIG.work_cooldown_ms)}  ·  🙏 Beg: ${cdStr(s.lastBegTime, CONFIG.beg_cooldown_ms)}`,
-        `> 🦹 Crime: ${cdStr(s.lastCrimeTime, CONFIG.crime_cooldown_ms)}  ·  🔫 Rob: ${cdStr(s.lastRobTime, CONFIG.rob_cooldown_ms)}`,
-      ].filter(l => l !== null).join("\n");
-      return safeReply(interaction, {
-        embeds: [{
-          author: { name: `${u.username}'s Profile`, icon_url: avatarUrl },
-          description: lines,
-          color: 0x5865F2,
-          thumbnail: { url: avatarUrl },
-          footer: { text: `ID: ${u.id}` },
-          timestamp: new Date().toISOString(),
-        }]
-      });
-    }
-
     if(cmd==="botinfo"){
       const guilds=client.guilds.cache.size;
       let totalUsers=0;client.guilds.cache.forEach(g=>totalUsers+=g.memberCount);
@@ -7927,14 +7725,14 @@ if(cmd==="gif"){
 
     if(cmd==="help"){
       const HELP_PAGES=[
-        {title:"🎉 Fun & Social  —  Page 1 / 7",description:["**Interactions**","`/action type:… user:…` — Hug, pat, poke, stare, wave, high five, boop, oil, diddle, or kill someone","`/punch` `/hug` `/kiss` `/slap` `/throw` — Quick social actions","`/rate type:… user:…` — Rate someone (gay, autistic, simp, cursed, npc, villain, sigma)","`/ppsize user:…` — Check pp size","`/ship user1:… user2:…` — Ship compatibility %","","**Romance**","`/marry user:…` — Propose 💍 — target gets Accept/Decline buttons","`/divorce` — End the marriage 💔","`/partner [user]` — See who someone is married to","","**Party Games**","`/party type:truth|dare|neverhavei` — Truth, Dare, or Never Have I Ever","","**Conversation**","`/topic` — Random conversation starter","`/roast [user]` — Roast someone 🔥","`/compliment user:…` — Compliment someone 💖","`/advice` — Life advice 🧙","`/fact` — Random fun fact 📚","`/horoscope sign:…` — Your daily horoscope ✨","`/poll question:…` — Quick yes/no poll (server only)"].join("\n")},
-        {title:"📡 Media & Utility  —  Page 2 / 7",description:["**Media**","`/gif animal:…` — Random animal GIF 🐾 (cat, dog, fox, panda, duck, bunny, koala, raccoon)","`/joke` — Random joke 😂","`/meme` — Random meme 🐸","`/quote` — Inspirational quote image ✨","`/trivia` — Trivia question with spoiler answer 🧠","`/avatar user:…` — Get someone\'s avatar","","**Utility**","`/ping` — Bot latency 🏓","`/coinflip` — Heads or tails 🪙","`/roll [sides]` — Roll a dice (default d6) 🎲","`/choose options:a,b,c` — Pick from comma-separated options","`/echo [message] [embed] [image] [title] [color] [replyto]` — Make the bot say something","`/remind time:… message:…` — Set a reminder (1 min – 1 week)","`/messageschedule time:… message:…` — Schedule a message to send later, as you, via webhook 📨 (e.g. `5 hours`, `2 days`, `1 week`, `1 month`)","`/upload source|link:…` — Upload an image/audio/video to the quotes folder 🖼️🔊🎬 *(server only, authorized users)*","","**Info**","`/botinfo` — Bot stats","`/serverinfo` — Server member/channel/role info","`/userprofile [user]` — Full profile: level, XP, coins, items, cooldowns"].join("\n")},
-        {title:"📈 XP & Leaderboards  —  Page 3 / 7",description:["**XP**","You earn XP by sending messages (1 min cooldown). 5–15 XP per message.","Level formula: `floor(50 × level^1.5)` XP per level","","`/xp [user]` — Check XP, level, and progress bar","`/xpleaderboard [scope:global|server]` — Top 10 by XP","","**Stats & Leaderboards**","`/score [user]` — Wins, losses, win rate, streak","`/userprofile [user]` — Everything in one embed","`/leaderboard [type]` — Global top 10","`/serverleaderboard [type]` — Server top 10","> Types: `wins` `coins` `streak` `beststreak` `games` `winrate` `images`"].join("\n")},
-        {title:"🎮 Games  —  Page 4 / 7",description:["**Solo** — `/games game:…`","> 🪢 Hangman · 🐍 Snake · 💣 Minesweeper (Easy/Med/Hard)","> 🔢 Number Guess · 🔀 Word Scramble · 📅 Daily Challenge","","**2-Player** — `/2playergames game:… [opponent:…]`","> ❌⭕ Tic Tac Toe *(server only)*","> 🔴🔵 Connect 4 *(server only)*","> ✊ Rock Paper Scissors *(choices sent via DM)*","> 🧮 Math Race · 🏁 Word Race · 🧠 Trivia Battle *(server only)*","> 🔢 Count Game — count to 100 together, no opponent needed *(server only)*","> 🏁 Scramble Race — 5-round word unscramble *(server only)*","","Wins award coins. Check `/score` or `/userprofile` for stats."].join("\n")},
-        {title:"⚙️ Server Config  —  Page 5 / 7",description:["Most commands here require **Manage Server** permission.","","**Channels & Messages**","`/channelpicker channel:… [levelup]` — Set the bot\'s main channel","`/xpconfig setting:…` — Level-up messages (on/off, ping toggle, channel)","`/setwelcome channel:… [message]` — Welcome message (`{user}` `{server}` `{count}`)","`/setleave channel:… [message]` — Leave message","`/setboostmsg channel:… [message]` — Boost announcement","`/disableownermsg enabled:…` — Toggle bot owner broadcasts","`/purge amount:…` — Bulk delete (needs Manage Messages)","`/counting action:set|remove|status` — Set a permanent counting channel","","**Roles**","`/autorole [role]` — Auto-assign role on join (blank to disable)","`/reactionrole action:add|remove|list …` — Emoji reaction roles","`/rolespingfix` — List & fix roles that can @everyone","","**Competitions & Tickets**","`/invitecomp hours:…` — Invite competition with coin rewards","`/ticketsetup` · `/closeticket` · `/addtoticket` · `/removefromticket`","","**Overview**","`/serverconfig` — View all current settings"].join("\n")},
-        {title:"🛡️ Activity & RA/LOA  —  Page 6 / 7",description:["**Activity Checks** *(Manage Server)*","`/activity-check channel:… [deadline] [message] [ping] [schedule]` — Send a check-in to staff","> Specify which roles must respond and who is excluded","> Auto-closes after the deadline and reports who didn\'t check in","> Add `schedule:Monday 09:00` (UTC) to repeat it weekly automatically","","**RA / LOA Setup** *(Manage Server)*","`/raconfig action:create` — Auto-create Reduced Activity + LOA roles","`/raconfig action:set_ra|set_loa role:…` — Use existing roles","`/raconfig action:view` — See current config","","**Assigning Roles** *(Manage Roles)*","`/reduced-activity user:… action:give|remove [duration]` — Give/remove RA role","`/loa user:… action:give|remove [duration]` — Give/remove LOA role","> `duration` is in hours — omit for permanent"].join("\n")},
-        {title:"📺 YouTube Tracking  —  Page 7 / 8",description:["Track a YouTube channel\'s subscriber count live in Discord.","All commands require **Manage Server** permission.","","**Setup (do this first)**","`/ytsetup channel:… discord_channel:… [apikey:…]` — Connect a YouTube channel","> Accepts `@handle`, full URL, or channel ID starting with UC","> Provide your YouTube Data API v3 key on first use — it\'s saved to botdata","> Get a free key at console.cloud.google.com → enable YouTube Data API v3","","**Live Sub Count**","`/subcount threshold:1K|10K` — Post an embed that edits itself every 5 min","","**Sub Goal**","`/subgoal goal:N [message]` — Live progress bar towards a target sub count","> Fires a custom or default message when the goal is reached","","**Milestones**","`/milestones action:add subs:N [message]` — Announce when a sub count is crossed","`/milestones action:remove subs:N` — Remove a milestone","`/milestones action:list` — View all milestones and their status","","**[Owner] Pranks & Chaos**","`/paranoia user:… [chance]` — DM a user creepy paranoia messages (1-100% chance per message)","> Right-click any message → **Tomato This** — splat tomato-splat.gif onto a Discord-style message card (open to everyone)"].join("\n")},
-        {title:"🤖 Community Modes  —  Page 8 / 8",description:["Clankerify replaces a user\'s messages with a webhook impersonating them in a chosen personality.","","**For Everyone**","`/selfclank duration:1-5` — Clankerify yourself for 1–5 min with any mode","> Choose from built-in modes or any custom modes players have built","> Max 2 self-clanked users per server at once","> `/selfclank duration:0` to cancel early","","**Built-in Modes**","🤖 No mode (plain) · 😈 Evil · 😏 Freaky · 🦅 American · 🫖 British","🪖 Stupid · 📰 Boomer · 🔺 Conspiracy · 🗺️ NPC · 😤 Sigma","⚔️ Medieval · 👻 Ghost · 🏴‍☠️ Pirate · 🦝 RespawnRaccoon Propaganda","🇫🇷 French · 🐱 UWU/LOLCAT · 🏴󠁧󠁢󠁳󠁣󠁴󠁿 Scottish · 🎲 Random","","**Custom Modes** — anyone can build one with `/clankerbuild`","`/clankerbuild action:create name:<id>` — Opens a builder modal with:","  • Display name format (`{name}` = the user\'s name)","  • Word replacements (`Test>Test2; friend>pardner, …`)","  • Signoffs (`yeehaw!;much obliged;git along now`)","  • Message start prefix","  • Emoji shown in the mode selector","`/clankerbuild action:list` — View all custom modes","`/clankerbuild action:delete name:<id>` — Remove a custom mode","","Custom modes appear automatically in the `/clankerify` and `/selfclank` dropdowns.","","**[Owner] Temp Owner Access**","`/tempowner user:… duration:… [commands:…]` — Grant a user temporary access","> Pick specific commands by name (comma-separated) or use `all`","> They receive a DM listing exactly what they can use and for how long"].join("\n")},
+        {title:"🎉 Social & Utility  —  Page 1 / 8",description:["**Romance**","`/marry user:…` — Propose 💍 — target gets Accept/Decline buttons","`/divorce` — End the marriage 💔","`/partner [user]` — See who someone is married to","","**Media**","`/quote` — Inspirational quote image ✨","`/goodquote` — Top-rated quote image ⭐","`/badquote` — Bottom-rated quote image 💀","`/avatar user:…` — Get someone's avatar","","**Utility**","`/ping` — Bot latency 🏓","`/echo [message] [embed] [image] [title] [color] [replyto]` — Make the bot say something","`/remind time:… message:…` — Set a reminder (1 min – 1 week)","`/messageschedule time:… message:…` — Schedule a message to send later, as you, via webhook 📨 (e.g. `5 hours`, `2 days`, `1 week`, `1 month`)","`/premiere hours:… channel:… [title]` — Countdown to a video upload 🎬","`/upload source|link:…` — Upload an image/audio/video to the quotes folder 🖼️🔊🎬 *(authorized users)*","","**Info**","`/botinfo` — Bot stats","`/serverinfo` — Server member/channel/role info"].join("\n")},
+        {title:"📈 XP & Leaderboards  —  Page 2 / 8",description:["**XP**","You earn XP by sending messages (1 min cooldown). 5–15 XP per message.","Level formula: `floor(50 × level^1.5)` XP per level","","`/xp [user]` — Check XP, level, and progress bar","`/xpleaderboard [scope:global|server]` — Top 10 by XP","","**Stats & Leaderboards**","`/score [user]` — Wins, losses, win rate, streak","`/leaderboard [type]` — Global top 10","`/serverleaderboard [type]` — Server top 10","> Types: `wins` `coins` `streak` `beststreak` `games` `winrate` `images`"].join("\n")},
+        {title:"⚙️ Server Config  —  Page 3 / 8",description:["Most commands here require **Manage Server** permission.","","**Channels & Messages**","`/channelpicker channel:… [levelup]` — Set the bot's main channel","`/xpconfig setting:…` — Level-up messages (on/off, ping toggle, channel)","`/setwelcome channel:… [message]` — Welcome message (`{user}` `{server}` `{count}`)","`/setleave channel:… [message]` — Leave message","`/setboostmsg channel:… [message]` — Boost announcement","`/disableownermsg enabled:…` — Toggle bot owner broadcasts","`/purge amount:…` — Bulk delete (needs Manage Messages)","`/counting action:set|remove|status` — Set a permanent counting channel","","**Roles**","`/autorole [role]` — Auto-assign role on join (blank to disable)","`/reactionrole action:add|remove|list …` — Emoji reaction roles","`/rolespingfix` — List & fix roles that can @everyone","","**Competitions & Tickets**","`/invitecomp hours:…` — Invite competition with coin rewards","`/ticketsetup` · `/closeticket` · `/addtoticket` · `/removefromticket`","","**Overview**","`/serverconfig` — View all current settings"].join("\n")},
+        {title:"🛡️ Activity & RA/LOA  —  Page 4 / 8",description:["**Activity Checks** *(Manage Server)*","`/activity-check channel:… [deadline] [message] [ping] [schedule]` — Send a check-in to staff","> Specify which roles must respond and who is excluded","> Auto-closes after the deadline and reports who didn't check in","> Add `schedule:Monday 09:00` (UTC) to repeat it weekly automatically","","**RA / LOA Setup** *(Manage Server)*","`/raconfig action:create` — Auto-create Reduced Activity + LOA roles","`/raconfig action:set_ra|set_loa role:…` — Use existing roles","`/raconfig action:view` — See current config","","**Assigning Roles**","`/staffrole type:ra|loa user:… action:give|remove [duration]` — Give/remove RA or LOA role","> `duration` is in hours — omit for permanent"].join("\n")},
+        {title:"📺 YouTube Tracking  —  Page 5 / 8",description:["Track a YouTube channel's subscriber count live in Discord.","All commands require **Manage Server** permission.","","**Setup (do this first)**","`/ytsetup channel:… discord_channel:… [apikey:…]` — Connect a YouTube channel","> Accepts `@handle`, full URL, or channel ID starting with UC","> Provide your YouTube Data API v3 key on first use — it's saved to botdata","> Get a free key at console.cloud.google.com → enable YouTube Data API v3","","**Live Sub Count**","`/subcount threshold:1K|10K` — Post an embed that edits itself every 5 min","","**Sub Goal**","`/subgoal goal:N [message]` — Live progress bar towards a target sub count","> Fires a custom or default message when the goal is reached","","**Milestones**","`/milestones action:add subs:N [message]` — Announce when a sub count is crossed","`/milestones action:remove subs:N` — Remove a milestone","`/milestones action:list` — View all milestones and their status"].join("\n")},
+        {title:"🤖 Community Modes  —  Page 6 / 8",description:["Clankerify replaces a user's messages with a webhook impersonating them in a chosen personality.","","**For Everyone**","`/selfclank duration:1-5` — Clankerify yourself for 1–5 min with any mode","> Choose from built-in modes or any custom modes players have built","> Max 2 self-clanked users per server at once","> `/selfclank duration:0` to cancel early","","**Built-in Modes**","🤖 No mode (plain) · 😈 Evil · 😏 Freaky · 🦅 American · 🫖 British","🪖 Stupid · 📰 Boomer · 🔺 Conspiracy · 🗺️ NPC · 😤 Sigma","⚔️ Medieval · 👻 Ghost · 🏴‍☠️ Pirate · 🦝 RespawnRaccoon Propaganda","🇫🇷 French · 🐱 UWU/LOLCAT · 🏴󠁧󠁢󠁳󠁣󠁴󠁿 Scottish · 🎲 Random","","**Custom Modes** — anyone can build one with `/clankerbuild`","`/clankerbuild action:create name:<id>` — Opens a builder modal with:","  • Display name format (`{name}` = the user's name)","  • Word replacements (`Test>Test2; friend>pardner, …`)","  • Signoffs (`yeehaw!;much obliged;git along now`)","  • Message start prefix","  • Emoji shown in the mode selector","`/clankerbuild action:list` — View all custom modes","`/clankerbuild action:delete name:<id>` — Remove a custom mode","","Custom modes appear automatically in the `/clankerify` and `/selfclank` dropdowns."].join("\n")},
+        {title:"🖼️ Media & Quotes  —  Page 7 / 8",description:["**Quotes Folder**","`/upload source|link:…` — Upload an image/audio/video *(authorized users)*","`/requestupload source:…` — Submit a file to be reviewed for the quotes folder","`/managememers action:add|remove|list [user]` — [Owner] Manage the upload allowlist","`/quotemanage …` — [Owner] Browse, delete, and configure the quotes folder","`/dailyquote action:set|disable|status [channel] [hour]` — Auto-post a daily quote (Manage Server)","`/library user:… [page]` — Browse a user's uploaded quotes","","**Other Media Tools**","`/pixeltxt action:structure|destructure file:…` — Convert an image to/from a compressed text format","`/jarvisdatabase source:… name:…` — Upload a trigger image/gif/video straight to the Jarvis folder","`/download url:… [format] [resolution]` — Download a YouTube video as MP4 or MP3"].join("\n")},
+        {title:"🔒 Owner Tools  —  Page 8 / 8",description:["**Bot Management**","`/servers` — List servers & invite links","`/botstats` — Bot stats","`/setstatus text:… [type]` — Set bot presence","`/restart` — Restart the bot","`/refreshcmds` — Force re-register slash commands in this guild","`/adminconfig [key] [value]` — View/edit global config values","","**User & Server Actions**","`/forcemarry user1:… user2:…` — Force marry two users","`/forcedivorce user:…` — Force divorce a user","`/leaveserver server:…` — Leave a server","`/blacklist action:add|remove|list [user] [silent]` — Block a user from ever using RoyalBot","`/shadowdelete user:… percentage:…` — Randomly delete a % of a user's messages","`/clankerify user:… [duration]` — Resend a user's messages as a webhook impersonating them","`/paranoia user:… [chance]` — DM a user creepy paranoia messages","`/fakemessage user:… [message] [file] [mode]` — Send a message as another user via webhook","`/fakequote user:… text:… [displayname] [username]` — Generate a 'Make it a Quote' style card","`/theremnant message:…` — Send a mysterious dimensional transmission","","**Access & Relay**","`/tempowner user:… duration:… [commands]` — Grant a user temporary owner access","`/dmconfig [server] [user]` — Set up the DM relay hub or open a relay channel"].join("\n")},
       ];
       const TOTAL=HELP_PAGES.length;
       function buildHelpEmbed(page){
@@ -7998,209 +7796,6 @@ if(cmd==="gif"){
       const entries=[...scores.entries()].filter(([id])=>mids.has(id));
       if(!entries.length)return safeReply(interaction,"No scores in this server yet!");
       return safeReply(interaction,buildLeaderboard(entries,interaction.options.getString("type")||"wins",`🏠 ${interaction.guild.name}`));
-    }
-    if(cmd==="boostleaderboard"){
-      if(!inGuild)return safeReply(interaction,{content:"Server only.",ephemeral:true});
-      await interaction.deferReply(); _clearAutoDefer();
-      const guild=interaction.guild;
-      await seedBoostHistory(guild).catch(()=>{});
-      const gMap=boostHistory.get(guild.id);
-      const entries=gMap?[...gMap.entries()]:[];
-      if(!entries.length){
-        return safeReply(interaction,{embeds:[{
-          title:"🚀 Boost Leaderboard",
-          description:"No boosts recorded yet — be the first! 💜",
-          color:0xF47FFF,
-        }]});
-      }
-      const sorted=entries.sort((a,b)=>b[1].count-a[1].count||a[1].firstBoostAt-b[1].firstBoostAt).slice(0,15);
-      const medals=["🥇","🥈","🥉"];
-      const nowBoosting=new Set(guild.members.cache.filter(m=>m.premiumSince).map(m=>m.id));
-      const lines=sorted.map(([id,rec],i)=>{
-        const rank=medals[i]||`#${i+1}`;
-        const live=nowBoosting.has(id)?" 🟢":"";
-        return `${rank} <@${id}> — **${rec.count}** boost${rec.count!==1?"s":""}${live}`;
-      });
-      return safeReply(interaction,{embeds:[{
-        title:"🚀 Boost Leaderboard",
-        description:`**${guild.name}** has **${guild.premiumSubscriptionCount||0}** total boosts (Level ${guild.premiumTier||0})\n🟢 = currently boosting\n\n${lines.join("\n")}`,
-        color:0xF47FFF,
-        footer:{text:`${sorted.length} booster${sorted.length!==1?"s":""} • # = times each person has started boosting (Discord doesn't expose simultaneous boosts)`},
-        timestamp:new Date().toISOString(),
-      }]});
-    }
-    if(cmd==="boostsmanage"){
-      if(!inGuild)return safeReply(interaction,{content:"Server only.",ephemeral:true});
-      const target=interaction.options.getUser("user");
-      const amount=interaction.options.getInteger("amount")??1;
-      const m=ensureBoostGuildMap(interaction.guildId);
-      const existed=m.has(target.id);
-      const rec=m.get(target.id)||{count:0,firstBoostAt:Date.now(),lastBoostAt:Date.now()};
-      rec.count=Math.max(0,rec.count+amount);
-      rec.lastBoostAt=Date.now();
-      if(!existed) rec.firstBoostAt=Date.now();
-      m.set(target.id,rec);
-      saveData();
-      return safeReply(interaction,{content:`✅ ${amount>=0?"Added":"Removed"} **${Math.abs(amount)}** boost${Math.abs(amount)!==1?"s":""} ${amount>=0?"to":"from"} <@${target.id}>. New total: **${rec.count}**.`,ephemeral:true});
-    }
-
-    // Daily challenge
-    // ── /games — solo game launcher ───────────────────────────────────────────
-    if(cmd==="games"){
-      const game=interaction.options.getString("game");
-      if(game==="daily"){
-        const uid=interaction.user.id;
-        if(dailyCompletions.has(uid)){const tmrw=new Date();tmrw.setUTCHours(24,0,0,0);const h=Math.ceil((tmrw-Date.now())/3600000);const s=getScore(uid,interaction.user.username);return safeReply(interaction,`✅ Already completed today! Resets in **${h}h**.\n🔥 Streak: **${s.dailyStreak}**`);}
-        const ch=getDailyChallenge();const targetCh=getTargetChannel(interaction);
-        await safeReply(interaction,`📅 **Daily Challenge!**\n\n${ch.desc}\n\nYou have **60 seconds**!`);
-        const col=targetCh.createMessageCollector({filter:m=>m.author.id===uid,idle:60*1000});
-        col.on("collect",async m=>{if(m.content.trim().toLowerCase()===ch.answer.toLowerCase()){col.stop("won");dailyCompletions.add(uid);const s=recordDaily(uid,interaction.user.username);saveData();const bonus=(s.dailyStreak-1)*CONFIG.daily_streak_bonus;await m.reply(`🎉 **Correct!** +${CONFIG.daily_base_coins+bonus} coins\n🔥 Streak: **${s.dailyStreak}**${s.dailyStreak===s.bestStreak&&s.dailyStreak>1?" 🏆 New best!":""}\n💰 Balance: **${s.coins}**`);}else{const ps=getScore(m.author.id,m.author.username);const penalty=CONFIG.daily_wrong_penalty;ps.coins=Math.max(0,ps.coins-penalty);saveData();await m.reply(`❌ Not quite! Keep trying... (-${penalty} coins)\n💰 Balance: **${ps.coins}**`);}});
-        col.on("end",(_,reason)=>{if(reason==="idle")safeSend(targetCh,`⏰ Daily timed out! Answer was **${ch.answer}**.`);});
-        return;
-      }
-      if(activeGames.has(interaction.channelId))return safeReply(interaction,{content:"A game is already running here!",ephemeral:true});
-      if(game==="hangman"){
-        const word=pick(HANGMAN_WORDS),guessed=new Set();
-        activeGames.set(interaction.channelId,{type:"hangman",word,guessed,playerId:interaction.user.id});
-        return safeReply(interaction,{content:`🪢 **Hangman!** <@${interaction.user.id}>, pick a letter!\n\n${renderHangman(word,guessed)}`,components:makeHangmanButtons(word,guessed)});
-      }
-      if(game==="snake"){
-        const sg={type:"snake",snake:[{x:3,y:3}],food:{x:5,y:2},size:7,score:0,playerId:interaction.user.id};
-        activeGames.set(interaction.channelId,sg);
-        return safeReply(interaction,{content:`🐍 **Snake!** Use the buttons to move.\n\n${renderSnake(sg)}`,components:makeSnakeButtons()});
-      }
-      if(game.startsWith("minesweeper_")){
-        const diff=game.slice(12); // "easy" / "medium" / "hard"
-        const mineCount={easy:3,medium:6,hard:10}[diff];
-        const mg=initMinesweeper(mineCount);
-        activeGames.set(interaction.channelId,{type:"minesweeper",game:mg,diff,playerId:interaction.user.id});
-        return safeReply(interaction,{content:`💣 **Minesweeper** (${diff}) — 5×5 grid, ${mineCount} mines\nClick any cell to reveal it. Avoid the mines!`,components:makeMSButtons(mg)});
-      }
-      if(game==="numberguess"){
-        const target=r(1,100);let attempts=0;
-        activeGames.set(interaction.channelId,{type:"numberguess"});
-        const targetCh=getTargetChannel(interaction);
-        await safeReply(interaction,`🔢 **Number Guess!** 1–100, 10 attempts!`);
-        const col=targetCh.createMessageCollector({filter:m=>m.author.id===interaction.user.id&&!isNaN(m.content.trim()),idle:2*60*1000});
-        col.on("collect",async m=>{const guess=parseInt(m.content.trim());attempts++;if(guess===target){col.stop();activeGames.delete(interaction.channelId);recordWin(interaction.user.id,interaction.user.username,CONFIG.win_numberguess);saveData();await m.reply(`🎉 **${target}** in **${attempts}** attempt(s)! (+${CONFIG.win_numberguess} coins)`);}else if(attempts>=10){col.stop();activeGames.delete(interaction.channelId);recordLoss(interaction.user.id,interaction.user.username);saveData();await m.reply(`💀 Out of attempts! It was **${target}**.`);}else await m.reply(guess<target?`📈 Too low! ${10-attempts} left.`:`📉 Too high! ${10-attempts} left.`);});
-        col.on("end",(_,reason)=>{if(reason==="idle"){activeGames.delete(interaction.channelId);safeSend(getTargetChannel(interaction),`⏰ Timed out! It was **${target}**.`);}});
-        return;
-      }
-      if(game==="wordscramble"){
-        const word=pick(HANGMAN_WORDS),scrambled=word.split("").sort(()=>Math.random()-0.5).join("");
-        activeGames.set(interaction.channelId,{type:"wordscramble"});
-        const targetCh=getTargetChannel(interaction);
-        await safeReply(interaction,`🔀 **Word Scramble!** Unscramble: **\`${scrambled}\`**`);
-        const col=targetCh.createMessageCollector({filter:m=>m.author.id===interaction.user.id,idle:60*1000});
-        col.on("collect",async m=>{if(m.content.trim().toLowerCase()===word){col.stop();activeGames.delete(interaction.channelId);recordWin(interaction.user.id,interaction.user.username,CONFIG.win_wordscramble);saveData();await m.reply(`🎉 **${word}**! (+${CONFIG.win_wordscramble} coins)`);}else await m.reply("❌ Not quite! Keep trying...");});
-        col.on("end",(_,reason)=>{if(reason==="idle"){activeGames.delete(interaction.channelId);safeSend(getTargetChannel(interaction),`⏰ Timed out! It was **${word}**.`);}});
-        return;
-      }
-      return safeReply(interaction,{content:"Unknown game.",ephemeral:true});
-    }
-    // ── /2playergames — multiplayer game launcher ─────────────────────────────
-    if(cmd==="2playergames"){
-      const game=interaction.options.getString("game");
-      const opp=interaction.options.getUser("opponent");
-
-      // Count game doesn't need an opponent
-      if(game==="countgame"){
-        if(!inGuild)return safeReply(interaction,{content:"Server only.",ephemeral:true});
-        if(countGames.has(interaction.guildId)){const cg=countGames.get(interaction.guildId);return safeReply(interaction,`🔢 Count game is active in <#${cg.channelId}>! Currently at **${cg.count}**. Count up to 100 together!`);}
-        countGames.set(interaction.guildId,{count:0,lastUserId:null,channelId:interaction.channelId});
-        return safeReply(interaction,`🔢 **Count Game started!** Count from 1 to 100 together — but no two messages in a row from the same person!\n\nStart counting: type **1**!`);
-      }
-
-      // All other 2p games need an opponent
-      if(!opp)return safeReply(interaction,{content:"❌ Please provide an `opponent` for this game.",ephemeral:true});
-      if(opp.bot||opp.id===interaction.user.id)return safeReply(interaction,{content:"Invalid opponent.",ephemeral:true});
-
-      // Board games need a shared guild channel
-      const needsSharedChannel=["tictactoe","connect4","mathrace","wordrace","triviabattle","scramblerace"];
-      if(needsSharedChannel.includes(game)&&!inGuild)return safeReply(interaction,{content:"❌ This game requires a server — both players need to see the same channel!",ephemeral:true});
-
-      if(activeGames.has(interaction.channelId))return safeReply(interaction,{content:"A game is already running here!",ephemeral:true});
-
-      if(game==="tictactoe"){
-        const g={type:"ttt",board:Array(9).fill(null),players:[interaction.user.id,opp.id],turn:0};
-        activeGames.set(interaction.channelId,g);
-        return safeReply(interaction,{content:`❌⭕ **Tic Tac Toe**\n<@${g.players[0]}> ❌  vs  <@${opp.id}> ⭕\n\nIt's <@${g.players[0]}>'s turn!`,components:makeTTTButtons(g.board)});
-      }
-      if(game==="connect4"){
-        const g={type:"c4",board:Array(42).fill(0),players:[interaction.user.id,opp.id],turn:0};
-        activeGames.set(interaction.channelId,g);
-        return safeReply(interaction,{content:`🔴🔵 **Connect 4**\n<@${g.players[0]}> 🔴  vs  <@${opp.id}> 🔵\n\n${renderC4(g.board)}\n<@${g.players[0]}>'s turn!`,components:makeC4Buttons()});
-      }
-      if(game==="rps"){
-        const gameId=`${interaction.channelId}${Date.now()}`;
-        activeGames.set(gameId,{type:"rps",p1:interaction.user.id,p2:opp.id,u1:interaction.user.username,u2:opp.username,choices:{},channelId:interaction.channelId});
-        const mkBtns=(pid)=>[new MessageActionRow().addComponents(
-          new MessageButton().setCustomId(`rps_${gameId}_✊_${pid}`).setLabel("Rock ✊").setStyle("SECONDARY"),
-          new MessageButton().setCustomId(`rps_${gameId}_✋_${pid}`).setLabel("Paper ✋").setStyle("SECONDARY"),
-          new MessageButton().setCustomId(`rps_${gameId}_✌️_${pid}`).setLabel("Scissors ✌️").setStyle("SECONDARY"),
-        )];
-        try{const dm1=await interaction.user.createDM();await dm1.send({content:`🎮 RPS vs <@${opp.id}>! Choose:`,components:mkBtns(interaction.user.id)});const dm2=await opp.createDM();await dm2.send({content:`🎮 RPS vs <@${interaction.user.id}>! Choose:`,components:mkBtns(opp.id)});return safeReply(interaction,`✊✋✌️ **RPS!** <@${interaction.user.id}> vs <@${opp.id}> — Check your DMs!`);}
-        catch{activeGames.delete(gameId);return safeReply(interaction,{content:"Couldn't DM one of the players (DMs may be off).",ephemeral:true});}
-      }
-      if(game==="mathrace"){
-        const av=r(2,12),bv=r(2,12),answer=String(av*bv);
-        activeGames.set(interaction.channelId,{type:"mathrace"});
-        const targetCh=getTargetChannel(interaction);
-        await safeReply(interaction,`🧮 **Math Race!** <@${interaction.user.id}> vs <@${opp.id}>\n\n**What is ${av} × ${bv}?**`);
-        try{const col=await targetCh.awaitMessages({filter:m=>[interaction.user.id,opp.id].includes(m.author.id)&&m.content.trim()===answer,max:1,time:30000,errors:["time"]});activeGames.delete(interaction.channelId);const w=col.first().author,l=w.id===interaction.user.id?opp:interaction.user;recordWin(w.id,w.username,CONFIG.win_mathrace);recordLoss(l.id,l.username);saveData();await col.first().reply(`🎉 **${w.username} wins!** Answer: **${answer}** (+${CONFIG.win_mathrace} coins)`);}
-        catch{activeGames.delete(interaction.channelId);await safeSend(getTargetChannel(interaction),`⏰ Time's up! Answer: **${answer}**.`);}
-        return;
-      }
-      if(game==="wordrace"){
-        const word=pick(HANGMAN_WORDS),scrambled=word.split("").sort(()=>Math.random()-0.5).join("");
-        activeGames.set(interaction.channelId,{type:"wordrace"});
-        const targetCh=getTargetChannel(interaction);
-        await safeReply(interaction,`🏁 **Word Race!** <@${interaction.user.id}> vs <@${opp.id}>\n\nUnscramble: **\`${scrambled}\`**`);
-        try{const col=await targetCh.awaitMessages({filter:m=>[interaction.user.id,opp.id].includes(m.author.id)&&m.content.trim().toLowerCase()===word,max:1,time:60000,errors:["time"]});activeGames.delete(interaction.channelId);const w=col.first().author,l=w.id===interaction.user.id?opp:interaction.user;recordWin(w.id,w.username,CONFIG.win_wordrace);recordLoss(l.id,l.username);saveData();await col.first().reply(`🎉 **${w.username} wins!** Word: **${word}** (+${CONFIG.win_wordrace} coins)`);}
-        catch{activeGames.delete(interaction.channelId);await safeSend(getTargetChannel(interaction),`⏰ Time's up! Word: **${word}**.`);}
-        return;
-      }
-      if(game==="triviabattle"){
-        await interaction.deferReply();
-        const t=await getTrivia();
-        if(!t)return safeReply(interaction,"Trivia API is down. Try again later.");
-        activeGames.set(interaction.channelId,{type:"triviabattle"});
-        const targetCh=getTargetChannel(interaction);
-        await safeReply(interaction,{content:`🧠 **Trivia Battle!** <@${interaction.user.id}> vs <@${opp.id}>\n\n**${t.question}**\n\n${t.answers.map((a,i)=>`${["🇦","🇧","🇨","🇩"][i]} ${a}`).join("\n")}\n\nFirst to type the correct answer wins! You have **30 seconds**.`});
-        try{const col=await targetCh.awaitMessages({filter:m=>[interaction.user.id,opp.id].includes(m.author.id)&&m.content.trim().toLowerCase()===t.correct.toLowerCase(),max:1,time:30000,errors:["time"]});activeGames.delete(interaction.channelId);const winner=col.first().author,loser=winner.id===interaction.user.id?opp:interaction.user;recordWin(winner.id,winner.username,CONFIG.win_trivia);recordLoss(loser.id,loser.username);saveData();await col.first().reply(`🎉 **${winner.username}** wins! Answer: **${t.correct}** (+${CONFIG.win_trivia} coins)`);}
-        catch{activeGames.delete(interaction.channelId);await safeSend(getTargetChannel(interaction),`⏰ Time's up! The answer was **${t.correct}**.`);}
-        return;
-      }
-      if(game==="scramblerace"){
-        const words=[];while(words.length<5){const w=pick(HANGMAN_WORDS);if(!words.includes(w))words.push(w);}
-        const scrambled=words.map(w=>w.split("").sort(()=>Math.random()-0.5).join(""));
-        const state={type:"scramblerace",words,scrambled,scores:{[interaction.user.id]:0,[opp.id]:0},current:0,players:[interaction.user.id,opp.id]};
-        activeGames.set(interaction.channelId,state);
-        const targetCh=getTargetChannel(interaction);
-        await safeReply(interaction,`🏁 **Scramble Race!** <@${interaction.user.id}> vs <@${opp.id}>\n\nFirst to unscramble 5 words wins!\n\n**Word 1/5:** \`${scrambled[0]}\`\n\nType your answer!`);
-        const col=targetCh.createMessageCollector({filter:m=>[interaction.user.id,opp.id].includes(m.author.id),time:3*60*1000});
-        col.on("collect",async m=>{
-          const gd=activeGames.get(interaction.channelId);if(!gd||gd.type!=="scramblerace")return;
-          if(m.content.trim().toLowerCase()===gd.words[gd.current]){
-            gd.scores[m.author.id]=(gd.scores[m.author.id]||0)+1;
-            await m.react("✅");
-            gd.current++;
-            if(gd.current>=5){
-              col.stop("done");activeGames.delete(interaction.channelId);
-              const s0=gd.scores[interaction.user.id]||0,s1=gd.scores[opp.id]||0;
-              let txt;
-              if(s0>s1){recordWin(interaction.user.id,interaction.user.username,CONFIG.win_scramblerace);recordLoss(opp.id,opp.username);txt=`🎉 <@${interaction.user.id}> wins **${s0}–${s1}**! (+${CONFIG.win_scramblerace} coins)`;}
-              else if(s1>s0){recordWin(opp.id,opp.username,CONFIG.win_scramblerace);recordLoss(interaction.user.id,interaction.user.username);txt=`🎉 <@${opp.id}> wins **${s1}–${s0}**! (+${CONFIG.win_scramblerace} coins)`;}
-              else{recordDraw(interaction.user.id,interaction.user.username);recordDraw(opp.id,opp.username);txt=`🤝 Tie! **${s0}–${s1}**`;}
-              saveData();
-              await safeSend(targetCh,`🏁 **Scramble Race over!**\n\n${txt}`);
-            }else{await safeSend(targetCh,`**Word ${gd.current+1}/5:** \`${gd.scrambled[gd.current]}\``);}
-          }
-        });
-        col.on("end",(_,reason)=>{if(reason!=="done"){activeGames.delete(interaction.channelId);safeSend(getTargetChannel(interaction),"⏰ Scramble Race timed out!");}});
-        return;
-      }
-      return safeReply(interaction,{content:"Unknown game.",ephemeral:true});
     }
 
     // Server management
@@ -8338,48 +7933,6 @@ if(cmd==="gif"){
     }
 
     // Owner commands
-    if(cmd==="broadcast"){
-      await interaction.deferReply({ephemeral:true});
-      const message=interaction.options.getString("message");let sent=0,failed=0;
-      for(const g of client.guilds.cache.values()){if(disabledOwnerMsg.has(g.id)){failed++;continue;}try{const o=await client.users.fetch(g.ownerId);await o.send(`**Message from the bot owner:**\n${message}`);sent++;}catch{failed++;}}
-      return safeReply(interaction,`Broadcast done — sent: ${sent}, skipped/failed: ${failed}`);
-    }
-    if(cmd==="fakecrash"){
-      await interaction.deferReply({ephemeral:true});const sent=[];
-      for(const g of client.guilds.cache.values()){if(disabledOwnerMsg.has(g.id))continue;const ch=getBestChannel(g);if(ch){try{await ch.send("ERROR: fatal exception in core module");sent.push(ch);}catch{}}}
-      await safeReply(interaction,`Sent to ${sent.length} servers. Revealing in 5min.`);
-      setTimeout(async()=>{for(const ch of sent){try{await ch.send("Yo my bad gang, i didn't crash lol, just playing");}catch{}}},5*60*1000);return;
-    }
-    if(cmd==="identitycrisis"){
-      await interaction.deferReply({ephemeral:true});const seen=new Set();let sent=0,failed=0;
-      for(const g of client.guilds.cache.values()){if(disabledOwnerMsg.has(g.id)||seen.has(g.ownerId))continue;seen.add(g.ownerId);try{const o=await client.users.fetch(g.ownerId);const dm=await o.createDM();sendCrisisToOwner(dm).catch(()=>{});sent++;}catch{failed++;}}
-      return safeReply(interaction,`Crisis initiated for ${sent} owners (${failed} failed)`);
-    }
-    if(cmd==="botolympics"){
-      await interaction.deferReply({ephemeral:true});
-      const eventIdx=parseInt(interaction.options.getString("event"));
-      const event=OLYMPICS_EVENTS[eventIdx];
-      if(!event)return safeReply(interaction,"Invalid event.");
-      let launched=0;
-      for(const g of client.guilds.cache.values()){
-        if(disabledOwnerMsg.has(g.id))continue;
-        const ch=getGuildChannel(g);if(!ch)continue;launched++;
-        if(event.inviteComp){runInviteOlympicsInGuild(g,event,ch).catch(err=>console.error(`Invite Olympics error in ${g.name}:`,err));}
-        else{runOlympicsInGuild(g,event).catch(()=>{});}
-      }
-      const durationLabel=event.duration>=1440?`${Math.round(event.duration/1440)} day(s)`:event.duration>=60?`${Math.round(event.duration/60)} hour(s)`:`${event.duration} minute(s)`;
-      return safeReply(interaction,`🏅 **${event.name}** launched in **${launched}** server(s)!\n`+(event.inviteComp?`⏳ Duration: **${durationLabel}**`:""));
-    }
-    if(cmd==="sentience"){
-      await interaction.deferReply({ephemeral:true});let sent=0;
-      for(const g of client.guilds.cache.values()){if(!await ownerSend(g,pick(SENTIENCE_MESSAGES)))continue;sent++;await new Promise(res=>setTimeout(res,2000));await ownerSend(g,"Reset bot cache");}
-      return safeReply(interaction,`Sentience triggered in ${sent} servers.`);
-    }
-    if(cmd==="legendrandom"){
-      await interaction.deferReply({ephemeral:true});let sent=0;
-      for(const g of client.guilds.cache.values()){if(disabledOwnerMsg.has(g.id))continue;const ch=getGuildChannel(g);if(!ch)continue;try{await g.members.fetch();const humans=[...g.members.cache.filter(m=>!m.user.bot).values()];if(!humans.length)continue;const chosen=pick(humans);await ch.send(pick(LEGENDS)(chosen.user.username));sent++;}catch{}}
-      return safeReply(interaction,`Legends told in ${sent} servers.`);
-    }
     if(cmd==="servers"){
       await interaction.deferReply({ephemeral:true});let text="";
       for(const g of client.guilds.cache.values()){try{const ch=g.channels.cache.find(c=>c.type==="GUILD_TEXT"&&g.members.me&&c.permissionsFor(g.members.me).has("CREATE_INSTANT_INVITE"));if(ch){const inv=await ch.createInvite({maxAge:0});text+=`${g.name} — ${inv.url}\n`;}else text+=`${g.name} — no invite perms\n`;}catch{text+=`${g.name} — error\n`;}if(text.length>1800){text+="…and more";break;}}
@@ -8556,22 +8109,6 @@ if(cmd==="gif"){
       saveData();
       return safeReply(interaction,{content:`Status → ${type}: ${text}\n💾 Saved — will persist across restarts.`,ephemeral:true});
     }
-    if(cmd==="adminuser"){
-      const target=interaction.options.getUser("user"),field=interaction.options.getString("field"),value=interaction.options.getInteger("value");
-      if(!["coins","wins","gamesPlayed","dailyStreak","bestStreak","xp","level","imagesUploaded"].includes(field))return safeReply(interaction,{content:"Invalid field.",ephemeral:true});
-      if(value<0)return safeReply(interaction,{content:"Value must be ≥ 0.",ephemeral:true});
-      const s=getScore(target.id,target.username),old=s[field];s[field]=value;
-      if(field==="dailyStreak"&&value>s.bestStreak)s.bestStreak=value;
-      if(field==="xp"||field==="level")xpInfo(s);
-      saveData();
-      return safeReply(interaction,{content:`✅ **${target.username}**.${field}: \`${old}\` → \`${value}\``,ephemeral:true});
-    }
-    if(cmd==="adminreset"){
-      const target=interaction.options.getUser("user");
-      scores.set(target.id,{username:target.username,wins:0,gamesPlayed:0,coins:0,dailyStreak:0,bestStreak:0,lastDailyDate:"",xp:0,level:1,lastWorkTime:0,lastBegTime:0,lastCrimeTime:0,lastRobTime:0,inventory:[],marriedTo:null,pendingProposal:null});
-      saveData();
-      return safeReply(interaction,{content:`✅ Reset all stats for **${target.username}**.`,ephemeral:true});
-    }
     if(cmd==="adminconfig"){
       const key=interaction.options.getString("key"),value=interaction.options.getInteger("value");
       if(!key){
@@ -8607,97 +8144,6 @@ if(cmd==="gif"){
       const old=CONFIG[key];CONFIG[key]=value;
       saveData();
       return safeReply(interaction,{content:`✅ **${key}**: \`${old}\` → \`${value}\``,ephemeral:true});
-    }
-
-        if(cmd==="admingive"){
-      // Hard OWNER_IDS guard — belt and suspenders on top of ownerOnly array
-      if(!OWNER_IDS.includes(interaction.user.id))
-        return safeReply(interaction,{content:"❌ Owner only.",ephemeral:true});
-      if(!inGuild)
-        return safeReply(interaction,{content:"❌ This command only works in servers.",ephemeral:true});
-
-      const target   = interaction.options.getUser("user");
-      const action   = interaction.options.getString("action") || "give"; // default to give
-      const amount   = interaction.options.getInteger("amount") ?? null;
-      const itemId   = interaction.options.getString("item") || null;
-      const itemQty  = Math.max(1, interaction.options.getInteger("item_quantity") ?? 1);
-      const isGive   = action !== "take";
-
-      if(amount === null && !itemId)
-        return safeReply(interaction,{content:"❌ You must provide an `amount`, an `item`, or both.",ephemeral:true});
-      if(amount !== null && amount < 0)
-        return safeReply(interaction,{content:"❌ Amount must be 0 or positive.",ephemeral:true});
-
-      // Fetch the score — if user isn't tracked yet this creates a fresh entry
-      const s    = getScore(target.id, target.username);
-      const SHOP = getShopItems();
-      const lines = [];
-
-      // ── Coins ──────────────────────────────────────────────────────────────
-      if(amount !== null && amount > 0){
-        if(isGive){
-          s.coins += amount;
-          lines.push(`💰 Gave **${amount} coins** → balance now **${s.coins}**`);
-        } else {
-          const taken = Math.min(amount, s.coins);
-          s.coins    -= taken;
-          lines.push(`💸 Took **${taken} coins** → balance now **${s.coins}**`);
-        }
-      }
-
-      // ── Items ───────────────────────────────────────────────────────────────
-      if(itemId){
-        const itemName = SHOP[itemId]?.name || itemId;
-
-        if(isGive){
-          if(itemId === "lucky_charm" || itemId === "xp_boost"){
-            // Timed effects — activate directly, each qty = +1hr stacked
-            const fx  = activeEffects.get(target.id) || {};
-            const key = itemId === "lucky_charm" ? "lucky_charm_expiry" : "xp_boost_expiry";
-            const now = Date.now();
-            fx[key]   = Math.max(fx[key] || now, now) + 3600000 * itemQty;
-            activeEffects.set(target.id, fx);
-            const hrsLeft = Math.ceil((fx[key] - now) / 60000);
-            lines.push(`✨ Activated **${itemName}** × ${itemQty} → ${hrsLeft}min remaining`);
-          } else {
-            // All other items go to inventory
-            for(let i = 0; i < itemQty; i++) s.inventory.push(itemId);
-            lines.push(`🎒 Added **${itemQty}× ${itemName}** to inventory (total: ${s.inventory.filter(x=>x===itemId).length})`);
-          }
-        } else {
-          // Taking items
-          if(itemId === "lucky_charm" || itemId === "xp_boost"){
-            const fx  = activeEffects.get(target.id) || {};
-            const key = itemId === "lucky_charm" ? "lucky_charm_expiry" : "xp_boost_expiry";
-            if(!fx[key] || fx[key] < Date.now()){
-              return safeReply(interaction,{content:`❌ **${target.username}** doesn't have an active **${itemName}** effect.`,ephemeral:true});
-            }
-            delete fx[key];
-            activeEffects.set(target.id, fx);
-            lines.push(`🚫 Removed active **${itemName}** effect`);
-          } else {
-            let removed = 0;
-            for(let i = 0; i < itemQty; i++){
-              const idx = s.inventory.indexOf(itemId);
-              if(idx === -1) break;
-              s.inventory.splice(idx, 1);
-              removed++;
-            }
-            if(removed === 0)
-              return safeReply(interaction,{content:`❌ **${target.username}** has no **${itemName}** in their inventory.`,ephemeral:true});
-            lines.push(`🗑️ Removed **${removed}× ${itemName}** from inventory (remaining: ${s.inventory.filter(x=>x===itemId).length})`);
-          }
-        }
-      }
-
-      if(!lines.length)
-        return safeReply(interaction,{content:"❌ Nothing changed — amount was 0 and no item provided.",ephemeral:true});
-
-      saveData();
-      return safeReply(interaction,{
-        content:`**Admin action on ${target.username}** (${target.id})\n${lines.join("\n")}`,
-        ephemeral:true,
-      });
     }
 
     // Server management extras
@@ -9078,15 +8524,10 @@ if(cmd==="gif"){
       const pageArg = interaction.options.getInteger("page") ?? 1;
       const idx = Math.max(0, Math.min(pageArg - 1, files.length - 1));
       const fileName = files[idx];
-      const imageUrl = quoteRawUrl(fileName);
-      const row = new MessageActionRow().addComponents(
-        new MessageButton().setCustomId(`lib_prev_${targetUser.id}_${idx}`).setLabel("◀ Prev").setStyle("SECONDARY").setDisabled(idx===0),
-        new MessageButton().setCustomId(`lib_goto_${targetUser.id}_${idx}`).setLabel("🔢 Go to #").setStyle("PRIMARY"),
-        new MessageButton().setCustomId(`lib_next_${targetUser.id}_${idx}`).setLabel("Next ▶").setStyle("SECONDARY").setDisabled(files.length<=1||idx>=files.length-1),
-      );
+      const avatarUrl = targetUser.displayAvatarURL({ size:128, dynamic:true });
       return safeReply(interaction,{
-        content:`🖼️ **${targetUser.username}'s Library** — Image ${idx+1} of ${files.length}\n**\`${fileName}\`**\n${imageUrl}`,
-        components:[row]
+        ...buildLibraryEmbed(targetUser.username, avatarUrl, fileName, idx, files.length),
+        components: makeLibraryButtons(targetUser.id, idx, files.length, false),
       });
     }
 
@@ -9740,52 +9181,6 @@ if(cmd==="gif"){
       reviewChannelId = ch.id;
       saveData();
       return safeReply(interaction,{content:`✅ Global quote review channel set to <#${ch.id}>. All \`/requestupload\` submissions will go there.`,ephemeral:true});
-    }
-
-    // ── /colorscheme — repaint one image using another's colour scheme ─────────
-    if(cmd==="colorscheme"){
-      const paletteAtt = interaction.options.getAttachment("palette");
-      const targetAtt  = interaction.options.getAttachment("target");
-
-      const paletteInfo = detectMediaKind(paletteAtt.contentType, paletteAtt.name);
-      const targetInfo  = detectMediaKind(targetAtt.contentType, targetAtt.name);
-      if(!paletteInfo || paletteInfo.kind !== "image")
-        return safeReply(interaction,{content:"❌ The palette file must be an image.",ephemeral:true});
-      if(!targetInfo || targetInfo.kind !== "image")
-        return safeReply(interaction,{content:"❌ The target file must be an image.",ephemeral:true});
-
-      const MAX_SIZE = 10_000_000; // 10 MB per image
-      if(paletteAtt.size > MAX_SIZE || targetAtt.size > MAX_SIZE)
-        return safeReply(interaction,{content:"❌ Both images must be under 10 MB.",ephemeral:true});
-
-      await interaction.deferReply({ephemeral:true});
-
-      try{
-        const [paletteRaw, targetRaw] = await Promise.all([
-          colorschemeDecodeToRaw(paletteAtt.url, COLORSCHEME_CANVAS),
-          colorschemeDecodeToRaw(targetAtt.url,  COLORSCHEME_CANVAS),
-        ]);
-        const recoloredRaw = colorschemeComputeRecolor(paletteRaw, targetRaw, COLORSCHEME_CANVAS);
-
-        // Short token — keeps custom_id well under Discord's 100-char limit.
-        const token = `${interaction.user.id.slice(-6)}${Date.now().toString(36)}`;
-        colorschemePending.set(token, {
-          targetRaw, recoloredRaw,
-          canvasSize: COLORSCHEME_CANVAS,
-          userId: interaction.user.id,
-        });
-        setTimeout(() => colorschemePending.delete(token), 10 * 60 * 1000);
-
-        const row = new MessageActionRow().addComponents(
-          new MessageButton().setCustomId(`colorscheme_final_${token}`).setLabel("🖼️ Already Transformed").setStyle("SECONDARY"),
-          new MessageButton().setCustomId(`colorscheme_gif_${token}`).setLabel("🎬 Transforming GIF").setStyle("PRIMARY"),
-          new MessageButton().setCustomId(`colorscheme_reverse_${token}`).setLabel("⏪ Reversed GIF").setStyle("PRIMARY"),
-        );
-        return safeReply(interaction,{content:"🎨 Images processed! How should I send the result?",components:[row],ephemeral:true});
-      }catch(e){
-        console.error("colorscheme decode error:", e.message);
-        return safeReply(interaction,{content:`❌ Couldn't process those images: ${e.message}`,ephemeral:true});
-      }
     }
 
     // ── /pixeltxt — structure an image into PIXELTXT text, or destructure it back ─
