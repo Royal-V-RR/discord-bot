@@ -45371,6 +45371,13 @@
         "up": 1,
         "down": 0
       }
+    ],
+    [
+      "quote_197.png",
+      {
+        "up": 1,
+        "down": 0
+      }
     ]
   ],
   "quoteVoteMessages": [
@@ -64821,6 +64828,10 @@
     [
       "1542860479851003987",
       "quote_197.png"
+    ],
+    [
+      "1542860511824056480",
+      "quote_16.png"
     ]
   ],
   "reviewChannelId": "1503045026866004071",
@@ -92531,6 +92542,17 @@
         "sentToDeleter": false,
         "type": "quote"
       }
+    ],
+    [
+      "1542860511824056480",
+      {
+        "filename": "quote_16.png",
+        "voters": [],
+        "guildId": "1408975996715139084",
+        "channelId": "1408975997272854611",
+        "sentToDeleter": false,
+        "type": "quote"
+      }
     ]
   ],
   "selfClankUsers": [
@@ -97818,6 +97840,15 @@
     ],
     [
       "quote_227.png",
+      [
+        [
+          "690219723472109616",
+          "up"
+        ]
+      ]
+    ],
+    [
+      "quote_197.png",
       [
         [
           "690219723472109616",
