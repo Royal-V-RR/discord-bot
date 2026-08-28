@@ -159,8 +159,9 @@
         ],
         "supportRoleId": "867436632970231858",
         "logChannelId": "867982961121833040",
-        "panelMessageId": "1542701746919309416",
-        "transcriptChannelId": null
+        "panelMessageId": "1542701811469779045",
+        "transcriptChannelId": null,
+        "panelChannelId": "1516319982496125041"
       }
     ]
   ],
@@ -497,12 +498,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 17200,
-        "lastSubsTimestamp": 1787878872875,
+        "lastSubsTimestamp": 1787879172488,
         "history": [
-          {
-            "ts": 1787567880544,
-            "subs": 17000
-          },
           {
             "ts": 1787568180551,
             "subs": 17000
@@ -4497,6 +4494,10 @@
           },
           {
             "ts": 1787878872875,
+            "subs": 17200
+          },
+          {
+            "ts": 1787879172488,
             "subs": 17200
           }
         ],
