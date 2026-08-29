@@ -251,6 +251,7 @@
       }
     ]
   ],
+  "theCountChannels": [],
   "reactionRoles": [
     [
       "1408975996715139084:1483218332005175427:🤖",
@@ -4553,9 +4554,22 @@
     "1520763926105821276",
     "1300613150487351366"
   ],
-  "blacklistedUsers": [],
-  "silentBlacklistUsers": [],
-  "tempOwnerGrants": [],
+  "featureBlacklist": [],
+  "tempOwnerGrants": [
+    [
+      "1092897297815318618",
+      {
+        "commands": [],
+        "features": [
+          "quote_review",
+          "quote_manager"
+        ],
+        "expiresAt": null,
+        "grantedBy": "969280648667889764",
+        "grantedAt": 1787967306528
+      }
+    ]
+  ],
   "scores": [
     [
       "1245284545452834857",
