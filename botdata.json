@@ -65077,6 +65077,10 @@
     [
       "1543312237714866367",
       "im thomas the tank engine.png"
+    ],
+    [
+      "1543312273328574505",
+      "quote_190.png"
     ]
   ],
   "reviewChannelId": "1503045026866004071",
@@ -93080,6 +93084,17 @@
       "1543312237714866367",
       {
         "filename": "im thomas the tank engine.png",
+        "voters": [],
+        "guildId": "1048053656035020911",
+        "channelId": "1477294439180537980",
+        "sentToDeleter": false,
+        "type": "quote"
+      }
+    ],
+    [
+      "1543312273328574505",
+      {
+        "filename": "quote_190.png",
         "voters": [],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
