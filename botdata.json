@@ -4594,14 +4594,16 @@
     [
       "1082452773787942922",
       {
-        "commands": [],
+        "commands": [
+          "impersonation"
+        ],
         "features": [
           "quote_review",
           "quote_manager"
         ],
-        "expiresAt": null,
+        "expiresAt": 1788022734986,
         "grantedBy": "969280648667889764",
-        "grantedAt": 1787968317794
+        "grantedAt": 1788019134986
       }
     ]
   ],
@@ -31390,7 +31392,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 615,
+        "xp": 623,
         "level": 7,
         "lastWorkTime": 0,
         "lastBegTime": 0,
