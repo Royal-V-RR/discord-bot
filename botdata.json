@@ -251,7 +251,15 @@
       }
     ]
   ],
-  "theCountChannels": [],
+  "theCountChannels": [
+    [
+      "1082452773787942922",
+      {
+        "channelId": "1543079946551951360",
+        "lastSentMessageId": null
+      }
+    ]
+  ],
   "reactionRoles": [
     [
       "1408975996715139084:1483218332005175427:🤖",
