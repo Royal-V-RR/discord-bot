@@ -65163,6 +65163,10 @@
     [
       "1543365498329108580",
       "quote_255.png"
+    ],
+    [
+      "1543365792383504407",
+      "quote_173.png"
     ]
   ],
   "reviewChannelId": "1503045026866004071",
@@ -93307,6 +93311,17 @@
         "guildId": "1408975996715139084",
         "channelId": "1408975997272854611",
         "sentToDeleter": true,
+        "type": "quote"
+      }
+    ],
+    [
+      "1543365792383504407",
+      {
+        "filename": "quote_173.png",
+        "voters": [],
+        "guildId": "1408975996715139084",
+        "channelId": "1408975997272854611",
+        "sentToDeleter": false,
         "type": "quote"
       }
     ]
