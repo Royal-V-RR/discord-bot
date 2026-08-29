@@ -4740,7 +4740,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 2590,
+        "xp": 2601,
         "level": 19,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -45480,6 +45480,13 @@
     ],
     [
       "quote_288.png",
+      {
+        "up": 1,
+        "down": 0
+      }
+    ],
+    [
+      "quote_217.png",
       {
         "up": 1,
         "down": 0
@@ -98053,6 +98060,15 @@
         [
           "1082452773787942922",
           "down"
+        ]
+      ]
+    ],
+    [
+      "quote_217.png",
+      [
+        [
+          "1099756603667910696",
+          "up"
         ]
       ]
     ]
