@@ -65303,6 +65303,10 @@
     [
       "1543367058971033624",
       "tuxe blankriley.png"
+    ],
+    [
+      "1543367110045204620",
+      "IMG_8678.png"
     ]
   ],
   "reviewChannelId": "1503045026866004071",
@@ -93783,6 +93787,17 @@
         "guildId": "1408975996715139084",
         "channelId": "1408975997272854611",
         "sentToDeleter": true,
+        "type": "quote"
+      }
+    ],
+    [
+      "1543367110045204620",
+      {
+        "filename": "IMG_8678.png",
+        "voters": [],
+        "guildId": "1408975996715139084",
+        "channelId": "1408975997272854611",
+        "sentToDeleter": false,
         "type": "quote"
       }
     ]
