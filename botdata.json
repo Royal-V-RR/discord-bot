@@ -45557,6 +45557,20 @@
         "up": 1,
         "down": 0
       }
+    ],
+    [
+      "quote_260.png",
+      {
+        "up": 1,
+        "down": 0
+      }
+    ],
+    [
+      "quote_200.png",
+      {
+        "up": 1,
+        "down": 0
+      }
     ]
   ],
   "quoteVoteMessages": [
@@ -65195,6 +65209,14 @@
     [
       "1543365930694746293",
       "quote_200.png"
+    ],
+    [
+      "1543365955667632288",
+      "1f83b334-0e82-444a-ba3b-56c7bc787eb5.png"
+    ],
+    [
+      "1543365957643411498",
+      "quote_94.png"
     ]
   ],
   "reviewChannelId": "1503045026866004071",
@@ -93429,6 +93451,30 @@
         "sentToDeleter": false,
         "type": "quote"
       }
+    ],
+    [
+      "1543365955667632288",
+      {
+        "filename": "1f83b334-0e82-444a-ba3b-56c7bc787eb5.png",
+        "voters": [
+          "969280648667889764"
+        ],
+        "guildId": "1408975996715139084",
+        "channelId": "1408975997272854611",
+        "sentToDeleter": true,
+        "type": "quote"
+      }
+    ],
+    [
+      "1543365957643411498",
+      {
+        "filename": "quote_94.png",
+        "voters": [],
+        "guildId": "1408975996715139084",
+        "channelId": "1408975997272854611",
+        "sentToDeleter": false,
+        "type": "quote"
+      }
     ]
   ],
   "selfClankUsers": [
@@ -98981,6 +99027,24 @@
     ],
     [
       "no idea what I come back to.png",
+      [
+        [
+          "690219723472109616",
+          "up"
+        ]
+      ]
+    ],
+    [
+      "quote_260.png",
+      [
+        [
+          "1254388539890860083",
+          "up"
+        ]
+      ]
+    ],
+    [
+      "quote_200.png",
       [
         [
           "690219723472109616",
