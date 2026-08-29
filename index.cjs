@@ -255,8 +255,22 @@ const openTickets      = new Map();
 const premieres        = new Map(); // premiereId -> { title, endsAt, channelId, userId, messageId, guildId }
 const disabledLevelUp  = new Set(); // legacy — now superseded by levelUpConfig.enabled
 const userInstalls     = new Set();
-const blacklistedUsers = new Set(); // Users banned from ever running any command or using bot features — persisted in botdata.json
-const silentBlacklistUsers = new Set(); // Subset of blacklistedUsers whose block is completely silent — no DM notice, no reactions, no messages of any kind
+// featureBlacklist: userId -> { features: Set<string>, silent: boolean }
+// "all" in features means a full blacklist (blocked from every command/feature);
+// any other value is a specific command/feature name blocked just for that user.
+// Persisted in botdata.json.
+const featureBlacklist = new Map();
+function isFeatureBlacklisted(userId, featureName){
+  const b = featureBlacklist.get(userId);
+  if(!b) return false;
+  return b.features.has("all") || b.features.has(featureName);
+}
+function isFullyBlacklisted(userId){
+  return !!featureBlacklist.get(userId)?.features.has("all");
+}
+function isSilentBlacklisted(userId){
+  return !!featureBlacklist.get(userId)?.silent;
+}
 const activityChecks   = new Map(); // messageId -> { guildId, channelId, roleIds, deadline, respondedUsers: Set }
 const scheduledChecks  = new Map(); // `${guildId}:${channelId}` -> { guildId, channelId, dayOfWeek, hour, minute, deadlineHr, customMsg, doPing, roleIds, excludedIds, nextFire }
 const raConfig         = new Map(); // guildId -> { raRoleId, loaRoleId }
@@ -490,9 +504,13 @@ function isEffectiveOwner(userId, commandName){
 }
 
 // ── /tempowner — interactive picker ─────────────────────────────────────────
-const GRANTABLE_OWNER_CMDS = ["servers","fakemessage","fakequote","dmconfig","leaveserver","restart","refreshcmds","botstats","setstatus","adminconfig","shadowdelete","clankerify","forcemarry","forcedivorce","echo","paranoia","theremnant"];
+const GRANTABLE_OWNER_CMDS = ["servers","fakemessage","fakequote","dmconfig","leaveserver","restart","refreshcmds","botstats","setstatus","adminconfig","shadowdelete","clankerify","impersonation","thecount","send","forcemarry","forcedivorce","echo","paranoia","theremnant"];
 const GRANTABLE_OWNER_FEATURES = [
   { id:"quote_review", label:"Quote Review — accept/deny submissions" },
+  { id:"reaction_bomb", label:"Reaction Bomb — right-click message context command" },
+  { id:"clank_this", label:"Clank This — right-click message context command" },
+  { id:"expose", label:"Expose — right-click message context command" },
+  { id:"quote_manager", label:"Quote Manager — browse & delete quote images" },
 ];
 const TEMPOWNER_DURATIONS = [
   { label:"15 minutes",  value:"15" },
@@ -558,6 +576,62 @@ function buildTempOwnerPanel(token){
     ``,
     `**📋 Current grants:**`,
     formatGrantsList(),
+  ].join("\n");
+
+  return { content, components: rows };
+}
+
+// ── /blacklist — interactive picker ─────────────────────────────────────────
+// Replaces the old all-or-nothing blacklist: an owner can block a user from
+// specific commands, or hit "Full Blacklist" for the old block-everything
+// behavior (still backed by the same featureBlacklist data, just with "all"
+// in the feature set). Mirrors the /tempowner builder UI.
+const blacklistBuilders = new Map(); // token -> { ownerId, targetUserId, features:Set<string>, silent:boolean }
+
+function formatBlacklistList(){
+  if(featureBlacklist.size === 0) return "_No users are currently blacklisted._";
+  const lines = [];
+  for(const [id, b] of featureBlacklist.entries()){
+    const featsText = b.features.has("all") ? "**🚫 Full blacklist**" : [...b.features].map(f=>`\`/${f}\``).join(" ");
+    lines.push(`<@${id}> — ${featsText}${b.silent ? " 🔇 *silent*" : ""}`);
+  }
+  return lines.join("\n");
+}
+
+function buildBlacklistPanel(token){
+  const b = blacklistBuilders.get(token);
+  const cmdNames = buildGuildCommands().map(c => c.name).sort();
+  const isAll = b.features.has("all");
+  const specificFeatures = new Set([...b.features].filter(f => f !== "all"));
+
+  const { rows: selectRows } = buildTicketPickerRows({
+    items: cmdNames.map(n => ({ label: `/${n}`, value: n })),
+    idPrefix: `bl_sel_${token}`,
+    selectedIds: [...specificFeatures],
+    mode: "multi",
+    placeholder: isAll ? "Full blacklist active — pick to override…" : "Commands to block…",
+  });
+
+  const rows = [
+    ...selectRows,
+    new MessageActionRow().addComponents(
+      new MessageButton().setCustomId(`bl_all_${token}`).setLabel(isAll ? "🚫 Full Blacklist ✓" : "🚫 Full Blacklist").setStyle(isAll ? "DANGER" : "SECONDARY"),
+      new MessageButton().setCustomId(`bl_silent_${token}`).setLabel(b.silent ? "🔇 Silent ✓" : "🔇 Silent").setStyle(b.silent ? "PRIMARY" : "SECONDARY"),
+      new MessageButton().setCustomId(`bl_save_${token}`).setLabel("✅ Save").setStyle("SUCCESS").setDisabled(!isAll && specificFeatures.size===0),
+      new MessageButton().setCustomId(`bl_clear_${token}`).setLabel("🗑️ Remove Entry").setStyle("DANGER").setDisabled(!featureBlacklist.has(b.targetUserId)),
+      new MessageButton().setCustomId(`bl_cancel_${token}`).setLabel("Cancel").setStyle("SECONDARY"),
+    ),
+  ];
+
+  const featsPreview = isAll ? "**🚫 Full blacklist**" : (specificFeatures.size ? [...specificFeatures].map(f=>`\`/${f}\``).join(" ") : "_none selected_");
+  const content = [
+    `🚫 **Blacklist** — configuring for <@${b.targetUserId}>`,
+    ``,
+    `**Blocked:** ${featsPreview}`,
+    `**Silent:** ${b.silent ? "🔇 Yes" : "No"}`,
+    ``,
+    `**📋 Currently blacklisted:**`,
+    formatBlacklistList(),
   ].join("\n");
 
   return { content, components: rows };
@@ -630,6 +704,43 @@ async function ensureDmRelayChannel(user) {
     return channel;
   } catch (e) {
     console.error("ensureDmRelayChannel error:", e.message);
+    return null;
+  }
+}
+
+// ── /thecount — queue messages in a hub channel, flush them all with /send ──
+// Reuses the same hub guild (dmRelayGuildId) as DM relay, but under its own
+// "The Count" category so queued messages stay clearly separate from live relays.
+const theCountChannels = new Map(); // userId -> { channelId, lastSentMessageId }
+async function ensureTheCountChannel(user) {
+  if (!dmRelayGuildId) return null;
+  const hubGuild = client.guilds.cache.get(dmRelayGuildId);
+  if (!hubGuild) return null;
+
+  const existing = theCountChannels.get(user.id);
+  if (existing) {
+    const existingChannel = hubGuild.channels.cache.get(existing.channelId);
+    if (existingChannel) return existingChannel;
+    // stale entry (channel deleted) — fall through and recreate
+  }
+
+  try {
+    let category = hubGuild.channels.cache.find(c => c.type === "GUILD_CATEGORY" && c.name === "The Count");
+    if (!category) category = await hubGuild.channels.create("The Count", { type: "GUILD_CATEGORY" }).catch(() => null);
+
+    const channelName = user.username.toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").slice(0, 90) || `user-${user.id}`;
+    const channel = await hubGuild.channels.create(channelName, {
+      type: "GUILD_TEXT",
+      parent: category ? category.id : undefined,
+      topic: `Queued messages for ${user.tag} (${user.id}) — nothing sent here reaches them until /send is run.`,
+    });
+
+    theCountChannels.set(user.id, { channelId: channel.id, lastSentMessageId: null });
+    saveData();
+    await channel.send(`📥 Messages sent here for **${user.tag}** are queued, not delivered. Run \`/send\` when ready to deliver everything queued across every channel in this category.`).catch(() => {});
+    return channel;
+  } catch (e) {
+    console.error("ensureTheCountChannel error:", e.message);
     return null;
   }
 }
@@ -1206,6 +1317,7 @@ function buildDataObject() {
     autoRoles:        [...autoRoles.entries()],
     shadowDelete: [...shadowDelete.entries()],
     clankerify:   [...clankerify.entries()],
+    theCountChannels: [...theCountChannels.entries()],
     reactionRoles:    [...reactionRoles.entries()],
     disabledOwnerMsg: [...disabledOwnerMsg],
     disabledLevelUp:  [...disabledLevelUp],
@@ -1213,8 +1325,7 @@ function buildDataObject() {
     ytConfig:         [...ytConfig.entries()],
     countingChannels: [...countingChannels.entries()],
     userInstalls:     [...userInstalls],
-    blacklistedUsers: [...blacklistedUsers],
-    silentBlacklistUsers: [...silentBlacklistUsers],
+    featureBlacklist: [...featureBlacklist.entries()].map(([id,b]) => [id, [...b.features], b.silent]),
     // Temp/permanent owner grants — expiresAt:null means permanent, so it must survive restarts
     tempOwnerGrants:  [...tempOwnerGrants.entries()].map(([id,g]) => [id, { commands:[...g.commands], features:[...g.features], expiresAt:g.expiresAt, grantedBy:g.grantedBy, grantedAt:g.grantedAt }]),
     scores:           [...scores.entries()],
@@ -1304,6 +1415,7 @@ function loadData() {
         if (v.expiresAt === null || v.expiresAt > now) clankerify.set(k, v);
       });
     }
+    if (data.theCountChannels) data.theCountChannels.forEach(([k,v]) => theCountChannels.set(k, v));
     if (data.autoRoles)        data.autoRoles       .forEach(([k,v]) => autoRoles.set(k, v));
     if (data.reactionRoles)    data.reactionRoles   .forEach(([k,v]) => reactionRoles.set(k, v));
     if (data.disabledOwnerMsg) data.disabledOwnerMsg.forEach(v => disabledOwnerMsg.add(v));
@@ -1313,8 +1425,13 @@ function loadData() {
     if (data.ytConfig)         data.ytConfig         .forEach(([k,v]) => ytConfig.set(k, v));
     if (data.countingChannels) data.countingChannels  .forEach(([k,v]) => countingChannels.set(k, v));
     if (data.userInstalls)     data.userInstalls    .forEach(v => userInstalls.add(v));
-    if (data.blacklistedUsers) data.blacklistedUsers.forEach(v => blacklistedUsers.add(v));
-    if (data.silentBlacklistUsers) data.silentBlacklistUsers.forEach(v => silentBlacklistUsers.add(v));
+    if (data.featureBlacklist) {
+      data.featureBlacklist.forEach(([id, feats, silent]) => featureBlacklist.set(id, { features: new Set(feats), silent: !!silent }));
+    }
+    // Legacy data migration — old all-or-nothing blacklist format
+    if (data.blacklistedUsers) data.blacklistedUsers.forEach(id => {
+      if(!featureBlacklist.has(id)) featureBlacklist.set(id, { features: new Set(["all"]), silent: (data.silentBlacklistUsers||[]).includes(id) });
+    });
     if (data.tempOwnerGrants) {
       data.tempOwnerGrants.forEach(([id, g]) => {
         const grant = {
@@ -2382,6 +2499,159 @@ async function sendTicketTranscript(channel, ticket, cfg, closedBy) {
   } catch(e) { console.error("Transcript error:", e.message); }
 }
 
+// ── Ticket setup wizard helpers ──────────────────────────────────────────────
+// Discord select menus cap out at 25 options, and a message can hold at most
+// 5 action rows. Servers with more than 25 categories/roles/channels used to
+// silently lose anything past the 25th. These helpers split long lists across
+// up to 4 select menus (leaving 1 row free for nav buttons), so nothing gets
+// dropped no matter how big the server is. Used by both the ts_ button
+// handler and the /ticketsetup command, so the wizard only lives in one place.
+const TICKET_PICKER_MAX_MENUS = 4; // 4 select rows + 1 button row = 5 (Discord's max)
+
+function chunkArray(arr, size) {
+  const out = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+}
+
+function getEligibleTicketRoles(guild) {
+  return [...guild.roles.cache.filter(r => !r.managed && r.id !== guild.id).values()];
+}
+
+// items: [{label, value, emoji}]. mode "single" = pick one (spread across
+// however many menus it takes to show every item); mode "multi" = pick any
+// number — selections made in a menu you didn't touch this time are preserved
+// by mergeChunkedSelection below, since Discord only reports the values of
+// the menu actually interacted with.
+function buildTicketPickerRows({ items, idPrefix, selectedIds = [], mode = "single", placeholder }) {
+  const capped = items.slice(0, TICKET_PICKER_MAX_MENUS * 25);
+  const truncated = items.length > capped.length;
+  const chunks = chunkArray(capped, 25);
+  const rows = chunks.map((chunk, i) => {
+    const opts = chunk.map(it => ({
+      label: String(it.label).slice(0, 100),
+      value: it.value,
+      emoji: it.emoji,
+      default: selectedIds.includes(it.value),
+    }));
+    const menu = new MessageSelectMenu()
+      .setCustomId(`${idPrefix}_${i}`)
+      .setPlaceholder(chunks.length > 1 ? `${placeholder} (${i + 1}/${chunks.length})` : placeholder)
+      .setOptions(opts)
+      .setDisabled(opts.length === 1 && opts[0].value === "none");
+    if (mode === "multi") menu.setMinValues(0).setMaxValues(opts.length);
+    return new MessageActionRow().addComponents(menu);
+  });
+  return { rows, truncated, chunks };
+}
+
+// Merges one chunked menu's new selection back into the full id list: keep
+// everything previously picked that isn't part of *this* menu's chunk, then
+// apply this menu's new values on top.
+function mergeChunkedSelection(previousIds, chunkItems, newValues) {
+  const chunkValueSet = new Set(chunkItems.map(it => it.value));
+  const kept = (previousIds || []).filter(id => !chunkValueSet.has(id));
+  return [...kept, ...newValues.filter(v => v !== "none" && v !== "__none__")];
+}
+
+function getTicketSetupStep(cfg) {
+  if (!cfg.categoryId)                    return 1;
+  if (!cfg.supportRoleIds?.length)        return 2;
+  if (cfg.logChannelId === undefined)     return 3;
+  if (cfg.transcriptChannelId === undefined) return 4;
+  if (cfg.panelChannelId === undefined)   return 5;
+  return 6;
+}
+
+function buildTicketSetupStep(guild, guildId, stepOverride) {
+  const cfg = ticketConfigs.get(guildId) || {};
+  const step = stepOverride ?? getTicketSetupStep(cfg);
+  const catCh   = cfg.categoryId ? guild.channels.cache.get(cfg.categoryId) : null;
+  const roleList = (cfg.supportRoleIds || []).map(id => `<@&${id}>`).join(", ") || null;
+  const logCh   = cfg.logChannelId ? guild.channels.cache.get(cfg.logChannelId) : null;
+  const txCh    = cfg.transcriptChannelId ? guild.channels.cache.get(cfg.transcriptChannelId) : null;
+  const panelCh = cfg.panelChannelId ? guild.channels.cache.get(cfg.panelChannelId) : null;
+
+  const STEP_NAMES = ["Category", "Roles", "Log", "Transcript", "Panel"];
+  const progress = STEP_NAMES.map((name, i) => {
+    const n = i + 1;
+    return n < step ? `✅ ${name}` : n === step ? `▶️ **${name}**` : `⬜ ${name}`;
+  }).join("   ");
+
+  const fields = [];
+  if (step > 1) fields.push({ name: "📁 Category",         value: catCh ? catCh.name : "—", inline: true });
+  if (step > 2) fields.push({ name: "🛡️ Support Roles",    value: roleList || "—", inline: true });
+  if (step > 3) fields.push({ name: "📋 Log Channel",       value: logCh ? `<#${logCh.id}>` : (cfg.logChannelId === null ? "None" : "—"), inline: true });
+  if (step > 4) fields.push({ name: "📜 Transcript Channel", value: txCh ? `<#${txCh.id}>` : (cfg.transcriptChannelId === null ? "None" : "—"), inline: true });
+  if (step > 5) fields.push({ name: "📢 Panel Channel",      value: panelCh ? `<#${panelCh.id}>` : "—", inline: true });
+
+  const embed = {
+    color: step > 5 ? 0x57F287 : 0x5865F2,
+    title: step > 5 ? "🎫 Ticket Setup — Complete!" : `🎫 Ticket Setup — Step ${step} of 5: ${STEP_NAMES[step - 1]}`,
+    fields,
+  };
+
+  let components = [];
+
+  if (step === 1) {
+    const cats = [...guild.channels.cache.filter(ch => ch.type === "GUILD_CATEGORY").values()];
+    embed.description = `${progress}\n\nWhich **category** should new ticket channels be created inside?`;
+    const { rows, truncated } = buildTicketPickerRows({
+      items: cats.length ? cats.map(ch => ({ label: ch.name, value: ch.id, emoji: { name: "📁" } })) : [{ label: "No categories found — create one first", value: "none" }],
+      idPrefix: "ts_sel_channel", mode: "single", placeholder: "Select a category…",
+    });
+    if (truncated) embed.footer = { text: `Showing the first ${TICKET_PICKER_MAX_MENUS * 25} categories.` };
+    components = rows;
+  } else if (step === 2) {
+    const rls = getEligibleTicketRoles(guild);
+    embed.description = `${progress}\n\nWhich **roles** can view and manage all tickets?`;
+    const { rows, truncated } = buildTicketPickerRows({
+      items: rls.length ? rls.map(r => ({ label: r.name, value: r.id, emoji: { name: "🛡️" } })) : [{ label: "No roles found", value: "none" }],
+      idPrefix: "ts_sel_roles", selectedIds: cfg.supportRoleIds || [], mode: "multi", placeholder: "Select support role(s)…",
+    });
+    if (truncated) embed.footer = { text: `Showing the first ${TICKET_PICKER_MAX_MENUS * 25} roles.` };
+    components = [...rows, new MessageActionRow().addComponents(new MessageButton().setCustomId("ts_back").setLabel("← Back").setStyle("SECONDARY"))];
+  } else if (step === 3 || step === 4) {
+    const isLog = step === 3;
+    const allTxts = [...guild.channels.cache.filter(ch => ch.type === "GUILD_TEXT").values()];
+    embed.description = isLog
+      ? `${progress}\n\nWhich channel should ticket open/close events be **logged** to? *(optional)*`
+      : `${progress}\n\nWhich channel should **full ticket transcripts** be posted to? *(optional)*`;
+    const { rows, truncated } = buildTicketPickerRows({
+      items: allTxts.length ? allTxts.map(ch => ({ label: `#${ch.name}`, value: ch.id, emoji: { name: isLog ? "📋" : "📜" } })) : [{ label: "No text channels found", value: "none" }],
+      idPrefix: isLog ? "ts_sel_log" : "ts_sel_transcript", mode: "single", placeholder: isLog ? "Select a log channel…" : "Select a transcript channel…",
+    });
+    if (truncated) embed.footer = { text: `Showing the first ${TICKET_PICKER_MAX_MENUS * 25} channels.` };
+    const currentlySet = isLog ? cfg.logChannelId : cfg.transcriptChannelId;
+    const skipClearBtn = currentlySet
+      ? new MessageButton().setCustomId(isLog ? "ts_clear_log" : "ts_clear_transcript").setLabel("Clear ❌").setStyle("SECONDARY")
+      : new MessageButton().setCustomId(isLog ? "ts_skip_log" : "ts_skip_transcript").setLabel("Skip ⏭️").setStyle("SECONDARY");
+    components = [...rows, new MessageActionRow().addComponents(new MessageButton().setCustomId("ts_back").setLabel("← Back").setStyle("SECONDARY"), skipClearBtn)];
+  } else if (step === 5) {
+    const allTxts = [...guild.channels.cache.filter(ch => ch.type === "GUILD_TEXT").values()];
+    embed.description = `${progress}\n\nWhich channel should the **ticket open button** be posted in?`;
+    const { rows, truncated } = buildTicketPickerRows({
+      items: allTxts.length ? allTxts.map(ch => ({ label: `#${ch.name}`, value: ch.id, emoji: { name: "📢" } })) : [{ label: "No text channels found", value: "none" }],
+      idPrefix: "ts_sel_panel_ch", mode: "single", placeholder: "Select where to post the panel…",
+    });
+    if (truncated) embed.footer = { text: `Showing the first ${TICKET_PICKER_MAX_MENUS * 25} channels.` };
+    components = [...rows, new MessageActionRow().addComponents(new MessageButton().setCustomId("ts_back").setLabel("← Back").setStyle("SECONDARY"))];
+  } else {
+    const pv = cfg.panelMessage || "🎫 **Support Tickets** — Click below to open a ticket.";
+    embed.description = `${progress}\n\nClick **Post Panel** to publish.`;
+    fields.push({ name: "✉️ Panel Message", value: cfg.panelMessage ? pv.slice(0, 200) : "*(default)*" });
+    fields.push({ name: "🎫 Status", value: cfg.panelMessageId ? `✅ Live in <#${cfg.panelChannelId}>` : "❌ Not posted yet" });
+    components = [new MessageActionRow().addComponents(
+      new MessageButton().setCustomId("ts_post_panel").setLabel("Post Ticket Panel 🎫").setStyle("PRIMARY"),
+      new MessageButton().setCustomId("ts_set_msg").setLabel("Customize Message ✏️").setStyle("SECONDARY"),
+      new MessageButton().setCustomId("ts_back").setLabel("← Edit Settings").setStyle("SECONDARY"),
+      new MessageButton().setCustomId("ts_reset").setLabel("Start Over 🗑️").setStyle("DANGER"),
+    )];
+  }
+
+  return { content: "", embeds: [embed], components };
+}
+
 // ── YouTube helpers ───────────────────────────────────────────────────────────
 
 // Resolve a YouTube channel ID from a handle (@name), URL, or raw channel ID
@@ -3197,7 +3467,8 @@ const client=new Client({
 const OWNER_ONLY_CMDS = new Set([
   "servers","fakemessage","fakequote","dmconfig","leaveserver","restart","refreshcmds",
   "botstats","setstatus","adminconfig",
-  "shadowdelete","clankerify","forcemarry","forcedivorce","echo","paranoia",
+  "shadowdelete","clankerify","impersonation","forcemarry","forcedivorce","echo","paranoia",
+  "thecount","send",
   "tempowner","blacklist","theremnant",
   // Owner context-menu commands
   "Reaction Bomb","Clank This","Expose",
@@ -3333,6 +3604,18 @@ function buildCommands(){
       {name:"user",     description:"Target user",                                             type:6, required:true},
       {name:"duration", description:"Duration in minutes (omit or 0 to disable)",              type:4, required:false},
     ]},
+    {name:"impersonation", description:"[Owner] Resend a user's messages via webhook as someone/something else", default_member_permissions:"0", options:[
+      {name:"user",     description:"Target user whose messages get intercepted",                 type:6, required:true},
+      {name:"as_user",  description:"Impersonate as this user's name/avatar (can't combine with pfp/name)", type:6, required:false},
+      {name:"pfp",      description:"Custom profile picture for the webhook (can't combine with as_user)",  type:11, required:false},
+      {name:"name",     description:"Custom display name for the webhook (can't combine with as_user)",     type:3, required:false},
+      {name:"mode",     description:"Clankerify mode to apply to messages",type:3,required:false,choices:[{name:"No mode (plain)",value:"none"},{name:"Evil",value:"evil"},{name:"Freaky",value:"freaky"},{name:"American",value:"american"},{name:"British",value:"british"},{name:"Stupid",value:"stupid"},{name:"Boomer",value:"boomer"},{name:"Conspiracy",value:"conspiracy"},{name:"NPC",value:"npc"},{name:"Sigma",value:"sigma"},{name:"Medieval",value:"medieval"},{name:"Ghost",value:"ghost"},{name:"Pirate",value:"pirate"},{name:"RespawnRaccoon Propaganda",value:"rr_propaganda"},{name:"French",value:"french"},{name:"UWU / LOLCAT",value:"uwu"},{name:"Scottish",value:"scottish"}]},
+      {name:"duration", description:"Duration in minutes (omit for permanent, 0 to disable)",  type:4, required:false},
+    ]},
+    {name:"thecount", description:"[Owner] Open (or reuse) a queue channel for a user — nothing sent there reaches them until /send", default_member_permissions:"0", options:[
+      {name:"user", description:"User to open a queue channel for", type:6, required:true},
+    ]},
+    {name:"send", description:"[Owner] Deliver every queued message across all /thecount channels to their respective users", default_member_permissions:"0", options:[]},
     {name:"selfclank",  description:"Self-clankerify yourself for 1–5 minutes (0 to cancel, 2 people per server at a time)",options:[
       {name:"duration", description:"Duration in minutes (1–5), or 0 to cancel early",type:4,required:true},
     ]},
@@ -3429,14 +3712,8 @@ function buildCommands(){
     {name:"tempowner", description:"[Owner] Grant a user temporary or permanent owner access via an interactive picker",options:[
       {name:"user",       description:"User to grant access to (leave blank to just view current grants)",type:6,required:false},
     ]},
-    {name:"blacklist", description:"[Owner] Block a user from ever using RoyalBot",options:[
-      {name:"action",description:"What to do",type:3,required:true,choices:[
-        {name:"Add",   value:"add"},
-        {name:"Remove",value:"remove"},
-        {name:"List",  value:"list"},
-      ]},
-      {name:"user",description:"User to blacklist / unblacklist",type:6,required:false},
-      {name:"silent",description:"Add only: completely silent block — no DM, no reactions, no messages of any kind (default: false)",type:5,required:false},
+    {name:"blacklist", description:"[Owner] Block a user from specific commands/features via an interactive picker",options:[
+      {name:"user",description:"User to configure (leave blank to just view current blacklist)",type:6,required:false},
     ]},
     {name:"theremnant", description:"[Owner] Send a mysterious dimensional transmission to this channel",options:[
       {name:"message",description:"The text to transmit",type:3,required:true,max_length:1000},
@@ -3858,7 +4135,7 @@ client.on("messageReactionRemove", async (reaction, user) => {
 // ── DM forwarding ──────────────────────────────────────────────────────────────
 client.on("messageCreate", async msg => {
   if (msg.author.bot) return;
-  if (blacklistedUsers.has(msg.author.id)) return; // blacklisted — ignore DMs entirely
+  if (isFullyBlacklisted(msg.author.id)) return; // blacklisted — ignore DMs entirely
   if (msg.guild) {
     // guild messages handled below
   } else {
@@ -3917,8 +4194,8 @@ client.on("messageCreate",async msg=>{
   if(msg.author.bot||!msg.guild)return;
 
   // ── Blacklist — blocks all guild message-based features ────────────────────
-  if(blacklistedUsers.has(msg.author.id)){
-    if(countingChannels.has(msg.channelId) && !silentBlacklistUsers.has(msg.author.id)){
+  if(isFullyBlacklisted(msg.author.id)){
+    if(countingChannels.has(msg.channelId) && !isSilentBlacklisted(msg.author.id)){
       await safeSend(msg.channel,`${msg.author} is blacklisted from RoyalBot and cannot count, ignore this message`);
     }
     return;
@@ -3928,8 +4205,8 @@ client.on("messageCreate",async msg=>{
   if(msg.guildId === dmRelayGuildId){
     const relayUserId = dmRelayChannelsByChannel.get(msg.channelId);
     if(relayUserId){
-      if(blacklistedUsers.has(relayUserId)){
-        if(!silentBlacklistUsers.has(relayUserId)) await msg.react("🚫").catch(() => {});
+      if(isFullyBlacklisted(relayUserId)){
+        if(!isSilentBlacklisted(relayUserId)) await msg.react("🚫").catch(() => {});
         return; // blacklisted — don't relay outgoing messages to their DMs either
       }
       try{
@@ -3983,9 +4260,21 @@ client.on("messageCreate",async msg=>{
 
         await msg.delete().catch(()=>{});
 
-        const member    = await msg.guild.members.fetch(msg.author.id).catch(()=>null);
-        let displayName = member?.displayName || msg.author.displayName || msg.author.globalName || msg.author.username;
-        let avatarURL   = msg.author.displayAvatarURL({ size: 256, dynamic: true });
+        const member = await msg.guild.members.fetch(msg.author.id).catch(()=>null);
+        const originalName = member?.displayName || msg.author.displayName || msg.author.globalName || msg.author.username;
+        const originalAvatarURL = msg.author.displayAvatarURL({ size: 256, dynamic: true });
+
+        // ── Persona override (set by /impersonation — plain /clankerify and /selfclank never set these) ──
+        let displayName, avatarURL;
+        if(clankEntry.impersonateAsUserId){
+          const asUser   = await client.users.fetch(clankEntry.impersonateAsUserId).catch(()=>null);
+          const asMember = asUser ? await msg.guild.members.fetch(asUser.id).catch(()=>null) : null;
+          displayName = asMember?.displayName || asUser?.displayName || asUser?.globalName || asUser?.username || originalName;
+          avatarURL   = asUser?.displayAvatarURL({ size: 256, dynamic: true }) || originalAvatarURL;
+        } else {
+          displayName = clankEntry.impersonateName || originalName;
+          avatarURL   = clankEntry.impersonateAvatarURL || originalAvatarURL;
+        }
         let sendContent = content;
 
         // ── Mode transforms ────────────────────────────────────────────────────
@@ -4648,7 +4937,7 @@ client.on("messageCreate",async msg=>{
         // ── Custom mode (built with /clankerbuild) — must run BEFORE sendOpts is built ──
         if(mode && customClankerModes.has(mode)){
           const cm = customClankerModes.get(mode);
-          const rawName = member?.displayName || msg.author.displayName || msg.author.globalName || msg.author.username;
+          const rawName = displayName;
           displayName = (cm.displayNameFormat || "{name}").replace("{name}", rawName);
           if(sendContent){
             let t = sendContent;
@@ -4810,8 +5099,8 @@ client.on("interactionCreate",async interaction=>{
   if(!instanceLocked)return;
 
   // ── Blacklist — blocks ALL interactions (commands, buttons, menus) ─────────
-  if(interaction.user && blacklistedUsers.has(interaction.user.id)){
-    if(!silentBlacklistUsers.has(interaction.user.id)){
+  if(interaction.user && isFullyBlacklisted(interaction.user.id)){
+    if(!isSilentBlacklisted(interaction.user.id)){
       try{
         const payload={content:`❌ <@${interaction.user.id}> is blacklisted from RoyalBot and cannot use this bot.`,ephemeral:true};
         if(interaction.deferred||interaction.replied) await interaction.followUp(payload).catch(()=>{});
@@ -5067,6 +5356,107 @@ client.on("interactionCreate",async interaction=>{
           ].join("\n"));
         }
       }catch(e){ console.warn("[tempowner] DM failed:", e.message); }
+
+      return;
+    }
+
+    // ── /blacklist interactive panel: selects, toggles, save, clear, cancel ────
+    if(cid.startsWith("bl_sel_")||cid.startsWith("bl_all_")||cid.startsWith("bl_silent_")||cid.startsWith("bl_save_")||cid.startsWith("bl_clear_")||cid.startsWith("bl_cancel_")){
+      let token;
+      const blSelMatch = cid.match(/^bl_sel_(.+)_(\d+)$/);
+      if(blSelMatch) token = blSelMatch[1];
+      else if(cid.startsWith("bl_all_")) token = cid.slice(7);
+      else if(cid.startsWith("bl_silent_")) token = cid.slice(10);
+      else if(cid.startsWith("bl_save_")) token = cid.slice(8);
+      else if(cid.startsWith("bl_clear_")) token = cid.slice(9);
+      else if(cid.startsWith("bl_cancel_")) token = cid.slice(10);
+
+      const b = blacklistBuilders.get(token);
+      if(!b){ try{await interaction.reply({content:"❌ This panel has expired — run `/blacklist` again.",ephemeral:true});}catch{} return; }
+      if(b.ownerId !== uid){ try{await interaction.reply({content:"❌ Only the owner who ran this command can use this panel.",ephemeral:true});}catch{} return; }
+
+      if(blSelMatch){
+        const cmdNames = buildGuildCommands().map(c=>c.name).sort();
+        const chunk = chunkArray(cmdNames.map(n=>({value:n})),25)[Number(blSelMatch[2])] || [];
+        const merged = mergeChunkedSelection([...b.features].filter(f=>f!=="all"), chunk, interaction.values);
+        b.features = new Set(merged); // picking specific commands exits "Full Blacklist" mode
+        if(!(await btnAck(interaction))) return;
+        try{ await interaction.editReply(buildBlacklistPanel(token)); }catch{}
+        return;
+      }
+
+      if(cid.startsWith("bl_all_")){
+        b.features = b.features.has("all") ? new Set() : new Set(["all"]);
+        if(!(await btnAck(interaction))) return;
+        try{ await interaction.editReply(buildBlacklistPanel(token)); }catch{}
+        return;
+      }
+
+      if(cid.startsWith("bl_silent_")){
+        b.silent = !b.silent;
+        if(!(await btnAck(interaction))) return;
+        try{ await interaction.editReply(buildBlacklistPanel(token)); }catch{}
+        return;
+      }
+
+      if(cid.startsWith("bl_cancel_")){
+        blacklistBuilders.delete(token);
+        if(!(await btnAck(interaction))) return;
+        try{ await interaction.editReply({content:"❌ Cancelled.",components:[]}); }catch{}
+        return;
+      }
+
+      if(cid.startsWith("bl_clear_")){
+        featureBlacklist.delete(b.targetUserId);
+        saveDataAndCommitNow().catch(()=>{});
+        blacklistBuilders.delete(token);
+        if(!(await btnAck(interaction))) return;
+        try{ await interaction.editReply({content:`✅ <@${b.targetUserId}> removed from the blacklist entirely.`,components:[]}); }catch{}
+        return;
+      }
+
+      // bl_save_
+      if(b.features.size===0){
+        try{await interaction.reply({content:"❌ Pick at least one command, or Full Blacklist, first.",ephemeral:true});}catch{}
+        return;
+      }
+      if(OWNER_IDS.includes(b.targetUserId)){
+        try{await interaction.reply({content:"❌ Can't blacklist an owner.",ephemeral:true});}catch{}
+        return;
+      }
+      if(!(await btnAck(interaction))) return;
+
+      const wasFullyBlacklisted = isFullyBlacklisted(b.targetUserId);
+      featureBlacklist.set(b.targetUserId, { features: new Set(b.features), silent: b.silent });
+      saveDataAndCommitNow().catch(()=>{});
+      blacklistBuilders.delete(token);
+
+      const isAllNow = b.features.has("all");
+      const featsText = isAllNow ? "**🚫 Full blacklist**" : [...b.features].map(f=>`\`/${f}\``).join(" ");
+
+      try{
+        await interaction.editReply({
+          content:`✅ <@${b.targetUserId}> blacklist updated.\n**Blocked:** ${featsText}${b.silent?"\n🔇 Silent mode.":""}\n\n**📋 Currently blacklisted:**\n${formatBlacklistList()}`,
+          components:[],
+        });
+      }catch{}
+
+      // Only notify + cut the DM relay on a fresh transition into full blacklist, matching the old add-only notify behavior
+      if(isAllNow && !wasFullyBlacklisted && !b.silent){
+        try {
+          const targetUser = await client.users.fetch(b.targetUserId).catch(()=>null);
+          if(targetUser){
+            const dm = await targetUser.createDM();
+            await dm.send("You've been blacklisted.");
+          }
+          const relayChannelId = dmRelayChannels.get(b.targetUserId);
+          if(relayChannelId){
+            const hubGuild = dmRelayGuildId ? client.guilds.cache.get(dmRelayGuildId) : null;
+            const relayChannel = hubGuild ? hubGuild.channels.cache.get(relayChannelId) : null;
+            if(relayChannel) await relayChannel.send("🚫 This user has been blacklisted — DMs no longer relay through this channel.").catch(()=>{});
+          }
+        } catch(e) { console.error("[blacklist] notify failed:", e.message); }
+      }
 
       return;
     }
@@ -5765,7 +6155,7 @@ client.on("interactionCreate",async interaction=>{
 
     // ── Quote manager navigation & delete buttons ─────────────────────────────
     if(cid.startsWith("qm_")){
-      if(!OWNER_IDS.includes(uid)){ await btnEphemeral(interaction,"Owner only."); return; }
+      if(!OWNER_IDS.includes(uid) && !hasTempOwnerFeature(uid,"quote_manager")){ await btnEphemeral(interaction,"Owner only."); return; }
 
       // Delete button: qm_delete_{filename}
       if(cid.startsWith("qm_delete_")){
@@ -6026,7 +6416,7 @@ client.on("interactionCreate",async interaction=>{
         {title:"📺 YouTube Tracking  —  Page 5 / 8",description:["Track a YouTube channel's subscriber count live in Discord.","All commands require **Manage Server** permission.","","**Setup (do this first)**","`/ytsetup channel:… discord_channel:… [apikey:…]` — Connect a YouTube channel","> Accepts `@handle`, full URL, or channel ID starting with UC","> Provide your YouTube Data API v3 key on first use — it's saved to botdata","> Get a free key at console.cloud.google.com → enable YouTube Data API v3","","**Live Sub Count**","`/subcount threshold:1K|10K` — Post an embed that edits itself every 5 min","","**Sub Goal**","`/subgoal goal:N [message]` — Live progress bar towards a target sub count","> Fires a custom or default message when the goal is reached","","**Milestones**","`/milestones action:add subs:N [message]` — Announce when a sub count is crossed","`/milestones action:remove subs:N` — Remove a milestone","`/milestones action:list` — View all milestones and their status"].join("\n")},
         {title:"🤖 Community Modes  —  Page 6 / 8",description:["Clankerify replaces a user's messages with a webhook impersonating them in a chosen personality.","","**For Everyone**","`/selfclank duration:1-5` — Clankerify yourself for 1–5 min with any mode","> Choose from built-in modes or any custom modes players have built","> Max 2 self-clanked users per server at once","> `/selfclank duration:0` to cancel early","","**Built-in Modes**","🤖 No mode (plain) · 😈 Evil · 😏 Freaky · 🦅 American · 🫖 British","🪖 Stupid · 📰 Boomer · 🔺 Conspiracy · 🗺️ NPC · 😤 Sigma","⚔️ Medieval · 👻 Ghost · 🏴‍☠️ Pirate · 🦝 RespawnRaccoon Propaganda","🇫🇷 French · 🐱 UWU/LOLCAT · 🏴󠁧󠁢󠁳󠁣󠁴󠁿 Scottish · 🎲 Random","","**Custom Modes** — anyone can build one with `/clankerbuild`","`/clankerbuild action:create name:<id>` — Opens a builder modal with:","  • Display name format (`{name}` = the user's name)","  • Word replacements (`Test>Test2; friend>pardner, …`)","  • Signoffs (`yeehaw!;much obliged;git along now`)","  • Message start prefix","  • Emoji shown in the mode selector","`/clankerbuild action:list` — View all custom modes","`/clankerbuild action:delete name:<id>` — Remove a custom mode","","Custom modes appear automatically in the `/clankerify` and `/selfclank` dropdowns."].join("\n")},
         {title:"🖼️ Media & Quotes  —  Page 7 / 8",description:["**Quotes Folder**","`/upload source|link:…` — Upload an image/audio/video *(authorized users)*","`/requestupload source:…` — Submit a file to be reviewed for the quotes folder","`/managememers action:add|remove|list [user]` — [Owner] Manage the upload allowlist","`/quotemanage …` — [Owner] Browse, delete, and configure the quotes folder","`/dailyquote action:set|disable|status [channel] [hour]` — Auto-post a daily quote (Manage Server)","`/library user:… [page]` — Browse a user's uploaded quotes","","**Other Media Tools**","`/pixeltxt action:structure|destructure file:…` — Convert an image to/from a compressed text format","`/jarvisdatabase source:… name:…` — Upload a trigger image/gif/video straight to the Jarvis folder","`/download url:… [format] [resolution]` — Download a YouTube video as MP4 or MP3"].join("\n")},
-        {title:"🔒 Owner Tools  —  Page 8 / 8",description:["**Bot Management**","`/servers` — List servers & invite links","`/botstats` — Bot stats","`/setstatus text:… [type]` — Set bot presence","`/restart` — Restart the bot","`/refreshcmds` — Force re-register slash commands in this guild","`/adminconfig [key] [value]` — View/edit global config values","","**User & Server Actions**","`/forcemarry user1:… user2:…` — Force marry two users","`/forcedivorce user:…` — Force divorce a user","`/leaveserver server:…` — Leave a server","`/blacklist action:add|remove|list [user] [silent]` — Block a user from ever using RoyalBot","`/shadowdelete user:… percentage:…` — Randomly delete a % of a user's messages","`/clankerify user:… [duration]` — Resend a user's messages as a webhook impersonating them","`/paranoia user:… [chance]` — DM a user creepy paranoia messages","`/fakemessage user:… [message] [file] [mode]` — Send a message as another user via webhook","`/fakequote user:… text:… [displayname] [username]` — Generate a 'Make it a Quote' style card","`/theremnant message:…` — Send a mysterious dimensional transmission","","**Access & Relay**","`/tempowner user:… duration:… [commands]` — Grant a user temporary owner access","`/dmconfig [server] [user]` — Set up the DM relay hub or open a relay channel"].join("\n")},
+        {title:"🔒 Owner Tools  —  Page 8 / 8",description:["**Bot Management**","`/servers` — List servers & invite links","`/botstats` — Bot stats","`/setstatus text:… [type]` — Set bot presence","`/restart` — Restart the bot","`/refreshcmds` — Force re-register slash commands in this guild","`/adminconfig [key] [value]` — View/edit global config values","","**User & Server Actions**","`/forcemarry user1:… user2:…` — Force marry two users","`/forcedivorce user:…` — Force divorce a user","`/leaveserver server:…` — Leave a server","`/blacklist [user]` — Interactive picker: block a user from specific commands, or Full Blacklist","`/shadowdelete user:… percentage:…` — Randomly delete a % of a user's messages","`/clankerify user:… [duration]` — Resend a user's messages as a webhook impersonating them","`/impersonation user:… [as_user] [pfp] [name] [mode] [duration]` — Like clankerify, but resend as someone/something else","`/thecount user:…` — Open a queue channel for a user; messages sent there wait until /send","`/send` — Deliver everything queued in every /thecount channel to their respective users","`/paranoia user:… [chance]` — DM a user creepy paranoia messages","`/fakemessage user:… [message] [file] [mode]` — Send a message as another user via webhook","`/fakequote user:… text:… [displayname] [username]` — Generate a 'Make it a Quote' style card","`/theremnant message:…` — Send a mysterious dimensional transmission","","**Access & Relay**","`/tempowner user:… duration:… [commands]` — Grant a user temporary owner access","`/dmconfig [server] [user]` — Set up the DM relay hub or open a relay channel"].join("\n")},
       ];
       const p=HELP_PAGES[page];
       const navRow=new MessageActionRow().addComponents(
@@ -6101,77 +6491,60 @@ client.on("interactionCreate",async interaction=>{
       if(!isOwner&&!isAdmin){await btnEphemeral(interaction,"You need Manage Server permission.");return;}
       const guildId=interaction.guildId;
       const guild=interaction.guild;
-
-      function getStep(cfg){
-        if(!cfg.categoryId)                     return 1;
-        if(!cfg.supportRoleIds?.length)          return 2;
-        if(cfg.logChannelId===undefined)         return 3;
-        if(cfg.transcriptChannelId===undefined)  return 4;
-        if(cfg.panelChannelId===undefined)       return 5;
-        return 6;
-      }
-      function buildStep(stepOverride){
-        const cfg=ticketConfigs.get(guildId)||{};
-        const step=stepOverride??getStep(cfg);
-        const catCh    =cfg.categoryId         ?guild.channels.cache.get(cfg.categoryId):null;
-        const roleList =(cfg.supportRoleIds||[]).map(id=>`<@&${id}>`).join(", ")||null;
-        const logStr   =cfg.logChannelId        ?`<#${cfg.logChannelId}>`:cfg.logChannelId===null?"None":"—";
-        const txStr    =cfg.transcriptChannelId ?`<#${cfg.transcriptChannelId}>`:cfg.transcriptChannelId===null?"None":"—";
-        const panelStr =cfg.panelChannelId      ?`<#${cfg.panelChannelId}>`:"—";
-        const TICK="✅",CURR="▶️",EMPTY="⬜";
-        const prog=[1,2,3,4,5,6].map(s=>s<step?TICK:s===step?CURR:EMPTY);
-        const bar=`${prog[0]} Category  ${prog[1]} Roles  ${prog[2]} Log  ${prog[3]} Transcript  ${prog[4]} Panel  ${prog[5]} Done`;
-        const cats=[...guild.channels.cache.filter(ch=>ch.type==="GUILD_CATEGORY").values()].slice(0,25);
-        const allTxts=[...guild.channels.cache.filter(ch=>ch.type==="GUILD_TEXT").values()];
-        const txts=allTxts.slice(0,24);
-        const rls=[...guild.roles.cache.filter(r=>!r.managed&&r.id!==guild.id).values()].slice(0,25);
-        const skip=[{label:"Skip / None",value:"__none__",description:"Leave this setting disabled"}];
-        const done=[];
-        if(step>1)done.push(`📁 **Category:** ${catCh?`\`${catCh.name}\``:"—"}`);
-        if(step>2)done.push(`🛡️ **Roles:** ${roleList||"—"}`);
-        if(step>3)done.push(`📋 **Log:** ${logStr}`);
-        if(step>4)done.push(`📜 **Transcript:** ${txStr}`);
-        if(step>5)done.push(`📢 **Panel:** ${panelStr}`);
-        const summary=done.join("  •  ");
-        let header,components;
-        if(step===1){
-          header=`## 🎫 Ticket Setup — Step 1 of 5: Category\nWhich **category** should new ticket channels be created inside?\n\`${bar}\``;
-          const opts=cats.map(ch=>({label:ch.name,value:ch.id,emoji:{name:"📁"}}));
-          components=[new MessageActionRow().addComponents(new MessageSelectMenu().setCustomId("ts_sel_channel").setPlaceholder("Select a category…").setOptions(opts.length?opts:[{label:"No categories found — create one first",value:"none"}]).setDisabled(!opts.length))];
-        }else if(step===2){
-          header=`## 🎫 Ticket Setup — Step 2 of 5: Support Roles\n${summary}\n\nWhich **roles** can view and manage all tickets? (up to 5)\n\`${bar}\``;
-          const opts=rls.map(r=>({label:r.name.slice(0,25),value:r.id,emoji:{name:"🛡️"},default:(cfg.supportRoleIds||[]).includes(r.id)}));
-          components=[new MessageActionRow().addComponents(new MessageSelectMenu().setCustomId("ts_sel_roles").setPlaceholder("Select support role(s)…").setMinValues(1).setMaxValues(Math.min(5,Math.max(1,opts.length))).setOptions(opts.length?opts:[{label:"No roles found",value:"none"}]).setDisabled(!opts.length)),new MessageActionRow().addComponents(new MessageButton().setCustomId("ts_back").setLabel("← Back").setStyle("SECONDARY"))];
-        }else if(step===3){
-          header=`## 🎫 Ticket Setup — Step 3 of 5: Log Channel\n${summary}\n\nWhich channel should ticket open/close events be **logged** to? *(optional)*\n\`${bar}\``;
-          const opts=skip.concat(txts.map(ch=>({label:`#${ch.name}`,value:ch.id,emoji:{name:"📋"}})));
-          components=[new MessageActionRow().addComponents(new MessageSelectMenu().setCustomId("ts_sel_log").setPlaceholder("Select a log channel… (or skip)").setOptions(opts.slice(0,25))),new MessageActionRow().addComponents(new MessageButton().setCustomId("ts_back").setLabel("← Back").setStyle("SECONDARY"))];
-        }else if(step===4){
-          header=`## 🎫 Ticket Setup — Step 4 of 5: Transcript Channel\n${summary}\n\nWhich channel should **full ticket transcripts** be posted to? *(optional)*\n\`${bar}\``;
-          const opts=skip.concat(txts.map(ch=>({label:`#${ch.name}`,value:ch.id,emoji:{name:"📜"}})));
-          components=[new MessageActionRow().addComponents(new MessageSelectMenu().setCustomId("ts_sel_transcript").setPlaceholder("Select a transcript channel… (or skip)").setOptions(opts.slice(0,25))),new MessageActionRow().addComponents(new MessageButton().setCustomId("ts_back").setLabel("← Back").setStyle("SECONDARY"))];
-        }else if(step===5){
-          header=`## 🎫 Ticket Setup — Step 5 of 5: Panel Channel\n${summary}\n\nWhich channel should the **ticket open button** be posted in?\n\`${bar}\``;
-          const opts=allTxts.map(ch=>({label:`#${ch.name}`,value:ch.id,emoji:{name:"📢"}})).slice(0,25);
-          components=[new MessageActionRow().addComponents(new MessageSelectMenu().setCustomId("ts_sel_panel_ch").setPlaceholder("Select where to post the panel…").setOptions(opts.length?opts:[{label:"No text channels found",value:"none"}]).setDisabled(!opts.length)),new MessageActionRow().addComponents(new MessageButton().setCustomId("ts_back").setLabel("← Back").setStyle("SECONDARY"))];
-        }else{
-          const pv=cfg.panelMessage||"🎫 **Support Tickets** — Click below to open a ticket.";
-          header=[`## 🎫 Ticket Setup — Complete!`,`\`${bar}\``,``,`**Configuration:**`,`📁 Category: ${catCh?`\`${catCh.name}\``:"—"}`,`🛡️ Roles: ${roleList||"—"}`,`📋 Log: ${logStr}`,`📜 Transcript: ${txStr}`,`📢 Panel channel: ${panelStr}`,`✉️ Message: ${cfg.panelMessage?`\`${pv.slice(0,80)}${pv.length>80?"…":""}\``:"*(default)*"}`,`🎫 Status: ${cfg.panelMessageId?`✅ Live in <#${cfg.panelChannelId}>`:"❌ Not posted yet"}`,``,`Click **Post Panel** to publish.`].join("\n");
-          components=[new MessageActionRow().addComponents(new MessageButton().setCustomId("ts_post_panel").setLabel("Post Ticket Panel 🎫").setStyle("PRIMARY"),new MessageButton().setCustomId("ts_set_msg").setLabel("Customize Message ✏️").setStyle("SECONDARY"),new MessageButton().setCustomId("ts_back").setLabel("← Edit Settings").setStyle("SECONDARY"),new MessageButton().setCustomId("ts_reset").setLabel("Start Over 🗑️").setStyle("DANGER"))];
-        }
-        return{content:header,components};
-      }
+      const buildStep=(stepOverride)=>buildTicketSetupStep(guild,guildId,stepOverride);
 
       if(!await btnAck(interaction))return;
       const cfg=ticketConfigs.get(guildId)||{nextId:0};
 
-      if(cid==="ts_sel_channel"){const val=interaction.values[0];if(val!=="none")cfg.categoryId=val;ticketConfigs.set(guildId,cfg);saveData();try{await interaction.editReply(buildStep(2));}catch(e){console.error("ts_sel_channel:",e?.message);}return;}
-      if(cid==="ts_sel_roles"){cfg.supportRoleIds=interaction.values.filter(v=>v!=="none");cfg.supportRoleId=cfg.supportRoleIds[0]||null;ticketConfigs.set(guildId,cfg);saveData();try{await interaction.editReply(buildStep(3));}catch(e){console.error("ts_sel_roles:",e?.message);}return;}
-      if(cid==="ts_sel_log"){cfg.logChannelId=interaction.values[0]==="__none__"?null:interaction.values[0];ticketConfigs.set(guildId,cfg);saveData();try{await interaction.editReply(buildStep(4));}catch(e){console.error("ts_sel_log:",e?.message);}return;}
-      if(cid==="ts_sel_transcript"){cfg.transcriptChannelId=interaction.values[0]==="__none__"?null:interaction.values[0];ticketConfigs.set(guildId,cfg);saveData();try{await interaction.editReply(buildStep(5));}catch(e){console.error("ts_sel_transcript:",e?.message);}return;}
-      if(cid==="ts_sel_panel_ch"){const val=interaction.values[0];if(val!=="none")cfg.panelChannelId=val;ticketConfigs.set(guildId,cfg);saveData();try{await interaction.editReply(buildStep(6));}catch(e){console.error("ts_sel_panel_ch:",e?.message);}return;}
+      // Chunked single/multi select menus: ts_sel_<kind>_<chunkIndex>
+      const selMatch=cid.match(/^ts_sel_(channel|roles|log|transcript|panel_ch)_(\d+)$/);
+      if(selMatch){
+        const kind=selMatch[1];
+        const chunkIndex=Number(selMatch[2]);
+        if(kind==="channel"){
+          const val=interaction.values[0];
+          if(val!=="none")cfg.categoryId=val;
+          ticketConfigs.set(guildId,cfg);saveData();
+          try{await interaction.editReply(buildStep(2));}catch(e){console.error("ts_sel_channel:",e?.message);}
+          return;
+        }
+        if(kind==="roles"){
+          const rls=getEligibleTicketRoles(guild);
+          const chunk=chunkArray(rls,25)[chunkIndex]?.map(r=>({value:r.id}))||[];
+          cfg.supportRoleIds=mergeChunkedSelection(cfg.supportRoleIds,chunk,interaction.values);
+          cfg.supportRoleId=cfg.supportRoleIds[0]||null;
+          ticketConfigs.set(guildId,cfg);saveData();
+          try{await interaction.editReply(buildStep(cfg.supportRoleIds.length?3:2));}catch(e){console.error("ts_sel_roles:",e?.message);}
+          return;
+        }
+        if(kind==="log"){
+          const val=interaction.values[0];
+          if(val!=="none")cfg.logChannelId=val;
+          ticketConfigs.set(guildId,cfg);saveData();
+          try{await interaction.editReply(buildStep(4));}catch(e){console.error("ts_sel_log:",e?.message);}
+          return;
+        }
+        if(kind==="transcript"){
+          const val=interaction.values[0];
+          if(val!=="none")cfg.transcriptChannelId=val;
+          ticketConfigs.set(guildId,cfg);saveData();
+          try{await interaction.editReply(buildStep(5));}catch(e){console.error("ts_sel_transcript:",e?.message);}
+          return;
+        }
+        if(kind==="panel_ch"){
+          const val=interaction.values[0];
+          if(val!=="none")cfg.panelChannelId=val;
+          ticketConfigs.set(guildId,cfg);saveData();
+          try{await interaction.editReply(buildStep(6));}catch(e){console.error("ts_sel_panel_ch:",e?.message);}
+          return;
+        }
+      }
+      if(cid==="ts_skip_log"){cfg.logChannelId=null;ticketConfigs.set(guildId,cfg);saveData();try{await interaction.editReply(buildStep(4));}catch(e){console.error("ts_skip_log:",e?.message);}return;}
+      if(cid==="ts_clear_log"){delete cfg.logChannelId;ticketConfigs.set(guildId,cfg);saveData();try{await interaction.editReply(buildStep(3));}catch(e){console.error("ts_clear_log:",e?.message);}return;}
+      if(cid==="ts_skip_transcript"){cfg.transcriptChannelId=null;ticketConfigs.set(guildId,cfg);saveData();try{await interaction.editReply(buildStep(5));}catch(e){console.error("ts_skip_transcript:",e?.message);}return;}
+      if(cid==="ts_clear_transcript"){delete cfg.transcriptChannelId;ticketConfigs.set(guildId,cfg);saveData();try{await interaction.editReply(buildStep(4));}catch(e){console.error("ts_clear_transcript:",e?.message);}return;}
       if(cid==="ts_back"){
-        const s=getStep(cfg);
+        const s=getTicketSetupStep(cfg);
         if(s>=6){delete cfg.panelChannelId;}
         else if(s===5){delete cfg.transcriptChannelId;}
         else if(s===4){delete cfg.logChannelId;}
@@ -6715,7 +7088,7 @@ client.on("interactionCreate",async interaction=>{
     if(cid === "theremnant_modal"){
       const replyText = (interaction.fields.getTextInputValue("remnant_reply")||"").trim();
       if(!replyText) return safeReply(interaction,{content:"❌ Message can't be empty.",ephemeral:true});
-      if(blacklistedUsers.has(uid)) return silentBlacklistUsers.has(uid) ? undefined : safeReply(interaction,{content:"❌ You can't do that.",ephemeral:true});
+      if(isFullyBlacklisted(uid)) return isSilentBlacklisted(uid) ? undefined : safeReply(interaction,{content:"❌ You can't do that.",ephemeral:true});
 
       try{
         const relayChannel = await ensureDmRelayChannel(interaction.user);
@@ -6875,7 +7248,7 @@ client.on("interactionCreate",async interaction=>{
 
     // ── Reaction Bomb (owner only) ───────────────────────────────────────────────
     if(cmd === "Reaction Bomb"){
-      if(!OWNER_IDS.includes(uid)) return safeReply(interaction,{content:"Owner only.",ephemeral:true});
+      if(!OWNER_IDS.includes(uid) && !hasTempOwnerFeature(uid,"reaction_bomb")) return safeReply(interaction,{content:"Owner only.",ephemeral:true});
       const BOMB_EMOJIS = ["✅","👍","🔥","💀","😂","❤️","👑","💯","🎉","⚡","🏆","😈","🤣","💪","🌟"];
       try {
         await interaction.deferReply({ephemeral:true});
@@ -6889,7 +7262,7 @@ client.on("interactionCreate",async interaction=>{
 
     // ── Clank This (owner only) ─────────────────────────────────────────────────
     if(cmd === "Clank This"){
-      if(!OWNER_IDS.includes(uid)) return safeReply(interaction,{content:"Owner only.",ephemeral:true});
+      if(!OWNER_IDS.includes(uid) && !hasTempOwnerFeature(uid,"clank_this")) return safeReply(interaction,{content:"Owner only.",ephemeral:true});
       const target = targetMsg.author;
       if(target.bot) return safeReply(interaction,{content:"Can't clankerify a bot.",ephemeral:true});
       clankerify.set(target.id, { expiresAt: Date.now() + 10 * 60_000, mode: null, ownerClanked: true });
@@ -6900,7 +7273,7 @@ client.on("interactionCreate",async interaction=>{
 
     // ── Expose (owner only) ─────────────────────────────────────────────────────
     if(cmd === "Expose"){
-      if(!OWNER_IDS.includes(uid)) return safeReply(interaction,{content:"Owner only.",ephemeral:true});
+      if(!OWNER_IDS.includes(uid) && !hasTempOwnerFeature(uid,"expose")) return safeReply(interaction,{content:"Owner only.",ephemeral:true});
       const content = targetMsg.content || "(no text)";
       const author = targetMsg.author;
       const exposePrefixes = [
@@ -7079,7 +7452,7 @@ client.on("interactionCreate",async interaction=>{
   const cmd=interaction.commandName;
   const inGuild=!!interaction.guildId;
 
-  const ownerOnly=["servers","requester","deleter","dmconfig","leaveserver","restart","refreshcmds","botstats","setstatus","adminconfig","echo","shadowdelete","clankerify","fakemessage","fakequote","forcemarry","forcedivorce","paranoia","tempowner","blacklist","theremnant"];
+  const ownerOnly=["servers","requester","deleter","dmconfig","leaveserver","restart","refreshcmds","botstats","setstatus","adminconfig","echo","shadowdelete","clankerify","impersonation","thecount","send","fakemessage","fakequote","forcemarry","forcedivorce","paranoia","tempowner","blacklist","theremnant"];
   if(ownerOnly.includes(cmd)&&!isEffectiveOwner(interaction.user.id, cmd))return safeReply(interaction,{content:"Owner only.",ephemeral:true});
 
   const manageServerCmds=["channelpicker","counting","xpconfig","setwelcome","setleave","setwelcomemsg","setleavemsg","disableownermsg","serverconfig","autorole","setboostmsg","invitecomp","purge","reactionrole","ticketsetup","ytsetup","subgoal","subcount","milestones","dailyquote","serverstats"];
@@ -7087,6 +7460,12 @@ client.on("interactionCreate",async interaction=>{
     if(!inGuild)return safeReply(interaction,{content:"Server only.",ephemeral:true});
     if(!OWNER_IDS.includes(interaction.user.id)&&!interaction.member.permissions.has("MANAGE_GUILD"))
       return safeReply(interaction,{content:"❌ You need **Manage Server** permission.",ephemeral:true});
+  }
+
+  // ── Granular blacklist — per-command block (full blacklist already handled above) ──
+  if(isFeatureBlacklisted(interaction.user.id, cmd)){
+    if(!isSilentBlacklisted(interaction.user.id)) return safeReply(interaction,{content:`❌ You've been blocked from using \`/${cmd}\`.`,ephemeral:true});
+    return;
   }
 
   // ── Auto-defer safety net ────────────────────────────────────────────────────
@@ -7305,53 +7684,28 @@ if(cmd==="tempowner"){
 }
 
 if(cmd==="blacklist"){
-  const action = interaction.options.getString("action");
   const targetUser = interaction.options.getUser("user");
-  const silent = interaction.options.getBoolean("silent") || false;
 
-  if(action==="list"){
-    if(blacklistedUsers.size===0) return safeReply(interaction,{content:"No users are currently blacklisted.",ephemeral:true});
-    return safeReply(interaction,{content:`🚫 **Blacklisted users:**\n${[...blacklistedUsers].map(id=>`<@${id}> (\`${id}\`)${silentBlacklistUsers.has(id)?" 🔇 *silent*":""}`).join("\n")}`,ephemeral:true});
+  if(!targetUser){
+    return safeReply(interaction,{
+      content:[`🚫 **Blacklist — Current Entries**`,``,formatBlacklistList()].join("\n"),
+      ephemeral:true,
+    });
   }
+  if(OWNER_IDS.includes(targetUser.id))
+    return safeReply(interaction,{content:"❌ Can't blacklist an owner.",ephemeral:true});
 
-  if(!targetUser) return safeReply(interaction,{content:"You need to specify a user for this action.",ephemeral:true});
+  const token = `${interaction.user.id.slice(-6)}${Date.now().toString(36)}`;
+  const existing = featureBlacklist.get(targetUser.id);
+  blacklistBuilders.set(token, {
+    ownerId: interaction.user.id,
+    targetUserId: targetUser.id,
+    features: new Set(existing?.features ?? []),
+    silent: existing?.silent ?? false,
+  });
+  setTimeout(()=>blacklistBuilders.delete(token), 10*60*1000);
 
-  if(action==="add"){
-    if(OWNER_IDS.includes(targetUser.id)) return safeReply(interaction,{content:"❌ Can't blacklist an owner.",ephemeral:true});
-    if(blacklistedUsers.has(targetUser.id)) return safeReply(interaction,{content:`<@${targetUser.id}> is already blacklisted.`,ephemeral:true});
-    blacklistedUsers.add(targetUser.id);
-    if(silent) silentBlacklistUsers.add(targetUser.id); else silentBlacklistUsers.delete(targetUser.id);
-    saveDataAndCommitNow().catch(()=>{});
-
-    if(!silent){
-      // Notify them, then cut off their relay channel — all further DMs (either direction) are ignored from here on.
-      try {
-        const dm = await targetUser.createDM();
-        await dm.send("You've been blacklisted.");
-      } catch(e) { console.error("[blacklist] DM notify failed:", e.message); }
-
-      const relayChannelId = dmRelayChannels.get(targetUser.id);
-      if(relayChannelId){
-        try{
-          const hubGuild = dmRelayGuildId ? client.guilds.cache.get(dmRelayGuildId) : null;
-          const relayChannel = hubGuild ? hubGuild.channels.cache.get(relayChannelId) : null;
-          if(relayChannel) await relayChannel.send("🚫 This user has been blacklisted — DMs no longer relay through this channel.").catch(()=>{});
-        } catch(e) { console.error("[blacklist] relay notice failed:", e.message); }
-      }
-    }
-
-    return safeReply(interaction,{content:`🚫 <@${targetUser.id}> has been blacklisted from RoyalBot. They can no longer use any command or feature of the bot.${silent?"\n🔇 Silent mode — they will receive no notice or messages of any kind, ever, about this.":""}`,ephemeral:true});
-  }
-
-  if(action==="remove"){
-    if(!blacklistedUsers.has(targetUser.id)) return safeReply(interaction,{content:`<@${targetUser.id}> is not blacklisted.`,ephemeral:true});
-    blacklistedUsers.delete(targetUser.id);
-    silentBlacklistUsers.delete(targetUser.id);
-    saveDataAndCommitNow().catch(()=>{});
-    return safeReply(interaction,{content:`✅ <@${targetUser.id}> has been removed from the blacklist.`,ephemeral:true});
-  }
-
-  return;
+  return safeReply(interaction,{...buildBlacklistPanel(token), ephemeral:true});
 }
 
 if(cmd==="theremnant"){
@@ -7463,6 +7817,121 @@ if(cmd==="clankerify"){
     content:`🤖 Clankerifying <@${target.id}> ${durationStr}. Pick a mode:`,
     components: clankerifyComponents,
     ephemeral:true
+  });
+}
+
+if(cmd==="impersonation"){
+  const target   = interaction.options.getUser("user");
+  const asUser   = interaction.options.getUser("as_user");
+  const pfp      = interaction.options.getAttachment("pfp");
+  const name     = interaction.options.getString("name");
+  const modeOpt  = interaction.options.getString("mode");
+  const duration = interaction.options.getInteger("duration") ?? null; // minutes, null = permanent
+
+  if(target.bot) return safeReply(interaction,{content:"❌ Can't impersonate a bot's messages.",ephemeral:true});
+  if(asUser && (pfp || name))
+    return safeReply(interaction,{content:"❌ `as_user` can't be combined with `pfp`/`name` — pick one approach.",ephemeral:true});
+
+  // duration === 0 means disable
+  if(duration === 0){
+    clankerify.delete(target.id);
+    saveData();
+    return safeReply(interaction,{content:`✅ Impersonation **disabled** for <@${target.id}>.`,ephemeral:true});
+  }
+
+  const mode = (modeOpt && modeOpt !== "none") ? modeOpt : null;
+  const expiresAt = duration ? Date.now() + duration*60000 : null;
+
+  clankerify.set(target.id, {
+    expiresAt,
+    mode,
+    ownerClanked: true,
+    impersonateAsUserId: asUser ? asUser.id : null,
+    impersonateName: name || null,
+    impersonateAvatarURL: pfp ? pfp.url : null,
+  });
+  saveData();
+
+  const personaDesc = asUser
+    ? `as <@${asUser.id}>`
+    : (name || pfp) ? `as **${name || "(their own name)"}**${pfp ? " with a custom pfp" : ""}` : "as themselves (no persona set)";
+  const durationStr2 = duration ? `**${duration} minute(s)**` : "**permanently**";
+  return safeReply(interaction,{
+    content:`🎭 Impersonating <@${target.id}>'s messages ${personaDesc} for ${durationStr2}${mode?` (mode: **${mode}**)`:""}.`,
+    ephemeral:true,
+  });
+}
+
+if(cmd==="thecount"){
+  const target = interaction.options.getUser("user");
+  if(target.bot) return safeReply(interaction,{content:"❌ Can't open a queue channel for a bot.",ephemeral:true});
+  if(!dmRelayGuildId) return safeReply(interaction,{content:"❌ No DM hub server configured yet — run `/dmconfig` first.",ephemeral:true});
+
+  const channel = await ensureTheCountChannel(target);
+  if(!channel) return safeReply(interaction,{content:"❌ Couldn't create/open the queue channel — check the hub server still exists and the bot has permission there.",ephemeral:true});
+
+  return safeReply(interaction,{content:`📥 Queue channel ready: <#${channel.id}>. Anything sent there waits until \`/send\` is run.`,ephemeral:true});
+}
+
+if(cmd==="send"){
+  await interaction.deferReply({ephemeral:true});
+  if(!dmRelayGuildId) return safeReply(interaction,{content:"❌ No DM hub server configured.",ephemeral:true});
+  const hubGuild = client.guilds.cache.get(dmRelayGuildId);
+  if(!hubGuild) return safeReply(interaction,{content:"❌ Hub server not found.",ephemeral:true});
+  if(theCountChannels.size===0) return safeReply(interaction,{content:"Nothing queued — no `/thecount` channels exist yet.",ephemeral:true});
+
+  let totalSent=0, totalFailed=0, channelsProcessed=0;
+  const summary=[];
+
+  for(const [userId, entry] of theCountChannels.entries()){
+    const channel = hubGuild.channels.cache.get(entry.channelId);
+    if(!channel) continue;
+
+    let fetched;
+    try{
+      fetched = entry.lastSentMessageId
+        ? await channel.messages.fetch({ after: entry.lastSentMessageId, limit: 100 })
+        : await channel.messages.fetch({ limit: 100 });
+    }catch(e){ console.error("[send] fetch error:", e.message); continue; }
+
+    const pending = [...fetched.values()]
+      .filter(m => !m.author.bot)
+      .sort((a,b) => a.createdTimestamp - b.createdTimestamp);
+
+    if(pending.length===0) continue;
+
+    const targetUser = await client.users.fetch(userId).catch(()=>null);
+    let sentHere=0, failedHere=0, newestId=entry.lastSentMessageId;
+
+    for(const m of pending){
+      newestId = m.id;
+      const files = m.attachments.size > 0 ? [...m.attachments.values()].map(a=>a.url) : undefined;
+      if(!m.content && !files) continue;
+      try{
+        if(!targetUser) throw new Error("user not found");
+        const dm = await targetUser.createDM();
+        await dm.send({ content: m.content || undefined, files });
+        await m.react("✅").catch(()=>{});
+        sentHere++;
+      }catch(e){
+        await m.react("❌").catch(()=>{});
+        failedHere++;
+      }
+    }
+
+    entry.lastSentMessageId = newestId;
+    totalSent += sentHere;
+    totalFailed += failedHere;
+    if(sentHere || failedHere){ channelsProcessed++; summary.push(`<#${channel.id}> → <@${userId}>: ${sentHere} sent${failedHere?`, ${failedHere} failed`:""}`); }
+  }
+
+  saveData();
+
+  if(channelsProcessed===0) return safeReply(interaction,{content:"Nothing new to send — every queue channel is already flushed.",ephemeral:true});
+
+  return safeReply(interaction,{
+    content:[`📤 **Sent.** ${totalSent} message(s) delivered${totalFailed?`, ${totalFailed} failed (DMs likely closed)`:""} across ${channelsProcessed} channel(s).`,``,...summary].join("\n").slice(0,1900),
+    ephemeral:true,
   });
 }
 
@@ -7732,7 +8201,7 @@ if(cmd==="divorce"){
         {title:"📺 YouTube Tracking  —  Page 5 / 8",description:["Track a YouTube channel's subscriber count live in Discord.","All commands require **Manage Server** permission.","","**Setup (do this first)**","`/ytsetup channel:… discord_channel:… [apikey:…]` — Connect a YouTube channel","> Accepts `@handle`, full URL, or channel ID starting with UC","> Provide your YouTube Data API v3 key on first use — it's saved to botdata","> Get a free key at console.cloud.google.com → enable YouTube Data API v3","","**Live Sub Count**","`/subcount threshold:1K|10K` — Post an embed that edits itself every 5 min","","**Sub Goal**","`/subgoal goal:N [message]` — Live progress bar towards a target sub count","> Fires a custom or default message when the goal is reached","","**Milestones**","`/milestones action:add subs:N [message]` — Announce when a sub count is crossed","`/milestones action:remove subs:N` — Remove a milestone","`/milestones action:list` — View all milestones and their status"].join("\n")},
         {title:"🤖 Community Modes  —  Page 6 / 8",description:["Clankerify replaces a user's messages with a webhook impersonating them in a chosen personality.","","**For Everyone**","`/selfclank duration:1-5` — Clankerify yourself for 1–5 min with any mode","> Choose from built-in modes or any custom modes players have built","> Max 2 self-clanked users per server at once","> `/selfclank duration:0` to cancel early","","**Built-in Modes**","🤖 No mode (plain) · 😈 Evil · 😏 Freaky · 🦅 American · 🫖 British","🪖 Stupid · 📰 Boomer · 🔺 Conspiracy · 🗺️ NPC · 😤 Sigma","⚔️ Medieval · 👻 Ghost · 🏴‍☠️ Pirate · 🦝 RespawnRaccoon Propaganda","🇫🇷 French · 🐱 UWU/LOLCAT · 🏴󠁧󠁢󠁳󠁣󠁴󠁿 Scottish · 🎲 Random","","**Custom Modes** — anyone can build one with `/clankerbuild`","`/clankerbuild action:create name:<id>` — Opens a builder modal with:","  • Display name format (`{name}` = the user's name)","  • Word replacements (`Test>Test2; friend>pardner, …`)","  • Signoffs (`yeehaw!;much obliged;git along now`)","  • Message start prefix","  • Emoji shown in the mode selector","`/clankerbuild action:list` — View all custom modes","`/clankerbuild action:delete name:<id>` — Remove a custom mode","","Custom modes appear automatically in the `/clankerify` and `/selfclank` dropdowns."].join("\n")},
         {title:"🖼️ Media & Quotes  —  Page 7 / 8",description:["**Quotes Folder**","`/upload source|link:…` — Upload an image/audio/video *(authorized users)*","`/requestupload source:…` — Submit a file to be reviewed for the quotes folder","`/managememers action:add|remove|list [user]` — [Owner] Manage the upload allowlist","`/quotemanage …` — [Owner] Browse, delete, and configure the quotes folder","`/dailyquote action:set|disable|status [channel] [hour]` — Auto-post a daily quote (Manage Server)","`/library user:… [page]` — Browse a user's uploaded quotes","","**Other Media Tools**","`/pixeltxt action:structure|destructure file:…` — Convert an image to/from a compressed text format","`/jarvisdatabase source:… name:…` — Upload a trigger image/gif/video straight to the Jarvis folder","`/download url:… [format] [resolution]` — Download a YouTube video as MP4 or MP3"].join("\n")},
-        {title:"🔒 Owner Tools  —  Page 8 / 8",description:["**Bot Management**","`/servers` — List servers & invite links","`/botstats` — Bot stats","`/setstatus text:… [type]` — Set bot presence","`/restart` — Restart the bot","`/refreshcmds` — Force re-register slash commands in this guild","`/adminconfig [key] [value]` — View/edit global config values","","**User & Server Actions**","`/forcemarry user1:… user2:…` — Force marry two users","`/forcedivorce user:…` — Force divorce a user","`/leaveserver server:…` — Leave a server","`/blacklist action:add|remove|list [user] [silent]` — Block a user from ever using RoyalBot","`/shadowdelete user:… percentage:…` — Randomly delete a % of a user's messages","`/clankerify user:… [duration]` — Resend a user's messages as a webhook impersonating them","`/paranoia user:… [chance]` — DM a user creepy paranoia messages","`/fakemessage user:… [message] [file] [mode]` — Send a message as another user via webhook","`/fakequote user:… text:… [displayname] [username]` — Generate a 'Make it a Quote' style card","`/theremnant message:…` — Send a mysterious dimensional transmission","","**Access & Relay**","`/tempowner user:… duration:… [commands]` — Grant a user temporary owner access","`/dmconfig [server] [user]` — Set up the DM relay hub or open a relay channel"].join("\n")},
+        {title:"🔒 Owner Tools  —  Page 8 / 8",description:["**Bot Management**","`/servers` — List servers & invite links","`/botstats` — Bot stats","`/setstatus text:… [type]` — Set bot presence","`/restart` — Restart the bot","`/refreshcmds` — Force re-register slash commands in this guild","`/adminconfig [key] [value]` — View/edit global config values","","**User & Server Actions**","`/forcemarry user1:… user2:…` — Force marry two users","`/forcedivorce user:…` — Force divorce a user","`/leaveserver server:…` — Leave a server","`/blacklist [user]` — Interactive picker: block a user from specific commands, or Full Blacklist","`/shadowdelete user:… percentage:…` — Randomly delete a % of a user's messages","`/clankerify user:… [duration]` — Resend a user's messages as a webhook impersonating them","`/impersonation user:… [as_user] [pfp] [name] [mode] [duration]` — Like clankerify, but resend as someone/something else","`/thecount user:…` — Open a queue channel for a user; messages sent there wait until /send","`/send` — Deliver everything queued in every /thecount channel to their respective users","`/paranoia user:… [chance]` — DM a user creepy paranoia messages","`/fakemessage user:… [message] [file] [mode]` — Send a message as another user via webhook","`/fakequote user:… text:… [displayname] [username]` — Generate a 'Make it a Quote' style card","`/theremnant message:…` — Send a mysterious dimensional transmission","","**Access & Relay**","`/tempowner user:… duration:… [commands]` — Grant a user temporary owner access","`/dmconfig [server] [user]` — Set up the DM relay hub or open a relay channel"].join("\n")},
       ];
       const TOTAL=HELP_PAGES.length;
       function buildHelpEmbed(page){
@@ -8402,41 +8871,7 @@ if(cmd==="divorce"){
     // Ticket setup command
     if(cmd==="ticketsetup"){
       if(!inGuild)return safeReply(interaction,{content:"Server only.",ephemeral:true});
-      const guildId=interaction.guildId,guild=interaction.guild;
-      const cfg=ticketConfigs.get(guildId)||{nextId:0};
-      function getStep(c){if(!c.categoryId)return 1;if(!c.supportRoleIds?.length)return 2;if(c.logChannelId===undefined)return 3;if(c.transcriptChannelId===undefined)return 4;if(c.panelChannelId===undefined)return 5;return 6;}
-      function buildStep(stepOverride){
-        const c=ticketConfigs.get(guildId)||{};const step=stepOverride??getStep(c);
-        const catCh=c.categoryId?guild.channels.cache.get(c.categoryId):null;
-        const roleList=(c.supportRoleIds||[]).map(id=>`<@&${id}>`).join(", ")||null;
-        const logStr=c.logChannelId?`<#${c.logChannelId}>`:c.logChannelId===null?"None":"—";
-        const txStr=c.transcriptChannelId?`<#${c.transcriptChannelId}>`:c.transcriptChannelId===null?"None":"—";
-        const panelStr=c.panelChannelId?`<#${c.panelChannelId}>`:"—";
-        const TICK="✅",CURR="▶️",EMPTY="⬜";
-        const prog=[1,2,3,4,5,6].map(s=>s<step?TICK:s===step?CURR:EMPTY);
-        const bar=`${prog[0]} Category  ${prog[1]} Roles  ${prog[2]} Log  ${prog[3]} Transcript  ${prog[4]} Panel  ${prog[5]} Done`;
-        const cats=[...guild.channels.cache.filter(ch=>ch.type==="GUILD_CATEGORY").values()].slice(0,25);
-        const allTxts=[...guild.channels.cache.filter(ch=>ch.type==="GUILD_TEXT").values()];
-        const txts=allTxts.slice(0,24);
-        const rls=[...guild.roles.cache.filter(r=>!r.managed&&r.id!==guild.id).values()].slice(0,25);
-        const skip=[{label:"Skip / None",value:"__none__",description:"Leave this setting disabled"}];
-        const done=[];
-        if(step>1)done.push(`📁 **Category:** ${catCh?`\`${catCh.name}\``:"—"}`);
-        if(step>2)done.push(`🛡️ **Roles:** ${roleList||"—"}`);
-        if(step>3)done.push(`📋 **Log:** ${logStr}`);
-        if(step>4)done.push(`📜 **Transcript:** ${txStr}`);
-        if(step>5)done.push(`📢 **Panel:** ${panelStr}`);
-        const summary=done.join("  •  ");
-        let header,components;
-        if(step===1){header=`## 🎫 Ticket Setup — Step 1 of 5: Category\nWhich **category** should new ticket channels be created inside?\n\`${bar}\``;const opts=cats.map(ch=>({label:ch.name,value:ch.id,emoji:{name:"📁"}}));components=[new MessageActionRow().addComponents(new MessageSelectMenu().setCustomId("ts_sel_channel").setPlaceholder("Select a category…").setOptions(opts.length?opts:[{label:"No categories found",value:"none"}]).setDisabled(!opts.length))];}
-        else if(step===2){header=`## 🎫 Ticket Setup — Step 2 of 5: Support Roles\n${summary}\n\nWhich **roles** can view and manage all tickets? (up to 5)\n\`${bar}\``;const opts=rls.map(r=>({label:r.name.slice(0,25),value:r.id,emoji:{name:"🛡️"},default:(c.supportRoleIds||[]).includes(r.id)}));components=[new MessageActionRow().addComponents(new MessageSelectMenu().setCustomId("ts_sel_roles").setPlaceholder("Select support role(s)…").setMinValues(1).setMaxValues(Math.min(5,Math.max(1,opts.length))).setOptions(opts.length?opts:[{label:"No roles found",value:"none"}]).setDisabled(!opts.length)),new MessageActionRow().addComponents(new MessageButton().setCustomId("ts_back").setLabel("← Back").setStyle("SECONDARY"))];}
-        else if(step===3){header=`## 🎫 Ticket Setup — Step 3 of 5: Log Channel\n${summary}\n\nWhich channel should ticket open/close events be **logged** to? *(optional)*\n\`${bar}\``;const opts=skip.concat(txts.map(ch=>({label:`#${ch.name}`,value:ch.id,emoji:{name:"📋"}})));components=[new MessageActionRow().addComponents(new MessageSelectMenu().setCustomId("ts_sel_log").setPlaceholder("Select a log channel…").setOptions(opts.slice(0,25))),new MessageActionRow().addComponents(new MessageButton().setCustomId("ts_back").setLabel("← Back").setStyle("SECONDARY"))];}
-        else if(step===4){header=`## 🎫 Ticket Setup — Step 4 of 5: Transcript Channel\n${summary}\n\nWhich channel should **full ticket transcripts** be posted to? *(optional)*\n\`${bar}\``;const opts=skip.concat(txts.map(ch=>({label:`#${ch.name}`,value:ch.id,emoji:{name:"📜"}})));components=[new MessageActionRow().addComponents(new MessageSelectMenu().setCustomId("ts_sel_transcript").setPlaceholder("Select a transcript channel…").setOptions(opts.slice(0,25))),new MessageActionRow().addComponents(new MessageButton().setCustomId("ts_back").setLabel("← Back").setStyle("SECONDARY"))];}
-        else if(step===5){header=`## 🎫 Ticket Setup — Step 5 of 5: Panel Channel\n${summary}\n\nWhich channel should the **ticket open button** be posted in?\n\`${bar}\``;const opts=allTxts.map(ch=>({label:`#${ch.name}`,value:ch.id,emoji:{name:"📢"}})).slice(0,25);components=[new MessageActionRow().addComponents(new MessageSelectMenu().setCustomId("ts_sel_panel_ch").setPlaceholder("Select where to post the panel…").setOptions(opts.length?opts:[{label:"No text channels found",value:"none"}]).setDisabled(!opts.length)),new MessageActionRow().addComponents(new MessageButton().setCustomId("ts_back").setLabel("← Back").setStyle("SECONDARY"))];}
-        else{const pv=c.panelMessage||"🎫 **Support Tickets** — Click below to open a ticket.";header=[`## 🎫 Ticket Setup — Complete!`,`\`${bar}\``,``,`**Configuration:**`,`📁 Category: ${catCh?`\`${catCh.name}\``:"—"}`,`🛡️ Roles: ${roleList||"—"}`,`📋 Log: ${logStr}`,`📜 Transcript: ${txStr}`,`📢 Panel channel: ${panelStr}`,`✉️ Message: ${c.panelMessage?`\`${pv.slice(0,80)}${pv.length>80?"…":""}\``:"*(default)*"}`,`🎫 Status: ${c.panelMessageId?`✅ Live in <#${c.panelChannelId}>`:"❌ Not posted yet"}`,``,`Click **Post Panel** to publish.`].join("\\n");components=[new MessageActionRow().addComponents(new MessageButton().setCustomId("ts_post_panel").setLabel("Post Ticket Panel 🎫").setStyle("PRIMARY"),new MessageButton().setCustomId("ts_set_msg").setLabel("Customize Message ✏️").setStyle("SECONDARY"),new MessageButton().setCustomId("ts_back").setLabel("← Edit Settings").setStyle("SECONDARY"),new MessageButton().setCustomId("ts_reset").setLabel("Start Over 🗑️").setStyle("DANGER"))];}
-        return{content:header,components};
-      }
-      return safeReply(interaction,buildStep());
+      return safeReply(interaction,buildTicketSetupStep(interaction.guild,interaction.guildId));
     }
     // Server stats command
     if(cmd==="serverstats"){
