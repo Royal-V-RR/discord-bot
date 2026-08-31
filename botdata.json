@@ -39023,7 +39023,22 @@
   ],
   "activeEffects": [],
   "reminders": [],
-  "scheduledMessages": [],
+  "scheduledMessages": [
+    [
+      "m92ca1",
+      {
+        "id": "m92ca1",
+        "userId": "969280648667889764",
+        "guildId": "1048053656035020911",
+        "channelId": "1517219624616202330",
+        "content": "<@&1540017556042162267> what do we think about the colosseum pve event",
+        "sendAt": 1788196522114,
+        "createdAt": 1788164122114,
+        "imageURL": null,
+        "imageName": null
+      }
+    ]
+  ],
   "inviteComps": [],
   "premieres": [],
   "raConfig": [
