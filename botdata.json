@@ -249,6 +249,13 @@
         "mode": "uwu",
         "ownerClanked": true
       }
+    ],
+    [
+      "1213866609362604194",
+      {
+        "expiresAt": 1788296888038,
+        "mode": "random"
+      }
     ]
   ],
   "theCountChannels": [
@@ -5357,7 +5364,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 762,
+        "xp": 773,
         "level": 26,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -94401,7 +94408,9 @@
   "selfClankUsers": [
     [
       "1048053656035020911",
-      []
+      [
+        "1213866609362604194"
+      ]
     ],
     [
       "1408975996715139084",
