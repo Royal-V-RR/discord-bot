@@ -249,13 +249,6 @@
         "mode": "uwu",
         "ownerClanked": true
       }
-    ],
-    [
-      "1213866609362604194",
-      {
-        "expiresAt": 1788296888038,
-        "mode": "random"
-      }
     ]
   ],
   "theCountChannels": [
@@ -94408,16 +94401,19 @@
   "selfClankUsers": [
     [
       "1048053656035020911",
-      [
-        "1213866609362604194"
-      ]
+      []
     ],
     [
       "1408975996715139084",
       []
     ]
   ],
-  "selfClankCooldown": [],
+  "selfClankCooldown": [
+    [
+      "1213866609362604194",
+      1788297488059
+    ]
+  ],
   "pendingReviews": [
     [
       "821276msisi82v",
