@@ -94461,10 +94461,12 @@
       "1544518255077498961",
       {
         "filename": "quote_105.jpg",
-        "voters": [],
+        "voters": [
+          "363149593787105291"
+        ],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
-        "sentToDeleter": false,
+        "sentToDeleter": true,
         "type": "quote"
       }
     ],
