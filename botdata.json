@@ -4970,7 +4970,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-27",
-        "xp": 8029,
+        "xp": 8039,
         "level": 30,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -66213,6 +66213,10 @@
       "IMG_5513.png"
     ]
   ],
+  "favoritedQuotes": [],
+  "userVoteStats": [],
+  "userFlagStats": [],
+  "pendingFlagDeleters": [],
   "reviewChannelId": "1503045026866004071",
   "deleterChannelId": "1413168710881120306",
   "trashcanThreshold": 1,
@@ -95824,6 +95828,50 @@
         "messageStart": "",
         "creatorId": "690219723472109616",
         "creatorName": "tuxe the sheep"
+      }
+    ]
+  ],
+  "jarvisEnhanceProfiles": [
+    [
+      "clankerfy",
+      {
+        "triggers": [
+          "clankerfy",
+          "clankerify",
+          "clank"
+        ],
+        "actions": [
+          {
+            "type": "clankerify",
+            "params": {
+              "mode": "random",
+              "duration": "10"
+            }
+          }
+        ],
+        "ownerLocked": true,
+        "creatorId": "system",
+        "creatorName": "RoyalBot",
+        "createdAt": 1788562559826
+      }
+    ],
+    [
+      "hitaclip",
+      {
+        "triggers": [
+          "quote",
+          "clip"
+        ],
+        "actions": [
+          {
+            "type": "random_quote",
+            "params": {}
+          }
+        ],
+        "ownerLocked": false,
+        "creatorId": "system",
+        "creatorName": "RoyalBot",
+        "createdAt": 1788562559826
       }
     ]
   ],
