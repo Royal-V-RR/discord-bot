@@ -95076,10 +95076,12 @@
       "1545554882709299222",
       {
         "filename": "Zrzut_ekranu_2026-04-26_130624.png",
-        "voters": [],
+        "voters": [
+          "363149593787105291"
+        ],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
-        "sentToDeleter": false,
+        "sentToDeleter": true,
         "type": "quote"
       }
     ],
