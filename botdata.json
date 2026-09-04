@@ -95888,6 +95888,29 @@
         "creatorName": "RoyalBot",
         "createdAt": 1788562559826
       }
+    ],
+    [
+      "laugh",
+      {
+        "triggers": [
+          "point",
+          "laugh",
+          "point and laugh"
+        ],
+        "actions": [
+          {
+            "type": "echo",
+            "params": {
+              "message": "🫵😂",
+              "replyMode": "reply"
+            }
+          }
+        ],
+        "ownerLocked": false,
+        "creatorId": "969280648667889764",
+        "creatorName": "royalvmusic",
+        "createdAt": 1788564296064
+      }
     ]
   ],
   "serverStatsConfig": [
