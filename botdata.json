@@ -39590,7 +39590,7 @@
       {
         "channelId": "1408975997272854611",
         "hour": 9,
-        "_lastFire": "1408975996715139084:2026-8-4:9"
+        "_lastFire": "1408975996715139084:2026-8-5:9"
       }
     ],
     [
@@ -66239,6 +66239,10 @@
     [
       "1545580343770226760",
       "Screenshot_20260430_001845.jpg"
+    ],
+    [
+      "1545720376430952469",
+      "on my momma.png"
     ]
   ],
   "favoritedQuotes": [],
@@ -95645,6 +95649,17 @@
         "voters": [],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
+        "sentToDeleter": false,
+        "type": "quote"
+      }
+    ],
+    [
+      "1545720376430952469",
+      {
+        "filename": "on my momma.png",
+        "voters": [],
+        "guildId": "1408975996715139084",
+        "channelId": "1408975997272854611",
         "sentToDeleter": false,
         "type": "quote"
       }
