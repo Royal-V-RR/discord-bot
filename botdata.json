@@ -5962,7 +5962,6 @@
           "1413943805203189800_Screenshot_20260611-2055532.png",
           "Screenshot_20260612-1321412.png",
           "IMG_5563.jpg",
-          "Screenshot_20260615-1613442.png",
           "Screenshot_20260616-1114022.png",
           "Screenshot_20260616-2202022.png",
           "quote_68.png",
@@ -66280,18 +66279,11 @@
       "969280648667889764",
       {
         "flagged": 1,
-        "deleted": 0
+        "deleted": 1
       }
     ]
   ],
-  "pendingFlagDeleters": [
-    [
-      "Screenshot_20260615-1613442.png",
-      [
-        "969280648667889764"
-      ]
-    ]
-  ],
+  "pendingFlagDeleters": [],
   "reviewChannelId": "1503045026866004071",
   "deleterChannelId": "1413168710881120306",
   "trashcanThreshold": 1,
