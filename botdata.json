@@ -7043,7 +7043,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 4563,
+        "xp": 4568,
         "level": 29,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -96194,12 +96194,19 @@
             "params": {
               "nickname": ""
             }
+          },
+          {
+            "type": "echo",
+            "params": {
+              "message": "As you wish, Sir.",
+              "replyMode": "replyactor"
+            }
           }
         ],
         "ownerLocked": true,
         "creatorId": "969280648667889764",
         "creatorName": "royalvmusic",
-        "createdAt": 1788645416033
+        "createdAt": 1788645471454
       }
     ]
   ],
