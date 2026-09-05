@@ -4576,7 +4576,15 @@
     "1520763926105821276",
     "1300613150487351366"
   ],
-  "featureBlacklist": [],
+  "featureBlacklist": [
+    [
+      "1413943805203189800",
+      [
+        "all"
+      ],
+      true
+    ]
+  ],
   "tempOwnerGrants": [
     [
       "1092897297815318618",
@@ -4970,7 +4978,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-27",
-        "xp": 302,
+        "xp": 307,
         "level": 31,
         "lastWorkTime": 0,
         "lastBegTime": 0,
