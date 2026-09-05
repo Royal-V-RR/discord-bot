@@ -96179,6 +96179,28 @@
         "creatorName": "royalvmusic",
         "createdAt": 1788564296064
       }
+    ],
+    [
+      "name",
+      {
+        "triggers": [
+          "name him",
+          "name her",
+          "name them"
+        ],
+        "actions": [
+          {
+            "type": "set_nickname",
+            "params": {
+              "nickname": ""
+            }
+          }
+        ],
+        "ownerLocked": true,
+        "creatorId": "969280648667889764",
+        "creatorName": "royalvmusic",
+        "createdAt": 1788645416033
+      }
     ]
   ],
   "serverStatsConfig": [
