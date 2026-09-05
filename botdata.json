@@ -5371,7 +5371,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 2265,
+        "xp": 2270,
         "level": 26,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -96231,6 +96231,29 @@
         "creatorId": "969280648667889764",
         "creatorName": "royalvmusic",
         "createdAt": 1788645776803
+      }
+    ],
+    [
+      "purge",
+      {
+        "triggers": [
+          "clear",
+          "clear the chat",
+          "delete",
+          "purge"
+        ],
+        "actions": [
+          {
+            "type": "purge",
+            "params": {
+              "amount": ""
+            }
+          }
+        ],
+        "ownerLocked": true,
+        "creatorId": "969280648667889764",
+        "creatorName": "royalvmusic",
+        "createdAt": 1788645946914
       }
     ]
   ],
