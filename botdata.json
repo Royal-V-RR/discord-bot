@@ -66259,6 +66259,10 @@
     [
       "1545763141454012456",
       "Screenshot_20260615-1613442.png"
+    ],
+    [
+      "1545763154150170717",
+      "e9130730-48ce-4eef-9584-2fc004219cea.png"
     ]
   ],
   "favoritedQuotes": [],
@@ -66271,8 +66275,23 @@
       }
     ]
   ],
-  "userFlagStats": [],
-  "pendingFlagDeleters": [],
+  "userFlagStats": [
+    [
+      "969280648667889764",
+      {
+        "flagged": 1,
+        "deleted": 0
+      }
+    ]
+  ],
+  "pendingFlagDeleters": [
+    [
+      "Screenshot_20260615-1613442.png",
+      [
+        "969280648667889764"
+      ]
+    ]
+  ],
   "reviewChannelId": "1503045026866004071",
   "deleterChannelId": "1413168710881120306",
   "trashcanThreshold": 1,
@@ -95725,6 +95744,19 @@
       "1545763141454012456",
       {
         "filename": "Screenshot_20260615-1613442.png",
+        "voters": [
+          "969280648667889764"
+        ],
+        "guildId": "1048053656035020911",
+        "channelId": "1477294439180537980",
+        "sentToDeleter": true,
+        "type": "quote"
+      }
+    ],
+    [
+      "1545763154150170717",
+      {
+        "filename": "e9130730-48ce-4eef-9584-2fc004219cea.png",
         "voters": [],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
