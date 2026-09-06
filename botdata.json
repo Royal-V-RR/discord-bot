@@ -96381,6 +96381,34 @@
         "creatorName": "hawkshadow74",
         "createdAt": 1788661481161
       }
+    ],
+    [
+      "slime",
+      {
+        "triggers": [
+          "slime"
+        ],
+        "actions": [
+          {
+            "type": "timeout",
+            "params": {
+              "duration": "20160",
+              "reason": "Jarvis Timed Out"
+            }
+          },
+          {
+            "type": "echo",
+            "params": {
+              "message": "Successfully timed him out for a week, Sir.",
+              "replyMode": "replyactor"
+            }
+          }
+        ],
+        "ownerLocked": true,
+        "creatorId": "969280648667889764",
+        "creatorName": "royalvmusic",
+        "createdAt": 1788710226302
+      }
     ]
   ],
   "serverStatsConfig": [
