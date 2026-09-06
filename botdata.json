@@ -5164,7 +5164,6 @@
           "IMG_5321.png",
           "IMG_5326.png",
           "quote_1513219101034807421.png",
-          "IMG_5349.png",
           "IMG_5356.png",
           "2f5c4438-3c0a-42e4-b9c6-506bd5c05311.png",
           "IMG_5365.png",
@@ -66366,18 +66365,11 @@
       "1099756603667910696",
       {
         "flagged": 1,
-        "deleted": 0
+        "deleted": 1
       }
     ]
   ],
-  "pendingFlagDeleters": [
-    [
-      "IMG_5349.png",
-      [
-        "1099756603667910696"
-      ]
-    ]
-  ],
+  "pendingFlagDeleters": [],
   "reviewChannelId": "1503045026866004071",
   "deleterChannelId": "1413168710881120306",
   "trashcanThreshold": 1,
