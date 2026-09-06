@@ -528,12 +528,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 17600,
-        "lastSubsTimestamp": 1788708869439,
+        "lastSubsTimestamp": 1788709169472,
         "history": [
-          {
-            "ts": 1788403560085,
-            "subs": 17400
-          },
           {
             "ts": 1788403860180,
             "subs": 17400
@@ -4528,6 +4524,10 @@
           },
           {
             "ts": 1788708869439,
+            "subs": 17600
+          },
+          {
+            "ts": 1788709169472,
             "subs": 17600
           }
         ],
@@ -39620,6 +39620,30 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 15,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1487930784219267133",
+      {
+        "username": "f7.onnat",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 14,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
