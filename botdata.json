@@ -96290,6 +96290,28 @@
         "creatorName": "royalvmusic",
         "createdAt": 1788652576811
       }
+    ],
+    [
+      "dox",
+      {
+        "triggers": [
+          "dox",
+          "dox"
+        ],
+        "actions": [
+          {
+            "type": "echo",
+            "params": {
+              "message": "308 Negra Arroyo Lane, Albuquerque, New Mexico, 87104",
+              "replyMode": "reply"
+            }
+          }
+        ],
+        "ownerLocked": true,
+        "creatorId": "1082452773787942922",
+        "creatorName": "hawkshadow74",
+        "createdAt": 1788661481161
+      }
     ]
   ],
   "serverStatsConfig": [
