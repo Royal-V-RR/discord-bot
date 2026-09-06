@@ -4747,7 +4747,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 3249,
+        "xp": 3255,
         "level": 19,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -66361,9 +66361,23 @@
         "flagged": 1,
         "deleted": 1
       }
+    ],
+    [
+      "1099756603667910696",
+      {
+        "flagged": 1,
+        "deleted": 0
+      }
     ]
   ],
-  "pendingFlagDeleters": [],
+  "pendingFlagDeleters": [
+    [
+      "IMG_5349.png",
+      [
+        "1099756603667910696"
+      ]
+    ]
+  ],
   "reviewChannelId": "1503045026866004071",
   "deleterChannelId": "1413168710881120306",
   "trashcanThreshold": 1,
@@ -95840,10 +95854,12 @@
       "1545763283280072795",
       {
         "filename": "IMG_5349.png",
-        "voters": [],
+        "voters": [
+          "1099756603667910696"
+        ],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
-        "sentToDeleter": false,
+        "sentToDeleter": true,
         "type": "quote"
       }
     ],
