@@ -16,12 +16,12 @@ const ffmpegPath = require("ffmpeg-static");
 // font (Poppins) render identically no matter where the bot is deployed, a
 // copy of the Poppins TTFs ships in ./fonts and gets registered via a small
 // fontconfig file pointed at that directory through FONTCONFIG_FILE. This is
-// additive — system fonts are still found via <include> of the default config,
+// additive: system fonts are still found via <include> of the default config,
 // so nothing else in the bot is affected.
 (function registerBundledFonts() {
   try {
     const fontsDir = path.join(__dirname, "fonts");
-    if (!fs.existsSync(fontsDir)) return; // no bundled fonts shipped — fall back to system fonts silently
+    if (!fs.existsSync(fontsDir)) return; // no bundled fonts shipped: fall back to system fonts silently
     const fcDir = path.join(__dirname, ".fontconfig");
     if (!fs.existsSync(fcDir)) fs.mkdirSync(fcDir, { recursive: true });
     const fontsConfPath = path.join(fcDir, "fonts.conf");
@@ -42,10 +42,10 @@ const ffmpegPath = require("ffmpeg-static");
 })();
 
 const TOKEN     = process.env.TOKEN;
-// Was hardcoded to the main bot's application ID — harmless for the main bot,
-// but since index_beta.cjs is shipped as a byte-identical copy, the beta bot
+// Was hardcoded to the main bot's application ID: harmless for the main bot,
+// but since index_beta.cjs is shipped as a byte identical copy, the beta bot
 // was authenticating with its own TOKEN while registering commands under the
-// MAIN bot's CLIENT_ID. Discord correctly 403s that mismatch (code 20012 —
+// MAIN bot's CLIENT_ID. Discord correctly 403s that mismatch (code 20012:
 // "not authorized on this application"), which is why command registration
 // was failing for the beta bot specifically. Now reads from the environment
 // (same pattern as TOKEN) so each deployment's own CLIENT_ID secret is used;
@@ -54,15 +54,15 @@ const CLIENT_ID = process.env.CLIENT_ID || "1480592876684706064";
 const OWNER_IDS = ["1419803002771865722","969280648667889764","363149593787105291"];
 const OWNER_ID  = OWNER_IDS[1];
 const GAY_IDS   = ["1245284545452834857","1413943805203189800","1057320311453913149","1193150033864949811"];
-// Mutable — managed via /managememers (owner only), persisted in botdata.json
+// Mutable: managed via /managememers (owner only), persisted in botdata.json
 const MEMERS = new Set(["1419803002771865722","1259223683826712729","1254388539890860083","1082452773787942922","1193150033864949811","1413943805203189800","969280648667889764","690219723472109616"]); // Users allowed to use /upload
 
 // ── Restart webhook notice ────────────────────────────────────────────────────
 // Announces every reboot in Discord: an immediate "restarting" ping the instant
 // the process starts (works even before the bot has logged in), which then gets
-// edited in place once ready into a live uptime/next-reset status. Uses Discord's
+// edited in place once ready into a live uptime/next reset status. Uses Discord's
 // native <t:...:R> timestamp formatting, which renders as "in 3 hours" and updates
-// itself client-side automatically — no repeated edits needed to keep it live.
+// itself client side automatically: no repeated edits needed to keep it live.
 const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL || null;
 let restartMessageId = null;
 
@@ -93,7 +93,7 @@ async function editWebhookMessage(messageId, content) {
   } catch(e) { console.error("webhook edit error:", e.message); return false; }
 }
 
-// Fire the "restarting" notice immediately — don't block startup on it.
+// Fire the "restarting" notice immediately: don't block startup on it.
 postWebhookMessage("🔄 RoyalBot restarting, please give us a few seconds…")
   .then(id => { restartMessageId = id; })
   .catch(() => {});
@@ -117,7 +117,7 @@ async function acquireInstanceLock(ownerUser) {
       !m.content.includes(INSTANCE_ID) &&
       (now - m.createdTimestamp) < 15000
     );
-    if (competing) { console.log(`[${INSTANCE_ID}] Duplicate — exiting.`); process.exit(0); }
+    if (competing) { console.log(`[${INSTANCE_ID}] Duplicate: exiting.`); process.exit(0); }
     await dm.send(`${LOCK_PREFIX}${INSTANCE_ID}:${now}`);
         await dm.send(`Oh creator please don't leave me waiting…`);
     instanceLocked = true;
@@ -131,10 +131,10 @@ async function acquireInstanceLock(ownerUser) {
 // tell whether the bot is alive without needing any inbound connection to it.
 const STATUS_FILE = "./status.json";
 const BOT_START_TIME = Date.now();
-// Mirrors bot.yml's `timeout-minutes` — the GitHub Actions job (and this bot
+// Mirrors bot.yml's `timeout minutes`: the GitHub Actions job (and this bot
 // process along with it) gets killed and a fresh run dispatched once this many
 // minutes have elapsed since the process started. Only used to show an estimated
-// countdown on the status page — if bot.yml's timeout-minutes ever changes,
+// countdown on the status page: if bot.yml's timeout minutes ever changes,
 // update this too so the countdown stays accurate.
 const RESTART_TIMEOUT_MIN = 401;
 
@@ -206,7 +206,7 @@ async function commitStatusToGitHub() {
   } catch(e) { console.error("commitStatusToGitHub error:", e.message); }
 }
 
-// Heartbeat tick — every 60s for as long as the process is alive.
+// Heartbeat tick: every 60s for as long as the process is alive.
 setInterval(() => { commitStatusToGitHub().catch(()=>{}); }, 60 * 1000);
 
 // ── State ─────────────────────────────────────────────────────────────────────
@@ -216,7 +216,7 @@ const leaveChannels    = new Map();
 const boostChannels    = new Map();
 // boostHistory: guildId -> Map<userId, {count, firstBoostAt, lastBoostAt}>
 // Tracks how many times each member has *started* boosting this server (not
-// simultaneous Nitro boost slots — Discord's API doesn't expose that count,
+// simultaneous Nitro boost slots: Discord's API doesn't expose that count,
 // only whether a member is currently boosting). Members already boosting when
 // this feature first sees them are seeded at count:1.
 const boostHistory = new Map();
@@ -261,7 +261,7 @@ const inviteCache      = new Map();
 const ticketConfigs    = new Map();
 const openTickets      = new Map();
 const premieres        = new Map(); // premiereId -> { title, endsAt, channelId, userId, messageId, guildId }
-const disabledLevelUp  = new Set(); // legacy — now superseded by levelUpConfig.enabled
+const disabledLevelUp  = new Set(); // legacy: now superseded by levelUpConfig.enabled
 const userInstalls     = new Set();
 // featureBlacklist: userId -> { features: Set<string>, silent: boolean }
 // "all" in features means a full blacklist (blocked from every command/feature);
@@ -283,17 +283,17 @@ const activityChecks   = new Map(); // messageId -> { guildId, channelId, roleId
 const scheduledChecks  = new Map(); // `${guildId}:${channelId}` -> { guildId, channelId, dayOfWeek, hour, minute, deadlineHr, customMsg, doPing, roleIds, excludedIds, nextFire }
 const raConfig         = new Map(); // guildId -> { raRoleId, loaRoleId }
 const raTimers         = new Map(); // `${guildId}:${userId}:${type}` -> timeoutId
-// Per-guild XP level-up notification config
+// Per guild XP level up notification config
 // { enabled: bool, ping: bool, channelId: string|null }
 // enabled: whether to post at all (default true)
 // ping:    whether to @mention the user (default true)
-// channelId: override channel — null means use guildChannels fallback then same-channel
+// channelId: override channel: null means use guildChannels fallback then same channel
 const levelUpConfig    = new Map(); // guildId -> { enabled, ping, channelId }
 const dailyQuoteChannels = new Map(); // guildId -> { channelId, hour, timezone }
 const quoteCooldown    = new Map(); // userId -> last use timestamp
 
 // ── YouTube tracking ─────────────────────────────────────────────────────────
-// ytConfig: per-guild YouTube settings persisted in botdata.json
+// ytConfig: per guild YouTube settings persisted in botdata.json
 // { apiKey: string, ytChannelId: string, channelTitle: string,
 //   discordChannelId: string, goal, goalMessage, goalReached, goalDiscordId, goalMessageId,
 //   subcountMessageId, subcountDiscordId, subcountThreshold,
@@ -308,9 +308,9 @@ function getYtKey(guildId) { return ytConfig.get(guildId)?.apiKey || null; }
 const marriageProposals = new Map(); // proposerId -> { targetId, timeout }
 
 // ── Quote shuffle queue ───────────────────────────────────────────────────────
-// In-memory Fisher-Yates shuffled queue so every image is shown before repeats.
+// In memory Fisher Yates shuffled queue so every image is shown before repeats.
 // No writes to botdata.json. Refills automatically when exhausted.
-// A fetch lock prevents multiple concurrent /quote calls from double-fetching.
+// A fetch lock prevents multiple concurrent /quote calls from double fetching.
 let quoteQueue    = [];   // shuffled array of GitHub file objects
 let quoteFetching = false; // true while a refill fetch is in flight
 // quoteVotes: filename -> { up: number, down: number }
@@ -318,18 +318,18 @@ const quoteVotes = new Map();
 // quoteVoteMessages: messageId -> filename  (tracks which quote a message shows)
 const quoteVoteMessages = new Map();
 
-// favoritedQuotes: userId -> Set<filename> — Patreon-exclusive quote favorites.
+// favoritedQuotes: userId -> Set<filename> - Patreon-exclusive quote favorites.
 const favoritedQuotes = new Map();
 
-// Per-user quote-voting/flagging stats — feeds /userprofile.
-// userVoteStats: userId -> { up, down } — quote up/down votes cast BY this user
+// Per user quote voting/flagging stats: feeds /userprofile.
+// userVoteStats: userId -> { up, down } - quote up/down votes cast BY this user
 const userVoteStats = new Map();
-// userFlagStats: userId -> { flagged, deleted } — quotes this user flagged for
+// userFlagStats: userId -> { flagged, deleted } - quotes this user flagged for
 // review (crossed the trashcan threshold, or flagged solo via /library), and
 // how many of those were actually deleted by an owner
 const userFlagStats = new Map();
 // pendingFlagDeleters: filename -> Set<userId> who flagged it, awaiting the
-// owner's Keep/Delete call in the deleter channel — read by del_delete_ to
+// owner's Keep/Delete call in the deleter channel: read by del_delete_ to
 // credit userFlagStats.deleted, then cleared.
 const pendingFlagDeleters = new Map();
 function bumpVoteStat(userId, field, delta) {
@@ -343,13 +343,9 @@ function bumpFlagStat(userId, field) {
   s[field]++;
 }
 
-// ⚠️ NEEDS V's INPUT — see chat. These two are placeholders until filled in:
-//   PATREON_GUILD_ID: the Discord server ID where the Patreon role IDs below
-//     actually live (checked via a cross-guild member fetch, since roles are
-//     per-server and this command can be run from any server the bot is in).
-//   PATREON_LINK: the actual Patreon URL for the error message.
-// Until both are set, isPatreonMember() always returns false (fails safe —
-// nobody gets access rather than everybody).
+// Patreon gating: checked against a specific server (roles are per server,
+// so this isn't a "global Patreon role"; someone only counts if they hold
+// one of these roles in the Patreon server specifically, refreshed below).
 const PATREON_GUILD_ID = "1533594455125397654";
 const PATREON_LINK = "https://www.patreon.com/c/RoyalV_/membership";
 const PATREON_ROLE_IDS = [
@@ -359,17 +355,32 @@ const PATREON_ROLE_IDS = [
   "1542615428264894555",
   "1542615456492552334",
 ];
-async function isPatreonMember(userId) {
-  if (!PATREON_GUILD_ID) return false;
+// patreonMemberIds: Set<userId>: built fresh from the Patreon server's member
+// list on every startup. Deliberately NOT persisted to botdata: if someone
+// leaves the Patreon server or loses their role, they should fall off this
+// list on the next restart rather than lingering in saved data forever.
+const patreonMemberIds = new Set();
+async function refreshPatreonMembers() {
+  if (!PATREON_GUILD_ID) return;
   const guild = client.guilds.cache.get(PATREON_GUILD_ID);
-  if (!guild) return false;
-  const member = await guild.members.fetch(userId).catch(() => null);
-  if (!member) return false;
-  return PATREON_ROLE_IDS.some(rid => member.roles.cache.has(rid));
+  if (!guild) { console.error("[patreon] Bot is not in the Patreon server, cannot check membership."); return; }
+  try {
+    const members = await guild.members.fetch();
+    patreonMemberIds.clear();
+    for (const [id, member] of members) {
+      if (PATREON_ROLE_IDS.some(rid => member.roles.cache.has(rid))) patreonMemberIds.add(id);
+    }
+    console.log(`[patreon] Refreshed, ${patreonMemberIds.size} patreon member(s) found.`);
+  } catch(e) {
+    console.error("[patreon] Failed to refresh member list:", e.message);
+  }
+}
+async function isPatreonMember(userId) {
+  return patreonMemberIds.has(userId);
 }
 let reviewChannelId = null; // global channel ID for quote review submissions
-let deleterChannelId = null; // global channel ID where trashcan-flagged quotes are sent for reevaluation
-// quoteUserVotes: filename → Map<userId, 'up'|'down'>  (in-session tracking, prevents double-vote per session)
+let deleterChannelId = null; // global channel ID where trashcan flagged quotes are sent for reevaluation
+// quoteUserVotes: filename → Map<userId, 'up'|'down'>  (in session tracking, prevents double vote per session)
 const quoteUserVotes = new Map();
 // customClankerModes: modeId → { emoji, displayNameFormat, words: [[from,to],...], signoffs: [...], messageStart }
 const customClankerModes = new Map();
@@ -386,7 +397,7 @@ const SS_STAT_TYPES = {
   humans:        {emoji:"🙋",label:"Members",       desc:"Human members only"},
   bots:          {emoji:"🤖",label:"Bots",          desc:"Bot accounts only"},
   boosts:        {emoji:"🚀",label:"Boosts",        desc:"Server boost count"},
-  boostTier:     {emoji:"💎",label:"Boost Level",   desc:"Current boost tier (0-3)"},
+  boostTier:     {emoji:"💎",label:"Boost Level",   desc:"Current boost tier (0 to 3)"},
   textChannels:  {emoji:"💬",label:"Text Channels", desc:"Number of text channels"},
   voiceChannels: {emoji:"🔊",label:"Voice Channels",desc:"Number of voice channels"},
   categories:    {emoji:"📁",label:"Categories",    desc:"Number of categories"},
@@ -448,7 +459,7 @@ function ssBuildMainPanel(guild){
   if(!cfg || !cfg.categoryId || !guild.channels.cache.has(cfg.categoryId)){
     return {content:[
       "## 📊 Server Stats",
-      "Set up live, auto-updating voice channels that show your server's stats at a glance — the classic locked-VC counter setup.",
+      "Set up live, autoupdating voice channels that show your server's stats at a glance: the classic locked VC counter setup.",
       "",
       "You'll start with **All Members**, **Members**, and **Bots** counters, then you can add, remove, reorder, or restyle any stat afterward.",
     ].join("\n"), components:[new MessageActionRow().addComponents(
@@ -458,7 +469,7 @@ function ssBuildMainPanel(guild){
   const lines = cfg.channels.map(e=>{
     const ch = guild.channels.cache.get(e.id);
     const val = ssComputeValue(guild, e);
-    return `${e.emoji||"📊"} **${e.label}** — \`${val}\``;
+    return `${e.emoji||"📊"} **${e.label}**: \`${val}\``;
   });
   const intervalStr = `${cfg.intervalMinutes||15}m`;
   const lockedStr = cfg.locked===false ? "🔓 Unlocked (joinable)" : "🔒 Locked (view only)";
@@ -467,7 +478,7 @@ function ssBuildMainPanel(guild){
     `📁 Category: \`${guild.channels.cache.get(cfg.categoryId)?.name||"?"}\``,
     `⏱️ Updates every **${intervalStr}** • ${lockedStr}`,
     "",
-    cfg.channels.length ? lines.join("\n") : "*No stat channels yet — add one below.*",
+    cfg.channels.length ? lines.join("\n") : "*No stat channels yet: add one below.*",
   ].join("\n");
   const row1 = new MessageActionRow().addComponents(
     new MessageButton().setCustomId("ss_add").setLabel("➕ Add Stat").setStyle("SUCCESS").setDisabled(cfg.channels.length>=SS_MAX_CHANNELS),
@@ -526,8 +537,8 @@ function ssBuildSettingsPanel(guild,cfg){
   const content = [
     "## ⚙️ Server Stats Settings",
     `📁 Category name: \`${guild.channels.cache.get(cfg.categoryId)?.name||"?"}\``,
-    `⏱️ Update interval: **${cfg.intervalMinutes||15} minutes** *(minimum 10 — Discord limits how often channel names can change)*`,
-    `${cfg.locked===false ? "🔓 Channels are unlocked (members can join)" : "🔒 Channels are locked (view-only, can't join)"}`,
+    `⏱️ Update interval: **${cfg.intervalMinutes||15} minutes** *(minimum 10: Discord limits how often channel names can change)*`,
+    `${cfg.locked===false ? "🔓 Channels are unlocked (members can join)" : "🔒 Channels are locked (view only, can't join)"}`,
   ].join("\n");
   const row1 = new MessageActionRow().addComponents(
     new MessageSelectMenu().setCustomId("ss_interval_sel").setPlaceholder("Change update interval…").setOptions(
@@ -542,7 +553,7 @@ function ssBuildSettingsPanel(guild,cfg){
   return {content, components:[row1,row2,row3]};
 }
 // tempOwnerGrants: userId → { commands: Set<string>, features: Set<string>, expiresAt: number|null, timerId: Timeout|null, grantedBy: string, grantedAt: number }
-// expiresAt === null means a permanent grant (no auto-expiry timer).
+// expiresAt === null means a permanent grant (no autoexpiry timer).
 // Must be at module level so isEffectiveOwner() is available before the try block in interactionCreate.
 const tempOwnerGrants = new Map();
 function hasTempOwnerAccess(userId, commandName){
@@ -561,14 +572,14 @@ function isEffectiveOwner(userId, commandName){
   return OWNER_IDS.includes(userId) || hasTempOwnerAccess(userId, commandName);
 }
 
-// ── /tempowner — interactive picker ─────────────────────────────────────────
+// ── /tempowner: interactive picker ─────────────────────────────────────────
 const GRANTABLE_OWNER_CMDS = ["servers","fakemessage","fakequote","dmconfig","leaveserver","restart","refreshcmds","botstats","setstatus","adminconfig","shadowdelete","clankerify","impersonation","thecount","send","forcemarry","forcedivorce","echo","paranoia","theremnant","jarvisenhance"];
 const GRANTABLE_OWNER_FEATURES = [
-  { id:"quote_review", label:"Quote Review — accept/deny submissions" },
-  { id:"reaction_bomb", label:"Reaction Bomb — right-click message context command" },
-  { id:"clank_this", label:"Clank This — right-click message context command" },
-  { id:"expose", label:"Expose — right-click message context command" },
-  { id:"quote_manager", label:"Quote Manager — browse & delete quote images" },
+  { id:"quote_review", label:"Quote Review: accept/deny submissions" },
+  { id:"reaction_bomb", label:"Reaction Bomb: right click message context command" },
+  { id:"clank_this", label:"Clank This: right click message context command" },
+  { id:"expose", label:"Expose: right click message context command" },
+  { id:"quote_manager", label:"Quote Manager: browse & delete quote images" },
 ];
 const TEMPOWNER_DURATIONS = [
   { label:"15 minutes",  value:"15" },
@@ -593,7 +604,7 @@ function formatGrantsList(){
       ? [...g.features].map(f => GRANTABLE_OWNER_FEATURES.find(x=>x.id===f)?.label || f).join(", ")
       : "_none_";
     const expText = g.expiresAt === null ? "♾️ Permanent" : `⏳ expires <t:${Math.floor(g.expiresAt/1000)}:R>`;
-    lines.push(`<@${id}> — ${expText}\n> Commands: ${cmdsText}\n> Features: ${featsText}`);
+    lines.push(`<@${id}> - ${expText}\n> Commands: ${cmdsText}\n> Features: ${featsText}`);
   }
   return lines.length ? lines.join("\n\n") : "_No active grants._";
 }
@@ -609,7 +620,7 @@ function buildTempOwnerPanel(token){
       new MessageSelectMenu().setCustomId(`to_cmds_${token}`).setPlaceholder("Owner commands to grant…").setMinValues(0).setMaxValues(cmdOptions.length).setOptions(cmdOptions)
     ),
     new MessageActionRow().addComponents(
-      new MessageSelectMenu().setCustomId(`to_feats_${token}`).setPlaceholder("Non-command features to grant…").setMinValues(0).setMaxValues(featOptions.length).setOptions(featOptions)
+      new MessageSelectMenu().setCustomId(`to_feats_${token}`).setPlaceholder("Non command features to grant…").setMinValues(0).setMaxValues(featOptions.length).setOptions(featOptions)
     ),
     new MessageActionRow().addComponents(
       new MessageSelectMenu().setCustomId(`to_dur_${token}`).setPlaceholder("Duration…").setMinValues(1).setMaxValues(1).setOptions(durOptions)
@@ -626,7 +637,7 @@ function buildTempOwnerPanel(token){
   const featsPreview = b.features.size ? [...b.features].map(f=>GRANTABLE_OWNER_FEATURES.find(x=>x.id===f)?.label||f).join(", ") : "_none selected_";
 
   const content = [
-    `🔑 **Temporary Owner Access** — configuring for <@${b.targetUserId}>`,
+    `🔑 **Temporary Owner Access**: configuring for <@${b.targetUserId}>`,
     ``,
     `**Commands:** ${cmdsPreview}`,
     `**Features:** ${featsPreview}`,
@@ -639,9 +650,9 @@ function buildTempOwnerPanel(token){
   return { content, components: rows };
 }
 
-// ── /blacklist — interactive picker ─────────────────────────────────────────
-// Replaces the old all-or-nothing blacklist: an owner can block a user from
-// specific commands, or hit "Full Blacklist" for the old block-everything
+// ── /blacklist: interactive picker ─────────────────────────────────────────
+// Replaces the old all or nothing blacklist: an owner can block a user from
+// specific commands, or hit "Full Blacklist" for the old block everything
 // behavior (still backed by the same featureBlacklist data, just with "all"
 // in the feature set). Mirrors the /tempowner builder UI.
 const blacklistBuilders = new Map(); // token -> { ownerId, targetUserId, features:Set<string>, silent:boolean }
@@ -651,7 +662,7 @@ function formatBlacklistList(){
   const lines = [];
   for(const [id, b] of featureBlacklist.entries()){
     const featsText = b.features.has("all") ? "**🚫 Full blacklist**" : [...b.features].map(f=>`\`/${f}\``).join(" ");
-    lines.push(`<@${id}> — ${featsText}${b.silent ? " 🔇 *silent*" : ""}`);
+    lines.push(`<@${id}> - ${featsText}${b.silent ? " 🔇 *silent*" : ""}`);
   }
   return lines.join("\n");
 }
@@ -667,7 +678,7 @@ function buildBlacklistPanel(token){
     idPrefix: `bl_sel_${token}`,
     selectedIds: [...specificFeatures],
     mode: "multi",
-    placeholder: isAll ? "Full blacklist active — pick to override…" : "Commands to block…",
+    placeholder: isAll ? "Full blacklist active: pick to override…" : "Commands to block…",
   });
 
   const rows = [
@@ -683,7 +694,7 @@ function buildBlacklistPanel(token){
 
   const featsPreview = isAll ? "**🚫 Full blacklist**" : (specificFeatures.size ? [...specificFeatures].map(f=>`\`/${f}\``).join(" ") : "_none selected_");
   const content = [
-    `🚫 **Blacklist** — configuring for <@${b.targetUserId}>`,
+    `🚫 **Blacklist**: configuring for <@${b.targetUserId}>`,
     ``,
     `**Blocked:** ${featsPreview}`,
     `**Silent:** ${b.silent ? "🔇 Yes" : "No"}`,
@@ -695,17 +706,17 @@ function buildBlacklistPanel(token){
   return { content, components: rows };
 }
 
-// ── /jarvisenhance — customizable Jarvis automation chains ─────────────────────
-// A "profile" is a named, owner-built macro: one or more trigger words (matched
-// the exact same way as the Jarvis image trigger — tokenized whole-word match,
+// ── /jarvisenhance: customizable Jarvis automation chains ─────────────────────
+// A "profile" is a named, owner built macro: one or more trigger words (matched
+// the exact same way as the Jarvis image trigger: tokenized whole word match,
 // not loose substring) plus an ordered list of actions to run in sequence when
 // someone says "Jarvis, <word>" or "RoyalBot, <word>" as a reply. Any leftover
 // text after the trigger word (e.g. "Jarvis, dm stop that") is available to the
-// first dynamic-eligible action as free text, so a single word + custom text
+// first dynamic eligible action as free text, so a single word + custom text
 // works like a live command, not just a fixed macro.
 // jarvisEnhanceProfiles: name -> { triggers:[word,...], actions:[{type,params}], ownerLocked, creatorId, creatorName, createdAt }
 const jarvisEnhanceProfiles = new Map();
-// Seed the example from the spec — "Jarvis, clankerfy him" while replying picks
+// Seed the example from the spec: "Jarvis, clankerfy him" while replying picks
 // a random personality mode. Loaded save data (below) overwrites this if the
 // owner has since customized or deleted it.
 jarvisEnhanceProfiles.set("clankerfy", {
@@ -717,9 +728,9 @@ jarvisEnhanceProfiles.set("clankerfy", {
   createdAt: Date.now(),
 });
 // "Jarvis, [quote/clip anywhere in the message]" → random quote, same as
-// /quote (with the vote buttons). Single-word triggers, whole-word matched
-// regardless of position — "Jarvis, got a clip?" or "Jarvis, quote" both fire
-// it. Doesn't need a reply — /quote itself isn't owner-restricted, so this
+// /quote (with the vote buttons). Single word triggers, whole word matched
+// regardless of position: "Jarvis, got a clip?" or "Jarvis, quote" both fire
+// it. Doesn't need a reply: /quote itself isn't owner restricted, so this
 // isn't either.
 jarvisEnhanceProfiles.set("hitaclip", {
   triggers: ["quote", "clip"],
@@ -737,7 +748,7 @@ const jarvisEnhanceBuilders = new Map();
 // (the user/message being replied to) or not. clanker/mod/message all act on
 // the reply target; broadcast actions run in the channel/bot itself and
 // ignore whatever was replied to (a reply is still required to say the
-// trigger word — the wake system doesn't work without one — the action
+// trigger word: the wake system doesn't work without one: the action
 // itself just doesn't use the target).
 const JARVISENHANCE_CATEGORIES = [
   { id:"clanker",   label:"🤖 Clankerify & Impersonation", needsTarget:true },
@@ -746,7 +757,7 @@ const JARVISENHANCE_CATEGORIES = [
   { id:"broadcast", label:"📢 Broadcast / Bot (no target needed)", needsTarget:false },
 ];
 
-// Modes offered for Clankerify/Impersonation — point-and-click only, no typing.
+// Modes offered for Clankerify/Impersonation: point and click only, no typing.
 // Community modes from /clankerbuild are appended at render time.
 const JARVIS_MODE_OPTIONS_BASE = [
   {label:"No mode (plain)",  value:"none",        emoji:"🤖"},
@@ -790,10 +801,10 @@ const JARVIS_DURATION_OPTIONS = [
 // when left blank in the builder (e.g. "Jarvis, dm stop that" → message:"stop
 // that" even though the profile itself was saved with no message set).
 // `fields` become a Discord modal (max 5 fields; every action here uses 0–2).
-// Clankerify/Impersonation skip modals entirely — their mode+duration are
-// chosen through point-and-click select menus instead (see the builder below).
+// Clankerify/Impersonation skip modals entirely: their mode+duration are
+// chosen through point and click select menus instead (see the builder below).
 const JARVISENHANCE_ACTIONS = [
-  // ── Clankerify & Impersonation — mode+duration picked via select, no typing ──
+  // ── Clankerify & Impersonation: mode+duration picked via select, no typing ──
   { id:"clankerify", category:"clanker", emoji:"🤖", label:"Clankerify", needs:"user", fields:[] },
   { id:"impersonation", category:"clanker", emoji:"🎭", label:"Impersonation", needs:"user", fields:[] },
   { id:"clank_this", category:"clanker", emoji:"⚡", label:"Quick Clank (10 min, plain)", needs:"user", fields:[] },
@@ -810,7 +821,7 @@ const JARVISENHANCE_ACTIONS = [
   ]},
   { id:"ban", category:"mod", emoji:"🔨", label:"Ban", needs:"member", dynamicField:"reason", fields:[
     { key:"reason", label:"Reason (blank=uses text after trigger word)", style:1, required:false, max:200 },
-    { key:"deleteDays", label:"Delete message history — days, 0-7 (blank=0)", style:1, required:false, max:1 },
+    { key:"deleteDays", label:"Delete message history: days, 0 to 7 (blank=0)", style:1, required:false, max:1 },
   ]},
   { id:"timeout", category:"mod", emoji:"⏱️", label:"Timeout", needs:"member", dynamicField:"reason", fields:[
     { key:"duration", label:"Duration in minutes (max 40320 / 28 days)", style:1, required:true, max:6 },
@@ -829,7 +840,7 @@ const JARVISENHANCE_ACTIONS = [
   { id:"voice_disconnect", category:"mod", emoji:"🔇", label:"Disconnect from Voice", needs:"member", fields:[] },
   { id:"queue_open", category:"mod", emoji:"📥", label:"Open Queue Channel (/thecount)", needs:"user", fields:[] },
 
-  // ── Messaging & Fun — all act on the reply target ────────────────────────────
+  // ── Messaging & Fun: all act on the reply target ────────────────────────────
   { id:"dm_user", category:"message", emoji:"✉️", label:"DM the User", needs:"user", dynamicField:"message", fields:[
     { key:"message", label:"Message text (blank=uses text after trigger word)", style:2, required:false, max:1500 },
   ]},
@@ -845,16 +856,16 @@ const JARVISENHANCE_ACTIONS = [
   { id:"reaction_bomb", category:"message", emoji:"💣", label:"Reaction Bomb", needs:"message", fields:[] },
   { id:"expose", category:"message", emoji:"🚨", label:"Expose", needs:"message", fields:[] },
   { id:"forcemarry", category:"message", emoji:"💍", label:"Force Marry (to a 2nd user)", needs:"user", dynamicField:"user2", fields:[
-    { key:"user2", label:"Second user — @mention/ID (blank=uses text after trigger word)", style:1, required:false, max:40 },
+    { key:"user2", label:"Second user: @mention/ID (blank=uses text after trigger word)", style:1, required:false, max:40 },
   ]},
   { id:"forcedivorce", category:"message", emoji:"💔", label:"Force Divorce", needs:"user", fields:[] },
   { id:"propose_marriage", category:"message", emoji:"💌", label:"Propose Marriage (from you, to them)", needs:"user", fields:[] },
   { id:"show_avatar", category:"message", emoji:"🖼️", label:"Show Avatar", needs:"user", fields:[] },
   { id:"give_xp", category:"message", emoji:"⭐", label:"Give/Take XP", needs:"user", dynamicField:"amount", fields:[
-    { key:"amount", label:"XP amount, +/- (blank=uses text after trigger word)", style:1, required:false, max:8 },
+    { key:"amount", label:"XP amount, positive or negative (blank=uses text after trigger word)", style:1, required:false, max:8 },
   ]},
 
-  // ── Broadcast / Bot — no reply target used unless "Reply to the message" is picked ──
+  // ── Broadcast / Bot: no reply target used unless "Reply to the message" is picked ──
   { id:"echo", category:"broadcast", emoji:"📢", label:"Echo (say something)", needs:"channel", dynamicField:"message", replyable:true, fields:[
     { key:"message", label:"Message text (blank=uses text after trigger word)", style:2, required:false, max:1000 },
   ]},
@@ -866,13 +877,13 @@ const JARVISENHANCE_ACTIONS = [
     { key:"message", label:"Transmission text (blank=uses text after trigger word)", style:2, required:false, max:1000 },
   ]},
   { id:"purge", category:"broadcast", emoji:"🧹", label:"Purge Messages", needs:"channel", dynamicField:"amount", fields:[
-    { key:"amount", label:"How many messages, 1-100 (blank=uses text after trigger word)", style:1, required:false, max:3 },
+    { key:"amount", label:"How many messages, 1 to 100 (blank=uses text after trigger word)", style:1, required:false, max:3 },
   ]},
   { id:"setstatus", category:"broadcast", emoji:"🎮", label:"Set Bot Status", needs:"none", dynamicField:"text", fields:[
     { key:"text", label:"Status text (blank=uses text after trigger word)", style:1, required:false, max:100 },
   ]},
   { id:"set_reminder", category:"broadcast", emoji:"⏰", label:"Set a Reminder (for you)", needs:"channel", dynamicField:"message", fields:[
-    { key:"minutes", label:"Minutes from now (1-10080)", style:1, required:true, max:6 },
+    { key:"minutes", label:"Minutes from now (1 to 10080)", style:1, required:true, max:6 },
     { key:"message", label:"Reminder text (blank=uses text after trigger word)", style:2, required:false, max:500 },
   ]},
   { id:"random_quote", category:"broadcast", emoji:"💬", label:"Random Quote (like /quote)", needs:"channel", fields:[] },
@@ -895,14 +906,14 @@ function buildJarvisEnhancePanel(token){
 
   if(!b.category){
     rows.push(new MessageActionRow().addComponents(
-      new MessageSelectMenu().setCustomId(`je_category_${token}`).setPlaceholder("➕ Add an action — pick a category…")
+      new MessageSelectMenu().setCustomId(`je_category_${token}`).setPlaceholder("➕ Add an action: pick a category…")
         .setOptions(JARVISENHANCE_CATEGORIES.map(c => ({ label:c.label, value:c.id })))
     ));
   } else {
     const cat = JARVISENHANCE_CATEGORIES.find(c => c.id===b.category);
     const opts = JARVISENHANCE_ACTIONS.filter(a => a.category===b.category).map(a => ({ label:`${a.emoji} ${a.label}`, value:a.id }));
     rows.push(new MessageActionRow().addComponents(
-      new MessageSelectMenu().setCustomId(`je_addtype_${token}`).setPlaceholder(`${cat.label} — pick an action…`).setOptions(opts)
+      new MessageSelectMenu().setCustomId(`je_addtype_${token}`).setPlaceholder(`${cat.label}: pick an action…`).setOptions(opts)
     ));
   }
 
@@ -934,13 +945,13 @@ function buildJarvisEnhancePanel(token){
   rows.push(new MessageActionRow().addComponents(...bottomButtons));
 
   const content = [
-    `🧠 **Jarvis Enhance** — configuring \`${b.name}\``,
+    `🧠 **Jarvis Enhance**: configuring \`${b.name}\``,
     ``,
     `**Trigger word(s):** ${b.triggers.length ? b.triggers.map(t=>`\`${t}\``).join(" ") : "_none set_"}`,
-    `_Reply to a message and say "Jarvis, <word>" or "RoyalBot, <word>" to run it. Whole-word match, same as the Jarvis image trigger. Any text you leave blank on a "blank=uses text after trigger word" field is filled in live from whatever you type after the trigger word — e.g. "Jarvis, dm knock it off"._`,
+    `_Reply to a message and say "Jarvis, <word>" or "RoyalBot, <word>" to run it. Whole word match, same as the Jarvis image trigger. Any text you leave blank on a "blank=uses text after trigger word" field is filled in live from whatever you type after the trigger word: e.g. "Jarvis, dm knock it off"._`,
     b.ownerLocked
-      ? `🔒 **Owner Locked** — only the owner (or someone granted this via \`/tempowner\`) can fire this trigger.`
-      : `🔓 **Owner Locked is OFF** — anyone in the server can fire this trigger by saying the word.`,
+      ? `🔒 **Owner Locked**: only the owner (or someone granted this via \`/tempowner\`) can fire this trigger.`
+      : `🔓 **Owner Locked is OFF**: anyone in the server can fire this trigger by saying the word.`,
     ``,
     `**Actions (run in this order):**`,
     formatJarvisActionsList(b.actions),
@@ -960,7 +971,7 @@ function buildJarvisModePicker(token){
       new MessageButton().setCustomId(`je_addcancel_${token}`).setLabel("Cancel").setStyle("SECONDARY"),
     ),
   ];
-  return { content:`${def?.emoji||"🤖"} **${def?.label||b.pendingActionType}** — pick a mode:`, components:rows };
+  return { content:`${def?.emoji||"🤖"} **${def?.label||b.pendingActionType}**: pick a mode:`, components:rows };
 }
 
 function buildJarvisDurationPicker(token){
@@ -974,12 +985,12 @@ function buildJarvisDurationPicker(token){
       new MessageButton().setCustomId(`je_addcancel_${token}`).setLabel("Cancel").setStyle("SECONDARY"),
     ),
   ];
-  return { content:`${def?.emoji||"🤖"} **${def?.label||b.pendingActionType}** — mode: \`${b.pendingMode}\`. Now pick a duration:`, components:rows };
+  return { content:`${def?.emoji||"🤖"} **${def?.label||b.pendingActionType}**: mode: \`${b.pendingMode}\`. Now pick a duration:`, components:rows };
 }
 
 // Actions that send text into the channel (echo/send_embed/theremnant) can
 // optionally reply to the message you're replying to instead of just posting
-// normally — a pick-from-a-list choice, no typing. Picking "Reply" is what
+// normally: a pick from a list choice, no typing. Picking "Reply" is what
 // makes that specific action step require the trigger to be said as a reply;
 // "Send normally" means it never needs one.
 function buildJarvisReplyModePicker(token){
@@ -997,11 +1008,11 @@ function buildJarvisReplyModePicker(token){
       new MessageButton().setCustomId(`je_addcancel_${token}`).setLabel("Cancel").setStyle("SECONDARY"),
     ),
   ];
-  return { content:`${def?.emoji||"📢"} **${def?.label||b.pendingActionType}** — how should it be sent?`, components:rows };
+  return { content:`${def?.emoji||"📢"} **${def?.label||b.pendingActionType}**: how should it be sent?`, components:rows };
 }
 
 // Shared by echo/send_embed/theremnant: delivers a message per the picked
-// reply-mode — reply to the reply target, reply to whoever said the trigger,
+// reply mode: reply to the reply target, reply to whoever said the trigger,
 // or just post normally.
 async function deliverJarvisPayload(ctx, params, payload){
   if(params.replyMode==="reply" && ctx.targetMsg) return ctx.targetMsg.reply(payload).catch(()=>{});
@@ -1011,7 +1022,7 @@ async function deliverJarvisPayload(ctx, params, payload){
 
 // Executes one saved profile's action chain in order against the resolved
 // context. Each runner mirrors the exact logic of the equivalent existing
-// owner command/context-menu action, just invoked directly instead of through
+// owner command/context menu action, just invoked directly instead of through
 // a slash command interaction. If an action has a `dynamicField` and it was
 // left blank when the profile was built, whatever text followed the trigger
 // word at runtime (ctx.restText) fills it in live.
@@ -1158,7 +1169,7 @@ const JARVISENHANCE_RUNNERS = {
     const content = ctx.targetMsg.content || "(no text)";
     const exposePrefixes = ["🚨 CAUGHT IN 4K:","📢 ATTENTION EVERYONE:","🔍 EXPOSE THREAD:","📸 SCREENSHOT THIS:","⚠️ EVIDENCE:"];
     const prefix = exposePrefixes[Math.floor(Math.random()*exposePrefixes.length)];
-    await ctx.channel.send({ content:`${prefix}\n> ${content}\n— <@${ctx.targetUser.id}>` }).catch(()=>{});
+    await ctx.channel.send({ content:`${prefix}\n> ${content}\nfrom <@${ctx.targetUser.id}>` }).catch(()=>{});
     return "done";
   },
   async forcemarry(params, ctx){
@@ -1306,7 +1317,7 @@ async function runJarvisEnhanceProfile(profile, ctx){
     try{
       let params = step.params||{};
       // Template placeholders: a {anything} token typed into ANY field gets
-      // replaced with whatever text followed the trigger word — works
+      // replaced with whatever text followed the trigger word: works
       // anywhere in a field, not just when the field is entirely blank, e.g.
       // a nickname field set to literally "{nickname}", or a message field
       // set to "Welcome {text} to the crew!".
@@ -1337,13 +1348,13 @@ async function runJarvisEnhanceProfile(profile, ctx){
 const trashcanVotes = new Map();
 // Configurable threshold for trashcan reactions (default: 3)
 let trashcanThreshold = 3;
-// selfClank: per-guild tracking — guildId -> Set of userIds currently self-clanked
+// selfClank: per-guild tracking - guildId -> Set of userIds currently self-clanked
 const selfClankUsers = new Map(); // guildId -> Set<userId>
 // selfClankCooldown: userId -> timestamp when cooldown expires
 const selfClankCooldown = new Map();
 
 // Pending quote review submissions (token -> submission data) ───────────────
-// Avoids Discord's 100-char custom_id limit by using a short token instead of
+// Avoids Discord's 100 char custom_id limit by using a short token instead of
 // embedding the full filename in the button ID.
 const pendingReviews = new Map(); // token -> { submitterId, fileName, rawName, mediaKind }
 
@@ -1380,18 +1391,18 @@ async function ensureDmRelayChannel(user) {
   if (existingChannelId) {
     const existingChannel = hubGuild.channels.cache.get(existingChannelId);
     if (existingChannel) return existingChannel;
-    // stale entry (channel deleted) — fall through and recreate
+    // stale entry (channel deleted): fall through and recreate
   }
 
   try {
     let category = hubGuild.channels.cache.find(c => c.type === "GUILD_CATEGORY" && c.name === "DM Relays");
     if (!category) category = await hubGuild.channels.create("DM Relays", { type: "GUILD_CATEGORY" }).catch(() => null);
 
-    const channelName = `dm-${user.username}`.toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").slice(0, 90) || `dm-${user.id}`;
+    const channelName = `dm_${user.username}`.toLowerCase().replace(/[^a-z0-9_]/g, "_").replace(/_+/g, "_").slice(0, 90) || `dm_${user.id}`;
     const channel = await hubGuild.channels.create(channelName, {
       type: "GUILD_TEXT",
       parent: category ? category.id : undefined,
-      topic: `DM relay for ${user.tag} (${user.id}) — messages sent here go to their DMs; their DM replies show up here.`,
+      topic: `DM relay for ${user.tag} (${user.id}): messages sent here go to their DMs; their DM replies show up here.`,
     });
 
     setDmRelayChannel(user.id, channel.id);
@@ -1404,7 +1415,7 @@ async function ensureDmRelayChannel(user) {
   }
 }
 
-// ── /thecount — queue messages in a hub channel, flush them all with /send ──
+// ── /thecount: queue messages in a hub channel, flush them all with /send ──
 // Reuses the same hub guild (dmRelayGuildId) as DM relay, but under its own
 // "The Count" category so queued messages stay clearly separate from live relays.
 const theCountChannels = new Map(); // userId -> { channelId, lastSentMessageId }
@@ -1417,18 +1428,18 @@ async function ensureTheCountChannel(user) {
   if (existing) {
     const existingChannel = hubGuild.channels.cache.get(existing.channelId);
     if (existingChannel) return existingChannel;
-    // stale entry (channel deleted) — fall through and recreate
+    // stale entry (channel deleted): fall through and recreate
   }
 
   try {
     let category = hubGuild.channels.cache.find(c => c.type === "GUILD_CATEGORY" && c.name === "The Count");
     if (!category) category = await hubGuild.channels.create("The Count", { type: "GUILD_CATEGORY" }).catch(() => null);
 
-    const channelName = user.username.toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").slice(0, 90) || `user-${user.id}`;
+    const channelName = user.username.toLowerCase().replace(/[^a-z0-9_]/g, "_").replace(/_+/g, "_").slice(0, 90) || `user_${user.id}`;
     const channel = await hubGuild.channels.create(channelName, {
       type: "GUILD_TEXT",
       parent: category ? category.id : undefined,
-      topic: `Queued messages for ${user.tag} (${user.id}) — nothing sent here reaches them until /send is run.`,
+      topic: `Queued messages for ${user.tag} (${user.id}): nothing sent here reaches them until /send is run.`,
     });
 
     theCountChannels.set(user.id, { channelId: channel.id, lastSentMessageId: null });
@@ -1444,7 +1455,7 @@ async function ensureTheCountChannel(user) {
 // ── Upload counters & persistent status ───────────────────────────────────────
 // Global sequential counters for /upload + /requestupload filenames (persisted in botdata.json)
 let uploadCounters = { quote: 0, eardestroyer: 0, eyebleacher: 0 };
-// Persistent bot status — restored on every boot via /setstatus
+// Persistent bot status: restored on every boot via /setstatus
 let botStatus = null; // { text: string, type: "PLAYING"|"WATCHING"|"LISTENING"|"COMPETING" }
 
 // ── Media type detection for /upload & /requestupload ────────────────────────
@@ -1469,7 +1480,7 @@ function detectMediaKind(contentType, fileName) {
 
   if (!kind) return null;
 
-  // Normalize extension — prefer the real extension if it matches the kind, else fall back to a sane default
+  // Normalize extension: prefer the real extension if it matches the kind, else fall back to a sane default
   let finalExt = ext && MEDIA_EXT[kind].includes(ext) ? ext : null;
   if (!finalExt) {
     if (kind === "image") finalExt = /gif/.test(ct) ? "gif" : /png/.test(ct) ? "png" : /webp/.test(ct) ? "webp" : "jpg";
@@ -1489,7 +1500,7 @@ function nextUploadNumber(prefix) {
 
 // ── Quote source folders ──────────────────────────────────────────────────────
 // Quotes are read from BOTH folders below (merged), but /upload and /requestupload
-// approvals only ever WRITE into the last one (quotes2) — see those handlers.
+// approvals only ever WRITE into the last one (quotes2): see those handlers.
 const QUOTE_FOLDERS = ["quotes", "quotes2"];
 
 // Cache: fileName -> folder it actually lives in. Populated whenever we list a folder
@@ -1539,22 +1550,22 @@ async function resolveQuoteGhPath(fileName) {
     });
     if (res.ok) { cacheQuoteFolder(fileName, folder); return `${folder}/${fileName}`; }
   }
-  return `quotes/${fileName}`; // fallback default — matches legacy behavior
+  return `quotes/${fileName}`; // fallback default: matches legacy behavior
 }
 
 // ── Jarvis image trigger folder ───────────────────────────────────────────────
-// Word-triggered images: a message starting with "RoyalBot" or "Jarvis" that's a
+// Word triggered images: a message starting with "RoyalBot" or "Jarvis" that's a
 // reply, and that also contains a word matching a filename in this GitHub folder
 // (e.g. carpenter.png → the word "carpenter"), makes the bot reply to the ORIGINAL
 // message (the one being replied to) with that image. Drop a new image into the
-// "jarvis" folder and it works immediately — no code changes needed.
+// "jarvis" folder and it works immediately: no code changes needed.
 const JARVIS_FOLDER = "jarvis";
 let jarvisImageCache = []; // [{ name, word, download_url }]
 let jarvisCacheFetchedAt = 0;
 const JARVIS_CACHE_TTL_MS = 2 * 60 * 1000; // refresh at most every 2 minutes
 
-// ── /jarvislist — paginated embed gallery of every image in the Jarvis folder ──
-// ── /userprofile — Patreon-exclusive supporter profile card ────────────────────
+// ── /jarvislist: paginated embed gallery of every image in the Jarvis folder ──
+// ── /userprofile: Patreon exclusive supporter profile card ────────────────────
 function renderStatBar(pct) {
   const clamped = Math.max(0, Math.min(100, pct));
   const filled = Math.round(clamped/10);
@@ -1576,7 +1587,7 @@ function buildJarvisListPage(images, page, pageSize=5) {
     new MessageButton().setCustomId(`jlist_page_${p}`).setLabel(`Page ${p+1}/${totalPages}`).setStyle("PRIMARY").setDisabled(true),
     new MessageButton().setCustomId(`jlist_next_${p}`).setLabel("Next ▶").setStyle("SECONDARY").setDisabled(p>=totalPages-1),
   )];
-  return { content:`🗂️ **Jarvis Image Folder** — ${images.length} image(s) total`, embeds, components:rows };
+  return { content:`🗂️ **Jarvis Image Folder**: ${images.length} image(s) total`, embeds, components:rows };
 }
 
 async function getJarvisImages() {
@@ -1597,8 +1608,8 @@ async function getJarvisImages() {
   return jarvisImageCache;
 }
 
-// ── /download helpers (YouTube fetch + split-to-fit) ─────────────────────────
-// Discord's per-guild upload cap depends on server boost tier. DMs / no guild use the base
+// ── /download helpers (YouTube fetch + split to fit) ─────────────────────────
+// Discord's per guild upload cap depends on server boost tier. DMs / no guild use the base
 // tier. A small margin is shaved off to leave headroom for multipart/container overhead.
 function getUploadLimitBytes(guild) {
   const tier = guild?.premiumTier || 0;
@@ -1606,7 +1617,7 @@ function getUploadLimitBytes(guild) {
   return Math.floor(raw * 0.92);
 }
 
-// Probes a media file's duration (seconds) by parsing ffmpeg's own stderr banner — avoids
+// Probes a media file's duration (seconds) by parsing ffmpeg's own stderr banner: avoids
 // needing a separate ffprobe binary since ffmpeg-static already ships one binary we reuse.
 function probeDuration(filePath) {
   return new Promise((resolve) => {
@@ -1630,7 +1641,7 @@ function runFfmpeg(args) {
   });
 }
 
-// Splits a media file into the minimum number of equal-length, stream-copied parts such that
+// Splits a media file into the minimum number of equal length, stream copied parts such that
 // every resulting part fits under limitBytes. Starts at 2 parts and grows by 1 each retry
 // (rather than jumping straight to many tiny parts) until every part fits, or gives up.
 async function splitToFit(filePath, workDir, jobId, ext, limitBytes, knownDuration) {
@@ -1661,13 +1672,13 @@ async function splitToFit(filePath, workDir, jobId, ext, limitBytes, knownDurati
   return [];
 }
 
-// YouTube sometimes rejects the default web client (bot-check errors, or player-response
-// quirks that hit Shorts more often) — retrying with alternate client spoofs is yt-dlp's own
-// documented workaround. `client` is null for the default attempt, else passed as extractor-args.
+// YouTube sometimes rejects the default web client (bot check errors, or player response
+// quirks that hit Shorts more often): retrying with alternate client spoofs is yt dlp's own
+// documented workaround. `client` is null for the default attempt, else passed as extractor args.
 const YT_CLIENT_FALLBACKS = [null, "android", "ios", "web_safari"];
 function ytExtractorArgs(client) { return client ? { extractorArgs: `youtube:player_client=${client}` } : {}; }
 
-// Fetches --dump-single-json metadata, retrying across client spoofs until one works.
+// Fetches metadata via ytdlp's single JSON dump option, retrying across client spoofs until one works.
 // Returns { info, client } so the caller can reuse whichever client succeeded for the
 // actual download step too (metadata working with client X is the best predictor download
 // will also work with client X).
@@ -1683,7 +1694,7 @@ async function ytFetchInfoWithFallback(url) {
 }
 function ytErrorMessage(e) {
   const raw = (e.stderr || e.shortMessage || e.message || "Unknown error").toString();
-  // Trim to the last real "ERROR:" line yt-dlp printed, which is the actual reason — the
+  // Trim to the last real "ERROR:" line yt dlp printed, which is the actual reason: the
   // rest is just the invoked command line, which isn't useful to a Discord user.
   const m = raw.match(/ERROR:.*/);
   return (m ? m[0] : raw).slice(0, 350);
@@ -1708,7 +1719,7 @@ async function refillQuoteQueue() {
   quoteFetching = false;
 }
 
-// Build a weighted-shuffled array: each image gets a weight of max(1, baseWeight + up - down)
+// Build a weighted shuffled array: each image gets a weight of max(1, baseWeight + up: down)
 // baseWeight = 10 so a new quote starts neutral and can be voted down but not to 0
 function weightedShuffleQuotes(images) {
   const BASE = 10;
@@ -1721,28 +1732,28 @@ function weightedShuffleQuotes(images) {
   return shuffleArray(weighted);
 }
 
-// Build a shuffled array biased toward HIGH-rated images (net score > 0)
+// Build a shuffled array biased toward HIGH rated images (net score > 0)
 function goodShuffleQuotes(images) {
   const BASE = 10;
   const weighted = [];
   for (const img of images) {
     const v = quoteVotes.get(img.name) || { up: 0, down: 0 };
     const net = v.up - v.down;
-    // Only heavily favour positive-net images; neutral images get a small weight
+    // Only heavily favour positive net images; neutral images get a small weight
     const w = net > 0 ? Math.max(1, BASE + net * 3) : Math.max(1, Math.floor(BASE / 3));
     for (let i = 0; i < w; i++) weighted.push(img);
   }
   return shuffleArray(weighted);
 }
 
-// Build a shuffled array biased toward LOW-rated images (net score < 0)
+// Build a shuffled array biased toward LOW rated images (net score < 0)
 function badShuffleQuotes(images) {
   const BASE = 10;
   const weighted = [];
   for (const img of images) {
     const v = quoteVotes.get(img.name) || { up: 0, down: 0 };
     const net = v.up - v.down;
-    // Only heavily favour negative-net images; neutral images get a small weight
+    // Only heavily favour negative net images; neutral images get a small weight
     const w = net < 0 ? Math.max(1, BASE + Math.abs(net) * 3) : Math.max(1, Math.floor(BASE / 3));
     for (let i = 0; i < w; i++) weighted.push(img);
   }
@@ -1789,7 +1800,7 @@ async function nextBadQuoteImage() {
   return badQuoteQueue.shift();
 }
 
-// Occasionally pick a low-rated quote from the pool directly (no queue needed — just sample)
+// Occasionally pick a low rated quote from the pool directly (no queue needed: just sample)
 async function nextLowRatedQuoteImage(allImages) {
   const BASE = 10;
   // Candidates: images with a negative or zero net rating
@@ -1803,7 +1814,7 @@ async function nextLowRatedQuoteImage(allImages) {
 }
 
 // Returns the next image from the queue, refilling if needed.
-// Pure shuffle — no weighting. Weights only apply to /goodquote and /badquote.
+// Pure shuffle: no weighting. Weights only apply to /goodquote and /badquote.
 // Returns null if the queue can't be filled (GitHub unavailable).
 async function nextQuoteImage() {
   if (quoteQueue.length === 0) await refillQuoteQueue();
@@ -1891,19 +1902,19 @@ const CONFIG = {
   // Gambling
   slots_min_bet:1,
   coinbet_win_chance:50,
-  // Slot multipliers (stored as integers, /100 when used — e.g. 1000 = 10×)
+  // Slot multipliers (stored as integers, /100 when used: e.g. 1000 = 10×)
   slots_jackpot_mult:1000,
   slots_bigwin_mult:500,
   slots_triple_mult:300,
   slots_pair_mult:150,
-  // Blackjack natural payout (integer /100 — 150 = 1.5×)
+  // Blackjack natural payout (integer /100: 150 = 1.5×)
   blackjack_natural_mult:150,
   // Item effects (whole %, e.g. 10 = +10%)
   lucky_charm_bonus:10,
   xp_boost_mult:200,
   coin_magnet_mult:300,
   mystery_box_coin_chance:50,
-  // Normal Mystery Box drop weights (sum doesn't need to equal 100 — weights are relative)
+  // Normal Mystery Box drop weights (sum doesn't need to equal 100: weights are relative)
   mb_coins_small:10,   // 50–200 coins
   mb_coins_large:15,   // 200–500 coins
   mb_lucky_charm:15,
@@ -1933,7 +1944,7 @@ const CONFIG = {
   win_minesweeper_easy:30,  win_minesweeper_medium:60,  win_minesweeper_hard:100,
   win_numberguess:30,
   win_wordscramble:25,
-  // 2-player game win coins
+  // 2 player game win coins
   win_ttt:50,
   win_c4:50,
   win_rps:40,
@@ -1984,7 +1995,7 @@ async function commitDataToGitHub(jsonString) {
   async function tryPut(sha) {
     const encoded = Buffer.from(jsonString).toString("base64");
     const body = JSON.stringify({
-      message: "chore: auto-save botdata",
+      message: "chore: autosave botdata",
       content: encoded,
       ...(sha ? { sha } : {}),
     });
@@ -2014,7 +2025,7 @@ async function commitDataToGitHub(jsonString) {
 
     // If 409 (conflict) or 422 (wrong/missing SHA), fetch fresh SHA and retry once
     if (result.status === 409 || result.status === 422) {
-      console.log(`⚠️  GitHub commit ${result.status} — retrying with fresh SHA`);
+      console.log(`⚠️  GitHub commit ${result.status}: retrying with fresh SHA`);
       sha = await fetchSHA();
       result = await tryPut(sha);
     }
@@ -2048,16 +2059,16 @@ function buildDataObject() {
     countingChannels: [...countingChannels.entries()],
     userInstalls:     [...userInstalls],
     featureBlacklist: [...featureBlacklist.entries()].map(([id,b]) => [id, [...b.features], b.silent]),
-    // Temp/permanent owner grants — expiresAt:null means permanent, so it must survive restarts
+    // Temp/permanent owner grants: expiresAt:null means permanent, so it must survive restarts
     tempOwnerGrants:  [...tempOwnerGrants.entries()].map(([id,g]) => [id, { commands:[...g.commands], features:[...g.features], expiresAt:g.expiresAt, grantedBy:g.grantedBy, grantedAt:g.grantedAt }]),
     scores:           [...scores.entries()],
-    // Active item effects — expiry timestamps so buffs survive restarts
+    // Active item effects: expiry timestamps so buffs survive restarts
     activeEffects:    [...activeEffects.entries()],
-    // Reminders — fire any overdue ones immediately on load
+    // Reminders: fire any overdue ones immediately on load
     reminders:        [...reminders],
-    // Scheduled messages — fire any overdue ones immediately on load
+    // Scheduled messages: fire any overdue ones immediately on load
     scheduledMessages: [...scheduledMessages.entries()],
-    // Invite competitions — baseline stored as array of [code, uses] pairs
+    // Invite competitions: baseline stored as array of [code, uses] pairs
     inviteComps:      [...inviteComps.entries()].map(([guildId, comp]) => [
       guildId,
       { endsAt: comp.endsAt, channelId: comp.channelId, baseline: [...comp.baseline.entries()] }
@@ -2122,7 +2133,7 @@ function loadData() {
     const raw = fs.readFileSync(DATA_FILE, "utf8");
     if (!raw || !raw.trim()) { console.log("botdata.json is empty, starting fresh."); return; }
     const data = JSON.parse(raw);
-    // Restore saved CONFIG values — only known keys, only numbers, never overwrites defaults with bad data
+    // Restore saved CONFIG values: only known keys, only numbers, never overwrites defaults with bad data
     if (data.config && typeof data.config === "object") {
       for (const [k, v] of Object.entries(data.config)) {
         if (k in CONFIG && typeof v === "number") CONFIG[k] = v;
@@ -2155,7 +2166,7 @@ function loadData() {
     if (data.featureBlacklist) {
       data.featureBlacklist.forEach(([id, feats, silent]) => featureBlacklist.set(id, { features: new Set(feats), silent: !!silent }));
     }
-    // Legacy data migration — old all-or-nothing blacklist format
+    // Legacy data migration: old all or nothing blacklist format
     if (data.blacklistedUsers) data.blacklistedUsers.forEach(id => {
       if(!featureBlacklist.has(id)) featureBlacklist.set(id, { features: new Set(["all"]), silent: (data.silentBlacklistUsers||[]).includes(id) });
     });
@@ -2171,7 +2182,7 @@ function loadData() {
         };
         if (grant.expiresAt !== null) {
           const remaining = grant.expiresAt - Date.now();
-          if (remaining <= 0) return; // expired while offline — drop it
+          if (remaining <= 0) return; // expired while offline: drop it
           grant.timerId = setTimeout(() => { tempOwnerGrants.delete(id); }, remaining);
         }
         tempOwnerGrants.set(id, grant);
@@ -2180,7 +2191,7 @@ function loadData() {
     if (data.scores)           data.scores          .forEach(([k,v]) => scores.set(k, v));
     if (data.memers)           { MEMERS.clear(); data.memers.forEach(v => MEMERS.add(v)); }
 
-    // Restore active item effects — drop any that have already expired
+    // Restore active item effects: drop any that have already expired
     if (data.activeEffects) {
       const now = Date.now();
       data.activeEffects.forEach(([uid, fx]) => {
@@ -2191,7 +2202,7 @@ function loadData() {
       });
     }
 
-    // Restore reminders — overdue ones will fire on the next 30s tick
+    // Restore reminders: overdue ones will fire on the next 30s tick
     if (data.reminders) {
       const now = Date.now();
       data.reminders.forEach(rem => {
@@ -2202,7 +2213,7 @@ function loadData() {
       });
     }
 
-    // Restore scheduled messages — overdue ones will fire on the next 30s tick
+    // Restore scheduled messages: overdue ones will fire on the next 30s tick
     if (data.scheduledMessages) {
       const now = Date.now();
       data.scheduledMessages.forEach(([id, sm]) => {
@@ -2213,14 +2224,14 @@ function loadData() {
       });
     }
 
-    // Restore invite competitions — recreate baseline Map and re-arm the timeout
+    // Restore invite competitions: recreate baseline Map and rearm the timeout
     if (data.inviteComps) {
       const now = Date.now();
       data.inviteComps.forEach(([guildId, comp]) => {
         if (!comp.endsAt || comp.endsAt <= now) return; // already expired
         const baseline = new Map(comp.baseline || []);
         inviteComps.set(guildId, { endsAt: comp.endsAt, channelId: comp.channelId, baseline });
-        // Re-arm the timer for the remaining duration
+        // Re arm the timer for the remaining duration
         const remaining = comp.endsAt - now;
         setTimeout(async () => {
           const live = inviteComps.get(guildId); if (!live) return;
@@ -2234,7 +2245,7 @@ function loadData() {
           if (!sorted.length) { await safeSend(ch, "🏆 **Invite Competition Ended!**\n\nNo new tracked invites."); return; }
           const medals = ["🥇","🥈","🥉"], rewards = [CONFIG.invite_comp_1st, CONFIG.invite_comp_2nd, CONFIG.invite_comp_3rd];
           const top = sorted.slice(0,3);
-          const lines = top.map(([id,d],i) => `${medals[i]} <@${id}> — **${d.count}** invite${d.count!==1?"s":""} (+${rewards[i]} coins)`);
+          const lines = top.map(([id,d],i) => `${medals[i]} <@${id}>: **${d.count}** invite${d.count!==1?"s":""} (+${rewards[i]} coins)`);
           top.forEach(([id,d],i) => { getScore(id,d.username).coins += rewards[i]; });
           saveData();
           await safeSend(ch, `🏆 **Invite Competition Ended!**\n\n${lines.join("\n")}`);
@@ -2242,7 +2253,7 @@ function loadData() {
       });
     }
 
-    // Restore premieres — re-arm their update intervals
+    // Restore premieres: rearm their update intervals
     if (data.premieres) {
       const now = Date.now();
       data.premieres.forEach(([id, p]) => {
@@ -2253,7 +2264,7 @@ function loadData() {
     if (data.raConfig) data.raConfig.forEach(([k,v]) => raConfig.set(k, v));
 
     if (data.scheduledChecks) data.scheduledChecks.forEach(([k,v]) => scheduledChecks.set(k, v));
-    // Restore active activity checks — re-arm their expiry timers
+    // Restore active activity checks: rearm their expiry timers
     if (data.activityChecks) {
       const now = Date.now();
       data.activityChecks.forEach(([msgId, check]) => {
@@ -2292,7 +2303,7 @@ function loadData() {
           } catch(e) { console.error("activity-check (restored) member fetch error:", e); }
 
           const respondedCount = reacted.size;
-          const missingText = missing.length ? missing.join(", ") : "None — everyone checked in! ✅";
+          const missingText = missing.length ? missing.join(", ") : "None: everyone checked in! ✅";
           await safeSend(channel, [
             `📋 **Activity Check Closed**`,
             ``,
@@ -2347,14 +2358,14 @@ function loadData() {
     if (data.boostHistory) data.boostHistory.forEach(([gid,arr]) => { boostHistory.set(gid, new Map(arr)); });
     if (data.quoteUserVotes) data.quoteUserVotes.forEach(([fn, entries]) => quoteUserVotes.set(fn, new Map(entries)));
 
-    console.log(`✅ Data loaded — ${ticketConfigs.size} ticket configs, ${reactionRoles.size} reaction roles, ${scores.size} scores, ${guildChannels.size} channels, ${activeEffects.size} active effects, ${reminders.length} reminders, ${scheduledMessages.size} scheduled messages, ${inviteComps.size} active competitions, ${premieres.size} premieres, ${activityChecks.size} activity checks, ${raConfig.size} RA configs, ${dailyQuoteChannels.size} daily quote channels`);
+    console.log(`✅ Data loaded: ${ticketConfigs.size} ticket configs, ${reactionRoles.size} reaction roles, ${scores.size} scores, ${guildChannels.size} channels, ${activeEffects.size} active effects, ${reminders.length} reminders, ${scheduledMessages.size} scheduled messages, ${inviteComps.size} active competitions, ${premieres.size} premieres, ${activityChecks.size} activity checks, ${raConfig.size} RA configs, ${dailyQuoteChannels.size} daily quote channels`);
   } catch(e) { console.error("loadData error:", e.message); }
 }
 
-// Load data at startup — scores/maps are declared above so this works correctly now
+// Load data at startup: scores/maps are declared above so this works correctly now
 loadData();
 
-// Auto-save every 2 minutes
+// Auto save every 2 minutes
 setInterval(() => saveData(), 2 * 60 * 1000);
 
 // ── Daily quote ticker (runs every minute, fires once per day per guild) ──────
@@ -2365,7 +2376,7 @@ setInterval(async () => {
   for (const [guildId, cfg] of dailyQuoteChannels) {
     const targetHour = cfg.hour ?? 9;
     if (nowHour !== targetHour || nowMin !== 0) continue;
-    // Prevent double-firing in the same minute
+    // Prevent double firing in the same minute
     const fireKey = `${guildId}:${now.getUTCFullYear()}-${now.getUTCMonth()}-${now.getUTCDate()}:${nowHour}`;
     if (cfg._lastFire === fireKey) continue;
     cfg._lastFire = fireKey;
@@ -2411,7 +2422,7 @@ setInterval(async () => {
   const nowDay = now.getUTCDay(), nowHour = now.getUTCHours(), nowMin = now.getUTCMinutes();
   for (const [key, sc] of scheduledChecks) {
     if (sc.dayOfWeek !== nowDay || sc.hour !== nowHour || sc.minute !== nowMin) continue;
-    // Prevent double-firing in the same minute
+    // Prevent double firing in the same minute
     const fireKey = `${key}:${nowDay}:${nowHour}:${nowMin}`;
     if (sc._lastFire === fireKey) continue;
     sc._lastFire = fireKey;
@@ -2442,7 +2453,7 @@ setInterval(async () => {
         try { const fm = await ch2.messages.fetch(sent.id); const rx = fm.reactions.cache.get("✅"); if (rx) { const u = await rx.users.fetch(); u.forEach(u2 => { if (!u2.bot) reacted.add(u2.id); }); } } catch {}
         let missing = [];
         try { const members = await g2.members.fetch(); members.forEach(m => { if (m.user.bot) return; if (!c.roleIds.some(rid => m.roles.cache.has(rid))) return; if (c.excludedIds.some(rid => m.roles.cache.has(rid))) return; if (!reacted.has(m.id)) missing.push(`<@${m.id}>`); }); } catch {}
-        const missingText = missing.length ? missing.join(", ") : "None — everyone checked in! ✅";
+        const missingText = missing.length ? missing.join(", ") : "None: everyone checked in! ✅";
         await ch2.send([`📋 **Activity Check Closed**`, ``, `✅ **Checked in:** ${reacted.size}`, `❌ **Did not respond:** ${missingText}`].join("\n")).catch(() => {});
       }, sc.deadlineHr * 3600000);
       saveData();
@@ -2450,25 +2461,25 @@ setInterval(async () => {
   }
 }, 60 * 1000);
 
-// ── Global error handlers — keep the bot alive through unhandled promise rejections ──
+// ── Global error handlers: keep the bot alive through unhandled promise rejections ──
 // Without these, a single unhandled rejection can crash the entire process.
 process.on("unhandledRejection", (reason, promise) => {
   console.error("[unhandledRejection] Unhandled promise rejection:", reason);
-  // Don't exit — log and continue
+  // Don't exit: log and continue
 });
 process.on("uncaughtException", (err) => {
   console.error("[uncaughtException] Uncaught exception:", err);
-  // Don't exit — log and continue. Data is safe since we write on timers/SIGTERM.
+  // Don't exit: log and continue. Data is safe since we write on timers/SIGTERM.
 });
 
 // FIX: On graceful shutdown, await the commit before exiting so GitHub Actions captures the data
 process.on("SIGTERM", async () => {
-  console.log("SIGTERM received — saving and committing data");
+  console.log("SIGTERM received: saving and committing data");
   await saveDataAndCommitNow();
   process.exit(0);
 });
 process.on("SIGINT", async () => {
-  console.log("SIGINT received — saving and committing data");
+  console.log("SIGINT received: saving and committing data");
   await saveDataAndCommitNow();
   process.exit(0);
 });
@@ -2516,9 +2527,9 @@ const OLYMPICS_EVENTS=[
   {name:"Longest Word Contest",       description:"Send the longest single word in 5 minutes! 📖",                                   duration:5,   unit:"word length",   trackLive:true},
   {name:"Most Unique Emojis",         description:"Most unique emojis in ONE message wins! 🎭",                                      duration:5,   unit:"unique emojis", trackLive:true},
   {name:"Fastest Typer",              description:"Type `the quick brown fox jumps over the lazy dog` first!",                        duration:0,   unit:"typing",        trackLive:false,instantWin:true,answer:"the quick brown fox jumps over the lazy dog"},
-  {name:"Backwards Word Challenge",   description:"Send `hello` backwards — first correct wins! 🔄",                                duration:0,   unit:"backwards",     trackLive:false,instantWin:true,answer:"olleh"},
+  {name:"Backwards Word Challenge",   description:"Send `hello` backwards: first correct wins! 🔄",                                duration:0,   unit:"backwards",     trackLive:false,instantWin:true,answer:"olleh"},
   {name:"Best One-Liner",             description:"Drop your funniest one-liner in 5 minutes! 😂",                                   duration:5,   unit:"one-liner",     trackLive:false,randomWinner:true},
-  {name:"Closest to 100",             description:"Send a number — closest to 100 without going over wins! 🎯",                     duration:3,   unit:"number game",   trackLive:true},
+  {name:"Closest to 100",             description:"Send a number: closest to 100 without going over wins! 🎯",                     duration:3,   unit:"number game",   trackLive:true},
   {name:"Most Invites in 1 Hour",     description:"Who can invite the most new members in 1 hour? 📨",                              duration:60,  unit:"invites",       trackLive:false,inviteComp:true},
   {name:"Most Invites in 1 Week",     description:"Who can invite the most new members over 7 days? 📨",                            duration:10080,unit:"invites",       trackLive:false,inviteComp:true},
 ];
@@ -2533,7 +2544,7 @@ const COMPLIMENTS=["You make this server 1000% more interesting just by being he
 const TOPICS=["If you could delete one app from existence, what would it be and why?","What's a hill you would genuinely die on?","If this server had a theme song, what would it be?","What's the most unhinged thing you've ever done at 2am?","If you were a Discord bot, what would your one command be?","What's a food opinion you have that would start a war?","What's the worst advice you've ever followed?"];
 const WYR=["Would you rather have to speak in rhyme for a week OR only communicate through GIFs?","Would you rather know when you're going to die OR how you're going to die?","Would you rather lose all your Discord messages OR lose all your photos?","Would you rather have no internet for a month OR no music for a year?","Would you rather only be able to whisper OR only be able to shout?","Would you rather know every language OR be able to talk to animals?"];
 const ADVICE=["Drink water. Whatever's going on, drink water first.","Log off for 10 minutes. The server will still be here.","The unread messages will still be there tomorrow. Sleep.","Tell the person you've been meaning to message something nice today.","Back up your files. You know which ones.","Touch some grass. I say this with love.","Eat something. A real meal. Not just snacks."];
-const FACTS=["Honey never expires — 3000-year-old Egyptian honey was still edible.","A group of flamingos is called a flamboyance.","Octopuses have three hearts, blue blood, and can edit their own RNA.","The shortest war in history lasted 38–45 minutes (Anglo-Zanzibar War, 1896).","Crows can recognise human faces and hold grudges.","Cleopatra lived closer in time to the Moon landing than to the Great Pyramid's construction.","The inventor of the Pringles can is buried in one.","Wombat poop is cube-shaped.","Bananas are berries. Strawberries are not.","Sharks are older than trees.","Nintendo was founded in 1889 as a playing card company."];
+const FACTS=["Honey never expires: 3000 year old Egyptian honey was still edible.","A group of flamingos is called a flamboyance.","Octopuses have three hearts, blue blood, and can edit their own RNA.","The shortest war in history lasted 38–45 minutes (Anglo Zanzibar War, 1896).","Crows can recognise human faces and hold grudges.","Cleopatra lived closer in time to the Moon landing than to the Great Pyramid's construction.","The inventor of the Pringles can is buried in one.","Wombat poop is cube shaped.","Bananas are berries. Strawberries are not.","Sharks are older than trees.","Nintendo was founded in 1889 as a playing card company."];
 const THROW_ITEMS=["a rubber duck 🦆","a pillow 🛏️","a water balloon 💦","a shoe 👟","a fih 🐟","a boomerang 🪃","a piece of bread 🍞","a sock 🧦","a small rock 🪨","Royal V- himself","a spoon 🥄","a snowball ❄️","a bucket of confetti 🎊","a foam dart 🎯","a banana peel 🍌"];
 const SLOT_SYMBOLS=["🍒","🍋","🍊","🍇","⭐","💎"];
 const WORK_RESPONSES=[{msg:"💼 You worked a shift at the office and earned **{c}** coins.",lo:80,hi:180},{msg:"🔧 You fixed some pipes and the client paid you **{c}** coins.",lo:60,hi:140},{msg:"💻 You freelanced on a website project and earned **{c}** coins.",lo:100,hi:200},{msg:"📦 You sorted packages at the warehouse for **{c}** coins.",lo:50,hi:120},{msg:"🎨 You painted a mural commission and received **{c}** coins.",lo:90,hi:190},{msg:"🍕 You delivered pizzas all evening and made **{c}** coins.",lo:55,hi:130},{msg:"🏗️ You worked a construction shift and earned **{c}** coins.",lo:85,hi:175}];
@@ -2548,8 +2559,8 @@ function getShopItems(){return{
   xp_boost:         {name:"XP Boost ⚡",           price:CONFIG.shop_xp_boost_price,         desc:"2× XP from messages for 1hr"},
   shield:           {name:"Shield 🛡️",             price:CONFIG.shop_shield_price,           desc:"Blocks the next rob attempt"},
   coin_magnet:      {name:"Coin Magnet 🧲",        price:CONFIG.shop_coin_magnet_price,      desc:"Next /work gives 3× coins (single use)"},
-  mystery_box:      {name:"Mystery Box 📦",        price:CONFIG.shop_mystery_box_price,      desc:"Open with /open — weighted random reward: coins or item"},
-  item_mystery_box: {name:"Item Mystery Box 🎲",   price:CONFIG.shop_item_mystery_box_price, desc:"Open with /open — cheap, low quality drops. Could be just 5 coins!"},
+  mystery_box:      {name:"Mystery Box 📦",        price:CONFIG.shop_mystery_box_price,      desc:"Open with /open: weighted random reward: coins or item"},
+  item_mystery_box: {name:"Item Mystery Box 🎲",   price:CONFIG.shop_item_mystery_box_price, desc:"Open with /open: cheap, low quality drops. Could be just 5 coins!"},
   rob_insurance:    {name:"Rob Insurance 📋",      price:CONFIG.shop_rob_insurance_price,    desc:"If caught robbing, pay no fine (single use)"},
 };}
 const TRUTH_QUESTIONS=["Have you ever pretended to be asleep to avoid a conversation?","What's the most embarrassing thing in your search history?","Have you ever blamed someone else for something you did?","What's the longest you've gone without showering?","Have you ever sent a text to the wrong person?","What's something you pretend to like but secretly hate?","Have you ever ghosted someone and regretted it?","What's the most childish thing you still do?"];
@@ -2586,7 +2597,7 @@ const PARANOIA_MESSAGES = [
 ];
 
 // ── Jarvis owner acknowledgment lines ─────────────────────────────────────────
-// Said (as a reply to the command-runner) when an OWNER triggers the Jarvis image
+// Said (as a reply to the command runner) when an OWNER triggers the Jarvis image
 // trigger using the "Jarvis" wake word specifically (not "RoyalBot").
 const JARVIS_ACK_LINES = [
   "Great choice, Sir.",
@@ -2689,7 +2700,7 @@ function weightedPick(weights) {
   return Object.keys(weights)[0]; // fallback
 }
 
-// Open a normal Mystery Box — returns {type:'coins'|'item', coins?, itemId?}
+// Open a normal Mystery Box: returns {type:'coins'|'item', coins?, itemId?}
 function openMysteryBox(){
   const weights = {
     coins_small:   CONFIG.mb_coins_small,
@@ -2706,7 +2717,7 @@ function openMysteryBox(){
   return {type:"item", itemId:result};
 }
 
-// Open an Item Mystery Box — lower quality, cheaper
+// Open an Item Mystery Box: lower quality, cheaper
 function openItemMysteryBox(){
   const weights = {
     coins_tiny:    CONFIG.imb_coins_tiny,
@@ -2723,7 +2734,7 @@ function openItemMysteryBox(){
   return {type:"item", itemId:result};
 }
 
-// ── Patreon promo — small random chance shown after a command finishes ───────
+// ── Patreon promo: small random chance shown after a command finishes ───────
 const PROMO_CHANCE   = 0.08; // ~8% chance per command
 const PROMO_MESSAGE  = "Enjoying the commands? How about you get to be a part of the creative process? It is unfortunately paid, but please consider https://www.patreon.com/c/RoyalV_/membership";
 async function maybeSendPromo(interaction) {
@@ -2742,7 +2753,7 @@ async function safeReply(interaction, payload) {
     return await interaction.reply(p);
   } catch(e) {
     // Swallow "Unknown interaction" / "Interaction has already been acknowledged"
-    // errors — these happen when Discord's 3-second window has expired.
+    // errors: these happen when Discord's 3 second window has expired.
     if(e?.code !== 10062 && !e?.message?.includes("already been acknowledged")){
       console.error("[safeReply error]", e?.message);
     }
@@ -2804,7 +2815,7 @@ function moveSnake(game,dir){const head={...game.snake[0]};if(dir==="up")head.y-
 
 function initMinesweeper(mines){
   const rows=5,cols=5,total=25;
-  // Mines not placed yet — deferred until first click to guarantee safe start
+  // Mines not placed yet: deferred until first click to guarantee safe start
   return{rows,cols,mineCount:mines,mines:null,adj:null,revealed:Array(total).fill(false),firstClick:true};
 }
 
@@ -2820,7 +2831,7 @@ function placeMinesAvoiding(game,safeRow,safeCol){
   }
   const mineSet=new Set();
   const candidates=[...Array(total).keys()].filter(i=>!safeSet.has(i));
-  // If not enough non-safe cells, allow safe cells too (shouldn't happen on 5x5 with ≤10 mines)
+  // If not enough nonsafe cells, allow safe cells too (shouldn't happen on 5x5 with ≤10 mines)
   const pool=candidates.length>=game.mineCount?candidates:[...Array(total).keys()].filter(i=>!safeSet.has(i)||candidates.length<game.mineCount);
   while(mineSet.size<game.mineCount&&mineSet.size<pool.length){
     mineSet.add(pool[Math.floor(Math.random()*pool.length)]);
@@ -2905,7 +2916,7 @@ async function getBunnyImage(){try{const d=await fetchJson("https://api.bunnies.
 async function getKoalaImage(){try{const d=await fetchJson("https://some-random-api.com/img/koala");return d?.link||null;}catch{return null;}}
 async function getRaccoonImage(){try{const d=await fetchJson("https://some-random-api.com/img/raccoon");return d?.link||null;}catch{return null;}}
 async function getMeme(){try{const d=await fetchJson("https://meme-api.com/gimme");return d?.url||null;}catch{return null;}}
-async function getQuote(){try{const d=await fetchJson("https://zenquotes.io/api/random");return d?.[0]?`"${d[0].q}" — ${d[0].a}`:null;}catch{return null;}}
+async function getQuote(){try{const d=await fetchJson("https://zenquotes.io/api/random");return d?.[0]?`"${d[0].q}" - ${d[0].a}`:null;}catch{return null;}}
 async function getJoke(){try{const d=await fetchJson("https://official-joke-api.appspot.com/random_joke");return d?`${d.setup}\n\n||${d.punchline}||`:null;}catch{return null;}}
 async function getTrivia(){try{const d=await fetchJson("https://opentdb.com/api.php?amount=1&type=multiple");const q=d?.results?.[0];if(!q)return null;const answers=[...q.incorrect_answers,q.correct_answer].sort(()=>Math.random()-0.5);return{question:q.question.replace(/&quot;/g,'"').replace(/&#039;/g,"'").replace(/&amp;/g,"&"),answers,correct:q.correct_answer};}catch{return null;}}
 async function getUserAppInstalls(){return new Promise(resolve=>{const req=https.request({hostname:"discord.com",port:443,path:`/api/v10/applications/${CLIENT_ID}`,method:"GET",headers:{Authorization:`Bot ${TOKEN}`}},res=>{let body="";res.on("data",c=>body+=c);res.on("end",()=>{try{const j=JSON.parse(body);resolve(j.approximate_user_install_count??"N/A");}catch{resolve("N/A");}});});req.on("error",()=>resolve("N/A"));req.end();});}
@@ -2929,7 +2940,7 @@ setInterval(async()=>{
 // ── /messageschedule helpers ─────────────────────────────────────────────────
 const SCHEDULE_UNIT_MS    = { minutes:60000, hours:3_600_000, days:86_400_000, weeks:604_800_000, months:2_592_000_000 };
 const SCHEDULE_UNIT_LABEL = { minutes:"minute", hours:"hour", days:"day", weeks:"week", months:"month" };
-// Parses free-text durations like "5 hours", "2 days", "1 week", "1 month" into { amount, unit, ms }.
+// Parses free text durations like "5 hours", "2 days", "1 week", "1 month" into { amount, unit, ms }.
 function parseScheduleTime(str){
   const m = String(str||"").trim().toLowerCase().match(/^(\d+)\s*(min(?:ute)?s?|hrs?|hours?|days?|weeks?|wks?|months?|mos?)$/);
   if(!m) return null;
@@ -2967,8 +2978,8 @@ async function fireScheduledMessage(sm){
     let webhook = webhooks?.find(w => w.owner?.id === CLIENT_ID && w.name === "RoyalBot Scheduler");
     if(!webhook) webhook = await channel.createWebhook("RoyalBot Scheduler", { avatar: avatarURL }).catch(()=>null);
     if(!webhook){
-      // No permission to create a webhook here anymore — DM the user instead of silently dropping the message.
-      if(user) await user.send(`⚠️ Your scheduled message for <#${sm.channelId}> couldn't be sent — I no longer have permission to manage webhooks there.\n\n**Message:** ${sm.content||"*(no text)*"}`).catch(()=>{});
+      // No permission to create a webhook here anymore: DM the user instead of silently dropping the message.
+      if(user) await user.send(`⚠️ Your scheduled message for <#${sm.channelId}> couldn't be sent: I no longer have permission to manage webhooks there.\n\n**Message:** ${sm.content||"*(no text)*"}`).catch(()=>{});
       return;
     }
 
@@ -3019,7 +3030,7 @@ function buildPremiereEmbed(p) {
 
   return {
     embeds: [{
-      title: done ? `🎬 ${p.title} — It's time!` : `🎬 ${p.title}`,
+      title: done ? `🎬 ${p.title}: It's time!` : `🎬 ${p.title}`,
       description: done
         ? `<@${p.userId}> Your video is ready to upload! 🚀`
         : [
@@ -3037,7 +3048,7 @@ function buildPremiereEmbed(p) {
   };
 }
 
-// Premiere tick — runs every 30 minutes, edits all active premiere embeds
+// Premiere tick: runs every 30 minutes, edits all active premiere embeds
 setInterval(async () => {
   const now = Date.now();
   for (const [id, p] of premieres) {
@@ -3048,9 +3059,9 @@ setInterval(async () => {
       if (!msg) continue;
 
       if (now >= p.endsAt) {
-        // Finished — show done embed, ping user, then remove
+        // Finished: show done embed, ping user, then remove
         await msg.edit(buildPremiereEmbed(p)).catch(() => {});
-        await safeSend(ch, `🎬 <@${p.userId}> **${p.title}** — time to upload! 🚀`);
+        await safeSend(ch, `🎬 <@${p.userId}> **${p.title}**: time to upload! 🚀`);
         premieres.delete(id);
         saveData();
       } else {
@@ -3097,7 +3108,7 @@ async function runInviteOlympicsInGuild(guild, event, channelOverride) {
     : `${event.duration} minute(s)`;
 
   await safeSend(channel,
-    `📨 **BOT OLYMPICS — ${event.name}**\n\n${event.description}\n\n⏳ Duration: **${durationLabel}**\n🔚 Ends: <t:${endTs}:R> (<t:${endTs}:f>)\n\nInvite people to this server using your personal invite links! The top 3 inviters win coins.\n🥇 1st: **500 coins** | 🥈 2nd: **250 coins** | 🥉 3rd: **100 coins**`
+    `📨 **BOT OLYMPICS: ${event.name}**\n\n${event.description}\n\n⏳ Duration: **${durationLabel}**\n🔚 Ends: <t:${endTs}:R> (<t:${endTs}:f>)\n\nInvite people to this server using your personal invite links! The top 3 inviters win coins.\n🥇 1st: **500 coins** | 🥈 2nd: **250 coins** | 🥉 3rd: **100 coins**`
   );
 
   async function calcGains() {
@@ -3123,7 +3134,7 @@ async function runInviteOlympicsInGuild(guild, event, channelOverride) {
     if (!gained.size) return;
     const sorted = [...gained.entries()].sort((a, b) => b[1].count - a[1].count).slice(0, 3);
     const medals = ["🥇","🥈","🥉"];
-    const lines = sorted.map(([id, d], i) => `${medals[i]} <@${id}> — **${d.count}** invite${d.count !== 1 ? "s" : ""}`);
+    const lines = sorted.map(([id, d], i) => `${medals[i]} <@${id}>: **${d.count}** invite${d.count !== 1 ? "s" : ""}`);
     const timeLeft = Math.round((endsAt - Date.now()) / 60000);
     const timeLeftLabel = timeLeft >= 60 ? `${Math.round(timeLeft/60)}h ${timeLeft%60}m` : `${timeLeft}m`;
     await safeSend(channel, `📊 **Live Standings** (${timeLeftLabel} remaining)\n\n${lines.join("\n")}`);
@@ -3134,7 +3145,7 @@ async function runInviteOlympicsInGuild(guild, event, channelOverride) {
 
   const finalGains = await calcGains();
   if (!finalGains.size) {
-    await safeSend(channel, `📨 **${event.name} — Results**\n\nNo new invites were tracked during the competition. Better luck next time!`);
+    await safeSend(channel, `📨 **${event.name}: Results**\n\nNo new invites were tracked during the competition. Better luck next time!`);
     return;
   }
 
@@ -3142,14 +3153,14 @@ async function runInviteOlympicsInGuild(guild, event, channelOverride) {
   const medals  = ["🥇","🥈","🥉"];
   const rewards = [CONFIG.invite_comp_1st, CONFIG.invite_comp_2nd, CONFIG.invite_comp_3rd];
   const top3    = sorted.slice(0, 3);
-  const lines = top3.map(([id, d], i) => `${medals[i]} <@${id}> — **${d.count}** invite${d.count !== 1 ? "s" : ""} (+${rewards[i]} coins)`);
+  const lines = top3.map(([id, d], i) => `${medals[i]} <@${id}>: **${d.count}** invite${d.count !== 1 ? "s" : ""} (+${rewards[i]} coins)`);
   top3.forEach(([id, d], i) => { getScore(id, d.username).coins += rewards[i]; });
   sorted.forEach(([id, d]) => {
     if (!top3.find(([tid]) => tid === id)) { getScore(id, d.username).coins += d.count * CONFIG.invite_comp_per_invite; }
   });
   saveData();
   await safeSend(channel,
-    `🏆 **${event.name} — Final Results!**\n\n${lines.join("\n")}\n\n` +
+    `🏆 **${event.name}: Final Results!**\n\n${lines.join("\n")}\n\n` +
     (sorted.length > 3 ? `Everyone else who invited at least 1 person earned **${CONFIG.invite_comp_per_invite} coins per invite**.\n\n` : "") +
     `Total participants: **${sorted.length}** | Total new invites: **${sorted.reduce((s,[,d])=>s+d.count,0)}**`
   );
@@ -3160,18 +3171,18 @@ async function runOlympicsInGuild(guild,event){
   const channel=getGuildChannel(guild);if(!channel)return;
   try{
     if(event.instantWin){
-      await channel.send(`🏅 **BOT OLYMPICS — ${event.name}**\n${event.description}`);
+      await channel.send(`🏅 **BOT OLYMPICS: ${event.name}**\n${event.description}`);
       if(event.answer){try{const col=await channel.awaitMessages({filter:m=>!m.author.bot&&m.content.trim().toLowerCase()===event.answer.toLowerCase(),max:1,time:60000,errors:["time"]});const w=col.first().author;recordWin(w.id,w.username,CONFIG.olympics_win_coins);saveData();await channel.send(`🥇 **${w.username} wins!** 🎉 (+${CONFIG.olympics_win_coins} coins)`);}catch{await channel.send(`⏰ Nobody won **${event.name}**.`);}}
       else{const rm=await channel.send(`⚡ **GO!** First to react with ⚡ wins!`);await rm.react("⚡");try{const col=await rm.awaitReactions({filter:(re,u)=>re.emoji.name==="⚡"&&!u.bot,max:1,time:30000,errors:["time"]});const w=col.first().users.cache.filter(u=>!u.bot).first();if(w){recordWin(w.id,w.username,CONFIG.olympics_win_coins);saveData();await channel.send(`🥇 **${w.username} wins!** 🎉 (+${CONFIG.olympics_win_coins} coins)`);}else await channel.send(`⏰ Nobody reacted.`);}catch{await channel.send(`⏰ Nobody reacted.`);}}
     }else if(event.randomWinner){
-      await channel.send(`🏅 **BOT OLYMPICS — ${event.name}**\n${event.description}\n⏳ **${event.duration} minute(s)**!`);
+      await channel.send(`🏅 **BOT OLYMPICS: ${event.name}**\n${event.description}\n⏳ **${event.duration} minute(s)**!`);
       await new Promise(res=>setTimeout(res,event.duration*60*1000));
       const msgs=await channel.messages.fetch({limit:100}).catch(()=>null);
       const parts=msgs?[...new Set([...msgs.filter(m=>!m.author.bot).values()].map(m=>m.author))]:[];
       if(parts.length){const w=pick(parts);recordWin(w.id,w.username,CONFIG.olympics_win_coins);saveData();await channel.send(`🥇 **${w.username} wins!** 🎉 (+${CONFIG.olympics_win_coins} coins)`);}
       else await channel.send(`⏰ Nobody participated.`);
     }else if(event.trackLive){
-      await channel.send(`🏅 **BOT OLYMPICS — ${event.name}**\n${event.description}\n⏳ **${event.duration} minute(s)**! Go!`);
+      await channel.send(`🏅 **BOT OLYMPICS: ${event.name}**\n${event.description}\n⏳ **${event.duration} minute(s)**! Go!`);
       const sc=new Map();
       const col=channel.createMessageCollector({filter:m=>!m.author.bot,time:event.duration*60*1000});
       col.on("collect",m=>{const uid=m.author.id;if(!sc.has(uid))sc.set(uid,{user:m.author,score:0});const e=sc.get(uid);if(event.unit==="messages")e.score++;else if(event.unit==="word length"){const w=Math.max(...m.content.split(/\s+/).map(w=>w.length));if(w>e.score)e.score=w;}else if(event.unit==="unique emojis"){const u=new Set((m.content.match(/\p{Emoji}/gu)||[])).size;if(u>e.score)e.score=u;}else if(event.unit==="number game"){const n=parseInt(m.content.trim());if(!isNaN(n)&&n<=100&&(e.score===0||Math.abs(n-100)<Math.abs(e.score-100)))e.score=n;}sc.set(uid,e);});
@@ -3202,7 +3213,7 @@ async function sendTicketTranscript(channel, ticket, cfg, closedBy) {
     }
     allMessages.sort((a, b) => a.createdTimestamp - b.createdTimestamp);
     // Resolve the real ticket owner directly rather than guessing from the
-    // first non-bot message — if staff messaged first, that guess would be
+    // first nonbot message: if staff messaged first, that guess would be
     // wrong even though we already know exactly who opened it.
     const openerUser = await channel.client.users.fetch(ticket.userId).catch(() => null);
     const lines = [
@@ -3221,7 +3232,7 @@ async function sendTicketTranscript(channel, ticket, cfg, closedBy) {
       const ts = new Date(m.createdTimestamp).toISOString().replace("T"," ").slice(0,19);
       const tag = `${m.author.username}`;
       if (m.content) lines.push(`[${ts}] ${tag}: ${m.content}`);
-      if (m.attachments.size) for (const att of m.attachments.values()) lines.push(`[${ts}] ${tag}: [Attachment: ${att.name} — ${att.url}]`);
+      if (m.attachments.size) for (const att of m.attachments.values()) lines.push(`[${ts}] ${tag}: [Attachment: ${att.name} - ${att.url}]`);
       if (m.stickers.size) for (const s of m.stickers.values()) lines.push(`[${ts}] ${tag}: [Sticker: ${s.name}]`);
     }
     lines.push("", `═══════════════════════════════════════`, `  END OF TRANSCRIPT`, `═══════════════════════════════════════`);
@@ -3254,7 +3265,7 @@ function getEligibleTicketRoles(guild) {
   return [...guild.roles.cache.filter(r => !r.managed && r.id !== guild.id).values()];
 }
 
-// Shared by every ticket action — the ticket_open/close/reopen/delete/claim
+// Shared by every ticket action: the ticket_open/close/reopen/delete/claim
 // buttons and the /closeticket, /addtoticket, /removefromticket commands all
 // used to repeat this exact check inline. Same logic, same precedence as
 // before: owner, any configured support role, or Manage Channels.
@@ -3283,7 +3294,7 @@ function buildTicketStaffRow() {
 
 // items: [{label, value, emoji}]. mode "single" = pick one (spread across
 // however many menus it takes to show every item); mode "multi" = pick any
-// number — selections made in a menu you didn't touch this time are preserved
+// number: selections made in a menu you didn't touch this time are preserved
 // by mergeChunkedSelection below, since Discord only reports the values of
 // the menu actually interacted with.
 function buildTicketPickerRows({ items, idPrefix, selectedIds = [], mode = "single", placeholder }) {
@@ -3342,15 +3353,15 @@ function buildTicketSetupStep(guild, guildId, stepOverride) {
   }).join("   ");
 
   const fields = [];
-  if (step > 1) fields.push({ name: "📁 Category",         value: catCh ? catCh.name : "—", inline: true });
-  if (step > 2) fields.push({ name: "🛡️ Support Roles",    value: roleList || "—", inline: true });
-  if (step > 3) fields.push({ name: "📋 Log Channel",       value: logCh ? `<#${logCh.id}>` : (cfg.logChannelId === null ? "None" : "—"), inline: true });
-  if (step > 4) fields.push({ name: "📜 Transcript Channel", value: txCh ? `<#${txCh.id}>` : (cfg.transcriptChannelId === null ? "None" : "—"), inline: true });
-  if (step > 5) fields.push({ name: "📢 Panel Channel",      value: panelCh ? `<#${panelCh.id}>` : "—", inline: true });
+  if (step > 1) fields.push({ name: "📁 Category",         value: catCh ? catCh.name : "None", inline: true });
+  if (step > 2) fields.push({ name: "🛡️ Support Roles",    value: roleList || "None", inline: true });
+  if (step > 3) fields.push({ name: "📋 Log Channel",       value: logCh ? `<#${logCh.id}>` : "None", inline: true });
+  if (step > 4) fields.push({ name: "📜 Transcript Channel", value: txCh ? `<#${txCh.id}>` : "None", inline: true });
+  if (step > 5) fields.push({ name: "📢 Panel Channel",      value: panelCh ? `<#${panelCh.id}>` : "None", inline: true });
 
   const embed = {
     color: step > 5 ? 0x57F287 : 0x5865F2,
-    title: step > 5 ? "🎫 Ticket Setup — Complete!" : `🎫 Ticket Setup — Step ${step} of 5: ${STEP_NAMES[step - 1]}`,
+    title: step > 5 ? "🎫 Ticket Setup: Complete!" : `🎫 Ticket Setup: Step ${step} of 5: ${STEP_NAMES[step - 1]}`,
     fields,
   };
 
@@ -3360,7 +3371,7 @@ function buildTicketSetupStep(guild, guildId, stepOverride) {
     const cats = [...guild.channels.cache.filter(ch => ch.type === "GUILD_CATEGORY").values()];
     embed.description = `${progress}\n\nWhich **category** should new ticket channels be created inside?`;
     const { rows, truncated } = buildTicketPickerRows({
-      items: cats.length ? cats.map(ch => ({ label: ch.name, value: ch.id, emoji: { name: "📁" } })) : [{ label: "No categories found — create one first", value: "none" }],
+      items: cats.length ? cats.map(ch => ({ label: ch.name, value: ch.id, emoji: { name: "📁" } })) : [{ label: "No categories found: create one first", value: "none" }],
       idPrefix: "ts_sel_channel", mode: "single", placeholder: "Select a category…",
     });
     if (truncated) embed.footer = { text: `Showing the first ${TICKET_PICKER_MAX_MENUS * 25} categories.` };
@@ -3400,7 +3411,7 @@ function buildTicketSetupStep(guild, guildId, stepOverride) {
     if (truncated) embed.footer = { text: `Showing the first ${TICKET_PICKER_MAX_MENUS * 25} channels.` };
     components = [...rows, new MessageActionRow().addComponents(new MessageButton().setCustomId("ts_back").setLabel("← Back").setStyle("SECONDARY"))];
   } else {
-    const pv = cfg.panelMessage || "🎫 **Support Tickets** — Click below to open a ticket.";
+    const pv = cfg.panelMessage || "🎫 **Support Tickets**: Click below to open a ticket.";
     embed.description = `${progress}\n\nClick **Post Panel** to publish.`;
     fields.push({ name: "✉️ Panel Message", value: cfg.panelMessage ? pv.slice(0, 200) : "*(default)*" });
     fields.push({ name: "🎫 Status", value: cfg.panelMessageId ? `✅ Live in <#${cfg.panelChannelId}>` : "❌ Not posted yet" });
@@ -3479,16 +3490,16 @@ function fmtSubs(n) {
   return String(n);
 }
 
-// ── /fakequote — "Make it a Quote" style image card ───────────────────────────
+// ── /fakequote: "Make it a Quote" style image card ───────────────────────────
 // Replicates the classic Quote bot card: left half is a grayscale photo/avatar
 // fading to black, right half is a centered quote with an italic attribution
 // and a footer showing @username + a fake "Make it a Quote#NNNN" tag.
 const QUOTE_CARD_W = 1200, QUOTE_CARD_H = 630, QUOTE_CARD_LEFT_W = 600;
 // "Make it a Quote" renders its card text in M PLUS Rounded 1c. Bundle the TTFs in
 // ./fonts (see registerBundledFonts at the top of this file) the same way Poppins
-// used to be shipped — fontconfig will pick this family up automatically once the
+// used to be shipped: fontconfig will pick this family up automatically once the
 // files are present, no code change needed here besides the family name below.
-const QUOTE_FONT_FAMILY = "'M PLUS Rounded 1c', Poppins, sans-serif";
+const QUOTE_FONT_FAMILY = "'M PLUS Rounded 1c', Poppins, sans serif";
 
 function escapeSvgText(s) {
   return String(s)
@@ -3500,8 +3511,8 @@ function escapeSvgText(s) {
 }
 
 // ── Custom emoji tokenizing for quote text ───────────────────────────────────
-// Splits a single whitespace-delimited "word" into an ordered list of
-// { type:'text', value } / { type:'emoji', name, id, animated } sub-tokens, so a
+// Splits a single whitespace delimited "word" into an ordered list of
+// { type:'text', value } / { type:'emoji', name, id, animated } subtokens, so a
 // custom emoji glued to plain text (e.g. "nice<:wave:123>!") still renders correctly.
 const CUSTOM_EMOJI_RE = /<a?:(\w+):(\d+)>/g;
 function tokenizeWordForEmoji(word) {
@@ -3517,16 +3528,16 @@ function tokenizeWordForEmoji(word) {
   return tokens;
 }
 
-// Width (px) of an array of sub-tokens, given the per-char width estimate and emoji box size.
+// Width (px) of an array of subtokens, given the per char width estimate and emoji box size.
 function measureSubtokensWidth(subtokens, approxCharW, emojiSize) {
   let w = 0;
   for (const t of subtokens) w += t.type === "emoji" ? emojiSize : t.value.length * approxCharW;
   return w;
 }
 
-// Greedy word-wrap that works in real pixel widths (not raw char counts), so lines
+// Greedy word wrap that works in real pixel widths (not raw char counts), so lines
 // containing custom emoji wrap correctly instead of overflowing or wrapping too early.
-// Returns an array of { tokens: [...subtokens], width } — one entry per line.
+// Returns an array of { tokens: [...subtokens], width }: one entry per line.
 function wrapQuoteTokens(text, maxWidthPx, approxCharW, emojiSize) {
   const spaceWidth = approxCharW;
   const words = text.split(/\s+/).filter(Boolean);
@@ -3565,16 +3576,16 @@ async function fetchEmojiDataUri(id) {
 }
 
 async function buildFakeQuoteCard({ avatarBuffer, quoteText, displayName, username }) {
-  // 1. Left-half photo: cover-crop to the left panel size, then plain grayscale conversion.
-  // No brightness/contrast adjustment and no extra sharpen/blur — Sharp's default resize
+  // 1. Left half photo: cover crop to the left panel size, then plain grayscale conversion.
+  // No brightness/contrast adjustment and no extra sharpen/blur: Sharp's default resize
   // kernel already matches the reference card's edge sharpness almost exactly when starting
-  // from the true unprocessed source avatar (verified via Laplacian-variance comparison).
+  // from the true unprocessed source avatar (verified via Laplacian variance comparison).
   const avatarPanel = await sharp(avatarBuffer)
     .resize(QUOTE_CARD_LEFT_W, QUOTE_CARD_H, { fit: "cover", position: "centre" })
     .grayscale()
     .toBuffer();
 
-  // 2. Fade mask — measured pixel-for-pixel from a real card. The fade isn't a pure
+  // 2. Fade mask: measured pixel for pixel from a real card. The fade isn't a pure
   // horizontal wipe: the "fully black" boundary sits at x≈446 at the top of the panel and
   // x≈574 at the bottom, a deliberate diagonal tilt. The gradient vector below was solved
   // directly from those two measured points (perpendicular to the line connecting them),
@@ -3597,26 +3608,26 @@ async function buildFakeQuoteCard({ avatarBuffer, quoteText, displayName, userna
     .png()
     .toBuffer();
 
-  // 3. Lay out the quote text. Font sizes and gaps below are measured pixel-for-pixel
+  // 3. Lay out the quote text. Font sizes and gaps below are measured pixel for pixel
   // from a real "Make it a Quote" card render (57px quote / 28px name / 17px username,
-  // with fixed baseline-to-baseline gaps), so short quotes match exactly. Longer quotes
+  // with fixed baseline to baseline gaps), so short quotes match exactly. Longer quotes
   // that would overflow the right panel scale down and wrap to stay readable.
   const rightX = QUOTE_CARD_LEFT_W;
   const rightW = QUOTE_CARD_W - QUOTE_CARD_LEFT_W;
   const pad = 60;
   const textAreaW = rightW - pad * 2;
-  // The real card's text block isn't centered on the full right panel — it sits ~43px left
-  // of panel-center (measured directly from a reference card), so match that offset here.
+  // The real card's text block isn't centered on the full right panel: it sits ~43px left
+  // of panel center (measured directly from a reference card), so match that offset here.
   const textCenterX = rightX + rightW / 2 - 43;
 
   const BASE_QUOTE_FONT = 57, BASE_NAME_FONT = 26, BASE_USER_FONT = 17;
   const BASE_QUOTE_TO_NAME_GAP = 54, BASE_NAME_TO_USER_GAP = 32;
-  // Single-line baseline position measured from the real card (y=311 on a 630-tall canvas).
+  // Single line baseline position measured from the real card (y=311 on a 630 tall canvas).
   const BASE_QUOTE_BASELINE = 311;
 
   const fontSize = quoteText.length > 220 ? 26 : quoteText.length > 140 ? 32 : quoteText.length > 60 ? 40 : BASE_QUOTE_FONT;
   const approxCharW = fontSize * 0.46;
-  const emojiSize = fontSize * 1.15; // emoji glyphs render a bit larger than the cap-height of the font
+  const emojiSize = fontSize * 1.15; // emoji glyphs render a bit larger than the cap height of the font
   const lines = wrapQuoteTokens(quoteText, textAreaW, approxCharW, emojiSize).slice(0, 10); // hard cap so it can't overflow the card
   const lineHeight = fontSize * 1.25;
 
@@ -3632,7 +3643,7 @@ async function buildFakeQuoteCard({ avatarBuffer, quoteText, displayName, userna
   // For multiple lines, shift the whole block up so it stays vertically balanced.
   const firstLineBaseline = BASE_QUOTE_BASELINE - (lines.length - 1) * (lineHeight / 2);
 
-  // Pre-fetch every distinct custom emoji used anywhere in the quote (deduped), so the
+  // Pre fetch every distinct custom emoji used anywhere in the quote (deduped), so the
   // SVG below can be built synchronously once all the data URIs are in hand.
   const emojiIds = [...new Set(
     lines.flatMap(l => l.tokens.filter(t => t.type === "emoji").map(t => t.id))
@@ -3642,7 +3653,7 @@ async function buildFakeQuoteCard({ avatarBuffer, quoteText, displayName, userna
   );
 
   // Render each line manually (rather than one <text text-anchor="middle"> per line) so
-  // plain-text runs and inline emoji images can be interleaved at the right x position.
+  // plain text runs and inline emoji images can be interleaved at the right x position.
   const quoteLinesSvg = lines.map((line, lineIdx) => {
     const y = firstLineBaseline + lineIdx * lineHeight;
     let x = textCenterX - line.width / 2;
@@ -3659,11 +3670,11 @@ async function buildFakeQuoteCard({ avatarBuffer, quoteText, displayName, userna
       flushText();
       const dataUri = emojiDataUriById.get(t.id);
       if (dataUri) {
-        const imgY = y - emojiSize * 0.82; // align emoji box roughly to text cap-height/baseline
+        const imgY = y - emojiSize * 0.82; // align emoji box roughly to text cap height/baseline
         parts.push(`<image x="${x}" y="${imgY}" width="${emojiSize}" height="${emojiSize}" href="${dataUri}" xlink:href="${dataUri}"/>`);
         x += emojiSize;
       } else {
-        // Fetch failed — fall back to the literal :name: so the card still renders something sane.
+        // Fetch failed: fall back to the literal :name: so the card still renders something sane.
         const fallback = `:${t.name}:`;
         parts.push(`<text x="${x}" y="${y}" font-family="${QUOTE_FONT_FAMILY}" font-size="${fontSize}" fill="white" text-anchor="start">${escapeSvgText(fallback)}</text>`);
         x += fallback.length * approxCharW;
@@ -3677,7 +3688,7 @@ async function buildFakeQuoteCard({ avatarBuffer, quoteText, displayName, userna
   const nameY     = lastLineBaseline + quoteToNameGap;
   const usernameY = nameY + nameToUserGap;
 
-  // The footer tag is always "Make it a Quote#6660", pinned to the bottom-right corner.
+  // The footer tag is always "Make it a Quote#6660", pinned to the bottom right corner.
   const tagLabel = "Make it a Quote#6660";
   const tagY = QUOTE_CARD_H - 14;
   const tagX = QUOTE_CARD_W - 12;
@@ -3704,8 +3715,8 @@ async function buildFakeQuoteCard({ avatarBuffer, quoteText, displayName, userna
 
 // ── Tomato GIF builder ────────────────────────────────────────────────────────
 // Generates a GIF where a Discord-accurate message card has tomato-splat.gif
-// overlaid at random positions. Card layout matches Discord dark-mode desktop:
-//   • #313338 background  • 40×40 circular avatar  • bold role-coloured username
+// overlaid at random positions. Card layout matches Discord dark mode desktop:
+//   • #313338 background  • 40×40 circular avatar  • bold role coloured username
 //   • muted timestamp  • #DCDDDE content text  • gg sans / Noto Sans font stack
 async function buildTomatoGif(msgContent, authorTag, tomatoCount, speedMin = 50, speedMax = 100, avatarURL = null, usernameColor = "#FFFFFF") {
   let GifReader, GifWriter;
@@ -3714,10 +3725,10 @@ async function buildTomatoGif(msgContent, authorTag, tomatoCount, speedMin = 50,
     GifReader = omggif.GifReader;
     GifWriter  = omggif.GifWriter;
   } catch(e) {
-    throw new Error("omggif not installed — run: npm install omggif");
+    throw new Error("omggif not installed: run: npm install omggif");
   }
 
-  // ── 1. Build Discord-style message card PNG ───────────────────────────────
+  // ── 1. Build Discord style message card PNG ───────────────────────────────
   const CARD_W      = 700;
   const PAD_H       = 16;   // horizontal padding on both sides
   const PAD_V       = 12;   // vertical padding top/bottom
@@ -3726,7 +3737,7 @@ async function buildTomatoGif(msgContent, authorTag, tomatoCount, speedMin = 50,
   const TEXT_W      = CARD_W - TEXT_LEFT - PAD_H;
   const FONT_SIZE   = 16;
   const LINE_H      = 22;
-  const FONT_FAMILY = "'gg sans','Noto Sans',Arial,sans-serif";
+  const FONT_FAMILY = "'gg sans','Noto Sans',Arial,sans serif";
 
   // Wrap content to TEXT_W (~75 chars at 16px)
   const CHARS_PER_LINE = Math.floor(TEXT_W / (FONT_SIZE * 0.55));
@@ -3742,7 +3753,7 @@ async function buildTomatoGif(msgContent, authorTag, tomatoCount, speedMin = 50,
   const displayLines = wrappedLines.slice(0, 8);
   if(wrappedLines.length > 8) displayLines[7] = displayLines[7].slice(0, -1) + "…";
 
-  // Discord-style timestamp: "Today at 4:20 PM"
+  // Discord style timestamp: "Today at 4:20 PM"
   const now   = new Date();
   const h12   = ((now.getHours() % 12) || 12);
   const mins  = now.getMinutes().toString().padStart(2, "0");
@@ -3801,10 +3812,10 @@ async function buildTomatoGif(msgContent, authorTag, tomatoCount, speedMin = 50,
     .png()
     .toBuffer();
 
-  // ── 2. Fetch tomato-splat.gif ─────────────────────────────────────────────
+  // ── 2. Fetch tomato splat.gif ─────────────────────────────────────────────
   const tomatoUrl = "https://raw.githubusercontent.com/Royal-V-RR/discord-bot/main/tomato-splat.gif";
   const tRes = await fetch(tomatoUrl);
-  if(!tRes.ok) throw new Error(`Could not fetch tomato-splat.gif (HTTP ${tRes.status})`);
+  if(!tRes.ok) throw new Error(`Could not fetch tomato splat.gif (HTTP ${tRes.status})`);
   const tomatoGifBuf = Buffer.from(await tRes.arrayBuffer());
 
   // ── 3. Decode tomato GIF frames ────────────────────────────────────────────
@@ -3819,7 +3830,7 @@ async function buildTomatoGif(msgContent, authorTag, tomatoCount, speedMin = 50,
     frames.push({ pixels, delayMs: info.delay * 10 });
   }
 
-  // ── 4. Pre-scale tomato frames ─────────────────────────────────────────────
+  // ── 4. Pre scale tomato frames ─────────────────────────────────────────────
   const scaledW = Math.min(gifW, Math.floor(CARD_W * 0.35));
   const scaledH = Math.round(gifH * (scaledW / gifW));
   const scaledFrameCache = new Array(numFrames);
@@ -3877,7 +3888,7 @@ async function buildTomatoGif(msgContent, authorTag, tomatoCount, speedMin = 50,
 // card's own background so any transparent pixel blends in correctly.
 // Returns { palette: [[r,g,b]×256], colorMap: Map<R5G5B5 key, paletteIndex> }.
 //
-// NOTE: this MUST be built from all frames combined, not per-frame — a GIF has
+// NOTE: this MUST be built from all frames combined, not per frame: a GIF has
 // only one global color table, so indexing each frame against its own private
 // palette (the old behaviour) made every frame after the first decode using
 // the wrong colours (see buildTomatoGif for the full story).
@@ -3885,7 +3896,7 @@ function buildSharedPalette(rgbaBuffers, width, height) {
   const PALETTE_SIZE = 256; // must be power of 2
   const totalPx = width * height;
 
-  // ── Frequency count using 5-bit RGB (R5G5B5) — 32 768 possible buckets ────
+  // ── Frequency count using 5 bit RGB (R5G5B5): 32 768 possible buckets ────
   const freq = new Map();
   for(const rgbaData of rgbaBuffers){
     for(let i = 0; i < totalPx; i++){
@@ -3899,11 +3910,11 @@ function buildSharedPalette(rgbaBuffers, width, height) {
     }
   }
 
-  // ── Pick top (PALETTE_SIZE - 1) colours by frequency ──────────────────────
+  // ── Pick top (PALETTE_SIZE: 1) colours by frequency ──────────────────────
   // Slot 0 = background (Discord dark grey #36393f)
   const sorted = [...freq.entries()].sort((a, b) => b[1] - a[1]).slice(0, PALETTE_SIZE - 1);
 
-  // Build palette as Array<[r,g,b]> — omggif's expected format
+  // Build palette as Array<[r,g,b]>: omggif's expected format
   const palette = new Array(PALETTE_SIZE);
   palette[0] = [0x36, 0x39, 0x3f]; // Discord dark background as colour 0
 
@@ -3913,7 +3924,7 @@ function buildSharedPalette(rgbaBuffers, width, height) {
     const r5 = (key >> 10) & 31;
     const g5 = (key >>  5) & 31;
     const b5 =  key        & 31;
-    // Expand 5-bit to 8-bit
+    // Expand 5 bit to 8 bit
     const r8 = (r5 << 3) | (r5 >> 2);
     const g8 = (g5 << 3) | (g5 >> 2);
     const b8 = (b5 << 3) | (b5 >> 2);
@@ -3921,20 +3932,20 @@ function buildSharedPalette(rgbaBuffers, width, height) {
     colorMap.set(key, i + 1);
   }
   // Fill any remaining slots with the background colour (not black) so a miss
-  // never renders as a jarring black blob — worst case it just blends into the card.
+  // never renders as a jarring black blob: worst case it just blends into the card.
   for(let i = sorted.length + 1; i < PALETTE_SIZE; i++) palette[i] = palette[0];
 
   return { palette, colorMap };
 }
 
-// Map a single RGBA frame buffer onto a previously-built shared palette.
-// Pixels whose exact 5-bit colour didn't make the top-255 cut (rare — usually
-// only anti-aliased edge pixels) are matched to the nearest palette entry by
+// Map a single RGBA frame buffer onto a previously built shared palette.
+// Pixels whose exact 5 bit colour didn't make the top 255 cut (rare: usually
+// only antialiased edge pixels) are matched to the nearest palette entry by
 // squared distance instead of collapsing to one arbitrary fallback colour.
 function indexFrameToPalette(rgbaData, width, height, palette, colorMap) {
   const totalPx = width * height;
   const pixels = new Uint8Array(totalPx);
-  const nearestCache = new Map(); // memoize nearest-match lookups for this frame
+  const nearestCache = new Map(); // memoize nearest match lookups for this frame
 
   for(let i = 0; i < totalPx; i++){
     const a = rgbaData[i*4+3];
@@ -3965,7 +3976,7 @@ function indexFrameToPalette(rgbaData, width, height, palette, colorMap) {
   return pixels;
 }
 
-// ── /pixeltxt — RLE + palette compressed pixel <-> image codec ───────────────
+// ── /pixeltxt - RLE + palette compressed pixel <-> image codec ───────────────
 // Port of the PIXELTXT v2 web tool's format:
 //   PIXELTXT v2
 //   SIZE WxH
@@ -3974,7 +3985,7 @@ function indexFrameToPalette(rgbaData, width, height, palette, colorMap) {
 //   DATA
 //   count:palIdx[,count:palIdx…]   ← RLE runs per row, row by row
 //   END
-// Also decodes the legacy "(x,y): #hex[aa]" sparse-pixel format.
+// Also decodes the legacy "(x,y): #hex[aa]" sparse pixel format.
 const PIXELTXT_MAX_PIXELS = 4_000_000; // safety cap on encode input & decode SIZE header
 
 function pixeltxtHex2(n){ return n.toString(16).padStart(2,"0"); }
@@ -4033,7 +4044,7 @@ function pixeltxtDecodeV2(text) {
   if(!sizeLine.startsWith("SIZE ")) throw new Error("Missing SIZE line");
   const [W, H] = sizeLine.slice(5).split("x").map(Number);
   if(!W || !H) throw new Error("Bad SIZE line");
-  if(W*H > PIXELTXT_MAX_PIXELS) throw new Error(`Image is too large (${W}×${H} — max ${PIXELTXT_MAX_PIXELS.toLocaleString()} px)`);
+  if(W*H > PIXELTXT_MAX_PIXELS) throw new Error(`Image is too large (${W}×${H} - max ${PIXELTXT_MAX_PIXELS.toLocaleString()} px)`);
 
   const palLine = (lines[li++]||"").trim();
   if(!palLine.startsWith("PALETTE ")) throw new Error("Missing PALETTE line");
@@ -4097,7 +4108,7 @@ function pixeltxtDecodeLegacy(text) {
   }
   if(!parsed.length) throw new Error("No valid pixel entries found (expected \"(x,y): #hex\" lines or a PIXELTXT v2 header)");
   const W = maxX+1, H = maxY+1;
-  if(W*H > PIXELTXT_MAX_PIXELS) throw new Error(`Image is too large (${W}×${H} — max ${PIXELTXT_MAX_PIXELS.toLocaleString()} px)`);
+  if(W*H > PIXELTXT_MAX_PIXELS) throw new Error(`Image is too large (${W}×${H} - max ${PIXELTXT_MAX_PIXELS.toLocaleString()} px)`);
   const pixels = Buffer.alloc(W*H*4);
   for(const {x,y,r,g,b,a} of parsed){ const o=(y*W+x)*4; pixels[o]=r; pixels[o+1]=g; pixels[o+2]=b; pixels[o+3]=a; }
   return { W, H, pixels };
@@ -4117,7 +4128,7 @@ setInterval(async () => {
     const prev = cfg.lastSubs ?? stats.subs;
     cfg.lastSubs = stats.subs;
     cfg.lastSubsTimestamp = now;
-    // Keep rolling 90-day history (one entry per poll, capped at 90d × 12 per hour = 12960 entries max — cap at 1000)
+    // Keep rolling 90 day history (one entry per poll, capped at 90d × 12 per hour = 12960 entries max: cap at 1000)
     if (!cfg.history) cfg.history = [];
     cfg.history.push({ ts: now, subs: stats.subs });
     if (cfg.history.length > 1000) cfg.history = cfg.history.slice(-1000);
@@ -4139,7 +4150,7 @@ setInterval(async () => {
             const diffStr = diff > 0 ? ` (+${fmtSubs(diff)})` : diff < 0 ? ` (${fmtSubs(diff)})` : "";
             await msg.edit({
               embeds: [{
-                title: `📊 ${stats.title} — Live Sub Count`,
+                title: `📊 ${stats.title}: Live Sub Count`,
                 description: `## ${fmtSubs(stats.subs)}\n*~${fmtSubs(rounded)} (rounded to nearest ${fmtSubs(threshold)})*${diffStr}`,
                 color: 0xFF0000,
                 footer: { text: `Updated` },
@@ -4161,7 +4172,7 @@ setInterval(async () => {
           if (msg) {
             await msg.edit({
               embeds: [{
-                title: `🎯 ${stats.title} — Sub Goal`,
+                title: `🎯 ${stats.title}: Sub Goal`,
                 description: `**${fmtSubs(stats.subs)}** / **${fmtSubs(cfg.goal)}**\n\`[${buildBar(stats.subs, cfg.goal)}]\` **${pct}%**`,
                 color: pct >= 100 ? 0x00FF00 : 0xFF0000,
                 footer: { text: "Updated" },
@@ -4202,9 +4213,9 @@ setInterval(async () => {
   }
 }, 5 * 60 * 1000);
 
-// ── Server Stats auto-refresh ────────────────────────────────────────────────
+// ── Server Stats autorefresh ────────────────────────────────────────────────
 // Ticks every 5 minutes; each guild only actually updates once its own
-// configured interval (min 10m, to respect Discord's channel-rename rate limit)
+// configured interval (min 10m, to respect Discord's channel rename rate limit)
 // has elapsed.
 setInterval(async () => {
   for (const [guildId, cfg] of serverStatsConfig.entries()) {
@@ -4224,8 +4235,8 @@ const client=new Client({
 });
 
 // ── Command list ──────────────────────────────────────────────────────────────
-// ── Owner-only command names — registered globally so they don't count toward the
-//    per-guild limits (100 chat_input + 5 context_menu).  They still show default_member_permissions:"0"
+// ── Owner only command names: registered globally so they don't count toward the
+//    per guild limits (100 chat_input + 5 context_menu).  They still show default_member_permissions:"0"
 //    so only the bot owner can see/use them.
 const OWNER_ONLY_CMDS = new Set([
   "servers","fakemessage","fakequote","dmconfig","leaveserver","restart","refreshcmds",
@@ -4233,7 +4244,7 @@ const OWNER_ONLY_CMDS = new Set([
   "shadowdelete","clankerify","impersonation","forcemarry","forcedivorce","echo","paranoia",
   "thecount","send",
   "tempowner","blacklist","theremnant","jarvisenhance",
-  // Owner context-menu commands
+  // Owner context menu commands
   "Reaction Bomb","Clank This","Expose",
 ]);
 
@@ -4248,8 +4259,8 @@ function buildCommands(){
     {name:"forcemarry",    description:"[Owner] Force marry two users 💍",options:[{name:"user1",description:"First user",type:6,required:true},{name:"user2",description:"Second user",type:6,required:true}]},
     {name:"forcedivorce",  description:"[Owner] Force divorce a user 💔",options:[{name:"user",description:"User to divorce",type:6,required:true}]},
     {name:"quote",     description:"Get a random quote image (ignores ratings) ✨"},
-    {name:"goodquote", description:"Get a top-rated quote image ⭐"},
-    {name:"badquote",  description:"Get a bottom-rated quote image 💀"},
+    {name:"goodquote", description:"Get a top rated quote image ⭐"},
+    {name:"badquote",  description:"Get a bottom rated quote image 💀"},
     {name:"echo",           description:"Make the bot say something 📢",options:[
   {name:"message",     description:"The text to send",                          type:3, required:false},
   {name:"embed",       description:"Turn the message into a rich embed",         type:5, required:false},
@@ -4265,7 +4276,7 @@ function buildCommands(){
       {name:"title",    description:"Video title (optional, shown in the countdown)", type:3, required:false},
     ]},
     {name:"messageschedule", description:"Schedule a message to be sent later as you, via webhook 📨",options:[
-      {name:"time",    description:"When to send it — e.g. 5 hours, 2 days, 1 month, 1 week", type:3, required:true},
+      {name:"time",    description:"When to send it: e.g. 5 hours, 2 days, 1 month, 1 week", type:3, required:true},
       {name:"message", description:"The message to send later",                              type:3, required:true},
     ]},
     {name:"serverinfo",     description:"Server information 🏠"},
@@ -4276,32 +4287,32 @@ function buildCommands(){
     {name:"score",            description:"Check game stats 🏆",options:uReq(false)},
     {name:"leaderboard",      description:"Global leaderboard 🌍",options:[{name:"type",description:"Type",type:3,required:false,choices:[{name:"Wins",value:"wins"},{name:"Coins",value:"coins"},{name:"Streak",value:"streak"},{name:"Best Streak",value:"beststreak"},{name:"Games Played",value:"games"},{name:"Win Rate",value:"winrate"},{name:"Images Uploaded",value:"images"}]}]},
     {name:"serverleaderboard",description:"Server leaderboard 🏠",options:[{name:"type",description:"Type",type:3,required:false,choices:[{name:"Wins",value:"wins"},{name:"Coins",value:"coins"},{name:"Streak",value:"streak"},{name:"Best Streak",value:"beststreak"},{name:"Games Played",value:"games"},{name:"Win Rate",value:"winrate"},{name:"Images Uploaded",value:"images"}]}]},
-    {name:"channelpicker",   description:"Set bot announcement channel (Manage Server)",options:[{name:"channel",description:"Channel",type:7,required:true},{name:"levelup",description:"Enable level-up notifications? (default: true)",type:5,required:false}]},
+    {name:"channelpicker",   description:"Set bot announcement channel (Manage Server)",options:[{name:"channel",description:"Channel",type:7,required:true},{name:"levelup",description:"Enable level up notifications? (default: true)",type:5,required:false}]},
     {name:"counting",        description:"Set or remove a permanent counting channel (Manage Server)",options:[
       {name:"action",        description:"What to do",type:3,required:true,choices:[{name:"Set this channel as a counting channel",value:"set"},{name:"Remove counting from this channel",value:"remove"},{name:"Check current count",value:"status"}]},
     ]},
-    {name:"xpconfig",        description:"Configure level-up notifications for this server (Manage Server)",options:[
+    {name:"xpconfig",        description:"Configure level up notifications for this server (Manage Server)",options:[
       {name:"setting",description:"What to configure",type:3,required:true,choices:[
         {name:"View current config",              value:"show"},
-        {name:"Enable level-up messages",         value:"enable"},
-        {name:"Disable level-up messages",        value:"disable"},
-        {name:"Enable @mention ping on level-up", value:"ping_on"},
-        {name:"Disable @mention ping on level-up",value:"ping_off"},
-        {name:"Set level-up message channel",     value:"set_channel"},
+        {name:"Enable level up messages",         value:"enable"},
+        {name:"Disable level up messages",        value:"disable"},
+        {name:"Enable @mention ping on level up", value:"ping_on"},
+        {name:"Disable @mention ping on level up",value:"ping_off"},
+        {name:"Set level up message channel",     value:"set_channel"},
         {name:"Reset to default channel",         value:"reset_channel"},
       ]},
-      {name:"channel",description:"Channel to send level-up messages to (only used with set_channel)",type:7,required:false},
+      {name:"channel",description:"Channel to send level up messages to (only used with set_channel)",type:7,required:false},
     ]},
     {name:"setwelcome",      description:"Set welcome message (Manage Server)",options:[{name:"channel",description:"Channel",type:7,required:true},{name:"message",description:"Use {user} {server} {count}",type:3,required:false}]},
     {name:"setleave",        description:"Set leave message (Manage Server)",options:[{name:"channel",description:"Channel",type:7,required:true},{name:"message",description:"Use {user} {server}",type:3,required:false}]},
     {name:"disableownermsg", description:"Toggle bot owner broadcasts in this server (Manage Server)",options:[{name:"enabled",description:"Enable?",type:5,required:true}]},
     {name:"serverconfig",    description:"View this server's current bot config (Manage Server)"},
-    {name:"autorole",        description:"Auto-assign a role when someone joins (Manage Server)",options:[{name:"role",description:"Role to give (leave blank to disable)",type:8,required:false}]},
+    {name:"autorole",        description:"Auto assign a role when someone joins (Manage Server)",options:[{name:"role",description:"Role to give (leave blank to disable)",type:8,required:false}]},
     {name:"reactionrole",     description:"Manage reaction roles (Manage Server)",options:[{name:"action",description:"What to do",type:3,required:true,choices:[{name:"Add",value:"add"},{name:"Remove",value:"remove"},{name:"List",value:"list"}]},{name:"messageid",description:"Message ID (for add/remove)",type:3,required:false},{name:"emoji",description:"Emoji (for add/remove)",type:3,required:false},{name:"role",description:"Role to give (for add)",type:8,required:false}]},
     {name:"setboostmsg",     description:"Set a server boost announcement message (Manage Server)",options:[{name:"channel",description:"Channel",type:7,required:true},{name:"message",description:"Use {user} {server}",type:3,required:false}]},
-    {name:"invitecomp",      description:"Start an invite competition (Manage Server)",options:[{name:"hours",description:"Duration in hours (1-720)",type:4,required:true}]},
+    {name:"invitecomp",      description:"Start an invite competition (Manage Server)",options:[{name:"hours",description:"Duration in hours (1 to 720)",type:4,required:true}]},
     {name:"purge",           description:"Delete messages in bulk (Manage Messages)",options:[
-      {name:"amount",      description:"Number of messages to scan (1-100)",  type:4,required:true},
+      {name:"amount",      description:"Number of messages to scan (1 to 100)",  type:4,required:true},
       {name:"filter",      description:"Only delete certain messages",         type:3,required:false,choices:[
         {name:"Humans only",  value:"humans"},
         {name:"Bots only",    value:"bots"},
@@ -4322,7 +4333,7 @@ function buildCommands(){
       {name:"goal",          description:"Target subscriber count (e.g. 10000)",                  type:4,required:true},
       {name:"message",       description:"Custom message when goal is reached (optional)",         type:3,required:false},
     ]},
-    {name:"subcount",        description:"Post a live sub count display that auto-updates (Manage Server)",options:[
+    {name:"subcount",        description:"Post a live sub count display that autoupdates (Manage Server)",options:[
       {name:"threshold",     description:"Round display to nearest amount",                        type:3,required:true,choices:[{name:"Every 1K subs",value:"1000"},{name:"Every 10K subs",value:"10000"}]},
     ]},
     {name:"milestones",      description:"Manage subscriber milestone announcements (Manage Server)",options:[
@@ -4340,7 +4351,7 @@ function buildCommands(){
     ]},
     {name:"paranoia",       description:"[Owner] Watch a user and reply to their messages with paranoia lines (run again to disarm)",options:[
       {name:"user",         description:"Target user to haunt (run again on same user to disarm)",type:6,required:true},
-      {name:"chance",       description:"% chance each message triggers a reply (1-100, default 100)",type:4,required:false},
+      {name:"chance",       description:"% chance each message triggers a reply (1 to 100, default 100)",type:4,required:false},
     ]},
     {name:"dmconfig",         description:"[Owner] Set up the DM relay server, or open a relay channel for a user",options:[
       {name:"server",       description:"Server ID to use as the DM relay hub (run this once)",type:3,required:false},
@@ -4348,7 +4359,7 @@ function buildCommands(){
     ]},
     {name:"leaveserver",    description:"[Owner] Leave a server",options:[{name:"server",description:"Server ID",type:3,required:true}]},
     {name:"restart",        description:"[Owner] Restart"},
-    {name:"refreshcmds",    description:"[Owner] Force re-register slash commands in this guild"},
+    {name:"refreshcmds",    description:"[Owner] Force reregister slash commands in this guild"},
     {name:"botstats",       description:"[Owner] Bot stats"},
     {name:"setstatus",      description:"[Owner] Set status",options:[{name:"text",description:"Text",type:3,required:true},{name:"type",description:"Type",type:3,required:false,choices:[{name:"Playing",value:"PLAYING"},{name:"Watching",value:"WATCHING"},{name:"Listening",value:"LISTENING"},{name:"Competing",value:"COMPETING"}]}]},
     {name:"adminconfig",      description:"[Owner] View/edit global config values",options:[{name:"key",description:"Config key (leave blank to list all)",type:3,required:false},{name:"value",description:"New integer value",type:4,required:false}]},
@@ -4356,7 +4367,7 @@ function buildCommands(){
       {name:"type",           description:"Which role",type:3,required:true,choices:[{name:"Reduced Activity",value:"ra"},{name:"Leave of Absence",value:"loa"}]},
       {name:"user",           description:"Member",type:6,required:true},
       {name:"action",         description:"Give or remove",type:3,required:true,choices:[{name:"Give",value:"give"},{name:"Remove",value:"remove"}]},
-      {name:"duration",       description:"Hours (optional — permanent if omitted)",type:4,required:false},
+      {name:"duration",       description:"Hours (optional: permanent if omitted)",type:4,required:false},
     ]},
     {name:"rolespingfix", description:"List roles that can @everyone and fix them (Manage Server)"},
     {name:"shadowdelete", description:"[Owner] Randomly delete a % of a user's messages", options:[
@@ -4375,11 +4386,11 @@ function buildCommands(){
       {name:"mode",     description:"Clankerify mode to apply to messages",type:3,required:false,choices:[{name:"No mode (plain)",value:"none"},{name:"Evil",value:"evil"},{name:"Freaky",value:"freaky"},{name:"American",value:"american"},{name:"British",value:"british"},{name:"Stupid",value:"stupid"},{name:"Boomer",value:"boomer"},{name:"Conspiracy",value:"conspiracy"},{name:"NPC",value:"npc"},{name:"Sigma",value:"sigma"},{name:"Medieval",value:"medieval"},{name:"Ghost",value:"ghost"},{name:"Pirate",value:"pirate"},{name:"RespawnRaccoon Propaganda",value:"rr_propaganda"},{name:"French",value:"french"},{name:"UWU / LOLCAT",value:"uwu"}]},
       {name:"duration", description:"Duration in minutes (omit for permanent, 0 to disable)",  type:4, required:false},
     ]},
-    {name:"thecount", description:"[Owner] Open (or reuse) a queue channel for a user — nothing sent there reaches them until /send", default_member_permissions:"0", options:[
+    {name:"thecount", description:"[Owner] Open (or reuse) a queue channel for a user: nothing sent there reaches them until /send", default_member_permissions:"0", options:[
       {name:"user", description:"User to open a queue channel for", type:6, required:true},
     ]},
     {name:"send", description:"[Owner] Deliver every queued message across all /thecount channels to their respective users", default_member_permissions:"0", options:[]},
-    {name:"selfclank",  description:"Self-clankerify yourself for 1–5 minutes (0 to cancel, 2 people per server at a time)",options:[
+    {name:"selfclank",  description:"Self clankerify yourself for 1–5 minutes (0 to cancel, 2 people per server at a time)",options:[
       {name:"duration", description:"Duration in minutes (1–5), or 0 to cancel early",type:4,required:true},
     ]},
     {name:"upload",            description:"Upload an image, audio, or video file to quotes2",options:[
@@ -4410,7 +4421,7 @@ function buildCommands(){
       {name:"set-review-channel", description:"Set the channel where quote submissions are sent for review",type:1,options:[
         {name:"channel",       description:"Channel to receive submissions",type:7,required:true},
       ]},
-      {name:"set-delete-channel", description:"Set the channel where trashcan-flagged quotes are sent for review",type:1,options:[
+      {name:"set-delete-channel", description:"Set the channel where trashcan flagged quotes are sent for review",type:1,options:[
         {name:"channel",       description:"Channel to receive flagged quotes",type:7,required:true},
       ]},
     ]},
@@ -4456,7 +4467,7 @@ function buildCommands(){
     ]},
     {name:"jarvisdatabase", description:"Upload an image, gif, or video straight to the Jarvis trigger folder",options:[
       {name:"source",description:"File to upload (image/gif/video)",type:11,required:true},
-      {name:"name",  description:"Trigger word / filename to save it as — no extension needed",type:3,required:true},
+      {name:"name",  description:"Trigger word / filename to save it as: no extension needed",type:3,required:true},
     ]},
     {name:"pixeltxt", description:"Convert an image to a compressed PIXELTXT file, or turn one back into an image",options:[
       {name:"action", description:"Structure an image into text, or destructure text back into an image", type:3, required:true, choices:[
@@ -4490,7 +4501,7 @@ function buildCommands(){
       ]},
       {name:"name",description:"Profile ID (required for create/edit/delete)",type:3,required:false},
     ]},
-    {name:"jarvislist", description:"Show every image in the Jarvis folder — filename + preview, paginated"},
+    {name:"jarvislist", description:"Show every image in the Jarvis folder: filename + preview, paginated"},
     {name:"userprofile", description:"[Patreon] View your supporter profile, marriage, roles, quote stats, favorites etc"},
     {name:"download", description:"Download a YouTube video as MP4 or MP3",options:[
       {name:"url",        description:"YouTube video URL",type:3,required:true},
@@ -4510,9 +4521,9 @@ function buildCommands(){
   ];
 }
 
-// Commands sent to every guild (non-owner, within guild limits: 100 chat_input + 5 context_menu)
+// Commands sent to every guild (nonowner, within guild limits: 100 chat_input + 5 context_menu)
 function buildGuildCommands()  { return buildCommands().filter(c => !OWNER_ONLY_CMDS.has(c.name)); }
-// Commands registered globally once (owner-only; hidden via default_member_permissions:'0')
+// Commands registered globally once (owner only; hidden via default_member_permissions:'0')
 function buildGlobalCommands() { return buildCommands().filter(c =>  OWNER_ONLY_CMDS.has(c.name)); }
 
 
@@ -4535,7 +4546,7 @@ function discordRequest(method, path, body) {
   });
 }
 
-// ── Command fingerprinting — skip re-registration if nothing changed (prevents 30034 daily limit) ──
+// ── Command fingerprinting: skip reregistration if nothing changed (prevents 30034 daily limit) ──
 const crypto = require("crypto");
 const GUILD_CMD_HASH_FILE  = "./guild_cmd_hash.json";
 const GLOBAL_CMD_HASH_FILE = "./global_cmd_hash.json";
@@ -4550,7 +4561,7 @@ function saveHashFile(file, data) {
   try { fs.writeFileSync(file, JSON.stringify(data)); } catch {} 
 }
 
-// ── Guild commands: non-owner only (keeps counts under guild limits: 100 chat_input, 5 context_menu) ──
+// ── Guild commands: nonowner only (keeps counts under guild limits: 100 chat_input, 5 context_menu) ──
 async function registerGuildCommands(guildId, force = false) {
   try {
     const cmds  = buildGuildCommands();
@@ -4566,7 +4577,7 @@ async function registerGuildCommands(guildId, force = false) {
       saveHashFile(GUILD_CMD_HASH_FILE, store);
       console.log(`✅ Guild [${guildId}]: ${JSON.parse(r.body).length} commands registered`);
     } else if (r.status === 429) {
-      // True HTTP rate limit — brief retry makes sense
+      // True HTTP rate limit: brief retry makes sense
       let retryAfter = 5;
       try { retryAfter = JSON.parse(r.body).retry_after || 5; } catch {}
       console.warn(`⚠️ Guild [${guildId}]: HTTP 429, retrying in ${Math.ceil(retryAfter)}s…`);
@@ -4580,15 +4591,15 @@ async function registerGuildCommands(guildId, force = false) {
         console.warn(`⚠️ Guild [${guildId}] retry HTTP ${r2.status}: ${r2.body.slice(0,300)}`);
       }
     } else if (r.body && r.body.includes("30034")) {
-      // Daily application command creates limit hit — no point retrying until tomorrow
-      console.error(`❌ Guild [${guildId}]: daily command-create limit reached (30034). Will retry on next restart after midnight UTC.`);
+      // Daily application command creates limit hit: no point retrying until tomorrow
+      console.error(`❌ Guild [${guildId}]: daily command create limit reached (30034). Will retry on next restart after midnight UTC.`);
     } else {
       console.warn(`⚠️ registerGuildCommands [${guildId}] HTTP ${r.status}: ${r.body.slice(0,300)}`);
     }
   } catch(e) { console.warn(`registerGuildCommands [${guildId}]:`, e.message); }
 }
 
-// ── Global commands: owner-only (registered once; ~1hr propagation, but only need re-registering when changed) ──
+// ── Global commands: owner only (registered once; ~1hr propagation, but only need reregistering when changed) ──
 async function registerGlobalCommands(force = false) {
   try {
     const cmds  = buildGlobalCommands();
@@ -4604,7 +4615,7 @@ async function registerGlobalCommands(force = false) {
       saveHashFile(GLOBAL_CMD_HASH_FILE, store);
       console.log(`✅ Global: ${JSON.parse(r.body).length} commands registered`);
     } else if (r.body && r.body.includes("30034")) {
-      console.error("❌ Global commands: daily command-create limit reached (30034). Will retry on next restart after midnight UTC.");
+      console.error("❌ Global commands: daily command create limit reached (30034). Will retry on next restart after midnight UTC.");
     } else {
       console.warn(`⚠️ registerGlobalCommands HTTP ${r.status}: ${r.body.slice(0,300)}`);
     }
@@ -4619,13 +4630,13 @@ client.once("ready", async () => {
   try { const owner = await client.users.fetch(OWNER_ID); await acquireInstanceLock(owner); }
   catch(e) { console.error("Lock error:", e); instanceLocked = true; }
 
-  // Write the first heartbeat immediately rather than waiting up to 60s —
+  // Write the first heartbeat immediately rather than waiting up to 60s,
   // so the status page shows "online" right away after a restart.
   commitStatusToGitHub().catch(()=>{});
 
-  // Turn the "restarting" notice into a live status message — Discord's own
+  // Turn the "restarting" notice into a live status message: Discord's own
   // <t:...:R> rendering keeps the relative times ("in 3 hours") current without
-  // us needing to re-edit this on a timer.
+  // us needing to reedit this on a timer.
   (async () => {
     const startTs = Math.floor(BOT_START_TIME / 1000);
     const resetTs = Math.floor((BOT_START_TIME + RESTART_TIMEOUT_MIN * 60 * 1000) / 1000);
@@ -4644,19 +4655,25 @@ client.once("ready", async () => {
     catch(e) { console.error("Failed to restore persistent status:", e.message); }
   }
 
-  // Warm the quote-folder cache immediately on startup. quoteFileFolderCache
-  // (which folder — quotes vs quotes2 — a given filename lives in) is
+  // Warm the quote folder cache immediately on startup. quoteFileFolderCache
+  // (which folder, quotes vs quotes2, a given filename lives in) is
   // rebuilt from GitHub's actual listing rather than persisted, since that's
   // always authoritative; but it starts empty after every restart, and
   // /library builds its image URL from just a filename via quoteRawUrl(),
   // which silently falls back to "quotes" when a name isn't cached yet. That
   // fallback is wrong for anything uploaded via /upload or an approved
-  // /requestupload, since those always live in quotes2 — so without this
-  // warm-up, /library links break for quotes2 images until something else
+  // /requestupload, since those always live in quotes2, so without this
+  // warm up, /library links break for quotes2 images until something else
   // (like /quote) happens to populate the cache first.
-  fetchAllQuoteFiles().catch(e => console.error("Quote folder warm-up failed:", e.message));
+  fetchAllQuoteFiles().catch(e => console.error("Quote folder warm up failed:", e.message));
 
-  // Fetch app-level emojis (uploaded via Developer Portal) and cache them
+  // Build the Patreon member list fresh on every startup (see comment above
+  // isPatreonMember for why this isn't persisted), then keep it fresh every
+  // hour without needing a restart.
+  refreshPatreonMembers();
+  setInterval(refreshPatreonMembers, 60*60*1000);
+
+  // Fetch app level emojis (uploaded via Developer Portal) and cache them
   try {
     const emojiRes = await fetch(`https://discord.com/api/v10/applications/${CLIENT_ID}/emojis`, {
       headers: { Authorization: `Bot ${TOKEN}` }
@@ -4674,10 +4691,10 @@ client.once("ready", async () => {
 
   if (!instanceLocked) return;
 
-  // Step 0: Register global (owner-only) commands once — only sends to Discord if hashes differ.
+  // Step 0: Register global (owner only) commands once: only sends to Discord if hashes differ.
   await registerGlobalCommands();
 
-  // Step 1: Register guild commands per-guild (instant propagation, <1s vs 1hr global cache lag).
+  // Step 1: Register guild commands per guild (instant propagation, <1s vs 1hr global cache lag).
   //         Fingerprint check skips guilds whose command list hasn't changed, preventing 30034 daily limit.
   const guilds = [...client.guilds.cache.values()];
   for (let i = 0; i < guilds.length; i++) {
@@ -4693,7 +4710,7 @@ client.once("ready", async () => {
 
 client.on("guildCreate", async g => {
   console.log(`Joined: ${g.name} (${g.id})`);
-  // Register guild-only commands instantly when joining a new server
+  // Register guild only commands instantly when joining a new server
   await registerGuildOnlyCommands(g.id);
   snapshotInvites(g).catch(() => {});
 });
@@ -4726,10 +4743,10 @@ client.on("guildMemberUpdate",async(oldMember,newMember)=>{
 
 // ── Emoji helpers ─────────────────────────────────────────────────────────────
 // Resolves an emoji name to something .react() accepts.
-// Checks app-level emojis first (uploaded via Developer Portal),
+// Checks app level emojis first (uploaded via Developer Portal),
 // then guild emojis, then falls back to the raw string (unicode).
 function resolveEmoji(name, msg) {
-  // App emoji — format Discord.js react() needs is "name:id"
+  // App emoji: format Discord.js react() needs is "name:id"
   const appEmoji = appEmojiCache.get(name);
   if (appEmoji) return `${appEmoji.name}:${appEmoji.id}`;
   // Guild emoji fallback
@@ -4740,7 +4757,7 @@ function resolveEmoji(name, msg) {
     const found = search(g);
     if (found) return found;
   }
-  return name; // unicode or last-resort fallback
+  return name; // unicode or last resort fallback
 }
 
 // ── Quote vote buttons ────────────────────────────────────────────────────────
@@ -4748,7 +4765,7 @@ function resolveEmoji(name, msg) {
 // Uses app emojis from appEmojiCache if available, falls back to plain unicode.
 // Vote counts come from quoteVotes (filename → {up,down}); trash count from trashcanVotes.
 // Looks up which user uploaded a given quote filename, by scanning each user's uploadedImages list.
-// Returns a userId, or null if there's no upload record (e.g. quotes added directly, pre-tracking).
+// Returns a userId, or null if there's no upload record (e.g. quotes added directly, pretracking).
 function findQuoteUploader(filename) {
   for (const [userId, s] of scores) {
     if (Array.isArray(s.uploadedImages) && s.uploadedImages.includes(filename)) return userId;
@@ -4815,11 +4832,11 @@ function makeQuoteVoteButtons(msgId, votes, trashData) {
 }
 
 // ── Library embed & components ────────────────────────────────────────────────
-// Renders a user's uploaded-quotes library as an embed (image + prev/next/goto
-// paging), with a 🗑️ button to flag the currently-viewed image for owner review.
+// Renders a user's uploaded quotes library as an embed (image + prev/next/goto
+// paging), with a 🗑️ button to flag the currently viewed image for owner review.
 // Resolves the raw.githubusercontent.com URL for a library image, verifying
 // the folder (quotes vs quotes2) via the GitHub API when it isn't already
-// cached rather than guessing — quoteRawUrl()'s bare "quotes" fallback is
+// cached rather than guessing: quoteRawUrl()'s bare "quotes" fallback is
 // wrong for anything from /upload or an approved /requestupload, since those
 // always land in quotes2.
 async function buildLibraryEmbed(displayName, avatarUrl, fileName, idx, total) {
@@ -4859,7 +4876,7 @@ function makeLibraryButtons(targetUserId, idx, total, flagged) {
 }
 
 // Nav buttons for browsing favorites (accessed via the Favorites button on
-// /library) — same idea as makeLibraryButtons, but scoped to the clicking
+// /library): same idea as makeLibraryButtons, but scoped to the clicking
 // user's own favorites, with a Remove Favorite button instead of Flag for
 // Review, and a Back button to return to whichever library was being viewed.
 function buildFavoriteLibraryButtons(idx, total, backToUserId) {
@@ -4925,7 +4942,7 @@ client.on("messageReactionRemove", async (reaction, user) => {
     if(reaction.message.partial) await reaction.message.fetch();
   } catch(e) { console.error("[RR] message fetch failed:", e.message); return; }
 
-  // Quote votes are now handled via buttons — reactions no longer track votes.
+  // Quote votes are now handled via buttons: reactions no longer track votes.
 
   const guildId = reaction.message.guildId;
   if(!guildId) return;
@@ -4952,13 +4969,13 @@ client.on("messageReactionRemove", async (reaction, user) => {
 // ── DM forwarding ──────────────────────────────────────────────────────────────
 client.on("messageCreate", async msg => {
   if (msg.author.bot) return;
-  if (isFullyBlacklisted(msg.author.id)) return; // blacklisted — ignore DMs entirely
+  if (isFullyBlacklisted(msg.author.id)) return; // blacklisted: ignore DMs entirely
   if (msg.guild) {
     // guild messages handled below
   } else {
-    if (OWNER_IDS.includes(msg.author.id)) return; // owners DMing the bot — no relay, no notification
+    if (OWNER_IDS.includes(msg.author.id)) return; // owners DMing the bot: no relay, no notification
 
-    // ── DM relay: forward to this user's relay channel, auto-creating it on their first DM ──
+    // ── DM relay: forward to this user's relay channel, autocreating it on their first DM ──
     try {
       const relayChannel = await ensureDmRelayChannel(msg.author).catch(() => null);
       if (relayChannel) {
@@ -4967,11 +4984,11 @@ client.on("messageCreate", async msg => {
         if (msg.stickers.size > 0) {
           await relayChannel.send(msg.stickers.map(s => `🎭 **Sticker:** ${s.name}`).join("\n")).catch(() => {});
         }
-        return; // handled — skip the generic owner-DM notification below
+        return; // handled: skip the generic owner DM notification below
       }
     } catch(e) { console.error("dmRelay (DM→channel) forward error:", e.message); }
 
-    // Fallback — no relay hub configured yet, so just notify the owner directly.
+    // Fallback: no relay hub configured yet, so just notify the owner directly.
     try {
       const owner = await client.users.fetch(OWNER_ID);
       const ownerDM = await owner.createDM();
@@ -5010,7 +5027,7 @@ client.on("messageCreate", async msg => {
 client.on("messageCreate",async msg=>{
   if(msg.author.bot||!msg.guild)return;
 
-  // ── Blacklist — blocks all guild message-based features ────────────────────
+  // ── Blacklist: blocks all guild message based features ────────────────────
   if(isFullyBlacklisted(msg.author.id)){
     if(countingChannels.has(msg.channelId) && !isSilentBlacklisted(msg.author.id)){
       await safeSend(msg.channel,`${msg.author} is blacklisted from RoyalBot and cannot count, ignore this message`);
@@ -5024,7 +5041,7 @@ client.on("messageCreate",async msg=>{
     if(relayUserId){
       if(isFullyBlacklisted(relayUserId)){
         if(!isSilentBlacklisted(relayUserId)) await msg.react("🚫").catch(() => {});
-        return; // blacklisted — don't relay outgoing messages to their DMs either
+        return; // blacklisted: don't relay outgoing messages to their DMs either
       }
       try{
         const files = msg.attachments.size > 0 ? [...msg.attachments.values()].map(a => a.url) : undefined;
@@ -5037,7 +5054,7 @@ client.on("messageCreate",async msg=>{
         console.error("dmRelay (channel→DM) forward error:", e.message);
         await msg.react("❌").catch(() => {});
       }
-      return; // relay channels are just a DM pipe — don't run normal message handling on them
+      return; // relay channels are just a DM pipe: don't run normal message handling on them
     }
   }
 
@@ -5061,8 +5078,8 @@ client.on("messageCreate",async msg=>{
         const attachEntries = [...msg.attachments.values()];
         const stickers      = [...msg.stickers.values()].map(s => s.name);
 
-        // Download each attachment as a buffer so we can re-upload it via the webhook.
-        // Passing CDN URLs directly can produce blank/0-byte files because the URL is
+        // Download each attachment as a buffer so we can reupload it via the webhook.
+        // Passing CDN URLs directly can produce blank/0 byte files because the URL is
         // only valid for the message that no longer exists after we delete it.
         const attachFiles = [];
         for (const att of attachEntries) {
@@ -5081,7 +5098,7 @@ client.on("messageCreate",async msg=>{
         const originalName = member?.displayName || msg.author.displayName || msg.author.globalName || msg.author.username;
         const originalAvatarURL = msg.author.displayAvatarURL({ size: 256, dynamic: true });
 
-        // ── Persona override (set by /impersonation — plain /clankerify and /selfclank never set these) ──
+        // ── Persona override (set by /impersonation: plain /clankerify and /selfclank never set these) ──
         let displayName, avatarURL;
         if(clankEntry.impersonateAsUserId){
           const asUser   = await client.users.fetch(clankEntry.impersonateAsUserId).catch(()=>null);
@@ -5233,7 +5250,7 @@ client.on("messageCreate",async msg=>{
         if(mode === "boomer"){
           displayName = `${displayName} (Bob's dad)`;
           if(sendContent){
-            // Boomer-ify the message
+            // Boomer ify the message
             const boomerSwaps = [
               [/lol\b/gi,"LOL (laugh out loud)"],[/omg\b/gi,"OH MY GOD"],
               [/btw\b/gi,"by the way"],[/idk\b/gi,"I don't know"],
@@ -5267,12 +5284,12 @@ client.on("messageCreate",async msg=>{
           if(sendContent){
             const theories = [
               " (the government doesn't want you to know this)",
-              " — wake up sheeple 🐑",
+              ": wake up sheeple 🐑",
               " and THAT'S why they took down the old internet",
-              " — do your own research before they delete this",
+              ": do your own research before they delete this",
               " (they're putting something in the water btw)",
-              " — the moon isn't real btw just saying",
-              " — big pharma is shaking rn",
+              ": the moon isn't real btw just saying",
+              ": big pharma is shaking rn",
               " and the lizard people are FURIOUS about it",
             ];
             const prefixes = [
@@ -5280,7 +5297,7 @@ client.on("messageCreate",async msg=>{
               "THEY don't want you to know: ",
               "i've been doing research and ",
               "follow the money: ",
-              "connect the dots people — ",
+              "connect the dots people: ",
               "sources won't say this but trust me: ",
             ];
             sendContent = prefixes[Math.floor(Math.random()*prefixes.length)] + sendContent + theories[Math.floor(Math.random()*theories.length)];
@@ -5291,15 +5308,15 @@ client.on("messageCreate",async msg=>{
           displayName = `${displayName} [NPC #${Math.floor(Math.random()*9999)+1}]`;
           if(sendContent){
             const npcPrefixes = [
-              "Ah, a traveler! Anyway — ",
+              "Ah, a traveler! Anyway: ",
               "Quest updated: ",
-              "I used to be an adventurer like you, but then — ",
+              "I used to be an adventurer like you, but then: ",
               "Strange things have been happening. Also, ",
               "You didn't hear this from me, but ",
               "My knee hurts when it rains. Anyway, ",
               "The crops have been struggling, but ",
-              "I heard there's trouble at the old mill. Still — ",
-              "Can't stop now. Same places as yesterday. But — ",
+              "I heard there's trouble at the old mill. Still: ",
+              "Can't stop now. Same places as yesterday. But: ",
               "These are dark times, traveler. But anyway, ",
             ];
             const npcSuffixes = [
@@ -5337,12 +5354,12 @@ client.on("messageCreate",async msg=>{
             let t = sendContent;
             for(const [from, to] of sigmaSwaps) t = t.replace(from, to);
             const outros = [
-              " — no cap, stay sigma.",
-              " — the grindset never stops.",
-              " — lions don't lose sleep over sheep.",
-              " — emotionless. strategic. inevitable.",
-              " — your mindset is your weapon. sharpen it.",
-              " — hustle in silence. let the results speak.",
+              ": no cap, stay sigma.",
+              ": the grindset never stops.",
+              ": lions don't lose sleep over sheep.",
+              ": emotionless. strategic. inevitable.",
+              ": your mindset is your weapon. sharpen it.",
+              ": hustle in silence. let the results speak.",
             ];
             sendContent = t + outros[Math.floor(Math.random()*outros.length)];
           }
@@ -5369,11 +5386,11 @@ client.on("messageCreate",async msg=>{
             let t = sendContent;
             for(const [from, to] of medievalSwaps) t = t.replace(from, to);
             const closings = [
-              " — so it is written, so it shall be done. ⚔️",
-              " — hear ye, hear ye! 📯",
-              " — upon mine honour. 🛡️",
-              " — God save the king! 👑",
-              " — fare thee well, traveler. 🏰",
+              ": so it is written, so it shall be done. ⚔️",
+              ": hear ye, hear ye! 📯",
+              ": upon mine honour. 🛡️",
+              ": God save the king! 👑",
+              ": fare thee well, traveler. 🏰",
             ];
             sendContent = t + closings[Math.floor(Math.random()*closings.length)];
           }
@@ -5383,10 +5400,10 @@ client.on("messageCreate",async msg=>{
           displayName = `👻 ${displayName}'s Ghost`;
           if(sendContent){
             const hauntings = [
-              "...you won't believe what happened to me. I died. anyway — ",
+              "...you won't believe what happened to me. I died. anyway: ",
               "speaking from beyond the grave: ",
-              "the living still don't know but — ",
-              "[ghostly wailing] ...sorry. anyway — ",
+              "the living still don't know but: ",
+              "[ghostly wailing] ...sorry. anyway: ",
               "i have UNFINISHED BUSINESS and it is: ",
             ];
             const ghostOutros = [
@@ -5501,14 +5518,14 @@ client.on("messageCreate",async msg=>{
             let t = sendContent;
             for(const [from, to] of frenchSwaps) t = t.replace(from, to);
             const signoffs = [
-              " — c'est la vie 🥐",
-              " — hon hon hon 🥖",
-              " — sacré bleu!",
-              " — mais oui, naturellement 🇫🇷",
-              " — zut alors!",
-              " — quelle horreur!",
-              " — voilà!",
-              " — c'est magnifique 🍷",
+              ": c'est la vie 🥐",
+              ": hon hon hon 🥖",
+              " - sacré bleu!",
+              ": mais oui, naturellement 🇫🇷",
+              ": zut alors!",
+              ": quelle horreur!",
+              " - voilà!",
+              ": c'est magnifique 🍷",
             ];
             sendContent = t + signoffs[Math.floor(Math.random()*signoffs.length)];
           } else {
@@ -5559,16 +5576,16 @@ client.on("messageCreate",async msg=>{
 
 
 
-        // ── Random mode — pick a random real mode each message ────────────────
+        // ── Random mode: pick a random real mode each message ────────────────
         if(mode === "random"){
           const RANDOM_MODES = ["evil","freaky","american","british","stupid","boomer","conspiracy","npc","sigma","medieval","ghost","pirate","rr_propaganda","french","uwu"];
           const pickedMode = RANDOM_MODES[Math.floor(Math.random()*RANDOM_MODES.length)];
           displayName = `Randomized ${member?.displayName || msg.author.displayName || msg.author.globalName || msg.author.username}`;
-          // Re-run through the handler by temporarily overriding mode (we replicate the block inline)
+          // Re run through the handler by temporarily overriding mode (we replicate the block inline)
           // Instead, we use a flag approach: set a local variable and fall through each mode block
           // We store the picked mode and apply it using the same switch logic below
           Object.defineProperty(clankEntry, '_resolvedMode', { value: pickedMode, writable: true, configurable: true });
-          // Apply picked mode — reuse mode var
+          // Apply picked mode: reuse mode var
           const _rm = pickedMode;
           // We manually apply just the content transforms for the picked mode:
           if(_rm === "evil"){
@@ -5587,23 +5604,23 @@ client.on("messageCreate",async msg=>{
             const outros2=[" Anyway, have you tried turning it off and on again? 📧"," Back in MY day we didn't have this nonsense. 📰"," Is this the Reddit? 🖱️"," Make sure to LIKE and SUBSCRIBE!! 👍"];
             if(sendContent) sendContent=sendContent+outros2[Math.floor(Math.random()*outros2.length)];
           } else if(_rm === "conspiracy"){
-            const theories2=[" (the government doesn't want you to know this)"," — wake up sheeple 🐑"," — do your own research before they delete this"," (they're putting something in the water btw)"];
-            const prefixes2=["okay so nobody is talking about this but ","THEY don't want you to know: ","i've been doing research and ","connect the dots people — "];
+            const theories2=[" (the government doesn't want you to know this)",": wake up sheeple 🐑",": do your own research before they delete this"," (they're putting something in the water btw)"];
+            const prefixes2=["okay so nobody is talking about this but ","THEY don't want you to know: ","i've been doing research and ","connect the dots people: "];
             if(sendContent) sendContent=prefixes2[Math.floor(Math.random()*prefixes2.length)]+sendContent+theories2[Math.floor(Math.random()*theories2.length)];
           } else if(_rm === "npc"){
-            const npcPre2=["Ah, a traveler! Anyway — ","Quest updated: ","Strange things have been happening. Also, ","These are dark times, traveler. But anyway, "];
+            const npcPre2=["Ah, a traveler! Anyway: ","Quest updated: ","Strange things have been happening. Also, ","These are dark times, traveler. But anyway, "];
             const npcSuf2=[" Have you tried the items at the general store?"," I don't want any trouble."," Good luck out there, traveler."];
             if(sendContent) sendContent=npcPre2[Math.floor(Math.random()*npcPre2.length)]+sendContent+npcSuf2[Math.floor(Math.random()*npcSuf2.length)];
           } else if(_rm === "sigma"){
             const sigmaSwaps2=[[/\bi\b/gi,"the sigma"],[/\bme\b/gi,"the sigma"],[/\bmy\b/gi,"the sigma's"],[/\byou\b/gi,"fellow grindset individual"],[/\bfriend\b/gi,"business associate"],[/\blove\b/gi,"strategically value"],[/\bwork\b/gi,"the grindset"],[/\bmoney\b/gi,"resources"]];
-            const sigmaOut2=[" — no cap, stay sigma."," — the grindset never stops."," — lions don't lose sleep over sheep."];
+            const sigmaOut2=[": no cap, stay sigma.",": the grindset never stops.",": lions don't lose sleep over sheep."];
             if(sendContent){ let t=sendContent; for(const [f,r] of sigmaSwaps2) t=t.replace(f,r); sendContent=t+sigmaOut2[Math.floor(Math.random()*sigmaOut2.length)]; }
           } else if(_rm === "medieval"){
             const medSwaps2=[[/\byou\b/gi,"thee"],[/\byour\b/gi,"thy"],[/\bthe\b/gi,"ye"],[/\bare\b/gi,"art"],[/\bis\b/gi,"ist"],[/\byes\b/gi,"verily"],[/\bno\b/gi,"nay"],[/\bhi\b/gi,"hail"],[/\bhello\b/gi,"good morrow"],[/\bsorry\b/gi,"I beseech thy forgiveness"],[/\bgood\b/gi,"most virtuous"],[/\bbad\b/gi,"most foul"],[/\bfriend\b/gi,"loyal companion"]];
-            const medClose2=[" — so it is written, so it shall be done. ⚔️"," — hear ye, hear ye! 📯"," — upon mine honour. 🛡️"];
+            const medClose2=[": so it is written, so it shall be done. ⚔️",": hear ye, hear ye! 📯",": upon mine honour. 🛡️"];
             if(sendContent){ let t=sendContent; for(const [f,r] of medSwaps2) t=t.replace(f,r); sendContent=t+medClose2[Math.floor(Math.random()*medClose2.length)]; }
           } else if(_rm === "ghost"){
-            const hauntings2=["...you won't believe what happened to me. I died. anyway — ","speaking from beyond the grave: ","i have UNFINISHED BUSINESS and it is: "];
+            const hauntings2=["...you won't believe what happened to me. I died. anyway: ","speaking from beyond the grave: ","i have UNFINISHED BUSINESS and it is: "];
             const ghostOut2=[" ...tell my family i said hey 👻"," ...i keep moving the furniture and nobody notices."," ...RIP me btw 💀 (literally)"];
             if(sendContent) sendContent=hauntings2[Math.floor(Math.random()*hauntings2.length)]+sendContent+ghostOut2[Math.floor(Math.random()*ghostOut2.length)];
             else sendContent="*rattles chains*";
@@ -5617,7 +5634,7 @@ client.on("messageCreate",async msg=>{
             sendContent=(sendContent||"")+rrSig2[Math.floor(Math.random()*rrSig2.length)];
           } else if(_rm === "french"){
             const frSwaps2=[[/\bhello\b/gi,"bonjour"],[/\bhi\b/gi,"salut"],[/\byes\b/gi,"oui"],[/\byeah\b/gi,"oui oui"],[/\bno\b/gi,"non"],[/\bthanks\b/gi,"merci"],[/\bsorry\b/gi,"pardon"],[/\bgood\b/gi,"magnifique"],[/\bfriend\b/gi,"mon ami"],[/\blove\b/gi,"amour"]];
-            const frOut2=[" — c'est la vie 🥐"," — hon hon hon 🥖"," — sacré bleu!"," — voilà!"];
+            const frOut2=[": c'est la vie 🥐",": hon hon hon 🥖"," - sacré bleu!"," - voilà!"];
             if(sendContent){ let t=sendContent; for(const [f,r] of frSwaps2) t=t.replace(f,r); sendContent=t+frOut2[Math.floor(Math.random()*frOut2.length)]; }
             else sendContent="*shrugs elaborately* bof…";
           } else if(_rm === "uwu"){
@@ -5650,7 +5667,7 @@ client.on("messageCreate",async msg=>{
           }
         }
 
-        // ── Custom mode (built with /clankerbuild) — must run BEFORE sendOpts is built ──
+        // ── Custom mode (built with /clankerbuild): must run BEFORE sendOpts is built ──
         if(mode && customClankerModes.has(mode)){
           const cm = customClankerModes.get(mode);
           const rawName = displayName;
@@ -5658,7 +5675,7 @@ client.on("messageCreate",async msg=>{
           if(sendContent){
             let t = sendContent;
             for(const [from, to] of (cm.words || [])){
-              // Case-insensitive, and \s+ so multi-word phrases like "New York" still match spacing variations.
+              // Case insensitive, and \s+ so multiword phrases like "New York" still match spacing variations.
               const pattern = from.trim().replace(/[.*+?^${}()|[\]\\]/g,"\\$&").replace(/\s+/g, "\\s+");
               t = t.replace(new RegExp(`\\b${pattern}\\b`, "gi"), to);
             }
@@ -5686,7 +5703,7 @@ client.on("messageCreate",async msg=>{
 
         if(sendOpts.content || sendOpts.files){
           const sentMsg = await webhook.send(sendOpts).catch(()=>null);
-          // For propaganda mode: suppress the embed Discord auto-generates from URLs
+          // For propaganda mode: suppress the embed Discord autogenerates from URLs
           if(sentMsg && mode === "rr_propaganda"){
             await sentMsg.suppressEmbeds(true).catch(()=>{});
           }
@@ -5739,10 +5756,10 @@ client.on("messageCreate",async msg=>{
     }
   }
 
-  // ── Paranoia watcher — reply to watched users' messages ─────────────────────
+  // ── Paranoia watcher: reply to watched users' messages ─────────────────────
   const paranoiaEntry = paranoiaWatchers.get(msg.author.id);
   if(paranoiaEntry && paranoiaEntry.armed){
-    // Roll chance — if it passes, pick one random paranoia line and reply to this message
+    // Roll chance: if it passes, pick one random paranoia line and reply to this message
     if(Math.random() * 100 < paranoiaEntry.chance){
       const line = PARANOIA_MESSAGES[Math.floor(Math.random() * PARANOIA_MESSAGES.length)];
       try{ await msg.reply({ content: line, allowedMentions:{ repliedUser: false } }); }catch(e){ console.error("paranoia reply error:", e.message); }
@@ -5754,7 +5771,7 @@ client.on("messageCreate",async msg=>{
   // If it also contains a word matching a filename in the jarvis folder, the bot
   // replies to the ORIGINAL message (the one being replied to) with that image.
   // If the wake word is specifically "Jarvis" (not "RoyalBot") and the author is
-  // an owner, Jarvis also acknowledges the command-runner with a flavor line.
+  // an owner, Jarvis also acknowledges the command runner with a flavor line.
   if(msg.reference){
     const wakeMatch = msg.content.trim().match(/^(royalbot|jarvis)\b/i);
     if(wakeMatch){
@@ -5780,15 +5797,15 @@ client.on("messageCreate",async msg=>{
     }
   }
 
-  // ── Jarvis Enhance: owner-built automation chains, triggered by word ────────
-  // Trigger words match whole-word (or, for multi-word phrases like "hit a
-  // clip", a substring check) against the message — same style as the Jarvis
+  // ── Jarvis Enhance: owner built automation chains, triggered by word ────────
+  // Trigger words match whole word (or, for multiword phrases like "hit a
+  // clip", a substring check) against the message: same style as the Jarvis
   // image trigger. A reply is only required when the profile actually has an
-  // action that needs the reply target; broadcast-only profiles (like the
-  // built-in "hit a clip" → random quote) fire on a plain "Jarvis, hit a
-  // clip" with no reply needed. Each profile can be owner-locked (only the
+  // action that needs the reply target; broadcast only profiles (like the
+  // built in "hit a clip" → random quote) fire on a plain "Jarvis, hit a
+  // clip" with no reply needed. Each profile can be owner locked (only the
   // owner, or someone granted /jarvisenhance via /tempowner, can fire it) or
-  // unlocked (anyone can say the word). Runs fully silently — no "ran X"
+  // unlocked (anyone can say the word). Runs fully silently: no "ran X"
   // confirmation is posted either way; only console.error on unexpected
   // failures.
   if(jarvisEnhanceProfiles.size){
@@ -5824,7 +5841,7 @@ client.on("messageCreate",async msg=>{
             }
             if(!needsTarget || targetMsg){
               // Whatever's left after the wake word and the matched trigger
-              // word is the live custom text — e.g. "Jarvis, dm knock it off"
+              // word is the live custom text: e.g. "Jarvis, dm knock it off"
               // → restText = "knock it off", available to any action's
               // dynamicField left blank in the builder.
               const afterWake = msg.content.slice(jeWakeMatch[0].length);
@@ -5848,22 +5865,22 @@ client.on("messageCreate",async msg=>{
   if(cc){
     const trimmed=msg.content.trim();
     const num=parseInt(trimmed);
-    // Only process pure integer messages — ignore anything else silently
+    // Only process pure integer messages: ignore anything else silently
     if(!isNaN(num)&&/^-?\d+$/.test(trimmed)){
       if(msg.author.id===cc.lastUserId){
-        // Double count — reset and commit immediately
+        // Double count: reset and commit immediately
         cc.count=0;cc.lastUserId=null;
         saveDataAndCommitNow().catch(()=>{});
         await msg.react("❌").catch(()=>{});
         await safeSend(msg.channel,`<@${msg.author.id}> messed the counting up! Shame on them! Start from zero.`);
       }else if(num===cc.count+1){
-        // Correct — save to disk immediately, commit debounced
+        // Correct: save to disk immediately, commit debounced
         cc.count++;cc.lastUserId=msg.author.id;
         if(cc.count>(cc.highScore||0)){cc.highScore=cc.count;}
         saveData();
         await msg.react("✅").catch(()=>{});
       }else{
-        // Wrong number — reset and commit immediately
+        // Wrong number: reset and commit immediately
         cc.count=0;cc.lastUserId=null;
         saveDataAndCommitNow().catch(()=>{});
         await msg.react("❌").catch(()=>{});
@@ -5877,7 +5894,7 @@ client.on("messageCreate",async msg=>{
 client.on("interactionCreate",async interaction=>{
   if(!instanceLocked)return;
 
-  // ── Blacklist — blocks ALL interactions (commands, buttons, menus) ─────────
+  // ── Blacklist: blocks ALL interactions (commands, buttons, menus) ─────────
   if(interaction.user && isFullyBlacklisted(interaction.user.id)){
     if(!isSilentBlacklisted(interaction.user.id)){
       try{
@@ -5909,11 +5926,11 @@ client.on("interactionCreate",async interaction=>{
         return;
       }
       const isAccept = cid.startsWith("qr_accept_");
-      // New format: qr_accept_{token} — full submission data in pendingReviews
+      // New format: qr_accept_{token}: full submission data in pendingReviews
       const token = cid.slice(isAccept ? 10 : 10);
       const pending = pendingReviews.get(token);
 
-      // Legacy fallback: if no token match, parse old-style IDs (submitterId_stagingName)
+      // Legacy fallback: if no token match, parse old style IDs (submitterId_stagingName)
       let submitterId, stagingName, mediaKind, rawName;
       if(pending){
         submitterId = pending.submitterId;
@@ -5936,7 +5953,7 @@ client.on("interactionCreate",async interaction=>{
       if(pending) pendingReviews.delete(token);
 
       if(!isAccept){
-        // Rejected — just update the message
+        // Rejected: just update the message
         try{
           await interaction.editReply({
             content:`❌ **Submission rejected** by <@${uid}>\n\`${rawName}\` was **not** added to the quotes folder.`,
@@ -5951,14 +5968,14 @@ client.on("interactionCreate",async interaction=>{
         return;
       }
 
-      // Accepted — need to re-download and upload to GitHub.
+      // Accepted: need to redownload and upload to GitHub.
       // Images: URL lives in the embed's image field. Audio/video: it's a message attachment.
       const embed = interaction.message.embeds[0];
       const mediaUrl = mediaKind === "image"
         ? (embed?.image?.url || embed?.thumbnail?.url || null)
         : (interaction.message.attachments.first()?.url || null);
       if(!mediaUrl){
-        try{await interaction.followUp({content:"❌ Couldn't retrieve the file URL from the submission. Try re-submitting.",ephemeral:true});}catch{}
+        try{await interaction.followUp({content:"❌ Couldn't retrieve the file URL from the submission. Try resubmitting.",ephemeral:true});}catch{}
         return;
       }
 
@@ -5974,12 +5991,12 @@ client.on("interactionCreate",async interaction=>{
             await interaction.followUp({content:`❌ File too large (${(fileBuffer.length/1024/1024).toFixed(1)} MB). GitHub only accepts images under 1 MB.`,ephemeral:true}).catch(()=>{});
             return;
           }
-          // Audio/video too big for GitHub — approve it but just hand the file back instead of storing it.
+          // Audio/video too big for GitHub: approve it but just hand the file back instead of storing it.
           const num = nextUploadNumber(prefix);
           const fileName = `${prefix}_${num}.${ext}`;
           try{
             await interaction.editReply({
-              content:`⚠️ **Submission approved** by <@${uid}>, but \`${fileName}\` is ${(fileBuffer.length/1024/1024).toFixed(1)} MB — too large for \`quotes2\` (1 MB limit), so it wasn't saved there.`,
+              content:`⚠️ **Submission approved** by <@${uid}>, but \`${fileName}\` is ${(fileBuffer.length/1024/1024).toFixed(1)} MB: too large for \`quotes2\` (1 MB limit), so it wasn't saved there.`,
               components:[],
               files:[{attachment:fileBuffer, name:fileName}],
             });
@@ -6047,7 +6064,7 @@ client.on("interactionCreate",async interaction=>{
     if(cid.startsWith("to_cmds_")||cid.startsWith("to_feats_")||cid.startsWith("to_dur_")||cid.startsWith("to_grant_")||cid.startsWith("to_revoke_")||cid.startsWith("to_cancel_")){
       const token = cid.slice(cid.indexOf("_",3)+1);
       const b = tempOwnerBuilders.get(token);
-      if(!b){ try{await interaction.reply({content:"❌ This panel has expired — run `/tempowner` again.",ephemeral:true});}catch{} return; }
+      if(!b){ try{await interaction.reply({content:"❌ This panel has expired: run `/tempowner` again.",ephemeral:true});}catch{} return; }
       if(b.ownerId !== uid){ try{await interaction.reply({content:"❌ Only the owner who ran this command can use this panel.",ephemeral:true});}catch{} return; }
 
       if(cid.startsWith("to_cmds_")){
@@ -6083,7 +6100,7 @@ client.on("interactionCreate",async interaction=>{
         saveDataAndCommitNow().catch(()=>{});
         tempOwnerBuilders.delete(token);
         if(!(await btnAck(interaction))) return;
-        try{ await interaction.editReply({content:`🗑️ Revoked all temp-owner access from <@${b.targetUserId}>.`,components:[]}); }catch{}
+        try{ await interaction.editReply({content:`🗑️ Revoked all temp owner access from <@${b.targetUserId}>.`,components:[]}); }catch{}
         return;
       }
 
@@ -6116,7 +6133,7 @@ client.on("interactionCreate",async interaction=>{
 
       try{
         await interaction.editReply({
-          content:`✅ <@${b.targetUserId}> has been granted temp-owner access ${durText}.\n**Commands:** ${cmdsText}\n**Features:** ${featsText}\n\n**📋 Current grants:**\n${formatGrantsList()}`,
+          content:`✅ <@${b.targetUserId}> has been granted temp owner access ${durText}.\n**Commands:** ${cmdsText}\n**Features:** ${featsText}\n\n**📋 Current grants:**\n${formatGrantsList()}`,
           components:[],
         });
       }catch{}
@@ -6151,7 +6168,7 @@ client.on("interactionCreate",async interaction=>{
       else if(cid.startsWith("bl_cancel_")) token = cid.slice(10);
 
       const b = blacklistBuilders.get(token);
-      if(!b){ try{await interaction.reply({content:"❌ This panel has expired — run `/blacklist` again.",ephemeral:true});}catch{} return; }
+      if(!b){ try{await interaction.reply({content:"❌ This panel has expired: run `/blacklist` again.",ephemeral:true});}catch{} return; }
       if(b.ownerId !== uid){ try{await interaction.reply({content:"❌ Only the owner who ran this command can use this panel.",ephemeral:true});}catch{} return; }
 
       if(blSelMatch){
@@ -6220,7 +6237,7 @@ client.on("interactionCreate",async interaction=>{
         });
       }catch{}
 
-      // Only notify + cut the DM relay on a fresh transition into full blacklist, matching the old add-only notify behavior
+      // Only notify + cut the DM relay on a fresh transition into full blacklist, matching the old add only notify behavior
       if(isAllNow && !wasFullyBlacklisted && !b.silent){
         try {
           const targetUser = await client.users.fetch(b.targetUserId).catch(()=>null);
@@ -6232,7 +6249,7 @@ client.on("interactionCreate",async interaction=>{
           if(relayChannelId){
             const hubGuild = dmRelayGuildId ? client.guilds.cache.get(dmRelayGuildId) : null;
             const relayChannel = hubGuild ? hubGuild.channels.cache.get(relayChannelId) : null;
-            if(relayChannel) await relayChannel.send("🚫 This user has been blacklisted — DMs no longer relay through this channel.").catch(()=>{});
+            if(relayChannel) await relayChannel.send("🚫 This user has been blacklisted: DMs no longer relay through this channel.").catch(()=>{});
           }
         } catch(e) { console.error("[blacklist] notify failed:", e.message); }
       }
@@ -6240,7 +6257,7 @@ client.on("interactionCreate",async interaction=>{
       return;
     }
 
-    // ── Deleter: keep or delete a trashcan-flagged quote ─────────────────────
+    // ── Deleter: keep or delete a trashcan flagged quote ─────────────────────
     if(cid.startsWith("del_keep_")||cid.startsWith("del_delete_")){
       if(!OWNER_IDS.includes(uid) && !hasTempOwnerFeature(uid,"quote_review")){
         try{await interaction.reply({content:"❌ Only owners can action flagged quotes.",ephemeral:true});}catch{}
@@ -6286,10 +6303,10 @@ client.on("interactionCreate",async interaction=>{
           if(Array.isArray(s.uploadedImages)&&s.uploadedImages.includes(fileName))
             s.uploadedImages = s.uploadedImages.filter(n=>n!==fileName);
         }
-        // Clean from everyone's favorites — a deleted quote shouldn't leave a
+        // Clean from everyone's favorites: a deleted quote shouldn't leave a
         // dangling favorite pointing at a file that no longer exists.
         for(const [,favSet] of favoritedQuotes){ favSet.delete(fileName); }
-        // Credit whoever flagged this — their flag was correct.
+        // Credit whoever flagged this: their flag was correct.
         const flaggers = pendingFlagDeleters.get(fileName);
         if(flaggers){ for(const flaggerId of flaggers) bumpFlagStat(flaggerId, "deleted"); }
         pendingFlagDeleters.delete(fileName);
@@ -6308,7 +6325,7 @@ client.on("interactionCreate",async interaction=>{
     }
 
     // ── "New quote" / "New good quote" / "New bad quote" buttons ────────────────
-    // qnew_quote, qnew_good, qnew_bad — sends a fresh quote message, same as re-running the command.
+    // qnew_quote, qnew_good, qnew_bad: sends a fresh quote message, same as rerunning the command.
     if(cid==="qnew_quote" || cid==="qnew_good" || cid==="qnew_bad"){
       const qType = cid.slice(5); // "quote" | "good" | "bad"
       const now_q = Date.now();
@@ -6345,7 +6362,7 @@ client.on("interactionCreate",async interaction=>{
       return;
     }
 
-    // ── Favorite a quote (⭐ button, Patreon-exclusive) ──────────────────────────
+    // ── Favorite a quote (⭐ button, Patreon exclusive) ──────────────────────────
     if(cid.startsWith("qfav_")){
       const msgId = cid.slice("qfav_".length);
       const filename = quoteVoteMessages.get(msgId);
@@ -6363,7 +6380,7 @@ client.on("interactionCreate",async interaction=>{
       return;
     }
 
-    // ── /library "Favorites" button (Patreon-exclusive) — switches the view ────
+    // ── /library "Favorites" button (Patreon exclusive): switches the view ────
     if(cid.startsWith("libfav_")){
       const backToUserId = cid.slice("libfav_".length);
       if(!(await isPatreonMember(uid))){
@@ -6372,7 +6389,7 @@ client.on("interactionCreate",async interaction=>{
       }
       const favSet = favoritedQuotes.get(uid);
       const files = favSet ? [...favSet] : [];
-      if(!files.length){ try{await interaction.reply({content:"⭐ You haven't favorited any quotes yet — click the ⭐ Favorite button on a quote to add one.",ephemeral:true});}catch{} return; }
+      if(!files.length){ try{await interaction.reply({content:"⭐ You haven't favorited any quotes yet: click the ⭐ Favorite button on a quote to add one.",ephemeral:true});}catch{} return; }
       const avatarUrl = interaction.user.displayAvatarURL({size:128,dynamic:true});
       try{
         await interaction.update({
@@ -6383,7 +6400,7 @@ client.on("interactionCreate",async interaction=>{
       return;
     }
 
-    // ── Favorites pagination (Patreon-exclusive) ─────────────────────────────────
+    // ── Favorites pagination (Patreon exclusive) ─────────────────────────────────
     if(cid.startsWith("flib_prev_")||cid.startsWith("flib_next_")||cid.startsWith("flib_unfav_")||cid.startsWith("flib_back_")){
       if(!(await isPatreonMember(uid))){
         try{await interaction.reply({content:`Oops, this is a patreon exclusive feature! Try to support RoyalBot here if you wish (pls) ${PATREON_LINK}`,ephemeral:true});}catch{}
@@ -6488,7 +6505,7 @@ client.on("interactionCreate",async interaction=>{
         await interaction.deferReply({ephemeral:true}).catch(()=>{});
         const uploaderId = findQuoteUploader(filename);
         if(!uploaderId){
-          await interaction.editReply({content:`🖼️ No upload record found for \`${filename}\` — it was likely added directly, before upload tracking existed.`}).catch(()=>{});
+          await interaction.editReply({content:`🖼️ No upload record found for \`${filename}\`: it was likely added directly, before upload tracking existed.`}).catch(()=>{});
           return;
         }
         const uploaderName = await client.users.fetch(uploaderId).then(u=>u.globalName||u.username).catch(()=>null);
@@ -6496,7 +6513,7 @@ client.on("interactionCreate",async interaction=>{
         return;
       }
 
-      // For up/down/trash — acknowledge the button click without replacing the message
+      // For up/down/trash: acknowledge the button click without replacing the message
       await interaction.deferUpdate().catch(()=>{});
 
       // ── Trash button ──────────────────────────────────────────────────────────
@@ -6596,7 +6613,7 @@ client.on("interactionCreate",async interaction=>{
       clankerify.set(targetId, { expiresAt, mode, ownerClanked: true });
       saveData();
 
-      // Auto-remove when timer fires
+      // Auto remove when timer fires
       if(expiresAt){
         setTimeout(() => {
           clankerify.delete(targetId);
@@ -6615,7 +6632,7 @@ client.on("interactionCreate",async interaction=>{
       return;
     }
 
-    // ── Self-clank mode selection ─────────────────────────────────────────────
+    // ── Self clank mode selection ─────────────────────────────────────────────
     if(cid.startsWith("selfclank_mode_")){
       // Only the user themselves can use their own mode menu
       // customId: selfclank_mode_{userId}_{duration}
@@ -6623,7 +6640,7 @@ client.on("interactionCreate",async interaction=>{
       const targetUserId = parts[2];
       const durKey       = parts[3];
       if(uid !== targetUserId){
-        try{await interaction.reply({content:"Not your self-clank menu.",ephemeral:true});}catch{}
+        try{await interaction.reply({content:"Not your selfclank menu.",ephemeral:true});}catch{}
         return;
       }
       const duration = parseInt(durKey, 10); // minutes, always 1–5
@@ -6636,7 +6653,7 @@ client.on("interactionCreate",async interaction=>{
         selfClankUsers.get(interaction.guildId).add(uid);
       }
       saveData();
-      // Auto-remove and start 10-min cooldown
+      // Auto remove and start 10 min cooldown
       const guildIdSnap = interaction.guildId;
       setTimeout(() => {
         clankerify.delete(uid);
@@ -6650,14 +6667,14 @@ client.on("interactionCreate",async interaction=>{
       const modeStr = mode ? ` in **${mode.charAt(0).toUpperCase()+mode.slice(1)}** mode` : "";
       try{
         await interaction.update({
-          content:`🤖 You've self-clankerified yourself for **${duration} minute(s)**${modeStr}! Your messages will be deleted and resent as a webhook until it expires.`,
+          content:`🤖 You've selfclankerified yourself for **${duration} minute(s)**${modeStr}! Your messages will be deleted and resent as a webhook until it expires.`,
           components:[]
         });
       }catch{}
       return;
     }
 
-    // ── Self-clank community mode selection ───────────────────────────────────
+    // ── Self clank community mode selection ───────────────────────────────────
     // Same logic as selfclank_mode_ but picks from community modes
     if(cid.startsWith("selfclank_community_")){
       const parts = cid.split("_");
@@ -6665,7 +6682,7 @@ client.on("interactionCreate",async interaction=>{
       const targetUserId = parts[2];
       const durKey       = parts[3];
       if(uid !== targetUserId){
-        try{await interaction.reply({content:"Not your self-clank menu.",ephemeral:true});}catch{}
+        try{await interaction.reply({content:"Not your selfclank menu.",ephemeral:true});}catch{}
         return;
       }
       const duration = parseInt(durKey, 10);
@@ -6691,7 +6708,7 @@ client.on("interactionCreate",async interaction=>{
       const cm = customClankerModes.get(mode);
       try{
         await interaction.update({
-          content:`🤖 You've self-clankerified yourself for **${duration} minute(s)** using **${cm.emoji||"⭐"} ${mode}**!`,
+          content:`🤖 You've selfclankerified yourself for **${duration} minute(s)** using **${cm.emoji||"⭐"} ${mode}**!`,
           components:[]
         });
       }catch{}
@@ -6866,7 +6883,7 @@ client.on("interactionCreate",async interaction=>{
         } catch(e){ console.error("activity-check member fetch error:",e); }
 
         const respondedCount = reacted.size;
-        const missingText = missing.length ? missing.join(", ") : "None — everyone checked in! ✅";
+        const missingText = missing.length ? missing.join(", ") : "None: everyone checked in! ✅";
 
         await safeSend(channel,[
           `📋 **Activity Check Closed**`,
@@ -6908,7 +6925,7 @@ client.on("interactionCreate",async interaction=>{
         if(proposerScore.marriedTo){
           targetScore.pendingProposal = null;
           saveData();
-          try{await interaction.editReply({content:`💔 The proposal can no longer be accepted — the proposer is already married to someone else.`,components:[]});}catch{}
+          try{await interaction.editReply({content:`💔 The proposal can no longer be accepted: the proposer is already married to someone else.`,components:[]});}catch{}
           return;
         }
         if(targetScore.marriedTo){
@@ -6943,9 +6960,9 @@ client.on("interactionCreate",async interaction=>{
       const displayName = targetUser?.username || "Unknown";
       const avatarUrl = targetUser?.displayAvatarURL({ size:128, dynamic:true });
 
-      // ── Go-to page prompt ─────────────────────────────────────────────────
+      // ── Go to page prompt ─────────────────────────────────────────────────
       if(dir === "goto"){
-        try{ await interaction.reply({content:`🔢 **Jump to image #** — Type a number between **1** and **${files.length}** in chat (30s):`,ephemeral:true}); }catch{}
+        try{ await interaction.reply({content:`🔢 **Jump to image #**: Type a number between **1** and **${files.length}** in chat (30s):`,ephemeral:true}); }catch{}
         const collector = interaction.channel.createMessageCollector({
           filter: m => m.author.id === uid && !isNaN(m.content.trim()),
           max: 1, time: 30000
@@ -6978,7 +6995,7 @@ client.on("interactionCreate",async interaction=>{
       return;
     }
 
-    // ── Library: flag currently-viewed image for review ────────────────────────
+    // ── Library: flag currently viewed image for review ────────────────────────
     if(cid.startsWith("libflag_")){
       const parts = cid.split("_"); // ["libflag", userId, index]
       const targetUserId = parts[1];
@@ -7086,7 +7103,7 @@ client.on("interactionCreate",async interaction=>{
           new MessageButton().setCustomId(`qm_delete_${file_qm.name}`).setLabel("🗑️ Delete This").setStyle("DANGER"),
         );
         await interaction.editReply({
-          content:`🖼️ **Quote Manager** — ${newIdx_qm+1} of ${files_qm.length}\n\`${file_qm.name}\`\n${imageUrl_qm}`,
+          content:`🖼️ **Quote Manager**: ${newIdx_qm+1} of ${files_qm.length}\n\`${file_qm.name}\`\n${imageUrl_qm}`,
           components:[navRow_qm],
         });
       } catch(e) {
@@ -7145,10 +7162,10 @@ client.on("interactionCreate",async interaction=>{
             activeGames.delete(interaction.channelId);
             recordWin(uid,interaction.user.username,reward);
             saveData();
-            await interaction.editReply({content:`🎉 **Board cleared!** +${reward} coins\n💣 **Minesweeper** (${gd.diff||"easy"}) — ${mineCount} mines`,components:makeMSButtons(g,true)});
+            await interaction.editReply({content:`🎉 **Board cleared!** +${reward} coins\n💣 **Minesweeper** (${gd.diff||"easy"}) - ${mineCount} mines`,components:makeMSButtons(g,true)});
           } else {
             const remaining=g.revealed.filter((v,i)=>!v&&!g.mines[i]).length;
-            await interaction.editReply({content:`💣 **Minesweeper** (${gd.diff||"easy"}) — ${mineCount} mines | ${remaining} cells left`,components:makeMSButtons(g)});
+            await interaction.editReply({content:`💣 **Minesweeper** (${gd.diff||"easy"}) - ${mineCount} mines | ${remaining} cells left`,components:makeMSButtons(g)});
           }
           return;
         }
@@ -7158,7 +7175,7 @@ client.on("interactionCreate",async interaction=>{
           recordLoss(uid,interaction.user.username);
           saveData();
           await interaction.editReply({
-            content:`💥 **BOOM!** You hit a mine! Game over.\n💣 **Minesweeper** (${gd.diff||"easy"}) — ${mineCount} mines`,
+            content:`💥 **BOOM!** You hit a mine! Game over.\n💣 **Minesweeper** (${gd.diff||"easy"}) - ${mineCount} mines`,
             components:makeMSButtons(g,true)
           });
         } else {
@@ -7169,13 +7186,13 @@ client.on("interactionCreate",async interaction=>{
             recordWin(uid,interaction.user.username,reward);
             saveData();
             await interaction.editReply({
-              content:`🎉 **Board cleared!** +${reward} coins\n💣 **Minesweeper** (${gd.diff||"easy"}) — ${mineCount} mines`,
+              content:`🎉 **Board cleared!** +${reward} coins\n💣 **Minesweeper** (${gd.diff||"easy"}) - ${mineCount} mines`,
               components:makeMSButtons(g,true)
             });
           } else {
             const remaining=g.revealed.filter((v,i)=>!v&&!g.mines[i]).length;
             await interaction.editReply({
-              content:`💣 **Minesweeper** (${gd.diff||"easy"}) — ${mineCount} mines | ${remaining} cells left`,
+              content:`💣 **Minesweeper** (${gd.diff||"easy"}) - ${mineCount} mines | ${remaining} cells left`,
               components:makeMSButtons(g)
             });
           }
@@ -7204,11 +7221,11 @@ client.on("interactionCreate",async interaction=>{
     if(cid.startsWith("c4_")){
       const col=parseInt(cid.slice(3));
       const gd=activeGames.get(interaction.channelId);
-      // Always ack the interaction first — Discord requires a response within 3s
+      // Always ack the interaction first: Discord requires a response within 3s
       if(!(await btnAck(interaction)))return;
       if(!gd||gd.type!=="c4"){try{await interaction.followUp({content:"No active Connect 4 game.",ephemeral:true});}catch{}return;}
       if(uid!==gd.players[gd.turn]){try{await interaction.followUp({content:"Not your turn!",ephemeral:true});}catch{}return;}
-      // Check if column is full (top row of that column — board[0*7+col] = board[col])
+      // Check if column is full (top row of that column: board[0*7+col] = board[col])
       if(gd.board[col]!==0){try{await interaction.followUp({content:"That column is full!",ephemeral:true});}catch{}return;}
       const row=dropC4(gd.board,col,gd.turn+1);
       const[p0,p1]=[gd.players[0],gd.players[1]];
@@ -7238,7 +7255,7 @@ client.on("interactionCreate",async interaction=>{
       if(gd.playerId!==uid){try{await interaction.reply({content:"Not your game!",ephemeral:true});}catch{}return;}
       if(!(await btnAck(interaction)))return;
       const{deck,playerHand,dealerHand,bet,playerScore}=gd;
-      const showBoard=(hide=true)=>`🃏 **Blackjack** (bet: ${bet} coins)\n\n**Your hand:** ${renderHand(playerHand)} — **${handVal(playerHand)}**\n**Dealer:** ${renderHand(dealerHand,hide)}${hide?"":" — **"+handVal(dealerHand)+"**"}`;
+      const showBoard=(hide=true)=>`🃏 **Blackjack** (bet: ${bet} coins)\n\n**Your hand:** ${renderHand(playerHand)} - **${handVal(playerHand)}**\n**Dealer:** ${renderHand(dealerHand,hide)}${hide?"":" - **"+handVal(dealerHand)+"**"}`;
       const bjFx=activeEffects.get(uid)||{};
       const bjCharm=bjFx.lucky_charm_expiry&&bjFx.lucky_charm_expiry>Date.now();
       const bjWin=(coins)=>bjCharm?Math.floor(coins*(1+CONFIG.lucky_charm_bonus/100)):coins; // apply charm to wins only
@@ -7289,14 +7306,14 @@ client.on("interactionCreate",async interaction=>{
       if(page<0||page>=TOTAL){try{await interaction.deferUpdate();}catch{}return;}
       if(!(await btnAck(interaction)))return;
       const HELP_PAGES=[
-        {title:"🎉 Social & Utility  —  Page 1 / 8",description:["**Romance**","`/marry user:…` — Propose 💍 — target gets Accept/Decline buttons","`/divorce` — End the marriage 💔","`/partner [user]` — See who someone is married to","","**Media**","`/quote` — Inspirational quote image ✨","`/goodquote` — Top-rated quote image ⭐","`/badquote` — Bottom-rated quote image 💀","`/avatar user:…` — Get someone's avatar","","**Utility**","`/ping` — Bot latency 🏓","`/echo [message] [embed] [image] [title] [color] [replyto]` — Make the bot say something","`/remind time:… message:…` — Set a reminder (1 min – 1 week)","`/messageschedule time:… message:…` — Schedule a message to send later, as you, via webhook 📨 (e.g. `5 hours`, `2 days`, `1 week`, `1 month`)","`/premiere hours:… channel:… [title]` — Countdown to a video upload 🎬","`/upload source|link:…` — Upload an image/audio/video to the quotes folder 🖼️🔊🎬 *(authorized users)*","","**Info**","`/botinfo` — Bot stats","`/serverinfo` — Server member/channel/role info"].join("\n")},
-        {title:"📈 XP & Leaderboards  —  Page 2 / 8",description:["**XP**","You earn XP by sending messages (1 min cooldown). 5–15 XP per message.","Level formula: `floor(50 × level^1.5)` XP per level","","`/xp [user]` — Check XP, level, and progress bar","`/xpleaderboard [scope:global|server]` — Top 10 by XP","","**Stats & Leaderboards**","`/score [user]` — Wins, losses, win rate, streak","`/leaderboard [type]` — Global top 10","`/serverleaderboard [type]` — Server top 10","> Types: `wins` `coins` `streak` `beststreak` `games` `winrate` `images`"].join("\n")},
-        {title:"⚙️ Server Config  —  Page 3 / 8",description:["Most commands here require **Manage Server** permission.","","**Channels & Messages**","`/channelpicker channel:… [levelup]` — Set the bot's main channel","`/xpconfig setting:…` — Level-up messages (on/off, ping toggle, channel)","`/setwelcome channel:… [message]` — Welcome message (`{user}` `{server}` `{count}`)","`/setleave channel:… [message]` — Leave message","`/setboostmsg channel:… [message]` — Boost announcement","`/disableownermsg enabled:…` — Toggle bot owner broadcasts","`/purge amount:…` — Bulk delete (needs Manage Messages)","`/counting action:set|remove|status` — Set a permanent counting channel","","**Roles**","`/autorole [role]` — Auto-assign role on join (blank to disable)","`/reactionrole action:add|remove|list …` — Emoji reaction roles","`/rolespingfix` — List & fix roles that can @everyone","","**Competitions & Tickets**","`/invitecomp hours:…` — Invite competition with coin rewards","`/ticketsetup` · `/closeticket` · `/addtoticket` · `/removefromticket`","","**Overview**","`/serverconfig` — View all current settings"].join("\n")},
-        {title:"🛡️ Activity & RA/LOA  —  Page 4 / 8",description:["**Activity Checks** *(Manage Server)*","`/activity-check channel:… [deadline] [message] [ping] [schedule]` — Send a check-in to staff","> Specify which roles must respond and who is excluded","> Auto-closes after the deadline and reports who didn't check in","> Add `schedule:Monday 09:00` (UTC) to repeat it weekly automatically","","**RA / LOA Setup** *(Manage Server)*","`/raconfig action:create` — Auto-create Reduced Activity + LOA roles","`/raconfig action:set_ra|set_loa role:…` — Use existing roles","`/raconfig action:view` — See current config","","**Assigning Roles**","`/staffrole type:ra|loa user:… action:give|remove [duration]` — Give/remove RA or LOA role","> `duration` is in hours — omit for permanent"].join("\n")},
-        {title:"📺 YouTube Tracking  —  Page 5 / 8",description:["Track a YouTube channel's subscriber count live in Discord.","All commands require **Manage Server** permission.","","**Setup (do this first)**","`/ytsetup channel:… discord_channel:… [apikey:…]` — Connect a YouTube channel","> Accepts `@handle`, full URL, or channel ID starting with UC","> Provide your YouTube Data API v3 key on first use — it's saved to botdata","> Get a free key at console.cloud.google.com → enable YouTube Data API v3","","**Live Sub Count**","`/subcount threshold:1K|10K` — Post an embed that edits itself every 5 min","","**Sub Goal**","`/subgoal goal:N [message]` — Live progress bar towards a target sub count","> Fires a custom or default message when the goal is reached","","**Milestones**","`/milestones action:add subs:N [message]` — Announce when a sub count is crossed","`/milestones action:remove subs:N` — Remove a milestone","`/milestones action:list` — View all milestones and their status"].join("\n")},
-        {title:"🤖 Community Modes  —  Page 6 / 8",description:["Clankerify replaces a user's messages with a webhook impersonating them in a chosen personality.","","**For Everyone**","`/selfclank duration:1-5` — Clankerify yourself for 1–5 min with any mode","> Choose from built-in modes or any custom modes players have built","> Max 2 self-clanked users per server at once","> `/selfclank duration:0` to cancel early","","**Built-in Modes**","🤖 No mode (plain) · 😈 Evil · 😏 Freaky · 🦅 American · 🫖 British","🪖 Stupid · 📰 Boomer · 🔺 Conspiracy · 🗺️ NPC · 😤 Sigma","⚔️ Medieval · 👻 Ghost · 🏴‍☠️ Pirate · 🦝 RespawnRaccoon Propaganda","🇫🇷 French · 🐱 UWU/LOLCAT · 🎲 Random","","**Custom Modes** — anyone can build one with `/clankerbuild`","`/clankerbuild action:create name:<id>` — Opens a builder modal with:","  • Display name format (`{name}` = the user's name)","  • Word replacements (`Test>Test2; friend>pardner, …`)","  • Signoffs (`yeehaw!;much obliged;git along now`)","  • Message start prefix","  • Emoji shown in the mode selector","`/clankerbuild action:list` — View all custom modes","`/clankerbuild action:delete name:<id>` — Remove a custom mode","","Custom modes appear automatically in the `/clankerify` and `/selfclank` dropdowns."].join("\n")},
-        {title:"🖼️ Media & Quotes  —  Page 7 / 8",description:["**Quotes Folder**","`/upload source|link:…` — Upload an image/audio/video *(authorized users)*","`/requestupload source:…` — Submit a file to be reviewed for the quotes folder","`/managememers action:add|remove|list [user]` — [Owner] Manage the upload allowlist","`/quotemanage …` — [Owner] Browse, delete, and configure the quotes folder","`/dailyquote action:set|disable|status [channel] [hour]` — Auto-post a daily quote (Manage Server)","`/library user:… [page]` — Browse a user's uploaded quotes","","**Other Media Tools**","`/pixeltxt action:structure|destructure file:…` — Convert an image to/from a compressed text format","`/jarvisdatabase source:… name:…` — Upload a trigger image/gif/video straight to the Jarvis folder","`/download url:… [format] [resolution]` — Download a YouTube video as MP4 or MP3"].join("\n")},
-        {title:"🔒 Owner Tools  —  Page 8 / 8",description:["**Bot Management**","`/servers` — List servers & invite links","`/botstats` — Bot stats","`/setstatus text:… [type]` — Set bot presence","`/restart` — Restart the bot","`/refreshcmds` — Force re-register slash commands in this guild","`/adminconfig [key] [value]` — View/edit global config values","","**User & Server Actions**","`/forcemarry user1:… user2:…` — Force marry two users","`/forcedivorce user:…` — Force divorce a user","`/leaveserver server:…` — Leave a server","`/blacklist [user]` — Interactive picker: block a user from specific commands, or Full Blacklist","`/shadowdelete user:… percentage:…` — Randomly delete a % of a user's messages","`/clankerify user:… [duration]` — Resend a user's messages as a webhook impersonating them","`/impersonation user:… [as_user] [pfp] [name] [mode] [duration]` — Like clankerify, but resend as someone/something else","`/thecount user:…` — Open a queue channel for a user; messages sent there wait until /send","`/send` — Deliver everything queued in every /thecount channel to their respective users","`/paranoia user:… [chance]` — DM a user creepy paranoia messages","`/fakemessage user:… [message] [file] [mode]` — Send a message as another user via webhook","`/fakequote user:… text:… [displayname] [username]` — Generate a 'Make it a Quote' style card","`/theremnant message:…` — Send a mysterious dimensional transmission","`/jarvisenhance action:… name:…` — Build a custom Jarvis trigger word (categorized: Clankerify, Moderation, Messaging, Broadcast): say it while replying to run a chain of actions in order, mode/duration picked with no typing, and blank text fields auto-fill from whatever you say after the trigger word","","**Access & Relay**","`/tempowner user:… duration:… [commands]` — Grant a user temporary owner access","`/dmconfig [server] [user]` — Set up the DM relay hub or open a relay channel"].join("\n")},
+        {title:"🎉 Social & Utility :  Page 1 / 8",description:["**Romance**","`/marry user:…`: Propose 💍: target gets Accept/Decline buttons","`/divorce`: End the marriage 💔","`/partner [user]`: See who someone is married to","","**Media**","`/quote`: Inspirational quote image ✨","`/goodquote`: Top rated quote image ⭐","`/badquote`: Bottom rated quote image 💀","`/avatar user:…`: Get someone's avatar","","**Utility**","`/ping`: Bot latency 🏓","`/echo [message] [embed] [image] [title] [color] [replyto]`: Make the bot say something","`/remind time:… message:…`: Set a reminder (1 min – 1 week)","`/messageschedule time:… message:…`: Schedule a message to send later, as you, via webhook 📨 (e.g. `5 hours`, `2 days`, `1 week`, `1 month`)","`/premiere hours:… channel:… [title]`: Countdown to a video upload 🎬","`/upload source|link:…`: Upload an image/audio/video to the quotes folder 🖼️🔊🎬 *(authorized users)*","","**Info**","`/botinfo`: Bot stats","`/serverinfo`: Server member/channel/role info"].join("\n")},
+        {title:"📈 XP & Leaderboards :  Page 2 / 8",description:["**XP**","You earn XP by sending messages (1 min cooldown). 5–15 XP per message.","Level formula: `floor(50 × level^1.5)` XP per level","","`/xp [user]`: Check XP, level, and progress bar","`/xpleaderboard [scope:global|server]`: Top 10 by XP","","**Stats & Leaderboards**","`/score [user]`: Wins, losses, win rate, streak","`/leaderboard [type]`: Global top 10","`/serverleaderboard [type]`: Server top 10","> Types: `wins` `coins` `streak` `beststreak` `games` `winrate` `images`"].join("\n")},
+        {title:"⚙️ Server Config :  Page 3 / 8",description:["Most commands here require **Manage Server** permission.","","**Channels & Messages**","`/channelpicker channel:… [levelup]`: Set the bot's main channel","`/xpconfig setting:…`: Level up messages (on/off, ping toggle, channel)","`/setwelcome channel:… [message]`: Welcome message (`{user}` `{server}` `{count}`)","`/setleave channel:… [message]`: Leave message","`/setboostmsg channel:… [message]`: Boost announcement","`/disableownermsg enabled:…`: Toggle bot owner broadcasts","`/purge amount:…`: Bulk delete (needs Manage Messages)","`/counting action:set|remove|status`: Set a permanent counting channel","","**Roles**","`/autorole [role]`: Auto assign role on join (blank to disable)","`/reactionrole action:add|remove|list …`: Emoji reaction roles","`/rolespingfix`: List & fix roles that can @everyone","","**Competitions & Tickets**","`/invitecomp hours:…`: Invite competition with coin rewards","`/ticketsetup` · `/closeticket` · `/addtoticket` · `/removefromticket`","","**Overview**","`/serverconfig`: View all current settings"].join("\n")},
+        {title:"🛡️ Activity & RA/LOA :  Page 4 / 8",description:["**Activity Checks** *(Manage Server)*","`/activity-check channel:… [deadline] [message] [ping] [schedule]` - Send a check-in to staff","> Specify which roles must respond and who is excluded","> Auto closes after the deadline and reports who didn't check in","> Add `schedule:Monday 09:00` (UTC) to repeat it weekly automatically","","**RA / LOA Setup** *(Manage Server)*","`/raconfig action:create`: Auto create Reduced Activity + LOA roles","`/raconfig action:set_ra|set_loa role:…`: Use existing roles","`/raconfig action:view`: See current config","","**Assigning Roles**","`/staffrole type:ra|loa user:… action:give|remove [duration]`: Give/remove RA or LOA role","> `duration` is in hours: omit for permanent"].join("\n")},
+        {title:"📺 YouTube Tracking :  Page 5 / 8",description:["Track a YouTube channel's subscriber count live in Discord.","All commands require **Manage Server** permission.","","**Setup (do this first)**","`/ytsetup channel:… discord_channel:… [apikey:…]`: Connect a YouTube channel","> Accepts `@handle`, full URL, or channel ID starting with UC","> Provide your YouTube Data API v3 key on first use: it's saved to botdata","> Get a free key at console.cloud.google.com → enable YouTube Data API v3","","**Live Sub Count**","`/subcount threshold:1K|10K`: Post an embed that edits itself every 5 min","","**Sub Goal**","`/subgoal goal:N [message]`: Live progress bar towards a target sub count","> Fires a custom or default message when the goal is reached","","**Milestones**","`/milestones action:add subs:N [message]`: Announce when a sub count is crossed","`/milestones action:remove subs:N`: Remove a milestone","`/milestones action:list`: View all milestones and their status"].join("\n")},
+        {title:"🤖 Community Modes :  Page 6 / 8",description:["Clankerify replaces a user's messages with a webhook impersonating them in a chosen personality.","","**For Everyone**","`/selfclank duration:1 to 5`: Clankerify yourself for 1–5 min with any mode","> Choose from built in modes or any custom modes players have built","> Max 2 selfclanked users per server at once","> `/selfclank duration:0` to cancel early","","**Built-in Modes**","🤖 No mode (plain) · 😈 Evil · 😏 Freaky · 🦅 American · 🫖 British","🪖 Stupid · 📰 Boomer · 🔺 Conspiracy · 🗺️ NPC · 😤 Sigma","⚔️ Medieval · 👻 Ghost · 🏴‍☠️ Pirate · 🦝 RespawnRaccoon Propaganda","🇫🇷 French · 🐱 UWU/LOLCAT · 🎲 Random","","**Custom Modes**: anyone can build one with `/clankerbuild`","`/clankerbuild action:create name:<id>`: Opens a builder modal with:","  • Display name format (`{name}` = the user's name)","  • Word replacements (`Test>Test2; friend>pardner, …`)","  • Signoffs (`yeehaw!;much obliged;git along now`)","  • Message start prefix","  • Emoji shown in the mode selector","`/clankerbuild action:list`: View all custom modes","`/clankerbuild action:delete name:<id>`: Remove a custom mode","","Custom modes appear automatically in the `/clankerify` and `/selfclank` dropdowns."].join("\n")},
+        {title:"🖼️ Media & Quotes :  Page 7 / 8",description:["**Quotes Folder**","`/upload source|link:…`: Upload an image/audio/video *(authorized users)*","`/requestupload source:…`: Submit a file to be reviewed for the quotes folder","`/managememers action:add|remove|list [user]`: [Owner] Manage the upload allowlist","`/quotemanage …`: [Owner] Browse, delete, and configure the quotes folder","`/dailyquote action:set|disable|status [channel] [hour]`: Auto post a daily quote (Manage Server)","`/library user:… [page]`: Browse a user's uploaded quotes","","**Other Media Tools**","`/pixeltxt action:structure|destructure file:…`: Convert an image to/from a compressed text format","`/jarvisdatabase source:… name:…`: Upload a trigger image/gif/video straight to the Jarvis folder","`/download url:… [format] [resolution]`: Download a YouTube video as MP4 or MP3"].join("\n")},
+        {title:"🔒 Owner Tools :  Page 8 / 8",description:["**Bot Management**","`/servers`: List servers & invite links","`/botstats`: Bot stats","`/setstatus text:… [type]`: Set bot presence","`/restart`: Restart the bot","`/refreshcmds`: Force reregister slash commands in this guild","`/adminconfig [key] [value]`: View/edit global config values","","**User & Server Actions**","`/forcemarry user1:… user2:…`: Force marry two users","`/forcedivorce user:…`: Force divorce a user","`/leaveserver server:…`: Leave a server","`/blacklist [user]`: Interactive picker: block a user from specific commands, or Full Blacklist","`/shadowdelete user:… percentage:…`: Randomly delete a % of a user's messages","`/clankerify user:… [duration]`: Resend a user's messages as a webhook impersonating them","`/impersonation user:… [as_user] [pfp] [name] [mode] [duration]`: Like clankerify, but resend as someone/something else","`/thecount user:…`: Open a queue channel for a user; messages sent there wait until /send","`/send`: Deliver everything queued in every /thecount channel to their respective users","`/paranoia user:… [chance]`: DM a user creepy paranoia messages","`/fakemessage user:… [message] [file] [mode]`: Send a message as another user via webhook","`/fakequote user:… text:… [displayname] [username]`: Generate a 'Make it a Quote' style card","`/theremnant message:…`: Send a mysterious dimensional transmission","`/jarvisenhance action:… name:…`: Build a custom Jarvis trigger word (categorized: Clankerify, Moderation, Messaging, Broadcast): say it while replying to run a chain of actions in order, mode/duration picked with no typing, and blank text fields autofill from whatever you say after the trigger word","","**Access & Relay**","`/tempowner user:… duration:… [commands]`: Grant a user temporary owner access","`/dmconfig [server] [user]`: Set up the DM relay hub or open a relay channel"].join("\n")},
       ];
       const p=HELP_PAGES[page];
       const navRow=new MessageActionRow().addComponents(
@@ -7327,7 +7344,7 @@ client.on("interactionCreate",async interaction=>{
           await role.setPermissions(newPerms,`/rolespingfix used by ${interaction.user.tag}`);
           results.push(`✅ Fixed: \`${role.name}\``);
         }catch(e){
-          results.push(`❌ Failed: \`${role.name}\` — ${e.message}`);
+          results.push(`❌ Failed: \`${role.name}\` - ${e.message}`);
         }
       }
       return interaction.editReply({embeds:[{
@@ -7353,7 +7370,7 @@ client.on("interactionCreate",async interaction=>{
           else   userLines.push(`(unknown)  \`${id}\``);
         }catch{ userLines.push(`(error)  \`${id}\``); }
       }
-      const header=`👤 **App Users — Page ${page+1}/${totalPages}** (${ids.length} total tracked)\n\`\`\`\n${userLines.join("\n")||"None"}\n\`\`\``;
+      const header=`👤 **App Users: Page ${page+1}/${totalPages}** (${ids.length} total tracked)\n\`\`\`\n${userLines.join("\n")||"None"}\n\`\`\``;
       const navRow=new MessageActionRow().addComponents(
         new MessageButton().setCustomId(`botstats_page_${page-1}`).setLabel("← Prev").setStyle("SECONDARY").setDisabled(page===0),
         new MessageButton().setCustomId("botstats_users").setLabel("Back to Stats").setStyle("SECONDARY"),
@@ -7436,7 +7453,7 @@ client.on("interactionCreate",async interaction=>{
       }
       if(cid==="ts_reset"){ticketConfigs.set(guildId,{nextId:cfg.nextId||0});saveData();try{await interaction.editReply(buildStep(1));}catch(e){console.error("ts_reset:",e?.message);}return;}
       if(cid==="ts_set_msg"){
-        try{await interaction.followUp({content:`✏️ **Customize panel message** — type it in chat now (2 min).\nCurrent: ${cfg.panelMessage?`\`${cfg.panelMessage}\``:"*(default)*"}`,ephemeral:true});}catch{}
+        try{await interaction.followUp({content:`✏️ **Customize panel message**: type it in chat now (2 min).\nCurrent: ${cfg.panelMessage?`\`${cfg.panelMessage}\``:"*(default)*"}`,ephemeral:true});}catch{}
         const col=interaction.channel.createMessageCollector({filter:m=>m.author.id===uid,max:1,time:120000});
         col.on("collect",async m=>{
           try{await m.delete();}catch{}
@@ -7492,14 +7509,14 @@ client.on("interactionCreate",async interaction=>{
         });
         openTickets.set(channel.id,{guildId,userId:uid,ticketId,channelId:channel.id,subject:"",openedAt:Date.now(),status:"open"});saveData();
         const activeRow=buildTicketActiveRow();
-        await channel.send({content:`🎫 **Ticket #${ticketId}** — <@${uid}>\n\nHello <@${uid}>! Support will be with you shortly.${(cfg2.supportRoleIds||[]).map(r=>`<@&${r}>`).join(" ")?`\n${(cfg2.supportRoleIds||[]).map(r=>`<@&${r}>`).join(" ")}`:""}`,components:[activeRow]});
-        if(cfg2.logChannelId){const logCh=guild.channels.cache.get(cfg2.logChannelId);if(logCh)await safeSend(logCh,`📂 **Ticket #${ticketId} opened** by <@${uid}> — <#${channel.id}>`);}
+        await channel.send({content:`🎫 **Ticket #${ticketId}**: <@${uid}>\n\nHello <@${uid}>! Support will be with you shortly.${(cfg2.supportRoleIds||[]).map(r=>`<@&${r}>`).join(" ")?`\n${(cfg2.supportRoleIds||[]).map(r=>`<@&${r}>`).join(" ")}`:""}`,components:[activeRow]});
+        if(cfg2.logChannelId){const logCh=guild.channels.cache.get(cfg2.logChannelId);if(logCh)await safeSend(logCh,`📂 **Ticket #${ticketId} opened** by <@${uid}>: <#${channel.id}>`);}
         try{await interaction.followUp({content:`✅ Your ticket has been created: <#${channel.id}>`,ephemeral:true});}catch{}
       }catch(e){console.error("ticket_open error:",e);try{await interaction.followUp({content:`❌ Failed to create ticket: ${e.message}`,ephemeral:true});}catch{}}
       return;
     }
 
-    // Ticket close — removes user access, keeps channel for staff, shows Reopen + Delete buttons
+    // Ticket close: removes user access, keeps channel for staff, shows Reopen + Delete buttons
     if(cid==="ticket_close"){
       if(!await btnAck(interaction))return;
       const ticket=openTickets.get(interaction.channelId);
@@ -7525,7 +7542,7 @@ client.on("interactionCreate",async interaction=>{
       return;
     }
 
-    // Ticket reopen — restores user access
+    // Ticket reopen: restores user access
     if(cid==="ticket_reopen"){
       if(!await btnAck(interaction))return;
       const ticket=openTickets.get(interaction.channelId);
@@ -7550,7 +7567,7 @@ client.on("interactionCreate",async interaction=>{
       return;
     }
 
-    // Ticket delete — staff only, transcripts and logs THEN deletes channel
+    // Ticket delete: staff only, transcripts and logs THEN deletes channel
     if(cid==="ticket_delete"){
       if(!await btnAck(interaction))return;
       const ticket=openTickets.get(interaction.channelId);
@@ -7581,26 +7598,26 @@ client.on("interactionCreate",async interaction=>{
       ticket.claimedBy=uid;
       saveData();
       try{
-        await interaction.editReply({content:`🎫 **Ticket #${ticket.ticketId}** — <@${ticket.userId}>\n🙋 **Claimed by <@${uid}>**`,components:[new MessageActionRow().addComponents(new MessageButton().setCustomId("ticket_close").setLabel("Close Ticket 🔒").setStyle("DANGER"))]});
+        await interaction.editReply({content:`🎫 **Ticket #${ticket.ticketId}**: <@${ticket.userId}>\n🙋 **Claimed by <@${uid}>**`,components:[new MessageActionRow().addComponents(new MessageButton().setCustomId("ticket_close").setLabel("Close Ticket 🔒").setStyle("DANGER"))]});
         await safeSend(interaction.channel,`✅ <@${uid}> has claimed this ticket and will be assisting you.`);
       }catch{}
       return;
     }
 
-    // ── Tomato This — select menu handlers (legacy, now handled by modal) ───────
-    // No-op: kept as guard in case stale interactions arrive
+    // ── Tomato This: select menu handlers (legacy, now handled by modal) ───────
+    // No op: kept as guard in case stale interactions arrive
     if(cid.startsWith("tomato_count_")||cid.startsWith("tomato_speed_")){
       try{await interaction.deferUpdate();}catch{}
       return;
     }
 
-    // ── Tomato This — fire button (legacy, now modal-driven) ───────────────────
+    // ── Tomato This: fire button (legacy, now modal driven) ───────────────────
     if(cid.startsWith("tomato_fire_")){
       try{await interaction.deferUpdate();}catch{}
       return;
     }
 
-    // ── /clankerbuild_new — open blank create modal ────────────────────────────
+    // ── /clankerbuild_new: open blank create modal ────────────────────────────
     if(cid === "clankerbuild_new"){
       await interaction.showModal({
         title:"🛠️ New Clanker Mode",
@@ -7616,7 +7633,7 @@ client.on("interactionCreate",async interaction=>{
       return;
     }
 
-    // ── /clankerbuild pick-to-edit select ──────────────────────────────────────
+    // ── /clankerbuild pick to edit select ──────────────────────────────────────
     if(cid.startsWith("clankerbuild_pick_edit_")){
       const modeName = interaction.values[0];
       const existing = customClankerModes.get(modeName) || {};
@@ -7639,7 +7656,7 @@ client.on("interactionCreate",async interaction=>{
       return;
     }
 
-    // ── /clankerbuild pick-to-delete select ────────────────────────────────────
+    // ── /clankerbuild pick to delete select ────────────────────────────────────
     if(cid.startsWith("clankerbuild_pick_delete_")){
       const modeName = interaction.values[0];
       const existing = customClankerModes.get(modeName);
@@ -7685,7 +7702,7 @@ client.on("interactionCreate",async interaction=>{
     if(cid.startsWith("je_category_")){
       const token = cid.slice("je_category_".length);
       const b = jarvisEnhanceBuilders.get(token);
-      if(!b || b.ownerId!==uid){ try{await interaction.reply({content:"❌ This panel expired — run `/jarvisenhance` again.",ephemeral:true});}catch{} return; }
+      if(!b || b.ownerId!==uid){ try{await interaction.reply({content:"❌ This panel expired: run `/jarvisenhance` again.",ephemeral:true});}catch{} return; }
       b.category = interaction.values[0];
       try{ await interaction.update(buildJarvisEnhancePanel(token)); }catch{}
       return;
@@ -7699,14 +7716,14 @@ client.on("interactionCreate",async interaction=>{
       return;
     }
 
-    // Add-action select (within a category): Clankerify/Impersonation skip the
-    // modal entirely and go through point-and-click mode+duration pickers
-    // instead — no typing a mode name. Zero-field actions are appended
+    // Add action select (within a category): Clankerify/Impersonation skip the
+    // modal entirely and go through point and click mode+duration pickers
+    // instead: no typing a mode name. Zero field actions are appended
     // immediately. Everything else opens a param modal as before.
     if(cid.startsWith("je_addtype_")){
       const token = cid.slice("je_addtype_".length);
       const b = jarvisEnhanceBuilders.get(token);
-      if(!b || b.ownerId!==uid){ try{await interaction.reply({content:"❌ This panel expired — run `/jarvisenhance` again.",ephemeral:true});}catch{} return; }
+      if(!b || b.ownerId!==uid){ try{await interaction.reply({content:"❌ This panel expired: run `/jarvisenhance` again.",ephemeral:true});}catch{} return; }
       const actionType = interaction.values[0];
       const def = JARVISENHANCE_ACTIONS.find(a=>a.id===actionType);
       if(!def) return;
@@ -7740,7 +7757,7 @@ client.on("interactionCreate",async interaction=>{
       try{ await interaction.update(buildJarvisDurationPicker(token)); }catch{}
       return;
     }
-    // Clankerify/Impersonation: duration picked — action is complete, push it.
+    // Clankerify/Impersonation: duration picked: action is complete, push it.
     if(cid.startsWith("je_pickduration_")){
       const token = cid.slice("je_pickduration_".length);
       const b = jarvisEnhanceBuilders.get(token);
@@ -7754,7 +7771,7 @@ client.on("interactionCreate",async interaction=>{
       try{ await interaction.update(buildJarvisEnhancePanel(token)); }catch{}
       return;
     }
-    // Echo/Send Embed/The Remnant: reply-mode picked — action is complete, push it.
+    // Echo/Send Embed/The Remnant: reply mode picked: action is complete, push it.
     if(cid.startsWith("je_pickreply_")){
       const token = cid.slice("je_pickreply_".length);
       const b = jarvisEnhanceBuilders.get(token);
@@ -7767,7 +7784,7 @@ client.on("interactionCreate",async interaction=>{
       try{ await interaction.update(buildJarvisEnhancePanel(token)); }catch{}
       return;
     }
-    // Cancel out of the mode/duration/reply-mode picker sub-flow back to the main panel.
+    // Cancel out of the mode/duration/reply mode picker subflow back to the main panel.
     if(cid.startsWith("je_addcancel_")){
       const token = cid.slice("je_addcancel_".length);
       const b = jarvisEnhanceBuilders.get(token);
@@ -7783,7 +7800,7 @@ client.on("interactionCreate",async interaction=>{
     if(cid.startsWith("je_manage_")){
       const token = cid.slice("je_manage_".length);
       const b = jarvisEnhanceBuilders.get(token);
-      if(!b || b.ownerId!==uid){ try{await interaction.reply({content:"❌ This panel expired — run `/jarvisenhance` again.",ephemeral:true});}catch{} return; }
+      if(!b || b.ownerId!==uid){ try{await interaction.reply({content:"❌ This panel expired: run `/jarvisenhance` again.",ephemeral:true});}catch{} return; }
       b.selectedStep = parseInt(interaction.values[0],10);
       try{ await interaction.update(buildJarvisEnhancePanel(token)); }catch{}
       return;
@@ -7819,7 +7836,7 @@ client.on("interactionCreate",async interaction=>{
     if(cid.startsWith("je_triggers_")){
       const token = cid.slice("je_triggers_".length);
       const b = jarvisEnhanceBuilders.get(token);
-      if(!b || b.ownerId!==uid){ try{await interaction.reply({content:"❌ This panel expired — run `/jarvisenhance` again.",ephemeral:true});}catch{} return; }
+      if(!b || b.ownerId!==uid){ try{await interaction.reply({content:"❌ This panel expired: run `/jarvisenhance` again.",ephemeral:true});}catch{} return; }
       await interaction.showModal({
         title:"✏️ Trigger Word(s)",
         custom_id:`je_modal_triggers_${token}`,
@@ -7833,7 +7850,7 @@ client.on("interactionCreate",async interaction=>{
     if(cid.startsWith("je_ownerlock_")){
       const token = cid.slice("je_ownerlock_".length);
       const b = jarvisEnhanceBuilders.get(token);
-      if(!b || b.ownerId!==uid){ try{await interaction.reply({content:"❌ This panel expired — run `/jarvisenhance` again.",ephemeral:true});}catch{} return; }
+      if(!b || b.ownerId!==uid){ try{await interaction.reply({content:"❌ This panel expired: run `/jarvisenhance` again.",ephemeral:true});}catch{} return; }
       b.ownerLocked = !b.ownerLocked;
       try{ await interaction.update(buildJarvisEnhancePanel(token)); }catch{}
       return;
@@ -7842,7 +7859,7 @@ client.on("interactionCreate",async interaction=>{
     if(cid.startsWith("je_save_")){
       const token = cid.slice("je_save_".length);
       const b = jarvisEnhanceBuilders.get(token);
-      if(!b || b.ownerId!==uid){ try{await interaction.reply({content:"❌ This panel expired — run `/jarvisenhance` again.",ephemeral:true});}catch{} return; }
+      if(!b || b.ownerId!==uid){ try{await interaction.reply({content:"❌ This panel expired: run `/jarvisenhance` again.",ephemeral:true});}catch{} return; }
       if(!b.triggers.length || !b.actions.length){ try{await interaction.reply({content:"❌ Set at least one trigger word and one action first.",ephemeral:true});}catch{} return; }
       jarvisEnhanceProfiles.set(b.name, {
         triggers: b.triggers,
@@ -7854,7 +7871,7 @@ client.on("interactionCreate",async interaction=>{
       });
       saveData();
       jarvisEnhanceBuilders.delete(token);
-      try{ await interaction.update({content:`✅ Saved \`${b.name}\`${b.ownerLocked===false ? " (unlocked — anyone can trigger it)" : " (🔒 owner locked)"}. Reply to a message and say "Jarvis, ${b.triggers[0]}" or "RoyalBot, ${b.triggers[0]}" to run it.`, components:[]}); }catch{}
+      try{ await interaction.update({content:`✅ Saved \`${b.name}\`${b.ownerLocked===false ? " (unlocked: anyone can trigger it)" : " (🔒 owner locked)"}. Reply to a message and say "Jarvis, ${b.triggers[0]}" or "RoyalBot, ${b.triggers[0]}" to run it.`, components:[]}); }catch{}
       return;
     }
 
@@ -7887,7 +7904,7 @@ client.on("interactionCreate",async interaction=>{
       return;
     }
 
-    // ── /TheRemnant — public "Respond" button opens a reply modal ──────────────
+    // ── /TheRemnant: public "Respond" button opens a reply modal ──────────────
     if(cid === "theremnant_respond"){
       await interaction.showModal({
         title:"👁️ Respond to the Remnant",
@@ -7899,7 +7916,7 @@ client.on("interactionCreate",async interaction=>{
       return;
     }
 
-    // ── /serverstats — interactive panel ────────────────────────────────────────
+    // ── /serverstats: interactive panel ────────────────────────────────────────
     if(cid.startsWith("ss_")){
       if(!interaction.guildId) return;
       const guild=interaction.guild;
@@ -7929,7 +7946,7 @@ client.on("interactionCreate",async interaction=>{
           saveData();
         }catch(e){
           console.error("[serverstats setup]",e.message);
-          await interaction.followUp({content:"❌ I couldn't create the stat channels — check that I have **Manage Channels** permission.",ephemeral:true}).catch(()=>{});
+          await interaction.followUp({content:"❌ I couldn't create the stat channels: check that I have **Manage Channels** permission.",ephemeral:true}).catch(()=>{});
           return;
         }
         await interaction.editReply(ssBuildMainPanel(guild)).catch(()=>{});
@@ -8159,9 +8176,9 @@ client.on("interactionCreate",async interaction=>{
     const uid = interaction.user.id;
     const cid = interaction.customId;
 
-    // ── /TheRemnant — reply modal submit ────────────────────────────────────────
+    // ── /TheRemnant: reply modal submit ────────────────────────────────────────
     // Silently relays into the user's DM relay channel (creating one if needed).
-    // No public confirmation and no attribution in the message itself — the
+    // No public confirmation and no attribution in the message itself: the
     // relay channel is already scoped to the user, and that's the only place
     // this shows up.
     if(cid === "theremnant_modal"){
@@ -8172,7 +8189,7 @@ client.on("interactionCreate",async interaction=>{
       try{
         const relayChannel = await ensureDmRelayChannel(interaction.user);
         if(!relayChannel){
-          return safeReply(interaction,{content:"❌ The rift isn't open right now — try again later.",ephemeral:true});
+          return safeReply(interaction,{content:"❌ The rift isn't open right now: try again later.",ephemeral:true});
         }
         await relayChannel.send({
           embeds:[{
@@ -8194,14 +8211,14 @@ client.on("interactionCreate",async interaction=>{
       const token = cid.slice("je_modal_params_".length);
       const b = jarvisEnhanceBuilders.get(token);
       if(!b || b.ownerId!==uid || !b.pendingActionType)
-        return safeReply(interaction,{content:"❌ This panel expired — run `/jarvisenhance` again.",ephemeral:true});
+        return safeReply(interaction,{content:"❌ This panel expired: run `/jarvisenhance` again.",ephemeral:true});
       const def = JARVISENHANCE_ACTIONS.find(a => a.id === b.pendingActionType);
       const params = {};
       for(const f of (def?.fields||[])){
         params[f.key] = (interaction.fields.getTextInputValue(f.key)||"").trim();
       }
       if(def?.replyable){
-        // Echo/Send Embed/The Remnant get one more pick-from-a-list step
+        // Echo/Send Embed/The Remnant get one more pick from a list step
         // (Reply vs Send normally) before the action is actually pushed.
         b.pendingParams = params;
         return safeReply(interaction,{...buildJarvisReplyModePicker(token), ephemeral:true});
@@ -8217,7 +8234,7 @@ client.on("interactionCreate",async interaction=>{
       const token = cid.slice("je_modal_triggers_".length);
       const b = jarvisEnhanceBuilders.get(token);
       if(!b || b.ownerId!==uid)
-        return safeReply(interaction,{content:"❌ This panel expired — run `/jarvisenhance` again.",ephemeral:true});
+        return safeReply(interaction,{content:"❌ This panel expired: run `/jarvisenhance` again.",ephemeral:true});
       const raw = interaction.fields.getTextInputValue("je_triggers_input")||"";
       b.triggers = raw.split(",").map(s=>s.trim().toLowerCase()).filter(Boolean);
       return safeReply(interaction,{...buildJarvisEnhancePanel(token), ephemeral:true});
@@ -8270,7 +8287,7 @@ client.on("interactionCreate",async interaction=>{
 
       const BUILTIN_MODES2 = new Set(["none","evil","freaky","american","british","stupid","boomer","conspiracy","npc","sigma","medieval","ghost","pirate","rr_propaganda","french","uwu","random"]);
       if(BUILTIN_MODES2.has(modeName))
-        return safeReply(interaction,{content:`❌ \`${modeName}\` is a built-in mode and cannot be overwritten.`,ephemeral:true});
+        return safeReply(interaction,{content:`❌ \`${modeName}\` is a built in mode and cannot be overwritten.`,ephemeral:true});
 
       // If editing, preserve original creator info
       const existingMode = customClankerModes.get(modeName);
@@ -8317,12 +8334,12 @@ client.on("interactionCreate",async interaction=>{
       const msgId = cid.slice("tomato_modal_".length);
       const pending = tomatoPending.get(msgId);
       if(!pending){
-        return safeReply(interaction,{content:"❌ Session expired, right-click the message again.",ephemeral:true});
+        return safeReply(interaction,{content:"❌ Session expired, right click the message again.",ephemeral:true});
       }
 
-      // Parse inputs — clamp to valid ranges
-      // NOTE: parseInt() returns NaN for non-numeric input, and `?? 50` does NOT
-      // catch NaN (only null/undefined), so a non-numeric entry used to silently
+      // Parse inputs: clamp to valid ranges
+      // NOTE: parseInt() returns NaN for nonnumeric input, and `?? 50` does NOT
+      // catch NaN (only null/undefined), so a nonnumeric entry used to silently
       // flow through as NaN all the way into the GIF builder (NaN speeds →
       // NaN frame index → undefined composite input → broken/blank output).
       const parsedCount    = parseInt(interaction.fields.getTextInputValue("tomato_count"));
@@ -8399,7 +8416,7 @@ client.on("interactionCreate",async interaction=>{
       const prefix = exposePrefixes[Math.floor(Math.random() * exposePrefixes.length)];
       await safeReply(interaction,{content:`${prefix}
 > ${content}
-— <@${author.id}>`});
+by <@${author.id}>`});
       return;
     }
 
@@ -8414,7 +8431,7 @@ client.on("interactionCreate",async interaction=>{
       // Store metadata so the modal submit can retrieve it
       tomatoPending.set(targetMsg.id, { authorTag, msgContent, avatarURL, usernameColor });
 
-      // Show a Modal with two inputs: count (1-50) and speed min/max (0-1000%)
+      // Show a Modal with two inputs: count (1 to 50) and speed min/max (0 to 1000%)
       try {
         await interaction.showModal({
           title: "🍅 Tomato Settings",
@@ -8487,7 +8504,7 @@ client.on("interactionCreate",async interaction=>{
     // ── Uwu-ify (everyone) ──────────────────────────────────────────────────────
     if(cmd === "Uwu-ify"){
       const text = targetMsg.content;
-      if(!text) return safeReply(interaction,{content:"That message has no text to uwu-ify.",ephemeral:true});
+      if(!text) return safeReply(interaction,{content:"That message has no text to uwu ify.",ephemeral:true});
       let uwu = text
         .replace(/r|l/gi, m => m === m.toUpperCase() ? "W" : "w")
         .replace(/n([aeiou])/gi, (m,v) => `ny${v}`)
@@ -8514,7 +8531,7 @@ client.on("interactionCreate",async interaction=>{
       const author = targetMsg.author;
       const displayName = targetMsg.member?.displayName || author.globalName || author.username;
       await safeReply(interaction,{content:`\u201c${text}\u201d
-— **${displayName}**`});
+by **${displayName}**`});
       return;
     }
 
@@ -8525,7 +8542,7 @@ client.on("interactionCreate",async interaction=>{
       const emojiRegex = /<a?:[a-zA-Z0-9_]+:(\d+)>/g;
       const matches = [...text.matchAll(emojiRegex)];
       if(!matches.length)
-        return safeReply(interaction,{content:"❌ No custom emojis found in that message. (Built-in emojis can\'t be fetched as links.)",ephemeral:true});
+        return safeReply(interaction,{content:"❌ No custom emojis found in that message. (Built in emojis can\'t be fetched as links.)",ephemeral:true});
       // Deduplicate by ID
       const seen = new Set();
       const links = [];
@@ -8575,27 +8592,27 @@ client.on("interactionCreate",async interaction=>{
       return safeReply(interaction,{content:"❌ You need **Manage Server** permission.",ephemeral:true});
   }
 
-  // ── Granular blacklist — per-command block (full blacklist already handled above) ──
+  // ── Granular blacklist: per command block (full blacklist already handled above) ──
   if(isFeatureBlacklisted(interaction.user.id, cmd)){
     if(!isSilentBlacklisted(interaction.user.id)) return safeReply(interaction,{content:`❌ You've been blocked from using \`/${cmd}\`.`,ephemeral:true});
     return;
   }
 
-  // ── Auto-defer safety net ────────────────────────────────────────────────────
+  // ── Auto defer safety net ────────────────────────────────────────────────────
   // Declared OUTSIDE try/catch so _clearAutoDefer is in scope in both blocks.
   // If the handler hasn't replied within 2.5 s, defer automatically so Discord
   // never shows "Application did not respond". safeReply() already handles the
   // deferred state by calling editReply() instead of reply().
   let _autoDeferTimer = setTimeout(async () => {
     if(!interaction.replied && !interaction.deferred){
-      console.warn(`[auto-defer] /${cmd} exceeded 2.5s — auto-deferring`);
+      console.warn(`[auto-defer] /${cmd} exceeded 2.5s: autodeferring`);
       await interaction.deferReply().catch(()=>{});
     }
   }, 2500);
   const _clearAutoDefer = () => clearTimeout(_autoDeferTimer);
 
   try{
-    const uid     = interaction.user.id;   // shorthand — safe to use anywhere in this try block
+    const uid     = interaction.user.id;   // shorthand: safe to use anywhere in this try block
     const au=()=>`<@${interaction.user.id}>`;
     const bu=()=>`<@${interaction.options.getUser("user").id}>`;
 
@@ -8604,7 +8621,7 @@ client.on("interactionCreate",async interaction=>{
 
 
 
-    // ── /marry — persistent proposal stored in botdata.json ──────────────────
+    // ── /marry: persistent proposal stored in botdata.json ──────────────────
     if(cmd==="marry"){
       const target=interaction.options.getUser("user");
       if(target.id===interaction.user.id)return safeReply(interaction,{content:"You can't marry yourself.",ephemeral:true});
@@ -8613,12 +8630,12 @@ client.on("interactionCreate",async interaction=>{
       const s  = getScore(interaction.user.id, interaction.user.username);
       const t  = getScore(target.id, target.username);
 
-      // ── Case 1: target already proposed to ME — this is an acceptance ──────
+      // ── Case 1: target already proposed to ME: this is an acceptance ──────
       // Check MY OWN pendingProposal (set when they proposed to me), not
-      // theirs — checking t.pendingProposal here was the bug: if I run
+      // theirs: checking t.pendingProposal here was the bug: if I run
       // /marry on the same person twice, the first call sets THEIR
       // pendingProposal to MY id, and the second call would then read that
-      // back and think they'd proposed to me, auto-marrying us with no
+      // back and think they'd proposed to me, automarrying us with no
       // consent from them at all.
       if(s.pendingProposal === target.id){
         // Both must be unmarried
@@ -8720,19 +8737,19 @@ if(cmd==="clankerbuild"){
     if(!visibleModes.length)
       return safeReply(interaction,{content:"No custom clanker modes yet. Use `/clankerbuild action:create` to make one.",ephemeral:true});
     const lines = visibleModes.map(([id, m]) =>
-      `**${m.emoji||"⭐"} ${id}** — display: \`${m.displayNameFormat||"{name}"}\`, words: ${(m.words||[]).length}, signoffs: ${(m.signoffs||[]).length}, by: **${m.creatorName||"?"}**`
+      `**${m.emoji||"⭐"} ${id}**: display: \`${m.displayNameFormat||"{name}"}\`, words: ${(m.words||[]).length}, signoffs: ${(m.signoffs||[]).length}, by: **${m.creatorName||"?"}**`
     );
     return safeReply(interaction,{content:`**Custom Clanker Modes (${visibleModes.length})**\n${lines.join("\n")}`,ephemeral:true});
   }
 
-  // ── create/edit — show user's modes + "New Mode" button ───────────────────
+  // ── create/edit: show user's modes + "New Mode" button ───────────────────
   if(action==="create"){
     const components = [];
     if(visibleModes.length){
       const opts = visibleModes.map(([id, m]) => ({
         label: `${m.emoji||"⭐"} ${id}`,
         value: id,
-        description: `by ${m.creatorName||"?"} — ${(m.words||[]).length} word swaps`,
+        description: `by ${m.creatorName||"?"} - ${(m.words||[]).length} word swaps`,
       }));
       components.push(new MessageActionRow().addComponents(
         new MessageSelectMenu()
@@ -8753,17 +8770,17 @@ if(cmd==="clankerbuild"){
     });
   }
 
-  // ── delete — show user's modes in a select ────────────────────────────────
+  // ── delete: show user's modes in a select ────────────────────────────────
   if(action==="delete"){
     if(!visibleModes.length)
       return safeReply(interaction,{content:"You have no custom modes to delete.",ephemeral:true});
     const opts = visibleModes.map(([id, m]) => ({
       label: `${m.emoji||"⭐"} ${id}`,
       value: id,
-      description: `by ${m.creatorName||"?"} — ${(m.words||[]).length} word swaps`,
+      description: `by ${m.creatorName||"?"} - ${(m.words||[]).length} word swaps`,
     }));
     return safeReply(interaction,{
-      content:"🗑️ **Delete a Custom Mode** — select one to remove:",
+      content:"🗑️ **Delete a Custom Mode**: select one to remove:",
       components:[new MessageActionRow().addComponents(
         new MessageSelectMenu()
           .setCustomId(`clankerbuild_pick_delete_${callerId}`)
@@ -8781,7 +8798,7 @@ if(cmd==="tempowner"){
 
   if(!targetUser){
     return safeReply(interaction,{
-      content:[`🔑 **Temporary Owner Access — Current Grants**`,``,formatGrantsList()].join("\n"),
+      content:[`🔑 **Temporary Owner Access: Current Grants**`,``,formatGrantsList()].join("\n"),
       ephemeral:true,
     });
   }
@@ -8807,7 +8824,7 @@ if(cmd==="blacklist"){
 
   if(!targetUser){
     return safeReply(interaction,{
-      content:[`🚫 **Blacklist — Current Entries**`,``,formatBlacklistList()].join("\n"),
+      content:[`🚫 **Blacklist: Current Entries**`,``,formatBlacklistList()].join("\n"),
       ephemeral:true,
     });
   }
@@ -8836,7 +8853,7 @@ if(cmd==="jarvisenhance"){
     if(!jarvisEnhanceProfiles.size)
       return safeReply(interaction,{content:"No Jarvis Enhance profiles yet. Use `/jarvisenhance action:create name:<id>` to make one.",ephemeral:true});
     const lines = [...jarvisEnhanceProfiles.entries()].map(([id,p]) =>
-      `**${id}** ${p.ownerLocked===false ? "🔓" : "🔒"} — trigger word(s): ${p.triggers.map(t=>`\`${t}\``).join(" ")}\n${formatJarvisActionsList(p.actions)}`
+      `**${id}** ${p.ownerLocked===false ? "🔓" : "🔒"}: trigger word(s): ${p.triggers.map(t=>`\`${t}\``).join(" ")}\n${formatJarvisActionsList(p.actions)}`
     );
     return safeReply(interaction,{content:`**🧠 Jarvis Enhance Profiles (${jarvisEnhanceProfiles.size})**\n\n${lines.join("\n\n")}`,ephemeral:true});
   }
@@ -8854,13 +8871,13 @@ if(cmd==="jarvisenhance"){
     });
   }
 
-  // create / edit — both open the same builder panel
+  // create / edit: both open the same builder panel
   if(!name) return safeReply(interaction,{content:"❌ Provide a `name` for this profile.",ephemeral:true});
   const existing = jarvisEnhanceProfiles.get(name);
   if(action==="create" && existing)
-    return safeReply(interaction,{content:`❌ A profile named \`${name}\` already exists — use \`action:edit\` to modify it.`,ephemeral:true});
+    return safeReply(interaction,{content:`❌ A profile named \`${name}\` already exists: use \`action:edit\` to modify it.`,ephemeral:true});
   if(action==="edit" && !existing)
-    return safeReply(interaction,{content:`❌ No profile named \`${name}\` — use \`action:create\` to make it.`,ephemeral:true});
+    return safeReply(interaction,{content:`❌ No profile named \`${name}\`: use \`action:create\` to make it.`,ephemeral:true});
 
   const token = `${uid.slice(-6)}${Date.now().toString(36)}`;
   jarvisEnhanceBuilders.set(token, {
@@ -8914,7 +8931,7 @@ if(cmd==="userprofile"){
 
   const embed = {
     color: 0xFFD700,
-    author: { name: `👑 ${interaction.user.username} — Patreon Supporter`, icon_url: interaction.user.displayAvatarURL({dynamic:true}) },
+    author: { name: `👑 ${interaction.user.username}: Patreon Supporter`, icon_url: interaction.user.displayAvatarURL({dynamic:true}) },
     title: "✨ Supporter Profile ✨",
     thumbnail: { url: interaction.user.displayAvatarURL({ size:512, dynamic:true }) },
     fields: [
@@ -8937,7 +8954,7 @@ if(cmd==="theremnant"){
   const channel = interaction.channel;
   if(!channel) return safeReply(interaction,{content:"❌ Couldn't resolve this channel.",ephemeral:true});
 
-  // Ack the owner privately and instantly — the actual show plays out publicly below.
+  // Ack the owner privately and instantly: the actual show plays out publicly below.
   await safeReply(interaction,{content:"📡 Transmission initiated…",ephemeral:true});
 
   (async () => {
@@ -9017,7 +9034,7 @@ if(cmd==="clankerify"){
   const modeRow = new MessageActionRow().addComponents(
     new MessageSelectMenu()
       .setCustomId(`clankerify_mode_${target.id}_${durKey}`)
-      .setPlaceholder("Pick a built-in personality mode…")
+      .setPlaceholder("Pick a built in personality mode…")
       .addOptions(builtInOptions)
   );
   const clankerifyComponents = [modeRow];
@@ -9053,7 +9070,7 @@ if(cmd==="impersonation"){
 
   if(target.bot) return safeReply(interaction,{content:"❌ Can't impersonate a bot's messages.",ephemeral:true});
   if(asUser && (pfp || name))
-    return safeReply(interaction,{content:"❌ `as_user` can't be combined with `pfp`/`name` — pick one approach.",ephemeral:true});
+    return safeReply(interaction,{content:"❌ `as_user` can't be combined with `pfp`/`name`: pick one approach.",ephemeral:true});
 
   // duration === 0 means disable
   if(duration === 0){
@@ -9088,10 +9105,10 @@ if(cmd==="impersonation"){
 if(cmd==="thecount"){
   const target = interaction.options.getUser("user");
   if(target.bot) return safeReply(interaction,{content:"❌ Can't open a queue channel for a bot.",ephemeral:true});
-  if(!dmRelayGuildId) return safeReply(interaction,{content:"❌ No DM hub server configured yet — run `/dmconfig` first.",ephemeral:true});
+  if(!dmRelayGuildId) return safeReply(interaction,{content:"❌ No DM hub server configured yet: run `/dmconfig` first.",ephemeral:true});
 
   const channel = await ensureTheCountChannel(target);
-  if(!channel) return safeReply(interaction,{content:"❌ Couldn't create/open the queue channel — check the hub server still exists and the bot has permission there.",ephemeral:true});
+  if(!channel) return safeReply(interaction,{content:"❌ Couldn't create/open the queue channel: check the hub server still exists and the bot has permission there.",ephemeral:true});
 
   return safeReply(interaction,{content:`📥 Queue channel ready: <#${channel.id}>. Anything sent there waits until \`/send\` is run.`,ephemeral:true});
 }
@@ -9101,7 +9118,7 @@ if(cmd==="send"){
   if(!dmRelayGuildId) return safeReply(interaction,{content:"❌ No DM hub server configured.",ephemeral:true});
   const hubGuild = client.guilds.cache.get(dmRelayGuildId);
   if(!hubGuild) return safeReply(interaction,{content:"❌ Hub server not found.",ephemeral:true});
-  if(theCountChannels.size===0) return safeReply(interaction,{content:"Nothing queued — no `/thecount` channels exist yet.",ephemeral:true});
+  if(theCountChannels.size===0) return safeReply(interaction,{content:"Nothing queued: no `/thecount` channels exist yet.",ephemeral:true});
 
   let totalSent=0, totalFailed=0, channelsProcessed=0;
   const summary=[];
@@ -9150,7 +9167,7 @@ if(cmd==="send"){
 
   saveData();
 
-  if(channelsProcessed===0) return safeReply(interaction,{content:"Nothing new to send — every queue channel is already flushed.",ephemeral:true});
+  if(channelsProcessed===0) return safeReply(interaction,{content:"Nothing new to send: every queue channel is already flushed.",ephemeral:true});
 
   return safeReply(interaction,{
     content:[`📤 **Sent.** ${totalSent} message(s) delivered${totalFailed?`, ${totalFailed} failed (DMs likely closed)`:""} across ${channelsProcessed} channel(s).`,``,...summary].join("\n").slice(0,1900),
@@ -9177,14 +9194,14 @@ if(cmd==="divorce"){
     }
 
     if(cmd==="quote"){
-      // 1.5 second per-user cooldown
+      // 1.5 second per user cooldown
       const now_q = Date.now();
       const last_q = quoteCooldown.get(interaction.user.id) || 0;
       if (now_q - last_q < 1500) {
         return safeReply(interaction, { content: "⏳ Slow down! You can only use `/quote` once every 1.5 seconds.", ephemeral: true });
       }
       quoteCooldown.set(interaction.user.id, now_q);
-      try { await interaction.deferReply(); } catch { /* user-install context on foreign server — reply will still work */ }
+      try { await interaction.deferReply(); } catch { /* user-install context on foreign server - reply will still work */ }
       try {
         const chosen = await nextQuoteImage();
         if(!chosen) return safeReply(interaction, "Couldn't load quotes right now.");
@@ -9215,7 +9232,7 @@ if(cmd==="divorce"){
       }
     }
 
-    // ── /goodquote — higher-rated quote ──────────────────────────────────────
+    // ── /goodquote: higher rated quote ──────────────────────────────────────
     if(cmd==="goodquote"){
       const now_q = Date.now();
       const last_q = quoteCooldown.get(interaction.user.id) || 0;
@@ -9252,7 +9269,7 @@ if(cmd==="divorce"){
       }
     }
 
-    // ── /badquote — lower-rated quote ────────────────────────────────────────
+    // ── /badquote: lower rated quote ────────────────────────────────────────
     if(cmd==="badquote"){
       const now_q = Date.now();
       const last_q = quoteCooldown.get(interaction.user.id) || 0;
@@ -9301,7 +9318,7 @@ if(cmd==="divorce"){
   let replyTarget = null;
   if(replyToId){
     replyTarget = await targetCh.messages.fetch(replyToId).catch(()=>null);
-    if(!replyTarget) await interaction.followUp({content:`⚠️ Message ID \`${replyToId}\` not found — sending normally.`,ephemeral:true});
+    if(!replyTarget) await interaction.followUp({content:`⚠️ Message ID \`${replyToId}\` not found: sending normally.`,ephemeral:true});
   }
   let resolvedColor = 0x5865F2;
   if(colorHex){const cleaned=colorHex.replace(/^#/,"");const parsed=parseInt(cleaned,16);if(!isNaN(parsed))resolvedColor=parsed;}
@@ -9335,9 +9352,9 @@ if(cmd==="divorce"){
       const channel = interaction.channel;
 
       const parsed = parseScheduleTime(timeStr);
-      if(!parsed)return safeReply(interaction,{content:"❌ Couldn't understand that time — try something like `5 hours`, `2 days`, `1 week`, or `1 month`.",ephemeral:true});
+      if(!parsed)return safeReply(interaction,{content:"❌ Couldn't understand that time: try something like `5 hours`, `2 days`, `1 week`, or `1 month`.",ephemeral:true});
       if(!content)return safeReply(interaction,{content:"❌ Provide a message to send later.",ephemeral:true});
-      if(content.length>1900)return safeReply(interaction,{content:"❌ Message is too long — please keep it under 1900 characters.",ephemeral:true});
+      if(content.length>1900)return safeReply(interaction,{content:"❌ Message is too long: please keep it under 1900 characters.",ephemeral:true});
       if(inGuild){
         const perms=channel.permissionsFor?.(interaction.guild.members.me);
         if(perms && (!perms.has("MANAGE_WEBHOOKS")||!perms.has("VIEW_CHANNEL")))
@@ -9397,7 +9414,7 @@ if(cmd==="divorce"){
       saveData();
 
       const hrsLabel = hours === Math.floor(hours) ? `${hours}h` : `${hours}h`;
-      return safeReply(interaction,{content:`🎬 Premiere countdown started in <#${channel.id}>!\n**${title}** drops in **${hrsLabel}** — the bar updates every 30 minutes.`,ephemeral:true});
+      return safeReply(interaction,{content:`🎬 Premiere countdown started in <#${channel.id}>!\n**${title}** drops in **${hrsLabel}**: the bar updates every 30 minutes.`,ephemeral:true});
     }
 
     if(cmd==="serverinfo"){
@@ -9417,14 +9434,14 @@ if(cmd==="divorce"){
 
     if(cmd==="help"){
       const HELP_PAGES=[
-        {title:"🎉 Social & Utility  —  Page 1 / 8",description:["**Romance**","`/marry user:…` — Propose 💍 — target gets Accept/Decline buttons","`/divorce` — End the marriage 💔","`/partner [user]` — See who someone is married to","","**Media**","`/quote` — Inspirational quote image ✨","`/goodquote` — Top-rated quote image ⭐","`/badquote` — Bottom-rated quote image 💀","`/avatar user:…` — Get someone's avatar","","**Utility**","`/ping` — Bot latency 🏓","`/echo [message] [embed] [image] [title] [color] [replyto]` — Make the bot say something","`/remind time:… message:…` — Set a reminder (1 min – 1 week)","`/messageschedule time:… message:…` — Schedule a message to send later, as you, via webhook 📨 (e.g. `5 hours`, `2 days`, `1 week`, `1 month`)","`/premiere hours:… channel:… [title]` — Countdown to a video upload 🎬","`/upload source|link:…` — Upload an image/audio/video to the quotes folder 🖼️🔊🎬 *(authorized users)*","","**Info**","`/botinfo` — Bot stats","`/serverinfo` — Server member/channel/role info"].join("\n")},
-        {title:"📈 XP & Leaderboards  —  Page 2 / 8",description:["**XP**","You earn XP by sending messages (1 min cooldown). 5–15 XP per message.","Level formula: `floor(50 × level^1.5)` XP per level","","`/xp [user]` — Check XP, level, and progress bar","`/xpleaderboard [scope:global|server]` — Top 10 by XP","","**Stats & Leaderboards**","`/score [user]` — Wins, losses, win rate, streak","`/leaderboard [type]` — Global top 10","`/serverleaderboard [type]` — Server top 10","> Types: `wins` `coins` `streak` `beststreak` `games` `winrate` `images`"].join("\n")},
-        {title:"⚙️ Server Config  —  Page 3 / 8",description:["Most commands here require **Manage Server** permission.","","**Channels & Messages**","`/channelpicker channel:… [levelup]` — Set the bot's main channel","`/xpconfig setting:…` — Level-up messages (on/off, ping toggle, channel)","`/setwelcome channel:… [message]` — Welcome message (`{user}` `{server}` `{count}`)","`/setleave channel:… [message]` — Leave message","`/setboostmsg channel:… [message]` — Boost announcement","`/disableownermsg enabled:…` — Toggle bot owner broadcasts","`/purge amount:…` — Bulk delete (needs Manage Messages)","`/counting action:set|remove|status` — Set a permanent counting channel","","**Roles**","`/autorole [role]` — Auto-assign role on join (blank to disable)","`/reactionrole action:add|remove|list …` — Emoji reaction roles","`/rolespingfix` — List & fix roles that can @everyone","","**Competitions & Tickets**","`/invitecomp hours:…` — Invite competition with coin rewards","`/ticketsetup` · `/closeticket` · `/addtoticket` · `/removefromticket`","","**Overview**","`/serverconfig` — View all current settings"].join("\n")},
-        {title:"🛡️ Activity & RA/LOA  —  Page 4 / 8",description:["**Activity Checks** *(Manage Server)*","`/activity-check channel:… [deadline] [message] [ping] [schedule]` — Send a check-in to staff","> Specify which roles must respond and who is excluded","> Auto-closes after the deadline and reports who didn't check in","> Add `schedule:Monday 09:00` (UTC) to repeat it weekly automatically","","**RA / LOA Setup** *(Manage Server)*","`/raconfig action:create` — Auto-create Reduced Activity + LOA roles","`/raconfig action:set_ra|set_loa role:…` — Use existing roles","`/raconfig action:view` — See current config","","**Assigning Roles**","`/staffrole type:ra|loa user:… action:give|remove [duration]` — Give/remove RA or LOA role","> `duration` is in hours — omit for permanent"].join("\n")},
-        {title:"📺 YouTube Tracking  —  Page 5 / 8",description:["Track a YouTube channel's subscriber count live in Discord.","All commands require **Manage Server** permission.","","**Setup (do this first)**","`/ytsetup channel:… discord_channel:… [apikey:…]` — Connect a YouTube channel","> Accepts `@handle`, full URL, or channel ID starting with UC","> Provide your YouTube Data API v3 key on first use — it's saved to botdata","> Get a free key at console.cloud.google.com → enable YouTube Data API v3","","**Live Sub Count**","`/subcount threshold:1K|10K` — Post an embed that edits itself every 5 min","","**Sub Goal**","`/subgoal goal:N [message]` — Live progress bar towards a target sub count","> Fires a custom or default message when the goal is reached","","**Milestones**","`/milestones action:add subs:N [message]` — Announce when a sub count is crossed","`/milestones action:remove subs:N` — Remove a milestone","`/milestones action:list` — View all milestones and their status"].join("\n")},
-        {title:"🤖 Community Modes  —  Page 6 / 8",description:["Clankerify replaces a user's messages with a webhook impersonating them in a chosen personality.","","**For Everyone**","`/selfclank duration:1-5` — Clankerify yourself for 1–5 min with any mode","> Choose from built-in modes or any custom modes players have built","> Max 2 self-clanked users per server at once","> `/selfclank duration:0` to cancel early","","**Built-in Modes**","🤖 No mode (plain) · 😈 Evil · 😏 Freaky · 🦅 American · 🫖 British","🪖 Stupid · 📰 Boomer · 🔺 Conspiracy · 🗺️ NPC · 😤 Sigma","⚔️ Medieval · 👻 Ghost · 🏴‍☠️ Pirate · 🦝 RespawnRaccoon Propaganda","🇫🇷 French · 🐱 UWU/LOLCAT · 🎲 Random","","**Custom Modes** — anyone can build one with `/clankerbuild`","`/clankerbuild action:create name:<id>` — Opens a builder modal with:","  • Display name format (`{name}` = the user's name)","  • Word replacements (`Test>Test2; friend>pardner, …`)","  • Signoffs (`yeehaw!;much obliged;git along now`)","  • Message start prefix","  • Emoji shown in the mode selector","`/clankerbuild action:list` — View all custom modes","`/clankerbuild action:delete name:<id>` — Remove a custom mode","","Custom modes appear automatically in the `/clankerify` and `/selfclank` dropdowns."].join("\n")},
-        {title:"🖼️ Media & Quotes  —  Page 7 / 8",description:["**Quotes Folder**","`/upload source|link:…` — Upload an image/audio/video *(authorized users)*","`/requestupload source:…` — Submit a file to be reviewed for the quotes folder","`/managememers action:add|remove|list [user]` — [Owner] Manage the upload allowlist","`/quotemanage …` — [Owner] Browse, delete, and configure the quotes folder","`/dailyquote action:set|disable|status [channel] [hour]` — Auto-post a daily quote (Manage Server)","`/library user:… [page]` — Browse a user's uploaded quotes","","**Other Media Tools**","`/pixeltxt action:structure|destructure file:…` — Convert an image to/from a compressed text format","`/jarvisdatabase source:… name:…` — Upload a trigger image/gif/video straight to the Jarvis folder","`/download url:… [format] [resolution]` — Download a YouTube video as MP4 or MP3"].join("\n")},
-        {title:"🔒 Owner Tools  —  Page 8 / 8",description:["**Bot Management**","`/servers` — List servers & invite links","`/botstats` — Bot stats","`/setstatus text:… [type]` — Set bot presence","`/restart` — Restart the bot","`/refreshcmds` — Force re-register slash commands in this guild","`/adminconfig [key] [value]` — View/edit global config values","","**User & Server Actions**","`/forcemarry user1:… user2:…` — Force marry two users","`/forcedivorce user:…` — Force divorce a user","`/leaveserver server:…` — Leave a server","`/blacklist [user]` — Interactive picker: block a user from specific commands, or Full Blacklist","`/shadowdelete user:… percentage:…` — Randomly delete a % of a user's messages","`/clankerify user:… [duration]` — Resend a user's messages as a webhook impersonating them","`/impersonation user:… [as_user] [pfp] [name] [mode] [duration]` — Like clankerify, but resend as someone/something else","`/thecount user:…` — Open a queue channel for a user; messages sent there wait until /send","`/send` — Deliver everything queued in every /thecount channel to their respective users","`/paranoia user:… [chance]` — DM a user creepy paranoia messages","`/fakemessage user:… [message] [file] [mode]` — Send a message as another user via webhook","`/fakequote user:… text:… [displayname] [username]` — Generate a 'Make it a Quote' style card","`/theremnant message:…` — Send a mysterious dimensional transmission","`/jarvisenhance action:… name:…` — Build a custom Jarvis trigger word (categorized: Clankerify, Moderation, Messaging, Broadcast): say it while replying to run a chain of actions in order, mode/duration picked with no typing, and blank text fields auto-fill from whatever you say after the trigger word","","**Access & Relay**","`/tempowner user:… duration:… [commands]` — Grant a user temporary owner access","`/dmconfig [server] [user]` — Set up the DM relay hub or open a relay channel"].join("\n")},
+        {title:"🎉 Social & Utility :  Page 1 / 8",description:["**Romance**","`/marry user:…`: Propose 💍: target gets Accept/Decline buttons","`/divorce`: End the marriage 💔","`/partner [user]`: See who someone is married to","","**Media**","`/quote`: Inspirational quote image ✨","`/goodquote`: Top rated quote image ⭐","`/badquote`: Bottom rated quote image 💀","`/avatar user:…`: Get someone's avatar","","**Utility**","`/ping`: Bot latency 🏓","`/echo [message] [embed] [image] [title] [color] [replyto]`: Make the bot say something","`/remind time:… message:…`: Set a reminder (1 min – 1 week)","`/messageschedule time:… message:…`: Schedule a message to send later, as you, via webhook 📨 (e.g. `5 hours`, `2 days`, `1 week`, `1 month`)","`/premiere hours:… channel:… [title]`: Countdown to a video upload 🎬","`/upload source|link:…`: Upload an image/audio/video to the quotes folder 🖼️🔊🎬 *(authorized users)*","","**Info**","`/botinfo`: Bot stats","`/serverinfo`: Server member/channel/role info"].join("\n")},
+        {title:"📈 XP & Leaderboards :  Page 2 / 8",description:["**XP**","You earn XP by sending messages (1 min cooldown). 5–15 XP per message.","Level formula: `floor(50 × level^1.5)` XP per level","","`/xp [user]`: Check XP, level, and progress bar","`/xpleaderboard [scope:global|server]`: Top 10 by XP","","**Stats & Leaderboards**","`/score [user]`: Wins, losses, win rate, streak","`/leaderboard [type]`: Global top 10","`/serverleaderboard [type]`: Server top 10","> Types: `wins` `coins` `streak` `beststreak` `games` `winrate` `images`"].join("\n")},
+        {title:"⚙️ Server Config :  Page 3 / 8",description:["Most commands here require **Manage Server** permission.","","**Channels & Messages**","`/channelpicker channel:… [levelup]`: Set the bot's main channel","`/xpconfig setting:…`: Level up messages (on/off, ping toggle, channel)","`/setwelcome channel:… [message]`: Welcome message (`{user}` `{server}` `{count}`)","`/setleave channel:… [message]`: Leave message","`/setboostmsg channel:… [message]`: Boost announcement","`/disableownermsg enabled:…`: Toggle bot owner broadcasts","`/purge amount:…`: Bulk delete (needs Manage Messages)","`/counting action:set|remove|status`: Set a permanent counting channel","","**Roles**","`/autorole [role]`: Auto assign role on join (blank to disable)","`/reactionrole action:add|remove|list …`: Emoji reaction roles","`/rolespingfix`: List & fix roles that can @everyone","","**Competitions & Tickets**","`/invitecomp hours:…`: Invite competition with coin rewards","`/ticketsetup` · `/closeticket` · `/addtoticket` · `/removefromticket`","","**Overview**","`/serverconfig`: View all current settings"].join("\n")},
+        {title:"🛡️ Activity & RA/LOA :  Page 4 / 8",description:["**Activity Checks** *(Manage Server)*","`/activity-check channel:… [deadline] [message] [ping] [schedule]` - Send a check-in to staff","> Specify which roles must respond and who is excluded","> Auto closes after the deadline and reports who didn't check in","> Add `schedule:Monday 09:00` (UTC) to repeat it weekly automatically","","**RA / LOA Setup** *(Manage Server)*","`/raconfig action:create`: Auto create Reduced Activity + LOA roles","`/raconfig action:set_ra|set_loa role:…`: Use existing roles","`/raconfig action:view`: See current config","","**Assigning Roles**","`/staffrole type:ra|loa user:… action:give|remove [duration]`: Give/remove RA or LOA role","> `duration` is in hours: omit for permanent"].join("\n")},
+        {title:"📺 YouTube Tracking :  Page 5 / 8",description:["Track a YouTube channel's subscriber count live in Discord.","All commands require **Manage Server** permission.","","**Setup (do this first)**","`/ytsetup channel:… discord_channel:… [apikey:…]`: Connect a YouTube channel","> Accepts `@handle`, full URL, or channel ID starting with UC","> Provide your YouTube Data API v3 key on first use: it's saved to botdata","> Get a free key at console.cloud.google.com → enable YouTube Data API v3","","**Live Sub Count**","`/subcount threshold:1K|10K`: Post an embed that edits itself every 5 min","","**Sub Goal**","`/subgoal goal:N [message]`: Live progress bar towards a target sub count","> Fires a custom or default message when the goal is reached","","**Milestones**","`/milestones action:add subs:N [message]`: Announce when a sub count is crossed","`/milestones action:remove subs:N`: Remove a milestone","`/milestones action:list`: View all milestones and their status"].join("\n")},
+        {title:"🤖 Community Modes :  Page 6 / 8",description:["Clankerify replaces a user's messages with a webhook impersonating them in a chosen personality.","","**For Everyone**","`/selfclank duration:1 to 5`: Clankerify yourself for 1–5 min with any mode","> Choose from built in modes or any custom modes players have built","> Max 2 selfclanked users per server at once","> `/selfclank duration:0` to cancel early","","**Built-in Modes**","🤖 No mode (plain) · 😈 Evil · 😏 Freaky · 🦅 American · 🫖 British","🪖 Stupid · 📰 Boomer · 🔺 Conspiracy · 🗺️ NPC · 😤 Sigma","⚔️ Medieval · 👻 Ghost · 🏴‍☠️ Pirate · 🦝 RespawnRaccoon Propaganda","🇫🇷 French · 🐱 UWU/LOLCAT · 🎲 Random","","**Custom Modes**: anyone can build one with `/clankerbuild`","`/clankerbuild action:create name:<id>`: Opens a builder modal with:","  • Display name format (`{name}` = the user's name)","  • Word replacements (`Test>Test2; friend>pardner, …`)","  • Signoffs (`yeehaw!;much obliged;git along now`)","  • Message start prefix","  • Emoji shown in the mode selector","`/clankerbuild action:list`: View all custom modes","`/clankerbuild action:delete name:<id>`: Remove a custom mode","","Custom modes appear automatically in the `/clankerify` and `/selfclank` dropdowns."].join("\n")},
+        {title:"🖼️ Media & Quotes :  Page 7 / 8",description:["**Quotes Folder**","`/upload source|link:…`: Upload an image/audio/video *(authorized users)*","`/requestupload source:…`: Submit a file to be reviewed for the quotes folder","`/managememers action:add|remove|list [user]`: [Owner] Manage the upload allowlist","`/quotemanage …`: [Owner] Browse, delete, and configure the quotes folder","`/dailyquote action:set|disable|status [channel] [hour]`: Auto post a daily quote (Manage Server)","`/library user:… [page]`: Browse a user's uploaded quotes","","**Other Media Tools**","`/pixeltxt action:structure|destructure file:…`: Convert an image to/from a compressed text format","`/jarvisdatabase source:… name:…`: Upload a trigger image/gif/video straight to the Jarvis folder","`/download url:… [format] [resolution]`: Download a YouTube video as MP4 or MP3"].join("\n")},
+        {title:"🔒 Owner Tools :  Page 8 / 8",description:["**Bot Management**","`/servers`: List servers & invite links","`/botstats`: Bot stats","`/setstatus text:… [type]`: Set bot presence","`/restart`: Restart the bot","`/refreshcmds`: Force reregister slash commands in this guild","`/adminconfig [key] [value]`: View/edit global config values","","**User & Server Actions**","`/forcemarry user1:… user2:…`: Force marry two users","`/forcedivorce user:…`: Force divorce a user","`/leaveserver server:…`: Leave a server","`/blacklist [user]`: Interactive picker: block a user from specific commands, or Full Blacklist","`/shadowdelete user:… percentage:…`: Randomly delete a % of a user's messages","`/clankerify user:… [duration]`: Resend a user's messages as a webhook impersonating them","`/impersonation user:… [as_user] [pfp] [name] [mode] [duration]`: Like clankerify, but resend as someone/something else","`/thecount user:…`: Open a queue channel for a user; messages sent there wait until /send","`/send`: Deliver everything queued in every /thecount channel to their respective users","`/paranoia user:… [chance]`: DM a user creepy paranoia messages","`/fakemessage user:… [message] [file] [mode]`: Send a message as another user via webhook","`/fakequote user:… text:… [displayname] [username]`: Generate a 'Make it a Quote' style card","`/theremnant message:…`: Send a mysterious dimensional transmission","`/jarvisenhance action:… name:…`: Build a custom Jarvis trigger word (categorized: Clankerify, Moderation, Messaging, Broadcast): say it while replying to run a chain of actions in order, mode/duration picked with no typing, and blank text fields autofill from whatever you say after the trigger word","","**Access & Relay**","`/tempowner user:… duration:… [commands]`: Grant a user temporary owner access","`/dmconfig [server] [user]`: Set up the DM relay hub or open a relay channel"].join("\n")},
       ];
       const TOTAL=HELP_PAGES.length;
       function buildHelpEmbed(page){
@@ -9457,7 +9474,7 @@ if(cmd==="divorce"){
       const totalXP=([,s])=>{let t=0,lv=s.level||1;for(let i=1;i<lv;i++)t+=Math.floor(50*Math.pow(i,1.5));return t+(s.xp||0);};
       const sorted=[...entries].sort((a,b)=>totalXP(b)-totalXP(a)).slice(0,10);
       const medals=["🥇","🥈","🥉"];
-      return safeReply(interaction,`**${scope==="server"?`🏠 ${interaction.guild?.name}`:"🌍 Global"} — XP Leaderboard**\n\n${sorted.map((e,i)=>`${medals[i]||`${i+1}.`} **${e[1].username}** — Level **${e[1].level||1}** (${e[1].xp||0} XP)`).join("\n")}`);
+      return safeReply(interaction,`**${scope==="server"?`🏠 ${interaction.guild?.name}`:"🌍 Global"}: XP Leaderboard**\n\n${sorted.map((e,i)=>`${medals[i]||`${i+1}.`} **${e[1].username}**: Level **${e[1].level||1}** (${e[1].xp||0} XP)`).join("\n")}`);
     }
 
     // Scores
@@ -9468,16 +9485,16 @@ if(cmd==="divorce"){
     }
     function buildLeaderboard(entries,type,titlePrefix){
       let sorted,title,fmt;
-      if(type==="coins"){sorted=[...entries].sort(([,a],[,b])=>b.coins-a.coins);title=`${titlePrefix} — Coins 💰`;fmt=([,s])=>`${s.coins} coins`;}
-      else if(type==="streak"){sorted=[...entries].sort(([,a],[,b])=>b.dailyStreak-a.dailyStreak);title=`${titlePrefix} — Daily Streak 🔥`;fmt=([,s])=>`${s.dailyStreak} day streak`;}
-      else if(type==="games"){sorted=[...entries].sort(([,a],[,b])=>b.gamesPlayed-a.gamesPlayed);title=`${titlePrefix} — Games Played 🎮`;fmt=([,s])=>`${s.gamesPlayed} games`;}
-      else if(type==="winrate"){sorted=entries.filter(([,s])=>s.gamesPlayed>=5).sort(([,a],[,b])=>(b.wins/b.gamesPlayed)-(a.wins/a.gamesPlayed));title=`${titlePrefix} — Win Rate % (min 5)`;fmt=([,s])=>`${Math.round(s.wins/s.gamesPlayed*100)}%`;}
-      else if(type==="beststreak"){sorted=[...entries].sort(([,a],[,b])=>b.bestStreak-a.bestStreak);title=`${titlePrefix} — Best Streak 🏅`;fmt=([,s])=>`${s.bestStreak} day best`;}
-      else if(type==="images"){sorted=[...entries].sort(([,a],[,b])=>(b.imagesUploaded||0)-(a.imagesUploaded||0));title=`${titlePrefix} — Images Uploaded 🖼️`;fmt=([,s])=>`${s.imagesUploaded||0} image${(s.imagesUploaded||0)!==1?"s":""}`;}
-      else{sorted=[...entries].sort(([,a],[,b])=>b.wins-a.wins);title=`${titlePrefix} — Wins`;fmt=([,s])=>`${s.wins} wins (${s.gamesPlayed} played)`;}
+      if(type==="coins"){sorted=[...entries].sort(([,a],[,b])=>b.coins-a.coins);title=`${titlePrefix}: Coins 💰`;fmt=([,s])=>`${s.coins} coins`;}
+      else if(type==="streak"){sorted=[...entries].sort(([,a],[,b])=>b.dailyStreak-a.dailyStreak);title=`${titlePrefix}: Daily Streak 🔥`;fmt=([,s])=>`${s.dailyStreak} day streak`;}
+      else if(type==="games"){sorted=[...entries].sort(([,a],[,b])=>b.gamesPlayed-a.gamesPlayed);title=`${titlePrefix}: Games Played 🎮`;fmt=([,s])=>`${s.gamesPlayed} games`;}
+      else if(type==="winrate"){sorted=entries.filter(([,s])=>s.gamesPlayed>=5).sort(([,a],[,b])=>(b.wins/b.gamesPlayed)-(a.wins/a.gamesPlayed));title=`${titlePrefix}: Win Rate % (min 5)`;fmt=([,s])=>`${Math.round(s.wins/s.gamesPlayed*100)}%`;}
+      else if(type==="beststreak"){sorted=[...entries].sort(([,a],[,b])=>b.bestStreak-a.bestStreak);title=`${titlePrefix}: Best Streak 🏅`;fmt=([,s])=>`${s.bestStreak} day best`;}
+      else if(type==="images"){sorted=[...entries].sort(([,a],[,b])=>(b.imagesUploaded||0)-(a.imagesUploaded||0));title=`${titlePrefix}: Images Uploaded 🖼️`;fmt=([,s])=>`${s.imagesUploaded||0} image${(s.imagesUploaded||0)!==1?"s":""}`;}
+      else{sorted=[...entries].sort(([,a],[,b])=>b.wins-a.wins);title=`${titlePrefix} - Wins`;fmt=([,s])=>`${s.wins} wins (${s.gamesPlayed} played)`;}
       const medals=["🥇","🥈","🥉"],top=sorted.slice(0,10);
       if(!top.length)return"Not enough data yet.";
-      return`**${title}**\n\n${top.map((e,i)=>`${medals[i]||`${i+1}.`} **${e[1].username}** — ${fmt(e)}`).join("\n")}`;
+      return`**${title}**\n\n${top.map((e,i)=>`${medals[i]||`${i+1}.`} **${e[1].username}** - ${fmt(e)}`).join("\n")}`;
     }
     if(cmd==="leaderboard"){const type=interaction.options.getString("type")||"wins";const entries=[...scores.entries()];if(!entries.length)return safeReply(interaction,"No scores yet!");return safeReply(interaction,buildLeaderboard(entries,type,"🌍 Global"));}
     if(cmd==="serverleaderboard"){
@@ -9496,8 +9513,8 @@ if(cmd==="divorce"){
       if(ch.type!=="GUILD_TEXT")return safeReply(interaction,{content:"Select a text channel.",ephemeral:true});
       guildChannels.set(interaction.guildId,ch.id);saveData();
       const levelupOpt=interaction.options.getBoolean("levelup");
-      if(levelupOpt===false){disabledLevelUp.add(interaction.guildId);saveData();return safeReply(interaction,{content:`✅ Bot channel → <#${ch.id}>\n🔇 Level-up notifications **disabled**.`,ephemeral:true});}
-      else{disabledLevelUp.delete(interaction.guildId);saveData();return safeReply(interaction,{content:`✅ Bot channel → <#${ch.id}>\n🔔 Level-up notifications **enabled**.`,ephemeral:true});}
+      if(levelupOpt===false){disabledLevelUp.add(interaction.guildId);saveData();return safeReply(interaction,{content:`✅ Bot channel → <#${ch.id}>\n🔇 Level up notifications **disabled**.`,ephemeral:true});}
+      else{disabledLevelUp.delete(interaction.guildId);saveData();return safeReply(interaction,{content:`✅ Bot channel → <#${ch.id}>\n🔔 Level up notifications **enabled**.`,ephemeral:true});}
     }
 
     if(cmd==="counting"){
@@ -9511,7 +9528,7 @@ if(cmd==="divorce"){
         }
         countingChannels.set(chId,{guildId:interaction.guildId,count:0,lastUserId:null,highScore:0});
         saveData();
-        return safeReply(interaction,`🔢 **Counting channel activated!**\n\nThis channel is now a counting channel. Start counting from **1**!\n\n> Numbers only — count one at a time, no counting twice in a row.\n> Mess up and the count resets back to **0**.`);
+        return safeReply(interaction,`🔢 **Counting channel activated!**\n\nThis channel is now a counting channel. Start counting from **1**!\n\n> Numbers only: count one at a time, no counting twice in a row.\n> Mess up and the count resets back to **0**.`);
       }
       if(action==="remove"){
         if(!countingChannels.has(chId))return safeReply(interaction,{content:"This channel is not a counting channel.",ephemeral:true});
@@ -9531,7 +9548,7 @@ if(cmd==="divorce"){
       const setting=interaction.options.getString("setting");
       const guildId=interaction.guildId;
 
-      // Get or create per-guild level-up config, seeding from legacy disabledLevelUp
+      // Get or create per guild level up config, seeding from legacy disabledLevelUp
       function getLUC(){
         if(!levelUpConfig.has(guildId)){
           levelUpConfig.set(guildId,{
@@ -9549,13 +9566,13 @@ if(cmd==="divorce"){
           ?`<#${c.channelId}>`
           :guildChannels.get(guildId)
             ?`<#${guildChannels.get(guildId)}> *(bot channel fallback)*`
-            :"*(same channel as the levelled-up message)*";
+            :"*(same channel as the levelled up message)*";
         return safeReply(interaction,{
           embeds:[{
-            title:"⚙️ Level-up Notification Config",
+            title:"⚙️ Level up Notification Config",
             description:[
               `**Messages enabled:** ${c.enabled?"✅ Yes":"❌ No"}`,
-              `**@Mention ping:**    ${c.ping?"✅ Yes":"❌ No — shows username only"}`,
+              `**@Mention ping:**    ${c.ping?"✅ Yes":"❌ No: shows username only"}`,
               `**Channel:**          ${chStr}`,
               ``,
               "Use `/xpconfig setting:<option>` to change any setting.",
@@ -9568,35 +9585,35 @@ if(cmd==="divorce"){
       if(setting==="enable"){
         const c=getLUC();c.enabled=true;
         disabledLevelUp.delete(guildId);saveData();
-        return safeReply(interaction,{content:"✅ Level-up messages **enabled**.",ephemeral:true});
+        return safeReply(interaction,{content:"✅ Level up messages **enabled**.",ephemeral:true});
       }
       if(setting==="disable"){
         const c=getLUC();c.enabled=false;
         disabledLevelUp.add(guildId);saveData();
-        return safeReply(interaction,{content:"🔇 Level-up messages **disabled**.",ephemeral:true});
+        return safeReply(interaction,{content:"🔇 Level up messages **disabled**.",ephemeral:true});
       }
       if(setting==="ping_on"){
         const c=getLUC();c.ping=true;saveData();
-        return safeReply(interaction,{content:"✅ Level-up messages will now **@mention** the user.",ephemeral:true});
+        return safeReply(interaction,{content:"✅ Level up messages will now **@mention** the user.",ephemeral:true});
       }
       if(setting==="ping_off"){
         const c=getLUC();c.ping=false;saveData();
-        return safeReply(interaction,{content:"✅ Level-up messages will now show the **username without pinging**.",ephemeral:true});
+        return safeReply(interaction,{content:"✅ Level up messages will now show the **username without pinging**.",ephemeral:true});
       }
       if(setting==="set_channel"){
         const ch=interaction.options.getChannel("channel");
         if(!ch)return safeReply(interaction,{content:"❌ Please also select a `channel`.",ephemeral:true});
         if(ch.type!=="GUILD_TEXT")return safeReply(interaction,{content:"❌ Must be a text channel.",ephemeral:true});
         const c=getLUC();c.channelId=ch.id;saveData();
-        return safeReply(interaction,{content:`✅ Level-up messages will be sent to <#${ch.id}>.`,ephemeral:true});
+        return safeReply(interaction,{content:`✅ Level up messages will be sent to <#${ch.id}>.`,ephemeral:true});
       }
       if(setting==="reset_channel"){
         const c=getLUC();c.channelId=null;saveData();
         const fallback=guildChannels.get(guildId);
         return safeReply(interaction,{
           content:fallback
-            ?`✅ Channel reset — will fall back to <#${fallback}> (bot channel).`
-            :"✅ Channel reset — messages will be sent in the same channel as the levelled-up message.",
+            ?`✅ Channel reset: will fall back to <#${fallback}> (bot channel).`
+            :"✅ Channel reset: messages will be sent in the same channel as the levelled up message.",
           ephemeral:true,
         });
       }
@@ -9627,7 +9644,7 @@ if(cmd==="divorce"){
     // Owner commands
     if(cmd==="servers"){
       await interaction.deferReply({ephemeral:true});let text="";
-      for(const g of client.guilds.cache.values()){try{const ch=g.channels.cache.find(c=>c.type==="GUILD_TEXT"&&g.members.me&&c.permissionsFor(g.members.me).has("CREATE_INSTANT_INVITE"));if(ch){const inv=await ch.createInvite({maxAge:0});text+=`${g.name} — ${inv.url}\n`;}else text+=`${g.name} — no invite perms\n`;}catch{text+=`${g.name} — error\n`;}if(text.length>1800){text+="…and more";break;}}
+      for(const g of client.guilds.cache.values()){try{const ch=g.channels.cache.find(c=>c.type==="GUILD_TEXT"&&g.members.me&&c.permissionsFor(g.members.me).has("CREATE_INSTANT_INVITE"));if(ch){const inv=await ch.createInvite({maxAge:0});text+=`${g.name} - ${inv.url}\n`;}else text+=`${g.name}: no invite perms\n`;}catch{text+=`${g.name} - error\n`;}if(text.length>1800){text+="…and more";break;}}
       return safeReply(interaction,text||"No servers");
     }
     if(cmd==="botstats"){
@@ -9667,7 +9684,7 @@ if(cmd==="divorce"){
       }
 
       // ── Open (or point back to) a user's relay channel ──────────────────────
-      if(!dmRelayGuildId) return safeReply(interaction,{content:"❌ No relay hub set yet — run `/dmconfig server:<id>` first.",ephemeral:true});
+      if(!dmRelayGuildId) return safeReply(interaction,{content:"❌ No relay hub set yet: run `/dmconfig server:<id>` first.",ephemeral:true});
       const hubGuild = client.guilds.cache.get(dmRelayGuildId);
       if(!hubGuild) return safeReply(interaction,{content:`❌ I'm no longer in the configured hub server (\`${dmRelayGuildId}\`). Run \`/dmconfig server:<id>\` again.`,ephemeral:true});
 
@@ -9710,14 +9727,14 @@ if(cmd==="divorce"){
         else if(resolvedFakeMode==="british"){ fakeDisplayName=`${fakeDisplayName} innit`; if(fakeContent){ const bs=[[/trash/gi,"rubbish"],[/elevator/gi,"lift"],[/apartment/gi,"flat"],[/cookies/gi,"biscuits"],[/candy/gi,"sweets"],[/chips/gi,"crisps"],[/fries/gi,"chips"],[/phone/gi,"mobile"],[/sidewalk/gi,"pavement"],[/gas/gi,"petrol"],[/vacation/gi,"holiday"],[/soccer/gi,"football"],[/store/gi,"shop"],[/pants/gi,"trousers"],[/beer/gi,"lager"],[/drunk/gi,"bladdered"],[/bar/gi,"pub"],[/friend/gi,"mate"],[/guy/gi,"bloke"],[/dude/gi,"geezer"],[/man/gi,"lad"],[/girl/gi,"lass"],[/okay/gi,"alright"],[/yes/gi,"aye"],[/yeah/gi,"aye"],[/no/gi,"nah"],[/thanks/gi,"cheers"],[/sorry/gi,"sorry mate"]]; let t=fakeContent; for(const [f,r] of bs) t=t.replace(f,r); fakeContent=t+" innit bruv"; } }
         else if(resolvedFakeMode==="stupid"){ if(fakeContent){ const sl=[[/th/gi,"d"],[/ing/gi,"in"],[/you/gi,"u"],[/your/gi,"ur"],[/the/gi,"da"],[/that/gi,"dat"],[/this/gi,"dis"],[/what/gi,"wut"],[/because/gi,"cuz"],[/s/gi,"z"],[/I/g,"i"]]; let t=fakeContent; for(const [f,r] of sl) t=t.replace(f,r); fakeContent=t; } }
         else if(resolvedFakeMode==="boomer"){ fakeDisplayName=`${fakeDisplayName} (Bob's dad)`; if(fakeContent){ const bo=[[/lol/gi,"LOL (laugh out loud)"],[/omg/gi,"OH MY GOD"],[/btw/gi,"by the way"],[/idk/gi,"I don't know"],[/tbh/gi,"to be honest"],[/smh/gi,"shaking my head"],[/fr/gi,"for real"],[/based/gi,"sensible"],[/cringe/gi,"embarrassing"],[/slay/gi,"good job"],[/vibe/gi,"feeling"],[/sus/gi,"suspicious"]]; let t=fakeContent; for(const [f,r] of bo) t=t.replace(f,r); const out=[" Anyway, have you tried turning it off and on again? 📧"," Back in MY day we didn't have this nonsense. 📰"," Is this the Reddit? 🖱️"," Make sure to LIKE and SUBSCRIBE!! 👍"]; fakeContent=t+out[Math.floor(Math.random()*out.length)]; } }
-        else if(resolvedFakeMode==="conspiracy"){ fakeDisplayName=`🔺 ${fakeDisplayName} [AWAKE]`; if(fakeContent){ const th=[" (the government doesn't want you to know this)"," — wake up sheeple 🐑"," — do your own research before they delete this"," (they're putting something in the water btw)"," — the lizard people are FURIOUS about it"]; const pr=["okay so nobody is talking about this but ","THEY don't want you to know: ","i've been doing research and ","connect the dots people — "]; fakeContent=pr[Math.floor(Math.random()*pr.length)]+fakeContent+th[Math.floor(Math.random()*th.length)]; } }
-        else if(resolvedFakeMode==="npc"){ fakeDisplayName=`${fakeDisplayName} [NPC #${Math.floor(Math.random()*9999)+1}]`; if(fakeContent){ const np=["Ah, a traveler! Anyway — ","Quest updated: ","Strange things have been happening. Also, ","You didn't hear this from me, but "]; const ns=[" Have you tried the items at the general store?"," I don't want any trouble."," Good luck out there, traveler."," [NPC wanders off]"]; fakeContent=np[Math.floor(Math.random()*np.length)]+fakeContent+ns[Math.floor(Math.random()*ns.length)]; } else fakeContent="...*stares into the distance*"; }
-        else if(resolvedFakeMode==="sigma"){ fakeDisplayName=`Σ ${fakeDisplayName}`; if(fakeContent){ const ss=[[/i/gi,"the sigma"],[/me/gi,"the sigma"],[/my/gi,"the sigma's"],[/you/gi,"fellow grindset individual"],[/friend/gi,"business associate"],[/love/gi,"strategically value"],[/work/gi,"the grindset"],[/money/gi,"resources"]]; let t=fakeContent; for(const [f,r] of ss) t=t.replace(f,r); const so=[" — no cap, stay sigma."," — the grindset never stops."," — lions don't lose sleep over sheep."]; fakeContent=t+so[Math.floor(Math.random()*so.length)]; } }
-        else if(resolvedFakeMode==="medieval"){ fakeDisplayName=`Sir ${fakeDisplayName} of the Realm`; if(fakeContent){ const ms=[[/you/gi,"thee"],[/your/gi,"thy"],[/the/gi,"ye"],[/are/gi,"art"],[/is/gi,"ist"],[/yes/gi,"verily"],[/no/gi,"nay"],[/hi/gi,"hail"],[/hello/gi,"good morrow"],[/sorry/gi,"I beseech thy forgiveness"],[/good/gi,"most virtuous"],[/bad/gi,"most foul"],[/friend/gi,"loyal companion"],[/omg/gi,"by the saints"]]; let t=fakeContent; for(const [f,r] of ms) t=t.replace(f,r); const mc=[" — so it is written, so it shall be done. ⚔️"," — hear ye, hear ye! 📯"," — upon mine honour. 🛡️"]; fakeContent=t+mc[Math.floor(Math.random()*mc.length)]; } }
-        else if(resolvedFakeMode==="ghost"){ fakeDisplayName=`👻 ${fakeDisplayName}'s Ghost`; if(fakeContent){ const gh=["...you won't believe what happened to me. I died. anyway — ","speaking from beyond the grave: ","i have UNFINISHED BUSINESS and it is: "]; const go=[" ...tell my family i said hey 👻"," ...i keep moving the furniture and nobody notices."," ...RIP me btw 💀 (literally)"]; fakeContent=gh[Math.floor(Math.random()*gh.length)]+fakeContent+go[Math.floor(Math.random()*go.length)]; } else fakeContent="*rattles chains*"; }
+        else if(resolvedFakeMode==="conspiracy"){ fakeDisplayName=`🔺 ${fakeDisplayName} [AWAKE]`; if(fakeContent){ const th=[" (the government doesn't want you to know this)",": wake up sheeple 🐑",": do your own research before they delete this"," (they're putting something in the water btw)",": the lizard people are FURIOUS about it"]; const pr=["okay so nobody is talking about this but ","THEY don't want you to know: ","i've been doing research and ","connect the dots people: "]; fakeContent=pr[Math.floor(Math.random()*pr.length)]+fakeContent+th[Math.floor(Math.random()*th.length)]; } }
+        else if(resolvedFakeMode==="npc"){ fakeDisplayName=`${fakeDisplayName} [NPC #${Math.floor(Math.random()*9999)+1}]`; if(fakeContent){ const np=["Ah, a traveler! Anyway: ","Quest updated: ","Strange things have been happening. Also, ","You didn't hear this from me, but "]; const ns=[" Have you tried the items at the general store?"," I don't want any trouble."," Good luck out there, traveler."," [NPC wanders off]"]; fakeContent=np[Math.floor(Math.random()*np.length)]+fakeContent+ns[Math.floor(Math.random()*ns.length)]; } else fakeContent="...*stares into the distance*"; }
+        else if(resolvedFakeMode==="sigma"){ fakeDisplayName=`Σ ${fakeDisplayName}`; if(fakeContent){ const ss=[[/i/gi,"the sigma"],[/me/gi,"the sigma"],[/my/gi,"the sigma's"],[/you/gi,"fellow grindset individual"],[/friend/gi,"business associate"],[/love/gi,"strategically value"],[/work/gi,"the grindset"],[/money/gi,"resources"]]; let t=fakeContent; for(const [f,r] of ss) t=t.replace(f,r); const so=[": no cap, stay sigma.",": the grindset never stops.",": lions don't lose sleep over sheep."]; fakeContent=t+so[Math.floor(Math.random()*so.length)]; } }
+        else if(resolvedFakeMode==="medieval"){ fakeDisplayName=`Sir ${fakeDisplayName} of the Realm`; if(fakeContent){ const ms=[[/you/gi,"thee"],[/your/gi,"thy"],[/the/gi,"ye"],[/are/gi,"art"],[/is/gi,"ist"],[/yes/gi,"verily"],[/no/gi,"nay"],[/hi/gi,"hail"],[/hello/gi,"good morrow"],[/sorry/gi,"I beseech thy forgiveness"],[/good/gi,"most virtuous"],[/bad/gi,"most foul"],[/friend/gi,"loyal companion"],[/omg/gi,"by the saints"]]; let t=fakeContent; for(const [f,r] of ms) t=t.replace(f,r); const mc=[": so it is written, so it shall be done. ⚔️",": hear ye, hear ye! 📯",": upon mine honour. 🛡️"]; fakeContent=t+mc[Math.floor(Math.random()*mc.length)]; } }
+        else if(resolvedFakeMode==="ghost"){ fakeDisplayName=`👻 ${fakeDisplayName}'s Ghost`; if(fakeContent){ const gh=["...you won't believe what happened to me. I died. anyway: ","speaking from beyond the grave: ","i have UNFINISHED BUSINESS and it is: "]; const go=[" ...tell my family i said hey 👻"," ...i keep moving the furniture and nobody notices."," ...RIP me btw 💀 (literally)"]; fakeContent=gh[Math.floor(Math.random()*gh.length)]+fakeContent+go[Math.floor(Math.random()*go.length)]; } else fakeContent="*rattles chains*"; }
         else if(resolvedFakeMode==="pirate"){ fakeDisplayName=`🏴‍☠️ ${fakeDisplayName} (the Pirate)`; if(fakeContent){ const ps=[[/my/gi,"me"],[/you/gi,"ye"],[/your/gi,"yer"],[/the/gi,"th'"],[/is/gi,"be"],[/friend/gi,"matey"],[/hey/gi,"ahoy"],[/hi/gi,"ahoy"],[/hello/gi,"ahoy"],[/yes/gi,"aye"],[/yeah/gi,"aye"],[/no/gi,"nay"],[/man/gi,"landlubber"],[/good/gi,"fine"],[/bad/gi,"foul"]]; let t=fakeContent; for(const [f,r] of ps) t=t.replace(f,r); const pi=[" arr!"," shiver me timbers!"," by Davy Jones!"," yo ho!"]; if(Math.random()<0.7) t+=pi[Math.floor(Math.random()*pi.length)]; fakeContent=t; } else fakeContent="arr... *stares into the horizon*"; }
         else if(resolvedFakeMode==="rr_propaganda"){ const rs=[" By the way, go sub to RespawnRaccoon!"," By the way, go sub to RespawnRaccoon! Here's his YouTube link: https://www.youtube.com/@respawnraccoon"," On my momma if you ain't subbed to RespawnRaccoon..."," By the way, do you know RespawnRaccoon?"]; fakeContent=(fakeContent||"")+rs[Math.floor(Math.random()*rs.length)]; }
-        else if(resolvedFakeMode==="french"){ fakeDisplayName=`${fakeDisplayName} 🇫🇷`; if(fakeContent){ const fs=[[/hello/gi,"bonjour"],[/hi/gi,"salut"],[/yes/gi,"oui"],[/yeah/gi,"oui oui"],[/no/gi,"non"],[/thanks/gi,"merci"],[/sorry/gi,"pardon"],[/good/gi,"magnifique"],[/friend/gi,"mon ami"],[/love/gi,"amour"],[/food/gi,"la cuisine"],[/wine/gi,"vin"]]; let t=fakeContent; for(const [f,r] of fs) t=t.replace(f,r); const fo=[" — c'est la vie 🥐"," — hon hon hon 🥖"," — sacré bleu!"," — voilà!"]; fakeContent=t+fo[Math.floor(Math.random()*fo.length)]; } else fakeContent="*shrugs elaborately* bof…"; }
+        else if(resolvedFakeMode==="french"){ fakeDisplayName=`${fakeDisplayName} 🇫🇷`; if(fakeContent){ const fs=[[/hello/gi,"bonjour"],[/hi/gi,"salut"],[/yes/gi,"oui"],[/yeah/gi,"oui oui"],[/no/gi,"non"],[/thanks/gi,"merci"],[/sorry/gi,"pardon"],[/good/gi,"magnifique"],[/friend/gi,"mon ami"],[/love/gi,"amour"],[/food/gi,"la cuisine"],[/wine/gi,"vin"]]; let t=fakeContent; for(const [f,r] of fs) t=t.replace(f,r); const fo=[": c'est la vie 🥐",": hon hon hon 🥖"," - sacré bleu!"," - voilà!"]; fakeContent=t+fo[Math.floor(Math.random()*fo.length)]; } else fakeContent="*shrugs elaborately* bof…"; }
         else if(resolvedFakeMode==="uwu"){ fakeDisplayName=`${fakeDisplayName} :3`; if(fakeContent){ const uw=[[/r/gi,"w"],[/l/gi,"w"],[/no/gi,"nyo"],[/yes/gi,"yesh"],[/the/gi,"da"],[/you/gi,"ewe"],[/what/gi,"wat"],[/hello/gi,"hewwo"],[/hi/gi,"hewwo"],[/sorry/gi,"sowwy"],[/!/g,"! UwU"],[/\?/g,"? :3"]]; let t=fakeContent; for(const [f,r] of uw) t=t.replace(f,r); const uo=["mrrp","  :3","  meow meow :3","  Nyah~!"]; fakeContent=t+"  "+uo[Math.floor(Math.random()*uo.length)]; } else fakeContent="*purrs* mrrp :3"; }
 
         const webhooks=await interaction.channel.fetchWebhooks();
@@ -9739,7 +9756,7 @@ if(cmd==="divorce"){
       const usernameOverride = interaction.options.getString("username");
       try{
         // Both the name line and the @handle line default to the user's actual Discord
-        // username now (not their server nickname) — only the explicit override options
+        // username now (not their server nickname): only the explicit override options
         // below should ever introduce something other than the real username.
         const displayName = displayNameOverride || target.username;
         const username = usernameOverride || target.username;
@@ -9775,22 +9792,22 @@ if(cmd==="divorce"){
         return safeReply(interaction,{content:`🔕 Paranoia **disarmed** for <@${target.id}>.`,ephemeral:true});
       }
 
-      // Arm watcher — fires on every message the target sends in any guild channel
+      // Arm watcher: fires on every message the target sends in any guild channel
       paranoiaWatchers.set(target.id, { chance, armed: true });
       saveData();
-      return safeReply(interaction,{content:`👻 Now watching <@${target.id}> — each message they send has a **${chance}%** chance of getting a paranoia reply in that channel.\nRun \`/paranoia\` on them again to disarm.`,ephemeral:true});
+      return safeReply(interaction,{content:`👻 Now watching <@${target.id}>: each message they send has a **${chance}%** chance of getting a paranoia reply in that channel.\nRun \`/paranoia\` on them again to disarm.`,ephemeral:true});
     }
     if(cmd==="leaveserver"){const guild=client.guilds.cache.get(interaction.options.getString("server"));if(!guild)return safeReply(interaction,{content:"Server not found.",ephemeral:true});const name=guild.name;await guild.leave();return safeReply(interaction,{content:`Left ${name}`,ephemeral:true});}
     if(cmd==="restart"){await safeReply(interaction,{content:"Restarting…",ephemeral:true});process.exit(0);}
     if(cmd==="refreshcmds"){
       if(!interaction.guildId) return safeReply(interaction,{content:"Server only.",ephemeral:true});
-      await safeReply(interaction,{content:"🔄 Re-registering slash commands (guild + global)…",ephemeral:true});
+      await safeReply(interaction,{content:"🔄 Re registering slash commands (guild + global)…",ephemeral:true});
       try{
         await registerGuildCommands(interaction.guildId, true);
         await registerGlobalCommands(true);
-        return safeReply(interaction,{content:`✅ Commands re-registered for **${interaction.guild.name}** and globally. Guild commands update instantly; global (owner) commands may take up to 1hr to propagate.`,ephemeral:true});
+        return safeReply(interaction,{content:`✅ Commands reregistered for **${interaction.guild.name}** and globally. Guild commands update instantly; global (owner) commands may take up to 1hr to propagate.`,ephemeral:true});
       }catch(e){
-        return safeReply(interaction,{content:`❌ Failed to re-register: ${e.message}`,ephemeral:true});
+        return safeReply(interaction,{content:`❌ Failed to reregister: ${e.message}`,ephemeral:true});
       }
     }
     if(cmd==="setstatus"){
@@ -9798,7 +9815,7 @@ if(cmd==="divorce"){
       client.user.setActivity(text,{type});
       botStatus = { text, type };
       saveData();
-      return safeReply(interaction,{content:`Status → ${type}: ${text}\n💾 Saved — will persist across restarts.`,ephemeral:true});
+      return safeReply(interaction,{content:`Status → ${type}: ${text}\n💾 Saved: will persist across restarts.`,ephemeral:true});
     }
     if(cmd==="adminconfig"){
       const key=interaction.options.getString("key"),value=interaction.options.getInteger("value");
@@ -9856,7 +9873,7 @@ if(cmd==="divorce"){
           color:0x57F287,
         }],ephemeral:true});
       }
-      const lines=dangerous.map(r=>`<@&${r.id}> — \`${r.name}\` (ID: ${r.id})`).join("\n");
+      const lines=dangerous.map(r=>`<@&${r.id}>: \`${r.name}\` (ID: ${r.id})`).join("\n");
       const fixBtn=new MessageActionRow().addComponents(
         new MessageButton().setCustomId("rolespingfix_fix").setLabel(`Fix All (${dangerous.size} role${dangerous.size!==1?"s":""})`).setStyle("DANGER").setEmoji("🔧")
       );
@@ -9864,7 +9881,7 @@ if(cmd==="divorce"){
         title:"⚠️ Roles with @everyone Permission",
         description:`The following **${dangerous.size}** role(s) can ping @everyone:\n\n${lines}\n\nClick **Fix All** to remove the Mention Everyone permission from all of them.`,
         color:0xFEE75C,
-        footer:{text:"This only removes the Mention Everyone permission — all other permissions stay intact."},
+        footer:{text:"This only removes the Mention Everyone permission: all other permissions stay intact."},
       }],components:[fixBtn],ephemeral:true});
     }
     // Server management extras
@@ -9872,12 +9889,12 @@ if(cmd==="divorce"){
     if(cmd==="setleavemsg"){const cfg=leaveChannels.get(interaction.guildId);if(!cfg)return safeReply(interaction,{content:"No leave channel set yet. Use /setleave first.",ephemeral:true});const message=interaction.options.getString("message")||null;cfg.message=message;const preview=(message||"**{user}** has left **{server}**. 👋").replace("{user}","Username").replace("{server}",interaction.guild.name);return safeReply(interaction,{content:`✅ Leave message updated!\n**Preview:** ${preview}`,ephemeral:true});}
     if(cmd==="serverconfig"){
       const wCfg=welcomeChannels.get(interaction.guildId),lCfg=leaveChannels.get(interaction.guildId),bCfg=boostChannels.get(interaction.guildId),botCh=guildChannels.get(interaction.guildId),arId=autoRoles.get(interaction.guildId),ownerMuted=disabledOwnerMsg.has(interaction.guildId),hasComp=inviteComps.has(interaction.guildId),lvlOff=disabledLevelUp.has(interaction.guildId);
-      const lines=[`⚙️ **Server Config — ${interaction.guild.name}**`,``,`📢 Bot channel: ${botCh?`<#${botCh}>`:"Not set"}`,`🏆 Level-up notifications: ${lvlOff?"🔇 Disabled":"🔔 Enabled"}`,`👋 Welcome: ${wCfg?`<#${wCfg.channelId}>`:"Not set"}`,`🚪 Leave: ${lCfg?`<#${lCfg.channelId}>`:"Not set"}`,`🚀 Boost: ${bCfg?`<#${bCfg.channelId}>`:"Not set"}`,`🎭 Auto-role: ${arId?`<@&${arId}>`:"Not set"}`,`📣 Owner broadcasts: ${ownerMuted?"Disabled":"Enabled"}`,`📨 Invite comp: ${hasComp?"Running":"Not active"}`];
+      const lines=[`⚙️ **Server Config: ${interaction.guild.name}**`,``,`📢 Bot channel: ${botCh?`<#${botCh}>`:"Not set"}`,`🏆 Level up notifications: ${lvlOff?"🔇 Disabled":"🔔 Enabled"}`,`👋 Welcome: ${wCfg?`<#${wCfg.channelId}>`:"Not set"}`,`🚪 Leave: ${lCfg?`<#${lCfg.channelId}>`:"Not set"}`,`🚀 Boost: ${bCfg?`<#${bCfg.channelId}>`:"Not set"}`,`🎭 Auto-role: ${arId?`<@&${arId}>`:"Not set"}`,`📣 Owner broadcasts: ${ownerMuted?"Disabled":"Enabled"}`,`📨 Invite comp: ${hasComp?"Running":"Not active"}`];
       return safeReply(interaction,{content:lines.join("\n"),ephemeral:true});
     }
     if(cmd==="autorole"){
       const role=interaction.options.getRole("role");
-      if(!role){autoRoles.delete(interaction.guildId);saveData();return safeReply(interaction,{content:"✅ Auto-role disabled.",ephemeral:true});}
+      if(!role){autoRoles.delete(interaction.guildId);saveData();return safeReply(interaction,{content:"✅ Auto role disabled.",ephemeral:true});}
       autoRoles.set(interaction.guildId,role.id);saveData();
       return safeReply(interaction,{content:`✅ Members who join will automatically receive <@&${role.id}>.`,ephemeral:true});
     }
@@ -9896,7 +9913,7 @@ if(cmd==="divorce"){
           const display=emojiPart.includes(":")?`<:${emojiPart}>`:emojiPart;
           return`${display} → <@&${roleId}> (msg \`${msgId}\`)`;
         });
-        return safeReply(interaction,{content:`🎭 **Reaction Roles — ${interaction.guild.name}**\n\n${lines.join("\n")}`,ephemeral:true});
+        return safeReply(interaction,{content:`🎭 **Reaction Roles: ${interaction.guild.name}**\n\n${lines.join("\n")}`,ephemeral:true});
       }
       if(action==="remove"){
         const messageId=interaction.options.getString("messageid")?.trim();
@@ -9926,7 +9943,7 @@ if(cmd==="divorce"){
 
       // Normalize emoji key to match what emojiKey() produces in the reaction event
       // Custom emoji: <:name:id> or <a:name:id> → name:id
-      // Unicode emoji: stored as-is (the raw character/name)
+      // Unicode emoji: stored as is (the raw character/name)
       const norm=emojiRaw.replace(/^<a?:([^:]+:\d+)>$/,"$1");
       const key=`${interaction.guildId}:${messageId}:${norm}`;
       reactionRoles.set(key,role.id);
@@ -9968,7 +9985,7 @@ if(cmd==="divorce"){
           const bulk=await interaction.channel.bulkDelete(fresh,true);
           deletedCount+=bulk.size;
         }
-        // One-by-one delete old messages (over 14 days)
+        // One by one delete old messages (over 14 days)
         if(old.length){
           await safeReply(interaction,{content:`⏳ Deleting **${old.length}** old message(s) one by one, this may take a moment…`,ephemeral:true});
           for(const m of old){
@@ -9995,11 +10012,11 @@ if(cmd==="divorce"){
       if(discordCh.type!=="GUILD_TEXT")return safeReply(interaction,{content:"❌ Please select a text channel.",ephemeral:true});
       const existing=ytConfig.get(interaction.guildId)||{};
       const apiKey=newApiKey||existing.apiKey||null;
-      if(!apiKey)return safeReply(interaction,{content:"❌ No API key found. Provide one with the `apikey:` option.\n\nGet a free key at https://console.cloud.google.com — enable the **YouTube Data API v3**, then create an API key credential.",ephemeral:true});
+      if(!apiKey)return safeReply(interaction,{content:"❌ No API key found. Provide one with the `apikey:` option.\n\nGet a free key at https://console.cloud.google.com - enable the **YouTube Data API v3**, then create an API key credential.",ephemeral:true});
       const ytChId=await resolveYouTubeChannelId(input,apiKey);
       if(!ytChId)return safeReply(interaction,{content:`❌ Could not find a YouTube channel for \`${input}\`. Try the full URL or a channel ID starting with UC.`,ephemeral:true});
       const stats=await getYouTubeStats(ytChId,apiKey);
-      if(!stats)return safeReply(interaction,{content:"❌ Could not fetch stats. Double-check the API key and that YouTube Data API v3 is enabled.",ephemeral:true});
+      if(!stats)return safeReply(interaction,{content:"❌ Could not fetch stats. Double check the API key and that YouTube Data API v3 is enabled.",ephemeral:true});
       ytConfig.set(interaction.guildId,{
         ...existing,apiKey,ytChannelId:ytChId,channelTitle:stats.title,
         discordChannelId:discordCh.id,lastSubs:stats.subs,lastSubsTimestamp:Date.now(),
@@ -10014,7 +10031,7 @@ if(cmd==="divorce"){
       const cfg=ytConfig.get(interaction.guildId);
       if(!cfg?.ytChannelId)return safeReply(interaction,{content:"❌ No YouTube channel set up. Use `/ytsetup` first.",ephemeral:true});
       const apiKey=cfg.apiKey;
-      if(!apiKey)return safeReply(interaction,{content:"❌ No API key stored. Re-run `/ytsetup` and provide the `apikey:` option.",ephemeral:true});
+      if(!apiKey)return safeReply(interaction,{content:"❌ No API key stored. Re run `/ytsetup` and provide the `apikey:` option.",ephemeral:true});
       const goal=interaction.options.getInteger("goal");
       const goalMessage=interaction.options.getString("message")||null;
       if(goal<1)return safeReply(interaction,{content:"❌ Goal must be at least 1.",ephemeral:true});
@@ -10023,9 +10040,9 @@ if(cmd==="divorce"){
       if(!stats)return safeReply(interaction,{content:"❌ Could not fetch current sub count."});
       const pct=Math.min(100,Math.round(stats.subs/goal*100));
       const ch=interaction.guild.channels.cache.get(cfg.discordChannelId);
-      if(!ch)return safeReply(interaction,{content:"❌ Configured Discord channel not found. Re-run `/ytsetup`."});
+      if(!ch)return safeReply(interaction,{content:"❌ Configured Discord channel not found. Re run `/ytsetup`."});
       const embedMsg=await ch.send({embeds:[{
-        title:`🎯 ${stats.title} — Sub Goal`,
+        title:`🎯 ${stats.title}: Sub Goal`,
         description:`**${fmtSubs(stats.subs)}** / **${fmtSubs(goal)}**\n\`[${buildBar(stats.subs,goal)}]\` **${pct}%**`,
         color:pct>=100?0x00FF00:0xFF0000,footer:{text:"Updates every 5 minutes"},timestamp:new Date().toISOString(),
       }]});
@@ -10041,16 +10058,16 @@ if(cmd==="divorce"){
       const cfg=ytConfig.get(interaction.guildId);
       if(!cfg?.ytChannelId)return safeReply(interaction,{content:"❌ No YouTube channel set up. Use `/ytsetup` first.",ephemeral:true});
       const apiKey=cfg.apiKey;
-      if(!apiKey)return safeReply(interaction,{content:"❌ No API key stored. Re-run `/ytsetup` with `apikey:`.",ephemeral:true});
+      if(!apiKey)return safeReply(interaction,{content:"❌ No API key stored. Re run `/ytsetup` with `apikey:`.",ephemeral:true});
       const threshold=parseInt(interaction.options.getString("threshold"));
       await interaction.deferReply();
       const stats=await getYouTubeStats(cfg.ytChannelId,apiKey);
       if(!stats)return safeReply(interaction,{content:"❌ Could not fetch current sub count."});
       const ch=interaction.guild.channels.cache.get(cfg.discordChannelId);
-      if(!ch)return safeReply(interaction,{content:"❌ Configured Discord channel not found. Re-run `/ytsetup`."});
+      if(!ch)return safeReply(interaction,{content:"❌ Configured Discord channel not found. Re run `/ytsetup`."});
       const rounded=Math.floor(stats.subs/threshold)*threshold;
       const embedMsg=await ch.send({embeds:[{
-        title:`📊 ${stats.title} — Live Sub Count`,
+        title:`📊 ${stats.title}: Live Sub Count`,
         description:`## ${fmtSubs(stats.subs)}\n*~${fmtSubs(rounded)} (rounded to nearest ${fmtSubs(threshold)})*`,
         color:0xFF0000,footer:{text:"Updates every 5 minutes"},timestamp:new Date().toISOString(),
       }]});
@@ -10068,7 +10085,7 @@ if(cmd==="divorce"){
       if(!cfg.milestoneDiscordId)cfg.milestoneDiscordId=cfg.discordChannelId;
       if(action==="list"){
         if(!cfg.milestones.length)return safeReply(interaction,{content:"No milestones set yet. Use `/milestones action:Add milestone subs:…`.",ephemeral:true});
-        const lines=cfg.milestones.map(m=>`${m.reached?"✅":"⏳"} **${fmtSubs(m.subs)} subs**${m.message?` — _${m.message}_`:""}`);
+        const lines=cfg.milestones.map(m=>`${m.reached?"✅":"⏳"} **${fmtSubs(m.subs)} subs**${m.message?` - _${m.message}_`:""}`);
         return safeReply(interaction,{content:`🏆 **Milestones for ${cfg.channelTitle||"your channel"}**\nAnnouncements → <#${cfg.milestoneDiscordId}>\n\n${lines.join("\n")}`,ephemeral:true});
       }
       const subs=interaction.options.getInteger("subs");
@@ -10079,7 +10096,7 @@ if(cmd==="divorce"){
         cfg.milestones.push({subs,message,reached:(cfg.lastSubs||0)>=subs});
         cfg.milestones.sort((a,b)=>a.subs-b.subs);
         saveData();
-        const addedNote=message?` — "${message}"`:"";
+        const addedNote=message?` - "${message}"`:"";
         return safeReply(interaction,{content:`✅ Milestone added: **${fmtSubs(subs)} subs**${addedNote}`});
       }
       if(action==="remove"){
@@ -10164,7 +10181,7 @@ if(cmd==="divorce"){
         if(!sorted.length){await safeSend(ch,"🏆 **Invite Competition Ended!**\n\nNo new tracked invites.");return;}
         const medals=["🥇","🥈","🥉"],rewards=[CONFIG.invite_comp_1st,CONFIG.invite_comp_2nd,CONFIG.invite_comp_3rd];
         const top=sorted.slice(0,3);
-        const lines=top.map(([id,d],i)=>`${medals[i]} <@${id}> — **${d.count}** invite${d.count!==1?"s":""} (+${rewards[i]} coins)`);
+        const lines=top.map(([id,d],i)=>`${medals[i]} <@${id}>: **${d.count}** invite${d.count!==1?"s":""} (+${rewards[i]} coins)`);
         top.forEach(([id,d],i)=>{getScore(id,d.username).coins+=rewards[i];});
         saveData();
         await safeSend(ch,`🏆 **Invite Competition Ended!**\n\n${lines.join("\n")}`);
@@ -10253,7 +10270,7 @@ if(cmd==="divorce"){
       return safeReply(interaction,{content:`✅ **Daily quote enabled!**\n📢 Channel: <#${channel.id}>\n🕐 Posts at: **${hour}:00 UTC** every day`,ephemeral:true});
     }
 
-    // ── /quotemanage — owner only, subcommands: library | trash-threshold ──────
+    // ── /quotemanage - owner only, subcommands: library | trash-threshold ──────
     if(cmd==="quotemanage"){
       if(!OWNER_IDS.includes(interaction.user.id))
         return safeReply(interaction,{content:"❌ Owner only.",ephemeral:true});
@@ -10283,7 +10300,7 @@ if(cmd==="divorce"){
         if(ch.type!=="GUILD_TEXT") return safeReply(interaction,{content:"❌ Please select a text channel.",ephemeral:true});
         deleterChannelId = ch.id;
         saveData();
-        return safeReply(interaction,{content:`✅ Global quote deleter channel set to <#${ch.id}>. All 🗑️-flagged quotes will be sent there for owner review.`,ephemeral:true});
+        return safeReply(interaction,{content:`✅ Global quote deleter channel set to <#${ch.id}>. All 🗑️ flagged quotes will be sent there for owner review.`,ephemeral:true});
       }
 
       // ── library subcommand ────────────────────────────────────────────────
@@ -10305,7 +10322,7 @@ if(cmd==="divorce"){
             new MessageButton().setCustomId(`qm_delete_${file.name}`).setLabel("🗑️ Delete This").setStyle("DANGER"),
           );
           return safeReply(interaction,{
-            content:`🖼️ **Quote Manager** — ${startIdx+1} of ${images.length}\n\`${file.name}\`\n${imageUrl}`,
+            content:`🖼️ **Quote Manager**: ${startIdx+1} of ${images.length}\n\`${file.name}\`\n${imageUrl}`,
             components:[navRow],
           });
         } catch(e) {
@@ -10331,7 +10348,7 @@ if(cmd==="divorce"){
           chunk.push(line);
         }
         if(chunk.length) chunks.push(chunk);
-        await safeReply(interaction,{content:`🖼️ **Quotes — ${images.length} image${images.length!==1?"s":""} across quotes + quotes2:**\n${chunks[0].join("\n")}`,ephemeral:true});
+        await safeReply(interaction,{content:`🖼️ **Quotes: ${images.length} image${images.length!==1?"s":""} across quotes + quotes2:**\n${chunks[0].join("\n")}`,ephemeral:true});
         for(let i=1;i<chunks.length;i++){
           await interaction.followUp({content:chunks[i].join("\n"),ephemeral:true}).catch(()=>{});
         }
@@ -10383,7 +10400,7 @@ if(cmd==="divorce"){
       }
     }
 
-    // ── /jarvisdatabase — direct upload straight into the jarvis trigger folder ─
+    // ── /jarvisdatabase: direct upload straight into the jarvis trigger folder ─
     if(cmd==="jarvisdatabase"){
       if(!MEMERS.has(interaction.user.id))
         return safeReply(interaction,{content:"❌ You don't have permission to use /jarvisdatabase.",ephemeral:true});
@@ -10397,7 +10414,7 @@ if(cmd==="divorce"){
 
       const cleanName = rawRename.replace(/\.[a-zA-Z0-9]+$/,"").replace(/[^a-zA-Z0-9_-]/g,"_");
       if(!cleanName)
-        return safeReply(interaction,{content:"❌ That name isn't valid — use letters, numbers, dashes, or underscores.",ephemeral:true});
+        return safeReply(interaction,{content:"❌ That name isn't valid: use letters, numbers, dashes, or underscores.",ephemeral:true});
 
       await interaction.deferReply({ephemeral:true});
 
@@ -10499,11 +10516,11 @@ if(cmd==="divorce"){
         }
 
         if(overLimit){
-          // Audio/video too big for GitHub — just hand it back as a Discord attachment/embed.
+          // Audio/video too big for GitHub: just hand it back as a Discord attachment/embed.
           const num = nextUploadNumber(mediaInfo.prefix);
           const fileName = `${mediaInfo.prefix}_${num}.${mediaInfo.ext}`;
           return safeReply(interaction,{
-            content:`⚠️ \`${fileName}\` is ${(fileBuffer.length/1024/1024).toFixed(1)} MB — too large for \`quotes2\` (1 MB limit), so it wasn't saved there. Here it is instead:`,
+            content:`⚠️ \`${fileName}\` is ${(fileBuffer.length/1024/1024).toFixed(1)} MB: too large for \`quotes2\` (1 MB limit), so it wasn't saved there. Here it is instead:`,
             files:[{attachment:fileBuffer, name:fileName}],
             ephemeral:true
           });
@@ -10565,13 +10582,13 @@ if(cmd==="divorce"){
       const doPing     = interaction.options.getBoolean("ping")??true;
       const scheduleStr= interaction.options.getString("schedule")||null;
 
-      // If a schedule string is provided, parse and save it — then go through role selection
+      // If a schedule string is provided, parse and save it: then go through role selection
       const parsedSchedule = scheduleStr ? parseSchedule(scheduleStr) : null;
       if (scheduleStr && !parsedSchedule) {
         return safeReply(interaction,{content:"❌ Couldn't parse that schedule. Use a format like `Monday 09:00` or `Wed 14:30` (UTC).",ephemeral:true});
       }
 
-      // Build role list for dropdowns — cap at 25, exclude @everyone and managed roles
+      // Build role list for dropdowns: cap at 25, exclude @everyone and managed roles
       const cfg = raConfig.get(interaction.guildId)||{};
       const excludedByDefault = new Set([cfg.raRoleId, cfg.loaRoleId].filter(Boolean));
       const allRoles = [...interaction.guild.roles.cache.values()]
@@ -10597,7 +10614,7 @@ if(cmd==="divorce"){
       const excludedMenu = new MessageActionRow().addComponents(
         new MessageSelectMenu()
           .setCustomId(`ac_excluded_${channel.id}_${deadlineHr}_${doPing}`)
-          .setPlaceholder("Select excluded roles (optional — RA/LOA auto-excluded)")
+          .setPlaceholder("Select excluded roles (optional: RA/LOA autoexcluded)")
           .setMinValues(0).setMaxValues(Math.min(allRoles.length,25))
           .addOptions(makeOptions([...excludedByDefault]))
       );
@@ -10720,16 +10737,16 @@ if(cmd==="divorce"){
     }
 
 
-    // ── /deleter — owner sets the flagged-quote review channel ───────────────
+    // ── /deleter: owner sets the flagged quote review channel ───────────────
     if(cmd==="deleter"||((cmd==="quotemanage")&&interaction.options.getSubcommand(false)==="set-delete-channel")){
       const ch = interaction.options.getChannel("channel");
       if(ch.type!=="GUILD_TEXT") return safeReply(interaction,{content:"❌ Please select a text channel.",ephemeral:true});
       deleterChannelId = ch.id;
       saveData();
-      return safeReply(interaction,{content:`✅ Global quote deleter channel set to <#${ch.id}>. All 🗑️-flagged quotes will be sent there for owner review.`,ephemeral:true});
+      return safeReply(interaction,{content:`✅ Global quote deleter channel set to <#${ch.id}>. All 🗑️ flagged quotes will be sent there for owner review.`,ephemeral:true});
     }
 
-    // ── /selfclank — self-clankerify yourself (0 to cancel, 1–5 min, max 2 per server) ────
+    // ── /selfclank: selfclankerify yourself (0 to cancel, 1–5 min, max 2 per server) ────
     if(cmd==="selfclank"){
       if(!inGuild) return safeReply(interaction,{content:"❌ Server only.",ephemeral:true});
       const duration = interaction.options.getInteger("duration");
@@ -10737,12 +10754,12 @@ if(cmd==="divorce"){
       // duration === 0 → cancel and start cooldown
       if(duration === 0){
         if(!clankerify.has(interaction.user.id)){
-          return safeReply(interaction,{content:"❌ You're not currently self-clanked.",ephemeral:true});
+          return safeReply(interaction,{content:"❌ You're not currently selfclanked.",ephemeral:true});
         }
-        // Can't cancel an owner-applied clank
+        // Can't cancel an owner applied clank
         const existingEntry = clankerify.get(interaction.user.id);
         if(existingEntry?.ownerClanked){
-          return safeReply(interaction,{content:"❌ Your clank was applied by an owner — you can't remove it yourself. Wait for it to expire.",ephemeral:true});
+          return safeReply(interaction,{content:"❌ Your clank was applied by an owner: you can't remove it yourself. Wait for it to expire.",ephemeral:true});
         }
         clankerify.delete(interaction.user.id);
         if(interaction.guildId){
@@ -10752,7 +10769,7 @@ if(cmd==="divorce"){
         const cooldownExpiry = Date.now() + 10 * 60_000;
         selfClankCooldown.set(interaction.user.id, cooldownExpiry);
         saveData();
-        return safeReply(interaction,{content:`✅ Self-clank cancelled. You'll be on cooldown for **10 minutes** before you can use it again (<t:${Math.floor(cooldownExpiry/1000)}:R>).`,ephemeral:true});
+        return safeReply(interaction,{content:`✅ Self clank cancelled. You'll be on cooldown for **10 minutes** before you can use it again (<t:${Math.floor(cooldownExpiry/1000)}:R>).`,ephemeral:true});
       }
 
       if(duration<1||duration>5) return safeReply(interaction,{content:"❌ Duration must be **1–5** minutes, or **0** to cancel.",ephemeral:true});
@@ -10760,21 +10777,21 @@ if(cmd==="divorce"){
       // Check cooldown
       const cooldownExpiry = selfClankCooldown.get(interaction.user.id) || 0;
       if(Date.now() < cooldownExpiry){
-        return safeReply(interaction,{content:`⏳ You're on cooldown! You can self-clank again <t:${Math.floor(cooldownExpiry/1000)}:R>.`,ephemeral:true});
+        return safeReply(interaction,{content:`⏳ You're on cooldown! You can selfclank again <t:${Math.floor(cooldownExpiry/1000)}:R>.`,ephemeral:true});
       }
 
       // Check if already clanked (by self OR by owner)
       if(clankerify.has(interaction.user.id)){
         const entry = clankerify.get(interaction.user.id);
         if(entry?.ownerClanked){
-          return safeReply(interaction,{content:"❌ You've been clankerified by an owner. You can't self-clank until that expires.",ephemeral:true});
+          return safeReply(interaction,{content:"❌ You've been clankerified by an owner. You can't selfclank until that expires.",ephemeral:true});
         }
         const remainMs = entry.expiresAt ? entry.expiresAt - Date.now() : 0;
         const remainMin = Math.ceil(remainMs/60000);
         return safeReply(interaction,{content:`❌ You're already clankerified! It expires in **${remainMin}** minute(s). Use \`/selfclank duration:0\` to cancel early.`,ephemeral:true});
       }
 
-      // Check per-server limit of 2
+      // Check per server limit of 2
       if(!selfClankUsers.has(interaction.guildId)) selfClankUsers.set(interaction.guildId, new Set());
       const guildSelfClanks = selfClankUsers.get(interaction.guildId);
       // Clean expired entries first
@@ -10783,7 +10800,7 @@ if(cmd==="divorce"){
         if(!entry || (entry.expiresAt && entry.expiresAt <= Date.now())) guildSelfClanks.delete(uid2);
       }
       if(guildSelfClanks.size >= 2){
-        return safeReply(interaction,{content:`❌ There are already **2** self-clanked users in this server (the maximum). Wait for one to expire.`,ephemeral:true});
+        return safeReply(interaction,{content:`❌ There are already **2** selfclanked users in this server (the maximum). Wait for one to expire.`,ephemeral:true});
       }
       // Build mode selection menu
       const selfclankBuiltIn = [
@@ -10808,7 +10825,7 @@ if(cmd==="divorce"){
       const selfclankComponents = [new MessageActionRow().addComponents(
         new MessageSelectMenu()
           .setCustomId(`selfclank_mode_${interaction.user.id}_${duration}`)
-          .setPlaceholder("Pick a built-in personality mode…")
+          .setPlaceholder("Pick a built in personality mode…")
           .addOptions(selfclankBuiltIn)
       )];
       const selfclankCommunity = [...customClankerModes.entries()].map(([id, m]) => ({
@@ -10824,13 +10841,13 @@ if(cmd==="divorce"){
       }
       const modeMenu = selfclankComponents[0]; // alias
       return safeReply(interaction,{
-        content:`🤖 Self-clankerifying yourself for **${duration} minute(s)**. Pick a mode:`,
+        content:`🤖 Self clankerifying yourself for **${duration} minute(s)**. Pick a mode:`,
         components: selfclankComponents,
         ephemeral:true
       });
     }
 
-    // ── /requester — owner sets the review channel ────────────────────────────
+    // ── /requester: owner sets the review channel ────────────────────────────
     if(cmd==="requester"||((cmd==="quotemanage")&&interaction.options.getSubcommand(false)==="set-review-channel")){
       const ch = interaction.options.getChannel("channel");
       if(ch.type!=="GUILD_TEXT") return safeReply(interaction,{content:"❌ Please select a text channel.",ephemeral:true});
@@ -10839,7 +10856,7 @@ if(cmd==="divorce"){
       return safeReply(interaction,{content:`✅ Global quote review channel set to <#${ch.id}>. All \`/requestupload\` submissions will go there.`,ephemeral:true});
     }
 
-    // ── /pixeltxt — structure an image into PIXELTXT text, or destructure it back ─
+    // ── /pixeltxt: structure an image into PIXELTXT text, or destructure it back ─
     if(cmd==="pixeltxt"){
       const action = interaction.options.getString("action");
       const file = interaction.options.getAttachment("file");
@@ -10863,7 +10880,7 @@ if(cmd==="divorce"){
           const { data, info: meta } = await sharp(buf).ensureAlpha().raw().toBuffer({resolveWithObject:true});
           const W = meta.width, H = meta.height;
           if(W*H > PIXELTXT_MAX_PIXELS)
-            return safeReply(interaction,{content:`❌ That image is ${W}×${H} (${(W*H).toLocaleString()} px) — too large to structure. Max is ${PIXELTXT_MAX_PIXELS.toLocaleString()} px, try resizing it down first.`});
+            return safeReply(interaction,{content:`❌ That image is ${W}×${H} (${(W*H).toLocaleString()} px): too large to structure. Max is ${PIXELTXT_MAX_PIXELS.toLocaleString()} px, try resizing it down first.`});
 
           const { text } = pixeltxtEncode(data, W, H);
 
@@ -10901,12 +10918,12 @@ if(cmd==="divorce"){
       }
     }
 
-    // ── /requestupload — anyone submits an image for review ────────────────────
+    // ── /requestupload: anyone submits an image for review ────────────────────
     if(cmd==="requestupload"){
       if(!inGuild) return safeReply(interaction,{content:"❌ Server only.",ephemeral:true});
       if(!reviewChannelId) return safeReply(interaction,{content:"❌ No global review channel has been set up yet. Ask an owner to use \`/requester\`.",ephemeral:true});
       const reviewCh = await client.channels.fetch(reviewChannelId).catch(()=>null);
-      if(!reviewCh) return safeReply(interaction,{content:"❌ The configured review channel no longer exists. Ask an owner to re-run \`/requester\`.",ephemeral:true});
+      if(!reviewCh) return safeReply(interaction,{content:"❌ The configured review channel no longer exists. Ask an owner to rerun \`/requester\`.",ephemeral:true});
 
       const attachment = interaction.options.getAttachment("source");
       const mediaInfo = detectMediaKind(attachment.contentType, attachment.name);
@@ -10931,7 +10948,7 @@ if(cmd==="divorce"){
       const member = interaction.member;
       const displayName = member?.displayName || submitter.username;
 
-      // Generate a short token — keeps custom_id well under Discord's 100-char limit.
+      // Generate a short token: keeps custom_id well under Discord's 100 char limit.
       // Full filename is stored in pendingReviews keyed by the token.
       const reviewToken = `${submitter.id.slice(-6)}${Date.now().toString(36)}`;
       pendingReviews.set(reviewToken, { submitterId: submitter.id, fileName, rawName, mediaKind: mediaInfo.kind });
@@ -10957,16 +10974,16 @@ if(cmd==="divorce"){
         };
         if(mediaInfo.kind === "image"){
           reviewPayload.embeds = [{
-            author:{name:`${submitter.username} — quote submission`,icon_url:submitter.displayAvatarURL({size:64,dynamic:true})},
+            author:{name:`${submitter.username}: quote submission`,icon_url:submitter.displayAvatarURL({size:64,dynamic:true})},
             image:{url:attachment.url},
             color:0x5865F2,
             footer:{text:`Submitted from: ${interaction.guild.name} • ${fileSizeMB} MB`},
             timestamp:new Date().toISOString(),
           }];
         } else {
-          // Audio/video can't go in an embed image field — attach the file itself for preview.
+          // Audio/video can't go in an embed image field: attach the file itself for preview.
           reviewPayload.embeds = [{
-            author:{name:`${submitter.username} — quote submission`,icon_url:submitter.displayAvatarURL({size:64,dynamic:true})},
+            author:{name:`${submitter.username}: quote submission`,icon_url:submitter.displayAvatarURL({size:64,dynamic:true})},
             color:0x5865F2,
             footer:{text:`Submitted from: ${interaction.guild.name} • ${fileSizeMB} MB`},
             timestamp:new Date().toISOString(),
@@ -10981,7 +10998,7 @@ if(cmd==="divorce"){
       }
     }
 
-    // ── /download — fetch a YouTube video as MP4/MP3, splitting into parts if too big ─
+    // ── /download: fetch a YouTube video as MP4/MP3, splitting into parts if too big ─
     if(cmd==="download"){
       const url        = interaction.options.getString("url");
       const format      = interaction.options.getString("format") || "mp4";
@@ -11004,7 +11021,7 @@ if(cmd==="divorce"){
         try {
           ({ info, client: workingClient } = await ytFetchInfoWithFallback(url));
         } catch(e) {
-          throw new Error(`Couldn't read that video — ${ytErrorMessage(e)}`);
+          throw new Error(`Couldn't read that video: ${ytErrorMessage(e)}`);
         }
 
         const title = (info.title || "video").replace(/[\\/:*?"<>|]/g,"").trim().slice(0,60) || "video";
@@ -11037,7 +11054,7 @@ if(cmd==="divorce"){
             });
           }
         } catch(e) {
-          throw new Error(`Download failed — ${ytErrorMessage(e)}`);
+          throw new Error(`Download failed: ${ytErrorMessage(e)}`);
         }
 
         const produced = fs.readdirSync(workDir).find(f => f.startsWith(`${jobId}.`));
@@ -11055,13 +11072,13 @@ if(cmd==="divorce"){
           return;
         }
 
-        // Too big for one message — split into the minimum number of parts that fit.
-        await safeReply(interaction,{content:`⏳ **${title}** is ${(fileSize/1024/1024).toFixed(1)} MB — splitting it to fit Discord's ${(limitBytes/1024/1024).toFixed(0)} MB limit…`,ephemeral:true});
+        // Too big for one message: split into the minimum number of parts that fit.
+        await safeReply(interaction,{content:`⏳ **${title}** is ${(fileSize/1024/1024).toFixed(1)} MB: splitting it to fit Discord's ${(limitBytes/1024/1024).toFixed(0)} MB limit…`,ephemeral:true});
 
         const parts = await splitToFit(filePath, workDir, jobId, ext, limitBytes, info.duration || null);
-        if(!parts.length) throw new Error("Couldn't split the file into small enough parts — it may have very sparse keyframes.");
+        if(!parts.length) throw new Error("Couldn't split the file into small enough parts: it may have very sparse keyframes.");
 
-        await safeReply(interaction,{content:`✅ **${title}** — split into **${parts.length}** part${parts.length!==1?"s":""}:`,ephemeral:true});
+        await safeReply(interaction,{content:`✅ **${title}**: split into **${parts.length}** part${parts.length!==1?"s":""}:`,ephemeral:true});
         for(let i=0;i<parts.length;i++){
           await interaction.followUp({
             content:`Part ${i+1}/${parts.length}`,
@@ -11083,7 +11100,7 @@ if(cmd==="divorce"){
     _clearAutoDefer();
     console.error(`[command error] /${cmd}:`, err);
     // If the interaction has already timed out (INTERACTION_ALREADY_REPLIED or unknown),
-    // safeReply will silently swallow the error — that's intentional.
+    // safeReply will silently swallow the error: that's intentional.
     safeReply(interaction, {content:"❌ An error occurred processing that command.", ephemeral:true});
   } finally {
     // Fires after every command, no matter which branch/return path handled it.
