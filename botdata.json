@@ -96409,6 +96409,27 @@
         "creatorName": "royalvmusic",
         "createdAt": 1788710226302
       }
+    ],
+    [
+      "test1",
+      {
+        "triggers": [
+          "all in"
+        ],
+        "actions": [
+          {
+            "type": "echo",
+            "params": {
+              "message": "Sir, I can't, you're broke.",
+              "replyMode": "replyactor"
+            }
+          }
+        ],
+        "ownerLocked": true,
+        "creatorId": "1082452773787942922",
+        "creatorName": "hawkshadow74",
+        "createdAt": 1788713329043
+      }
     ]
   ],
   "serverStatsConfig": [
