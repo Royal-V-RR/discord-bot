@@ -362,15 +362,23 @@ const PATREON_ROLE_IDS = [
 const patreonMemberIds = new Set();
 async function refreshPatreonMembers() {
   if (!PATREON_GUILD_ID) return;
-  const guild = client.guilds.cache.get(PATREON_GUILD_ID);
-  if (!guild) { console.error("[patreon] Bot is not in the Patreon server, cannot check membership."); return; }
+  let guild = client.guilds.cache.get(PATREON_GUILD_ID);
+  if (!guild) {
+    // Cache miss doesn't always mean "not a member": try a live API fetch
+    // before giving up, in case the guild just hasn't been cached yet.
+    guild = await client.guilds.fetch(PATREON_GUILD_ID).catch(() => null);
+  }
+  if (!guild) {
+    console.error(`[patreon] This bot is not a member of the Patreon server (guild ${PATREON_GUILD_ID}). It needs to be invited there separately from any other server, main bot and beta bot both need their own invite. Patreon features will stay off until then.`);
+    return;
+  }
   try {
     const members = await guild.members.fetch();
     patreonMemberIds.clear();
     for (const [id, member] of members) {
       if (PATREON_ROLE_IDS.some(rid => member.roles.cache.has(rid))) patreonMemberIds.add(id);
     }
-    console.log(`[patreon] Refreshed, ${patreonMemberIds.size} patreon member(s) found.`);
+    console.log(`[patreon] Refreshed against "${guild.name}" (${members.size} member(s) fetched), ${patreonMemberIds.size} patreon member(s) matched.`);
   } catch(e) {
     console.error("[patreon] Failed to refresh member list:", e.message);
   }
@@ -4461,6 +4469,7 @@ function buildCommands(){
     { name:"Vibe Check",      type:3 },
     { name:"Uwu-ify",         type:3 },
     { name:"Quote This",      type:3 },
+    { name:"Make it a quote", type:3 },
     { name:"Fetch Emoji",     type:3 },
     {name:"requestupload",   description:"Submit an image, audio, or video file to be reviewed for quotes2",options:[
       {name:"source",description:"File to submit (image/audio/video)",type:11,required:true},
@@ -8535,6 +8544,32 @@ by **${displayName}**`});
       return;
     }
 
+    // ── Make it a quote (everyone, real data only, no editing) ──────────────────
+    // Uses the same card renderer as /fakequote for a pixel matching look, but
+    // with the message's actual text and the author's real global name and
+    // avatar: never a server nickname or server specific avatar override, and
+    // nothing about it can be customized, unlike /fakequote.
+    if(cmd === "Make it a quote"){
+      const text = targetMsg.content;
+      if(!text) return safeReply(interaction,{content:"That message has no text to quote.",ephemeral:true});
+      const author = targetMsg.author;
+      if(author.bot) return safeReply(interaction,{content:"Can't quote a bot message.",ephemeral:true});
+      await interaction.deferReply();
+      try{
+        const displayName = author.globalName || author.username;
+        const username = author.username;
+        const avatarURL = author.displayAvatarURL({ size:512, dynamic:false, extension:"png" });
+        const avatarRes = await fetch(avatarURL);
+        if(!avatarRes.ok) throw new Error(`Couldn't fetch avatar (HTTP ${avatarRes.status})`);
+        const avatarBuffer = Buffer.from(await avatarRes.arrayBuffer());
+        const cardBuffer = await buildFakeQuoteCard({ avatarBuffer, quoteText: text, displayName, username });
+        return safeReply(interaction,{ files:[{ attachment: cardBuffer, name:`quote_${targetMsg.id}.png` }] });
+      }catch(e){
+        console.error("Make it a quote error:", e.message);
+        return safeReply(interaction,{content:`Failed to generate quote card: ${e.message}`,ephemeral:true});
+      }
+    }
+
     // ── Fetch Emoji (everyone) ─────────────────────────────────────────────────
     if(cmd === "Fetch Emoji"){
       const text = targetMsg.content;
@@ -9755,10 +9790,10 @@ if(cmd==="divorce"){
       const displayNameOverride = interaction.options.getString("displayname");
       const usernameOverride = interaction.options.getString("username");
       try{
-        // Both the name line and the @handle line default to the user's actual Discord
-        // username now (not their server nickname): only the explicit override options
-        // below should ever introduce something other than the real username.
-        const displayName = displayNameOverride || target.username;
+        // The name line uses the user's real global display name (falling back
+        // to username if they haven't set one); the handle line is always the
+        // real username. Neither ever reflects a server specific nickname.
+        const displayName = displayNameOverride || target.globalName || target.username;
         const username = usernameOverride || target.username;
 
         const avatarURL = target.displayAvatarURL({ size:512, dynamic:false, extension:"png" });
