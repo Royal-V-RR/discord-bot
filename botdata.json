@@ -4610,6 +4610,18 @@
         "grantedBy": "969280648667889764",
         "grantedAt": 1788658555941
       }
+    ],
+    [
+      "1254388539890860083",
+      {
+        "commands": [
+          "refreshcmds"
+        ],
+        "features": [],
+        "expiresAt": 1788897325678,
+        "grantedBy": "969280648667889764",
+        "grantedAt": 1788896425678
+      }
     ]
   ],
   "scores": [
@@ -7055,7 +7067,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 5538,
+        "xp": 5548,
         "level": 29,
         "lastWorkTime": 0,
         "lastBegTime": 0,
