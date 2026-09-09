@@ -40641,6 +40641,32 @@
         "forceMarried": false,
         "uploadedImages": []
       }
+    ],
+    [
+      "604194mtuaaa1",
+      {
+        "username": null,
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 0,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 1,
+        "forceMarried": false,
+        "uploadedImages": [
+          "quote_378.jpg"
+        ]
+      }
     ]
   ],
   "activeEffects": [],
@@ -97725,7 +97751,7 @@
     ]
   ],
   "uploadCounters": {
-    "quote": 377,
+    "quote": 378,
     "eardestroyer": 1,
     "eyebleacher": 3
   },
