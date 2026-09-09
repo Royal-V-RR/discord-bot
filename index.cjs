@@ -51,6 +51,10 @@ const TOKEN     = process.env.TOKEN;
 // (same pattern as TOKEN) so each deployment's own CLIENT_ID secret is used;
 // falls back to the main bot's ID only if the env var isn't set.
 const CLIENT_ID = process.env.CLIENT_ID || "1480592876684706064";
+// The beta bot's own application ID, used to tell which deployment this is
+// since both run from the same file. If this ever changes, update it here.
+const BETA_CLIENT_ID = "1533598420504412261";
+const IS_BETA_BOT = CLIENT_ID === BETA_CLIENT_ID;
 const OWNER_IDS = ["1419803002771865722","969280648667889764","363149593787105291"];
 const OWNER_ID  = OWNER_IDS[1];
 const GAY_IDS   = ["1245284545452834857","1413943805203189800","1057320311453913149","1193150033864949811"];
@@ -245,6 +249,99 @@ async function seedBoostHistory(guild){
 }
 const autoRoles        = new Map();
 const reactionRoles    = new Map();
+// rrBuilders: token -> {ownerId, guildId, channelId, messageId, pendingEmoji}
+// Ephemeral in-progress state for the /reactionrole manual builder, never persisted.
+const rrBuilders = new Map();
+
+// Normalizes a typed/raw emoji into the same key format used everywhere else
+// (custom emoji <:name:id> or <a:name:id> becomes "name:id", unicode emoji
+// stays as is), so add/remove/auto/manual all produce matching keys.
+function normalizeEmojiKey(emojiRaw) {
+  return emojiRaw.trim().replace(/^<a?:([^:]+:\d+)>$/, "$1");
+}
+
+// Parses "EMOJI ... @Role" lines out of a message's raw content, regardless
+// of what separates them (a pipe, a colon, a dash, just a space, nothing at
+// all). The role must be an actual role mention (<@&id>), not just typed
+// text, since that's the only reliable way to know which role was meant.
+// Whatever's left on the line after removing the role mention and any common
+// separator characters is treated as the emoji. Returns [{emojiRaw, roleId}].
+function parseReactionRoleLines(content) {
+  const results = [];
+  for (const line of (content || "").split("\n")) {
+    const roleMatch = line.match(/<@&(\d+)>/);
+    if (!roleMatch) continue;
+    const rest = line.slice(0, roleMatch.index) + line.slice(roleMatch.index + roleMatch[0].length);
+    const emojiRaw = rest.replace(/[|:\-\u2013\u2014]+/g, " ").trim();
+    if (emojiRaw) results.push({ emojiRaw, roleId: roleMatch[1] });
+  }
+  return results;
+}
+
+function formatReactionRoleBindings(guildId, messageId) {
+  const prefix = `${guildId}:${messageId}:`;
+  const entries = [...reactionRoles.entries()].filter(([k]) => k.startsWith(prefix));
+  if (!entries.length) return "_No reaction roles set up on this message yet._";
+  const guild = client.guilds.cache.get(guildId);
+  return entries.map(([key, roleId]) => {
+    const emojiPart = key.slice(prefix.length);
+    const display = emojiPart.includes(":") ? `<:${emojiPart}>` : emojiPart;
+    const role = guild?.roles.cache.get(roleId);
+    return `${display} to ${role ? `<@&${role.id}>` : "an unknown role"}`;
+  }).join("\n");
+}
+
+// Finds a message by ID by checking every text channel in the guild: shared
+// by /reactionrole's add, auto, and manual actions.
+async function findMessageInGuild(guild, messageId) {
+  for (const ch of guild.channels.cache.filter(c => (c.isText && c.isText()) || c.type === "GUILD_TEXT").values()) {
+    const found = await ch.messages.fetch(messageId).catch(() => null);
+    if (found) return found;
+  }
+  return null;
+}
+
+function buildReactionRoleManualPanel(token) {
+  const b = rrBuilders.get(token);
+  const prefix = `${b.guildId}:${b.messageId}:`;
+  const entries = [...reactionRoles.entries()].filter(([k]) => k.startsWith(prefix));
+  const guild = client.guilds.cache.get(b.guildId);
+  const rows = [];
+  if (entries.length) {
+    const options = entries.map(([key, roleId]) => {
+      const emojiPart = key.slice(prefix.length);
+      const role = guild?.roles.cache.get(roleId);
+      const label = `${emojiPart.includes(":") ? "Custom emoji" : emojiPart} to ${role ? role.name : "unknown role"}`;
+      return { label: label.slice(0, 100), value: key };
+    });
+    rows.push(new MessageActionRow().addComponents(
+      new MessageSelectMenu().setCustomId(`rr_remove_${token}`).setPlaceholder("Select a binding to remove...").setOptions(options)
+    ));
+  }
+  rows.push(new MessageActionRow().addComponents(
+    new MessageButton().setCustomId(`rr_addstart_${token}`).setLabel("Add Binding").setStyle("PRIMARY").setEmoji({ name:"➕" }),
+    new MessageButton().setCustomId(`rr_done_${token}`).setLabel("Done").setStyle("SECONDARY"),
+  ));
+  const content = [
+    `Reaction Role Builder for message \`${b.messageId}\``,
+    "",
+    "Current bindings:",
+    formatReactionRoleBindings(b.guildId, b.messageId),
+  ].join("\n");
+  return { content, components: rows };
+}
+
+// The "pick a role" screen shown after typing an emoji in the manual builder.
+function buildReactionRoleRolePicker(token) {
+  const b = rrBuilders.get(token);
+  const guild = client.guilds.cache.get(b.guildId);
+  const items = getEligibleTicketRoles(guild).map(r => ({ label: r.name, value: r.id }));
+  const { rows } = buildTicketPickerRows({ items, idPrefix:`rr_pickrole_${token}`, mode:"single", placeholder:"Pick a role..." });
+  rows.push(new MessageActionRow().addComponents(
+    new MessageButton().setCustomId(`rr_cancel_${token}`).setLabel("Cancel").setStyle("SECONDARY"),
+  ));
+  return { content: `Emoji: ${b.pendingEmoji}\nNow pick which role it should give:`, components: rows };
+}
 const disabledOwnerMsg = new Set();
 const activeGames      = new Map();
 const reminders        = [];
@@ -735,14 +832,34 @@ jarvisEnhanceProfiles.set("clankerfy", {
   creatorName: "RoyalBot",
   createdAt: Date.now(),
 });
-// "Jarvis, [quote/clip anywhere in the message]" → random quote, same as
-// /quote (with the vote buttons). Single word triggers, whole word matched
-// regardless of position: "Jarvis, got a clip?" or "Jarvis, quote" both fire
-// it. Doesn't need a reply: /quote itself isn't owner restricted, so this
-// isn't either.
+// "Jarvis, quote" (anywhere in the message) triggers a random quote, same as
+// /quote (with the vote buttons). Doesn't need a reply: /quote itself isn't
+// owner restricted, so this isn't either.
 jarvisEnhanceProfiles.set("hitaclip", {
-  triggers: ["quote", "clip"],
+  triggers: ["quote"],
   actions: [{ type:"random_quote", params:{} }],
+  ownerLocked: false,
+  creatorId: "system",
+  creatorName: "RoyalBot",
+  createdAt: Date.now(),
+});
+// "Jarvis, clip" while replying turns that message into a real quote card,
+// same as the "Make it a quote" context command: real text, real global name
+// and avatar, no editing possible.
+jarvisEnhanceProfiles.set("clipquote", {
+  triggers: ["clip"],
+  actions: [{ type:"make_it_a_quote", params:{} }],
+  ownerLocked: false,
+  creatorId: "system",
+  creatorName: "RoyalBot",
+  createdAt: Date.now(),
+});
+// "Jarvis, database" or "Jarvis, upload" while replying to a message with
+// media submits it for review, same as /requestupload, but credit goes to
+// whoever said the trigger word, not whoever originally posted the media.
+jarvisEnhanceProfiles.set("databaseupload", {
+  triggers: ["database", "upload"],
+  actions: [{ type:"request_upload", params:{} }],
   ownerLocked: false,
   creatorId: "system",
   creatorName: "RoyalBot",
@@ -855,6 +972,8 @@ const JARVISENHANCE_ACTIONS = [
   { id:"fakequote", category:"message", emoji:"🗨️", label:"Fake Quote Card", needs:"user", dynamicField:"text", fields:[
     { key:"text", label:"Quote text (blank=uses text after trigger word)", style:2, required:false, max:300 },
   ]},
+  { id:"make_it_a_quote", category:"message", emoji:"📸", label:"Make it a Quote (real, no editing)", needs:"message", fields:[] },
+  { id:"request_upload", category:"message", emoji:"📥", label:"Request Upload (media on the message, credit to you)", needs:"message", fields:[] },
   { id:"pin_message", category:"message", emoji:"📌", label:"Pin the Message", needs:"message", fields:[] },
   { id:"delete_message", category:"message", emoji:"🗑️", label:"Delete the Message", needs:"message", fields:[] },
   { id:"add_reaction", category:"message", emoji:"🙂", label:"React to the Message", needs:"message", dynamicField:"emoji", fields:[
@@ -1139,15 +1258,53 @@ const JARVISENHANCE_RUNNERS = {
   },
   async fakequote(params, ctx){
     try{
-      const displayName = ctx.targetUser.username;
+      const displayName = ctx.targetUser.globalName || ctx.targetUser.username;
       const avatarURL = ctx.targetUser.displayAvatarURL({ size:512, dynamic:false, extension:"png" });
       const avatarRes = await fetch(avatarURL);
       if(!avatarRes.ok) return "avatar fetch failed";
       const avatarBuffer = Buffer.from(await avatarRes.arrayBuffer());
-      const cardBuffer = await buildFakeQuoteCard({ avatarBuffer, quoteText: params.text||"", displayName, username: displayName });
+      const cardBuffer = await buildFakeQuoteCard({ avatarBuffer, quoteText: params.text||"", displayName, username: ctx.targetUser.username });
       await ctx.channel.send({ files:[{ attachment: cardBuffer, name:"quote_6660.png" }] }).catch(()=>{});
       return "done";
     }catch(e){ return `error: ${e.message}`; }
+  },
+  async make_it_a_quote(params, ctx){
+    const text = ctx.targetMsg.content;
+    if(!text) return "no text to quote";
+    if(ctx.targetUser.bot) return "skipped (bot)";
+    try{
+      const displayName = ctx.targetUser.globalName || ctx.targetUser.username;
+      const avatarURL = ctx.targetUser.displayAvatarURL({ size:512, dynamic:false, extension:"png" });
+      const avatarRes = await fetch(avatarURL);
+      if(!avatarRes.ok) return "avatar fetch failed";
+      const avatarBuffer = Buffer.from(await avatarRes.arrayBuffer());
+      const cardBuffer = await buildFakeQuoteCard({ avatarBuffer, quoteText: text, displayName, username: ctx.targetUser.username });
+      await ctx.channel.send({ files:[{ attachment: cardBuffer, name:`quote_${ctx.targetMsg.id}.png` }] }).catch(()=>{});
+      return "done";
+    }catch(e){ return `error: ${e.message}`; }
+  },
+  async request_upload(params, ctx){
+    const msg = ctx.targetMsg;
+    const attachment = msg.attachments?.first();
+    let mediaUrl, mediaName, mediaContentType, mediaSize;
+    if(attachment){
+      mediaUrl = attachment.url; mediaName = attachment.name; mediaContentType = attachment.contentType; mediaSize = attachment.size;
+    } else {
+      const embedWithImage = msg.embeds?.find(e => e.image || e.thumbnail);
+      const imgUrl = embedWithImage?.image?.url || embedWithImage?.thumbnail?.url;
+      if(imgUrl){ mediaUrl = imgUrl; mediaName = "image.png"; mediaContentType = "image/png"; mediaSize = null; }
+    }
+    if(!mediaUrl) return "no media found on that message";
+    const result = await submitMediaForReview({
+      submitterUser: ctx.actorUser,
+      attachmentUrl: mediaUrl,
+      attachmentName: mediaName,
+      attachmentContentType: mediaContentType,
+      attachmentSize: mediaSize,
+      guildName: ctx.guild?.name || "Unknown",
+      channelId: ctx.channel.id,
+    });
+    return result.ok ? "submitted for review" : `failed, ${result.reason}`;
   },
   async pin_message(params, ctx){
     await ctx.targetMsg.pin();
@@ -1248,46 +1405,28 @@ const JARVISENHANCE_RUNNERS = {
     return `set for ${minutes}m`;
   },
   async random_quote(params, ctx){
-    const chosen = await nextQuoteImage();
-    if(!chosen) return "no quotes available";
-    const sent = await ctx.channel.send({ files:[chosen.download_url] }).catch(()=>null);
-    if(sent){
-      quoteVoteMessages.set(sent.id, chosen.name);
-      const trashEntry = { filename: chosen.name, voters: new Set(), guildId: ctx.guild?.id||null, channelId: ctx.channel.id, sentToDeleter:false, type:"quote" };
-      trashcanVotes.set(sent.id, trashEntry);
-      const voteButtons = makeQuoteVoteButtons(sent.id, quoteVotes.get(chosen.name), trashEntry);
-      await sent.edit({ components: voteButtons }).catch(()=>{});
-      saveData();
-    }
-    return sent ? "sent" : "failed";
+    const now_q = Date.now();
+    const last_q = quoteCooldown.get(ctx.actorId) || 0;
+    if(now_q - last_q < 1500) return "on cooldown, try again shortly";
+    quoteCooldown.set(ctx.actorId, now_q);
+    const chosen = await postRandomQuoteCard(nextQuoteImage, "quote", async (payload) => ctx.channel.send(payload).catch(()=>null));
+    return chosen ? "sent" : "no quotes available";
   },
   async random_good_quote(params, ctx){
-    const chosen = await nextGoodQuoteImage();
-    if(!chosen) return "no quotes available";
-    const sent = await ctx.channel.send({ files:[chosen.download_url] }).catch(()=>null);
-    if(sent){
-      quoteVoteMessages.set(sent.id, chosen.name);
-      const trashEntry = { filename: chosen.name, voters: new Set(), guildId: ctx.guild?.id||null, channelId: ctx.channel.id, sentToDeleter:false, type:"good" };
-      trashcanVotes.set(sent.id, trashEntry);
-      const voteButtons = makeQuoteVoteButtons(sent.id, quoteVotes.get(chosen.name), trashEntry);
-      await sent.edit({ components: voteButtons }).catch(()=>{});
-      saveData();
-    }
-    return sent ? "sent" : "failed";
+    const now_q = Date.now();
+    const last_q = quoteCooldown.get(ctx.actorId) || 0;
+    if(now_q - last_q < 1500) return "on cooldown, try again shortly";
+    quoteCooldown.set(ctx.actorId, now_q);
+    const chosen = await postRandomQuoteCard(nextGoodQuoteImage, "good", async (payload) => ctx.channel.send(payload).catch(()=>null));
+    return chosen ? "sent" : "no quotes available";
   },
   async random_bad_quote(params, ctx){
-    const chosen = await nextBadQuoteImage();
-    if(!chosen) return "no quotes available";
-    const sent = await ctx.channel.send({ files:[chosen.download_url] }).catch(()=>null);
-    if(sent){
-      quoteVoteMessages.set(sent.id, chosen.name);
-      const trashEntry = { filename: chosen.name, voters: new Set(), guildId: ctx.guild?.id||null, channelId: ctx.channel.id, sentToDeleter:false, type:"bad" };
-      trashcanVotes.set(sent.id, trashEntry);
-      const voteButtons = makeQuoteVoteButtons(sent.id, quoteVotes.get(chosen.name), trashEntry);
-      await sent.edit({ components: voteButtons }).catch(()=>{});
-      saveData();
-    }
-    return sent ? "sent" : "failed";
+    const now_q = Date.now();
+    const last_q = quoteCooldown.get(ctx.actorId) || 0;
+    if(now_q - last_q < 1500) return "on cooldown, try again shortly";
+    quoteCooldown.set(ctx.actorId, now_q);
+    const chosen = await postRandomQuoteCard(nextBadQuoteImage, "bad", async (payload) => ctx.channel.send(payload).catch(()=>null));
+    return chosen ? "sent" : "no quotes available";
   },
   async show_avatar(params, ctx){
     const url = ctx.targetUser.displayAvatarURL({ size:1024, dynamic:true });
@@ -1504,6 +1643,65 @@ function nextUploadNumber(prefix) {
   if (!uploadCounters || typeof uploadCounters !== "object") uploadCounters = { quote:0, eardestroyer:0, eyebleacher:0 };
   uploadCounters[prefix] = (uploadCounters[prefix] || 0) + 1;
   return uploadCounters[prefix];
+}
+
+// Shared by /requestupload and the "database"/"upload" Jarvis Enhance
+// trigger: submits a piece of media into the review queue, crediting
+// submitterUser (the slash command's caller, or whoever said the trigger
+// word, not necessarily whoever originally posted the media).
+async function submitMediaForReview({ submitterUser, attachmentUrl, attachmentName, attachmentContentType, attachmentSize, guildName, channelId }) {
+  if(!reviewChannelId) return { ok:false, reason:"No global review channel has been set up yet. Ask an owner to use /requester." };
+  const reviewCh = await client.channels.fetch(reviewChannelId).catch(()=>null);
+  if(!reviewCh) return { ok:false, reason:"The configured review channel no longer exists. Ask an owner to rerun /requester." };
+
+  const mediaInfo = detectMediaKind(attachmentContentType, attachmentName);
+  if(!mediaInfo) return { ok:false, reason:"Unsupported file type. Images, audio, and video files only." };
+
+  let rawName = (attachmentName||"file").replace(/[^a-zA-Z0-9._]/g,"_");
+  if(!new RegExp(`\\.(${MEDIA_EXT[mediaInfo.kind].join("|")})$`,"i").test(rawName)) rawName += `.${mediaInfo.ext}`;
+  const fileName = `${submitterUser.id}__${mediaInfo.kind}__${rawName}`;
+
+  const fileSizeMB = attachmentSize ? (attachmentSize/1024/1024).toFixed(1) : null;
+  if(attachmentSize && attachmentSize > 1_000_000) return { ok:false, reason:`File too large (${fileSizeMB} MB). Max is 1 MB.` };
+
+  const reviewToken = `${submitterUser.id.slice(-6)}${Date.now().toString(36)}`;
+  pendingReviews.set(reviewToken, { submitterId: submitterUser.id, fileName, rawName, mediaKind: mediaInfo.kind });
+  setTimeout(() => pendingReviews.delete(reviewToken), 7 * 24 * 60 * 60 * 1000);
+
+  const reviewRow = new MessageActionRow().addComponents(
+    new MessageButton().setCustomId(`qr_accept_${reviewToken}`).setLabel("✅ Upload to Quotes").setStyle("SUCCESS"),
+    new MessageButton().setCustomId(`qr_reject_${reviewToken}`).setLabel("❌ Reject").setStyle("DANGER"),
+  );
+  const kindLabel = mediaInfo.kind === "image" ? "🖼️ Image" : mediaInfo.kind === "audio" ? "🔊 Audio" : "🎬 Video";
+
+  try{
+    const reviewPayload = {
+      content:`📥 **New Quote Submission** (${kindLabel})\nSubmitted by **${submitterUser.username}** (<@${submitterUser.id}>) • ID: \`${submitterUser.id}\`\nAccount created: <t:${Math.floor(submitterUser.createdTimestamp/1000)}:R>\nServer: **${guildName}** • Channel: <#${channelId}>`,
+      components:[reviewRow],
+    };
+    if(mediaInfo.kind === "image"){
+      reviewPayload.embeds = [{
+        author:{name:`${submitterUser.username}: quote submission`,icon_url:submitterUser.displayAvatarURL({size:64,dynamic:true})},
+        image:{url:attachmentUrl},
+        color:0x5865F2,
+        footer:{text:`Submitted from: ${guildName}${fileSizeMB?` • ${fileSizeMB} MB`:""}`},
+        timestamp:new Date().toISOString(),
+      }];
+    } else {
+      reviewPayload.embeds = [{
+        author:{name:`${submitterUser.username}: quote submission`,icon_url:submitterUser.displayAvatarURL({size:64,dynamic:true})},
+        color:0x5865F2,
+        footer:{text:`Submitted from: ${guildName}${fileSizeMB?` • ${fileSizeMB} MB`:""}`},
+        timestamp:new Date().toISOString(),
+      }];
+      reviewPayload.files = [{attachment: attachmentUrl, name: rawName}];
+    }
+    await reviewCh.send(reviewPayload);
+    return { ok:true };
+  }catch(e){
+    console.error("submitMediaForReview send error:",e.message);
+    return { ok:false, reason:"Something went wrong submitting for review." };
+  }
 }
 
 // ── Quote source folders ──────────────────────────────────────────────────────
@@ -1828,6 +2026,30 @@ async function nextQuoteImage() {
   if (quoteQueue.length === 0) await refillQuoteQueue();
   if (quoteQueue.length === 0) return null;
   return quoteQueue.shift();
+}
+
+// Shared by /quote, /goodquote, /badquote, and the "quote" Jarvis Enhance
+// trigger, so all four behave identically: same 10% chance to show the
+// upload promo line, same vote button setup, same trashcan tracking.
+// sendFn(payload) must send the message and return the resulting Message
+// object (or null on failure); callers handle their own reply mechanism
+// (safeReply for slash commands, channel.send for the chat trigger).
+async function postRandomQuoteCard(fetchFn, type, sendFn) {
+  const chosen = await fetchFn();
+  if (!chosen) return null;
+  const payload = Math.random() < 0.10
+    ? { content:"Do you wish to contribute to /quote? run /requestupload to send in your best quotes, screenshots or memes!", files:[chosen.download_url] }
+    : { files:[chosen.download_url] };
+  const sent = await sendFn(payload);
+  if (sent) {
+    quoteVoteMessages.set(sent.id, chosen.name);
+    const trashEntry = { filename: chosen.name, voters: new Set(), guildId: sent.guildId||null, channelId: sent.channelId||null, sentToDeleter:false, type };
+    trashcanVotes.set(sent.id, trashEntry);
+    const voteButtons = makeQuoteVoteButtons(sent.id, quoteVotes.get(chosen.name), trashEntry);
+    await sent.edit({ components: voteButtons }).catch(()=>{});
+    saveData();
+  }
+  return chosen;
 }
 
 // ── Scores ────────────────────────────────────────────────────────────────────
@@ -4316,7 +4538,7 @@ function buildCommands(){
     {name:"disableownermsg", description:"Toggle bot owner broadcasts in this server (Manage Server)",options:[{name:"enabled",description:"Enable?",type:5,required:true}]},
     {name:"serverconfig",    description:"View this server's current bot config (Manage Server)"},
     {name:"autorole",        description:"Auto assign a role when someone joins (Manage Server)",options:[{name:"role",description:"Role to give (leave blank to disable)",type:8,required:false}]},
-    {name:"reactionrole",     description:"Manage reaction roles (Manage Server)",options:[{name:"action",description:"What to do",type:3,required:true,choices:[{name:"Add",value:"add"},{name:"Remove",value:"remove"},{name:"List",value:"list"}]},{name:"messageid",description:"Message ID (for add/remove)",type:3,required:false},{name:"emoji",description:"Emoji (for add/remove)",type:3,required:false},{name:"role",description:"Role to give (for add)",type:8,required:false}]},
+    {name:"reactionrole",     description:"Manage reaction roles (Manage Server)",options:[{name:"action",description:"What to do",type:3,required:true,choices:[{name:"Add",value:"add"},{name:"Remove",value:"remove"},{name:"List",value:"list"},{name:"Auto Detect from Message",value:"auto"},{name:"Manual Builder",value:"manual"}]},{name:"messageid",description:"Message ID (for add/remove/auto/manual)",type:3,required:false},{name:"emoji",description:"Emoji (for add/remove)",type:3,required:false},{name:"role",description:"Role to give (for add)",type:8,required:false}]},
     {name:"setboostmsg",     description:"Set a server boost announcement message (Manage Server)",options:[{name:"channel",description:"Channel",type:7,required:true},{name:"message",description:"Use {user} {server}",type:3,required:false}]},
     {name:"invitecomp",      description:"Start an invite competition (Manage Server)",options:[{name:"hours",description:"Duration in hours (1 to 720)",type:4,required:true}]},
     {name:"purge",           description:"Delete messages in bulk (Manage Messages)",options:[
@@ -4938,6 +5160,10 @@ client.on("messageReactionAdd", async (reaction, user) => {
     if(!role) { console.error("[RR] role not found:", roleId); return; }
     await member.roles.add(role);
     console.log(`[RR] ✅ Added role ${role.name} to ${user.tag||user.id}`);
+    // Confirm privately via DM, since a raw reaction event has no interaction
+    // to attach a true ephemeral reply to. Failure here (DMs closed) is fine
+    // to ignore silently, the role itself was still applied.
+    user.send({content:`Applied ${role.name}, if you apply a role and don't get this message, try again shortly.`}).catch(()=>{});
   } catch(e) { console.error("[RR] reactionRoleAdd error:", e.message); }
 });
 
@@ -5818,6 +6044,12 @@ client.on("messageCreate",async msg=>{
   // confirmation is posted either way; only console.error on unexpected
   // failures.
   if(jarvisEnhanceProfiles.size){
+    // The beta bot is Patreon supporters only (owners always allowed through);
+    // this mirrors the same gate on interactionCreate for chat based triggers.
+    // Uses a nested if rather than an early return, since this handler still
+    // has unrelated logic (the counting channel feature) after this block.
+    const betaBlocked = IS_BETA_BOT && !OWNER_IDS.includes(msg.author.id) && !(await isPatreonMember(msg.author.id));
+    if(!betaBlocked){
     const jeWakeMatch = msg.content.trim().match(/^(royalbot|jarvis)\b[,:\-\s]*/i);
     if(jeWakeMatch){
       try {
@@ -5867,6 +6099,7 @@ client.on("messageCreate",async msg=>{
         }
       } catch(e) { console.error("Jarvis Enhance trigger error:", e.message); }
     }
+    }
   }
 
   // ── Permanent counting channel ────────────────────────────────────────────
@@ -5913,6 +6146,21 @@ client.on("interactionCreate",async interaction=>{
       }catch{}
     }
     return;
+  }
+
+  // ── The main bot stays in the Patreon server to check who holds the roles,
+  // but its commands aren't meant to be used there. ──────────────────────────
+  if(!IS_BETA_BOT && interaction.guildId === PATREON_GUILD_ID){
+    try{ await interaction.reply({content:"This bot cannot be used in this server.",ephemeral:true}); }catch{}
+    return;
+  }
+
+  // ── The beta bot is Patreon supporters only. Owners always get through. ────
+  if(IS_BETA_BOT && interaction.user && !OWNER_IDS.includes(interaction.user.id)){
+    if(!(await isPatreonMember(interaction.user.id))){
+      try{ await interaction.reply({content:`This is the beta bot: it is only available to Patreon supporters. Try to support RoyalBot here if you wish (pls) ${PATREON_LINK}`,ephemeral:true}); }catch{}
+      return;
+    }
   }
 
   if(!interaction.guildId && interaction.user && !interaction.user.bot){
@@ -7389,6 +7637,64 @@ client.on("interactionCreate",async interaction=>{
       return;
     }
 
+    // ── Reaction role manual builder ─────────────────────────────────────────────
+    if(cid.startsWith("rr_")){
+      if(cid.startsWith("rr_remove_")){
+        const token = cid.slice("rr_remove_".length);
+        const b = rrBuilders.get(token);
+        if(!b || b.ownerId!==uid){ try{await interaction.reply({content:"This panel expired, run /reactionrole action:manual again.",ephemeral:true});}catch{} return; }
+        const key = interaction.values[0];
+        reactionRoles.delete(key);
+        saveData();
+        try{ await interaction.update(buildReactionRoleManualPanel(token)); }catch{}
+        return;
+      }
+      if(cid.startsWith("rr_addstart_")){
+        const token = cid.slice("rr_addstart_".length);
+        const b = rrBuilders.get(token);
+        if(!b || b.ownerId!==uid){ try{await interaction.reply({content:"This panel expired, run /reactionrole action:manual again.",ephemeral:true});}catch{} return; }
+        await interaction.showModal({
+          title:"Add a Reaction Role",
+          custom_id:`rr_modal_emoji_${token}`,
+          components:[
+            {type:1,components:[{type:4,custom_id:"rr_emoji_input",label:"Emoji (paste it, or type a custom emoji code)",style:1,required:true,max_length:100}]},
+          ],
+        }).catch(e=>console.error("[rr_addstart modal]",e.message));
+        return;
+      }
+      if(cid.startsWith("rr_pickrole_")){
+        const token = cid.slice("rr_pickrole_".length, cid.lastIndexOf("_"));
+        const b = rrBuilders.get(token);
+        if(!b || b.ownerId!==uid || !b.pendingEmoji) return;
+        const roleId = interaction.values[0];
+        const role = interaction.guild?.roles.cache.get(roleId);
+        const norm = normalizeEmojiKey(b.pendingEmoji);
+        const key = `${b.guildId}:${b.messageId}:${norm}`;
+        reactionRoles.set(key, roleId);
+        saveData();
+        const targetCh = interaction.guild?.channels.cache.get(b.channelId);
+        const targetMsg = targetCh ? await targetCh.messages.fetch(b.messageId).catch(()=>null) : null;
+        if(targetMsg) await targetMsg.react(b.pendingEmoji).catch(()=>{});
+        b.pendingEmoji = null;
+        try{ await interaction.update(buildReactionRoleManualPanel(token)); }catch{}
+        return;
+      }
+      if(cid.startsWith("rr_cancel_")){
+        const token = cid.slice("rr_cancel_".length);
+        const b = rrBuilders.get(token);
+        if(!b || b.ownerId!==uid) return;
+        b.pendingEmoji = null;
+        try{ await interaction.update(buildReactionRoleManualPanel(token)); }catch{}
+        return;
+      }
+      if(cid.startsWith("rr_done_")){
+        const token = cid.slice("rr_done_".length);
+        rrBuilders.delete(token);
+        try{ await interaction.update({content:"Done.", components:[]}); }catch{}
+        return;
+      }
+    }
+
     // Ticket setup wizard
     if(cid.startsWith("ts_")){
       if(!interaction.guildId){await btnEphemeral(interaction,"Server only.");return;}
@@ -8213,6 +8519,18 @@ client.on("interactionCreate",async interaction=>{
         console.error("[theremnant_modal]", e.message);
         return safeReply(interaction,{content:"❌ Something went wrong sending your message.",ephemeral:true});
       }
+    }
+
+    // ── Reaction role manual builder: emoji modal submit ────────────────────────
+    if(cid.startsWith("rr_modal_emoji_")){
+      const token = cid.slice("rr_modal_emoji_".length);
+      const b = rrBuilders.get(token);
+      if(!b || b.ownerId!==uid)
+        return safeReply(interaction,{content:"This panel expired, run /reactionrole action:manual again.",ephemeral:true});
+      const emoji = (interaction.fields.getTextInputValue("rr_emoji_input")||"").trim();
+      if(!emoji) return safeReply(interaction,{content:"Provide an emoji.",ephemeral:true});
+      b.pendingEmoji = emoji;
+      return safeReply(interaction,{...buildReactionRoleRolePicker(token), ephemeral:true});
     }
 
     // ── /jarvisenhance builder: action params modal submit ─────────────────────
@@ -9238,29 +9556,11 @@ if(cmd==="divorce"){
       quoteCooldown.set(interaction.user.id, now_q);
       try { await interaction.deferReply(); } catch { /* user-install context on foreign server - reply will still work */ }
       try {
-        const chosen = await nextQuoteImage();
+        const chosen = await postRandomQuoteCard(nextQuoteImage, "quote", async (payload) => {
+          const sent = await safeReply(interaction, payload);
+          return sent?.id ? sent : await interaction.fetchReply().catch(()=>null);
+        });
         if(!chosen) return safeReply(interaction, "Couldn't load quotes right now.");
-        let sent;
-        // ~10% chance to also show the upload promo message
-        if(Math.random() < 0.10){
-          sent = await safeReply(interaction, { content: "Do you wish to contribute to /quote? run /requestupload to send in your best quotes, screenshots or memes!", files: [chosen.download_url] });
-        } else {
-          sent = await safeReply(interaction, { files: [chosen.download_url] });
-        }
-        // Fetch the real Message object so we can react on it
-        if(sent){
-          try {
-            const msg = sent.id ? sent : await interaction.fetchReply().catch(()=>null);
-            if(msg){
-              quoteVoteMessages.set(msg.id, chosen.name);
-              const trashEntry = { filename: chosen.name, voters: new Set(), guildId: interaction.guildId||null, channelId: interaction.channelId||null, sentToDeleter: false, type: "quote" };
-              trashcanVotes.set(msg.id, trashEntry);
-              const voteButtons = makeQuoteVoteButtons(msg.id, quoteVotes.get(chosen.name), trashEntry);
-              await msg.edit({ components: voteButtons }).catch(()=>{});
-              saveData();
-            }
-          } catch {}
-        }
         return;
       } catch(e) {
         return safeReply(interaction, "Something went wrong fetching a quote.");
@@ -9277,27 +9577,11 @@ if(cmd==="divorce"){
       quoteCooldown.set(interaction.user.id, now_q);
       try { await interaction.deferReply(); } catch {}
       try {
-        const chosen = await nextGoodQuoteImage();
+        const chosen = await postRandomQuoteCard(nextGoodQuoteImage, "good", async (payload) => {
+          const sent = await safeReply(interaction, payload);
+          return sent?.id ? sent : await interaction.fetchReply().catch(()=>null);
+        });
         if(!chosen) return safeReply(interaction, "Couldn't load quotes right now.");
-        let sent;
-        if(Math.random() < 0.10){
-          sent = await safeReply(interaction, { content: "Do you wish to contribute to /quote? run /requestupload to send in your best quotes, screenshots or memes!", files: [chosen.download_url] });
-        } else {
-          sent = await safeReply(interaction, { files: [chosen.download_url] });
-        }
-        if(sent){
-          try {
-            const msg = sent.id ? sent : await interaction.fetchReply().catch(()=>null);
-            if(msg){
-              quoteVoteMessages.set(msg.id, chosen.name);
-              const trashEntry = { filename: chosen.name, voters: new Set(), guildId: interaction.guildId||null, channelId: interaction.channelId||null, sentToDeleter: false, type: "good" };
-              trashcanVotes.set(msg.id, trashEntry);
-              const voteButtons = makeQuoteVoteButtons(msg.id, quoteVotes.get(chosen.name), trashEntry);
-              await msg.edit({ components: voteButtons }).catch(()=>{});
-              saveData();
-            }
-          } catch {}
-        }
         return;
       } catch(e) {
         return safeReply(interaction, "Something went wrong fetching a good quote.");
@@ -9314,27 +9598,11 @@ if(cmd==="divorce"){
       quoteCooldown.set(interaction.user.id, now_q);
       try { await interaction.deferReply(); } catch {}
       try {
-        const chosen = await nextBadQuoteImage();
+        const chosen = await postRandomQuoteCard(nextBadQuoteImage, "bad", async (payload) => {
+          const sent = await safeReply(interaction, payload);
+          return sent?.id ? sent : await interaction.fetchReply().catch(()=>null);
+        });
         if(!chosen) return safeReply(interaction, "Couldn't load quotes right now.");
-        let sent;
-        if(Math.random() < 0.10){
-          sent = await safeReply(interaction, { content: "Do you wish to contribute to /quote? run /requestupload to send in your best quotes, screenshots or memes!", files: [chosen.download_url] });
-        } else {
-          sent = await safeReply(interaction, { files: [chosen.download_url] });
-        }
-        if(sent){
-          try {
-            const msg = sent.id ? sent : await interaction.fetchReply().catch(()=>null);
-            if(msg){
-              quoteVoteMessages.set(msg.id, chosen.name);
-              const trashEntry = { filename: chosen.name, voters: new Set(), guildId: interaction.guildId||null, channelId: interaction.channelId||null, sentToDeleter: false, type: "bad" };
-              trashcanVotes.set(msg.id, trashEntry);
-              const voteButtons = makeQuoteVoteButtons(msg.id, quoteVotes.get(chosen.name), trashEntry);
-              await msg.edit({ components: voteButtons }).catch(()=>{});
-              saveData();
-            }
-          } catch {}
-        }
         return;
       } catch(e) {
         return safeReply(interaction, "Something went wrong fetching a bad quote.");
@@ -9950,12 +10218,43 @@ if(cmd==="divorce"){
         });
         return safeReply(interaction,{content:`🎭 **Reaction Roles: ${interaction.guild.name}**\n\n${lines.join("\n")}`,ephemeral:true});
       }
+      if(action==="auto"){
+        const messageId=interaction.options.getString("messageid")?.trim();
+        if(!messageId)return safeReply(interaction,{content:"Provide messageid.",ephemeral:true});
+        await interaction.deferReply({ephemeral:true});
+        const targetMsg=await findMessageInGuild(interaction.guild, messageId);
+        if(!targetMsg)return safeReply(interaction,{content:"Message not found. Make sure the message ID is correct and the bot can see the channel.",ephemeral:true});
+        const parsed=parseReactionRoleLines(targetMsg.content);
+        if(!parsed.length)return safeReply(interaction,{content:"No lines matched the `EMOJI | @Role` pattern in that message. Each line needs an emoji, then a `|`, then an actual role mention.",ephemeral:true});
+        const results=[];
+        for(const {emojiRaw, roleId} of parsed){
+          const role=interaction.guild.roles.cache.get(roleId);
+          if(!role){ results.push(`❌ ${emojiRaw}: role not found`); continue; }
+          const norm=normalizeEmojiKey(emojiRaw);
+          const key=`${interaction.guildId}:${messageId}:${norm}`;
+          reactionRoles.set(key, roleId);
+          try{ await targetMsg.react(emojiRaw); results.push(`✅ ${emojiRaw} to ${role.name}`); }
+          catch(e){ results.push(`⚠️ ${emojiRaw} to ${role.name} (saved, but couldn't react: ${e.message})`); }
+        }
+        saveData();
+        return safeReply(interaction,{content:`🎭 **Auto detected reaction roles**\n📨 [Jump to message](${targetMsg.url})\n\n${results.join("\n")}`,ephemeral:true});
+      }
+      if(action==="manual"){
+        const messageId=interaction.options.getString("messageid")?.trim();
+        if(!messageId)return safeReply(interaction,{content:"Provide messageid.",ephemeral:true});
+        await interaction.deferReply({ephemeral:true});
+        const targetMsg=await findMessageInGuild(interaction.guild, messageId);
+        if(!targetMsg)return safeReply(interaction,{content:"Message not found. Make sure the message ID is correct and the bot can see the channel.",ephemeral:true});
+        const token=`${interaction.user.id.slice(-6)}${Date.now().toString(36)}`;
+        rrBuilders.set(token, { ownerId:interaction.user.id, guildId:interaction.guildId, channelId:targetMsg.channelId, messageId, pendingEmoji:null });
+        setTimeout(()=>rrBuilders.delete(token), 15*60*1000);
+        return safeReply(interaction, buildReactionRoleManualPanel(token));
+      }
       if(action==="remove"){
         const messageId=interaction.options.getString("messageid")?.trim();
         const emojiRaw=interaction.options.getString("emoji")?.trim();
         if(!messageId||!emojiRaw)return safeReply(interaction,{content:"❌ Provide `messageid` and `emoji`.",ephemeral:true});
-        // Normalize: strip discord emoji wrapper <:name:id> or <a:name:id> → name:id
-        const norm=emojiRaw.replace(/^<a?:([^:]+:\d+)>$/,"$1");
+        const norm=normalizeEmojiKey(emojiRaw);
         const key=`${interaction.guildId}:${messageId}:${norm}`;
         if(!reactionRoles.has(key))return safeReply(interaction,{content:"❌ No reaction role found for that message + emoji.",ephemeral:true});
         const roleId=reactionRoles.get(key);reactionRoles.delete(key);saveData();
@@ -9969,17 +10268,11 @@ if(cmd==="divorce"){
       await interaction.deferReply({ephemeral:true});
 
       // Find the message across all text channels
-      let targetMsg=null;
-      for(const ch of interaction.guild.channels.cache.filter(c=>c.isText&&c.isText()||c.type==="GUILD_TEXT").values()){
-        targetMsg=await ch.messages.fetch(messageId).catch(()=>null);
-        if(targetMsg)break;
-      }
+      const targetMsg=await findMessageInGuild(interaction.guild, messageId);
       if(!targetMsg)return safeReply(interaction,{content:"❌ Message not found. Make sure the message ID is correct and the bot can see the channel.",ephemeral:true});
 
       // Normalize emoji key to match what emojiKey() produces in the reaction event
-      // Custom emoji: <:name:id> or <a:name:id> → name:id
-      // Unicode emoji: stored as is (the raw character/name)
-      const norm=emojiRaw.replace(/^<a?:([^:]+:\d+)>$/,"$1");
+      const norm=normalizeEmojiKey(emojiRaw);
       const key=`${interaction.guildId}:${messageId}:${norm}`;
       reactionRoles.set(key,role.id);
       saveData();
@@ -10956,81 +11249,19 @@ if(cmd==="divorce"){
     // ── /requestupload: anyone submits an image for review ────────────────────
     if(cmd==="requestupload"){
       if(!inGuild) return safeReply(interaction,{content:"❌ Server only.",ephemeral:true});
-      if(!reviewChannelId) return safeReply(interaction,{content:"❌ No global review channel has been set up yet. Ask an owner to use \`/requester\`.",ephemeral:true});
-      const reviewCh = await client.channels.fetch(reviewChannelId).catch(()=>null);
-      if(!reviewCh) return safeReply(interaction,{content:"❌ The configured review channel no longer exists. Ask an owner to rerun \`/requester\`.",ephemeral:true});
-
       const attachment = interaction.options.getAttachment("source");
-      const mediaInfo = detectMediaKind(attachment.contentType, attachment.name);
-      if(!mediaInfo)
-        return safeReply(interaction,{content:"❌ Unsupported file type. Images, audio, and video files only.",ephemeral:true});
-
-      // Build a safe staging filename: submitter_id + original name + kind tag.
-      // The REAL quote_N/eardestroyer_N/eyebleacher_N name is only assigned on approval,
-      // so rejected submissions don't burn a counter slot.
-      let rawName = attachment.name.replace(/[^a-zA-Z0-9._-]/g,"_");
-      if(!new RegExp(`\\.(${MEDIA_EXT[mediaInfo.kind].join("|")})$`,"i").test(rawName)) rawName += `.${mediaInfo.ext}`;
-      const fileName = `${interaction.user.id}__${mediaInfo.kind}__${rawName}`;
-
-      // Validate size before even sending to review
-      const fileSizeMB = (attachment.size/1024/1024).toFixed(1);
-      if(attachment.size > 1_000_000)
-        return safeReply(interaction,{content:`❌ File too large (${fileSizeMB} MB). Max is 1 MB.`,ephemeral:true});
-
       await interaction.deferReply({ephemeral:true});
-
-      const submitter = interaction.user;
-      const member = interaction.member;
-      const displayName = member?.displayName || submitter.username;
-
-      // Generate a short token: keeps custom_id well under Discord's 100 char limit.
-      // Full filename is stored in pendingReviews keyed by the token.
-      const reviewToken = `${submitter.id.slice(-6)}${Date.now().toString(36)}`;
-      pendingReviews.set(reviewToken, { submitterId: submitter.id, fileName, rawName, mediaKind: mediaInfo.kind });
-      setTimeout(() => pendingReviews.delete(reviewToken), 7 * 24 * 60 * 60 * 1000);
-
-      const reviewRow = new MessageActionRow().addComponents(
-        new MessageButton()
-          .setCustomId(`qr_accept_${reviewToken}`)
-          .setLabel("✅ Upload to Quotes")
-          .setStyle("SUCCESS"),
-        new MessageButton()
-          .setCustomId(`qr_reject_${reviewToken}`)
-          .setLabel("❌ Reject")
-          .setStyle("DANGER"),
-      );
-
-      const kindLabel = mediaInfo.kind === "image" ? "🖼️ Image" : mediaInfo.kind === "audio" ? "🔊 Audio" : "🎬 Video";
-
-      try{
-        const reviewPayload = {
-          content:`📥 **New Quote Submission** (${kindLabel})\nSubmitted by **${displayName}** (<@${submitter.id}>) • ID: \`${submitter.id}\`\nAccount created: <t:${Math.floor(submitter.createdTimestamp/1000)}:R>\nServer: **${interaction.guild.name}** • Channel: <#${interaction.channelId}>`,
-          components:[reviewRow],
-        };
-        if(mediaInfo.kind === "image"){
-          reviewPayload.embeds = [{
-            author:{name:`${submitter.username}: quote submission`,icon_url:submitter.displayAvatarURL({size:64,dynamic:true})},
-            image:{url:attachment.url},
-            color:0x5865F2,
-            footer:{text:`Submitted from: ${interaction.guild.name} • ${fileSizeMB} MB`},
-            timestamp:new Date().toISOString(),
-          }];
-        } else {
-          // Audio/video can't go in an embed image field: attach the file itself for preview.
-          reviewPayload.embeds = [{
-            author:{name:`${submitter.username}: quote submission`,icon_url:submitter.displayAvatarURL({size:64,dynamic:true})},
-            color:0x5865F2,
-            footer:{text:`Submitted from: ${interaction.guild.name} • ${fileSizeMB} MB`},
-            timestamp:new Date().toISOString(),
-          }];
-          reviewPayload.files = [{attachment: attachment.url, name: rawName}];
-        }
-        await reviewCh.send(reviewPayload);
-        return safeReply(interaction,{content:"✅ Your file has been submitted for review! You'll get a DM once it's been approved or rejected.",ephemeral:true});
-      }catch(e){
-        console.error("requestupload send error:",e.message);
-        return safeReply(interaction,{content:`❌ Failed to send to review channel: ${e.message}`,ephemeral:true});
-      }
+      const result = await submitMediaForReview({
+        submitterUser: interaction.user,
+        attachmentUrl: attachment.url,
+        attachmentName: attachment.name,
+        attachmentContentType: attachment.contentType,
+        attachmentSize: attachment.size,
+        guildName: interaction.guild.name,
+        channelId: interaction.channelId,
+      });
+      if(!result.ok) return safeReply(interaction,{content:`❌ ${result.reason}`,ephemeral:true});
+      return safeReply(interaction,{content:"✅ Your file has been submitted for review! You'll get a DM once it's been approved or rejected.",ephemeral:true});
     }
 
     // ── /download: fetch a YouTube video as MP4/MP3, splitting into parts if too big ─
