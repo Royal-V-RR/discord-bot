@@ -5004,7 +5004,7 @@
         "marriedTo": null,
         "pendingProposal": null,
         "forceMarried": false,
-        "imagesUploaded": 385,
+        "imagesUploaded": 386,
         "uploadedImages": [
           "IMG_4186.png",
           "quote_1498252621922832514.png",
@@ -5359,7 +5359,8 @@
           "quote_368.jpg",
           "quote_369.jpg",
           "quote_374.png",
-          "quote_375.png"
+          "quote_375.png",
+          "quote_379.png"
         ],
         "lastFishTime": 0,
         "lastMineTime": 0,
@@ -97746,19 +97747,10 @@
         "rawName": "image.png",
         "mediaKind": "image"
       }
-    ],
-    [
-      "889764mtuk3if4",
-      {
-        "submitterId": "969280648667889764",
-        "fileName": "969280648667889764__image__IMG_8924.png",
-        "rawName": "IMG_8924.png",
-        "mediaKind": "image"
-      }
     ]
   ],
   "uploadCounters": {
-    "quote": 378,
+    "quote": 379,
     "eardestroyer": 1,
     "eyebleacher": 3
   },
