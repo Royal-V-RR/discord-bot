@@ -6105,7 +6105,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 1055,
+        "xp": 1062,
         "level": 18,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -40400,6 +40400,78 @@
         "forceMarried": false,
         "uploadedImages": []
       }
+    ],
+    [
+      "1545845884103823405",
+      {
+        "username": "rylo0417",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 7,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1545439634664718487",
+      {
+        "username": "11.garethbale",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 15,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1545679201418354739",
+      {
+        "username": "azmirax_x",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 12,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
     ]
   ],
   "activeEffects": [],
@@ -47046,6 +47118,13 @@
     ],
     [
       "quote_326.png",
+      {
+        "up": 1,
+        "down": 0
+      }
+    ],
+    [
+      "quote_291.png",
       {
         "up": 1,
         "down": 0
@@ -67377,6 +67456,13 @@
       {
         "up": 1,
         "down": 1
+      }
+    ],
+    [
+      "760031383598530630",
+      {
+        "up": 1,
+        "down": 0
       }
     ]
   ],
@@ -103464,6 +103550,15 @@
       [
         [
           "690219723472109616",
+          "up"
+        ]
+      ]
+    ],
+    [
+      "quote_291.png",
+      [
+        [
+          "760031383598530630",
           "up"
         ]
       ]
