@@ -98349,6 +98349,27 @@
         "creatorName": "hawkshadow74",
         "createdAt": 1789014299751
       }
+    ],
+    [
+      "sexism",
+      {
+        "triggers": [
+          "i'm a woman"
+        ],
+        "actions": [
+          {
+            "type": "echo",
+            "params": {
+              "message": "Happy to comply, ma'am.",
+              "replyMode": "replyactor"
+            }
+          }
+        ],
+        "ownerLocked": true,
+        "creatorId": "1082452773787942922",
+        "creatorName": "hawkshadow74",
+        "createdAt": 1789014768122
+      }
     ]
   ],
   "serverStatsConfig": [
