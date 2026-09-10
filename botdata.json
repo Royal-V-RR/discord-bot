@@ -68251,6 +68251,10 @@
     [
       "1547667632390672465",
       "quote_1497983159441162251.png"
+    ],
+    [
+      "1547667660760944670",
+      "Untitled_3.png"
     ]
   ],
   "favoritedQuotes": [
@@ -98860,6 +98864,17 @@
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
         "sentToDeleter": true,
+        "type": "quote"
+      }
+    ],
+    [
+      "1547667660760944670",
+      {
+        "filename": "Untitled_3.png",
+        "voters": [],
+        "guildId": "1048053656035020911",
+        "channelId": "1477294439180537980",
+        "sentToDeleter": false,
         "type": "quote"
       }
     ]
