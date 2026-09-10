@@ -67886,7 +67886,7 @@
     [
       "969280648667889764",
       {
-        "flagged": 2,
+        "flagged": 3,
         "deleted": 1
       }
     ],
@@ -67908,6 +67908,12 @@
   "pendingFlagDeleters": [
     [
       "down my throat.png",
+      [
+        "969280648667889764"
+      ]
+    ],
+    [
+      "IMG_3803.jpeg",
       [
         "969280648667889764"
       ]
@@ -97956,10 +97962,12 @@
       "1547547361545289768",
       {
         "filename": "IMG_3803.jpeg",
-        "voters": [],
+        "voters": [
+          "969280648667889764"
+        ],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
-        "sentToDeleter": false,
+        "sentToDeleter": true,
         "type": "quote"
       }
     ]
