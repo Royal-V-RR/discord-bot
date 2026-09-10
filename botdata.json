@@ -98308,6 +98308,34 @@
         "creatorName": "hawkshadow74",
         "createdAt": 1788713329043
       }
+    ],
+    [
+      "reminder",
+      {
+        "triggers": [
+          "demoremind"
+        ],
+        "actions": [
+          {
+            "type": "set_reminder",
+            "params": {
+              "minutes": "480",
+              "message": "This is an example reminder"
+            }
+          },
+          {
+            "type": "echo",
+            "params": {
+              "message": "I've set a reminder to go off in eight hours, sir.",
+              "replyMode": "replyactor"
+            }
+          }
+        ],
+        "ownerLocked": false,
+        "creatorId": "1082452773787942922",
+        "creatorName": "hawkshadow74",
+        "createdAt": 1789014299751
+      }
     ]
   ],
   "serverStatsConfig": [
