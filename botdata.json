@@ -68953,6 +68953,10 @@
     [
       "1547991358403248228",
       "I bark to differ.png"
+    ],
+    [
+      "1547991373112803398",
+      "quote_136.png"
     ]
   ],
   "favoritedQuotes": [
@@ -100563,6 +100567,17 @@
       "1547991358403248228",
       {
         "filename": "I bark to differ.png",
+        "voters": [],
+        "guildId": "1048053656035020911",
+        "channelId": "1477294439180537980",
+        "sentToDeleter": false,
+        "type": "quote"
+      }
+    ],
+    [
+      "1547991373112803398",
+      {
+        "filename": "quote_136.png",
         "voters": [],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
