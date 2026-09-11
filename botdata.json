@@ -68917,6 +68917,10 @@
     [
       "1547968136941404173",
       "1193150033864949811_Screenshot_20260602_223603_Discord.jpg"
+    ],
+    [
+      "1547990976025469108",
+      "IMG_4253.png"
     ]
   ],
   "favoritedQuotes": [
@@ -100426,6 +100430,17 @@
         "sentToDeleter": false,
         "type": "quote"
       }
+    ],
+    [
+      "1547990976025469108",
+      {
+        "filename": "IMG_4253.png",
+        "voters": [],
+        "guildId": "1048053656035020911",
+        "channelId": "1477294439180537980",
+        "sentToDeleter": false,
+        "type": "quote"
+      }
     ]
   ],
   "selfClankUsers": [
@@ -101063,7 +101078,7 @@
         ],
         "intervalMinutes": 15,
         "locked": true,
-        "lastUpdate": 1789139220786
+        "lastUpdate": 1789140120838
       }
     ]
   ],
