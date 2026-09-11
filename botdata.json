@@ -101424,6 +101424,28 @@
         "creatorName": "hawkshadow74",
         "createdAt": 1789014789019
       }
+    ],
+    [
+      "clank",
+      {
+        "triggers": [
+          "clank",
+          "clankerfy"
+        ],
+        "actions": [
+          {
+            "type": "clankerify",
+            "params": {
+              "mode": "none",
+              "duration": "10"
+            }
+          }
+        ],
+        "ownerLocked": true,
+        "creatorId": "969280648667889764",
+        "creatorName": "royalvmusic",
+        "createdAt": 1789150032736
+      }
     ]
   ],
   "serverStatsConfig": [
