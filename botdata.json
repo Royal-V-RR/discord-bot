@@ -69875,6 +69875,10 @@
     [
       "1548435038562156545",
       "quote_371.png"
+    ],
+    [
+      "1548435071046914199",
+      "quote_23.png"
     ]
   ],
   "favoritedQuotes": [
@@ -69900,7 +69904,8 @@
         "IMG-20260429-WA0009.jpg",
         "IMG_5726.png",
         "IMG_3801.jpeg",
-        "quote_305.png"
+        "quote_305.png",
+        "quote_209.jpg"
       ]
     ],
     [
@@ -102422,6 +102427,17 @@
       "1548435038562156545",
       {
         "filename": "quote_371.png",
+        "voters": [],
+        "guildId": "1048053656035020911",
+        "channelId": "1477294439180537980",
+        "sentToDeleter": false,
+        "type": "quote"
+      }
+    ],
+    [
+      "1548435071046914199",
+      {
+        "filename": "quote_23.png",
         "voters": [],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
