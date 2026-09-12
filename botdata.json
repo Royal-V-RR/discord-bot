@@ -4999,7 +4999,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-27",
-        "xp": 6495,
+        "xp": 6505,
         "level": 31,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -69965,6 +69965,10 @@
     [
       "1548454075169775619",
       "I know longer know what's going on in here.png"
+    ],
+    [
+      "1548454323485413556",
+      "quote_1497884749862273095.png"
     ]
   ],
   "favoritedQuotes": [
@@ -102836,6 +102840,17 @@
         "channelId": "1477294439180537980",
         "sentToDeleter": false,
         "type": "bad"
+      }
+    ],
+    [
+      "1548454323485413556",
+      {
+        "filename": "quote_1497884749862273095.png",
+        "voters": [],
+        "guildId": "1048053656035020911",
+        "channelId": "1477294439180537980",
+        "sentToDeleter": false,
+        "type": "good"
       }
     ]
   ],
