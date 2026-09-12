@@ -69859,6 +69859,10 @@
     [
       "1548434823062884412",
       "Thomas walk.png"
+    ],
+    [
+      "1548434894143619298",
+      "quote_253.png"
     ]
   ],
   "favoritedQuotes": [
@@ -102366,6 +102370,17 @@
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
         "sentToDeleter": true,
+        "type": "quote"
+      }
+    ],
+    [
+      "1548434894143619298",
+      {
+        "filename": "quote_253.png",
+        "voters": [],
+        "guildId": "1048053656035020911",
+        "channelId": "1477294439180537980",
+        "sentToDeleter": false,
         "type": "quote"
       }
     ]
