@@ -70315,7 +70315,8 @@
         "quote_209.jpg",
         "HDi3hgnW0AE7ApX-1.jpeg",
         "quote_30.png",
-        "quote_375.png"
+        "quote_375.png",
+        "quote_204.png"
       ]
     ],
     [
@@ -70412,7 +70413,7 @@
     [
       "1254388539890860083",
       {
-        "flagged": 11,
+        "flagged": 12,
         "deleted": 3
       }
     ]
@@ -70474,6 +70475,12 @@
     ],
     [
       "quote_237.png",
+      [
+        "1254388539890860083"
+      ]
+    ],
+    [
+      "quote_108.png",
       [
         "1254388539890860083"
       ]
@@ -103945,10 +103952,12 @@
       "1548458997760266334",
       {
         "filename": "quote_108.png",
-        "voters": [],
+        "voters": [
+          "1254388539890860083"
+        ],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
-        "sentToDeleter": false,
+        "sentToDeleter": true,
         "type": "quote"
       }
     ]
