@@ -69996,6 +69996,13 @@
         "flagged": 7,
         "deleted": 5
       }
+    ],
+    [
+      "1254388539890860083",
+      {
+        "flagged": 1,
+        "deleted": 0
+      }
     ]
   ],
   "pendingFlagDeleters": [
@@ -70009,6 +70016,12 @@
       "IMG_4186.png",
       [
         "690219723472109616"
+      ]
+    ],
+    [
+      "quote_310.png",
+      [
+        "1254388539890860083"
       ]
     ]
   ],
@@ -101998,10 +102011,12 @@
       "1548433027254718545",
       {
         "filename": "quote_310.png",
-        "voters": [],
+        "voters": [
+          "1254388539890860083"
+        ],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
-        "sentToDeleter": false,
+        "sentToDeleter": true,
         "type": "bad"
       }
     ],
