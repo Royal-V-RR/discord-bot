@@ -38986,7 +38986,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 313,
+        "xp": 320,
         "level": 6,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -69681,6 +69681,10 @@
     [
       "1548431320395546637",
       "IMG_8729.png"
+    ],
+    [
+      "1548431358852997180",
+      "boeing.png"
     ]
   ],
   "favoritedQuotes": [
@@ -101683,6 +101687,17 @@
       "1548431320395546637",
       {
         "filename": "IMG_8729.png",
+        "voters": [],
+        "guildId": "1048053656035020911",
+        "channelId": "1477294439180537980",
+        "sentToDeleter": false,
+        "type": "quote"
+      }
+    ],
+    [
+      "1548431358852997180",
+      {
+        "filename": "boeing.png",
         "voters": [],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
