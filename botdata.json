@@ -69685,6 +69685,10 @@
     [
       "1548431358852997180",
       "boeing.png"
+    ],
+    [
+      "1548431377043820624",
+      "quote_272.png"
     ]
   ],
   "favoritedQuotes": [
@@ -101698,6 +101702,17 @@
       "1548431358852997180",
       {
         "filename": "boeing.png",
+        "voters": [],
+        "guildId": "1048053656035020911",
+        "channelId": "1477294439180537980",
+        "sentToDeleter": false,
+        "type": "quote"
+      }
+    ],
+    [
+      "1548431377043820624",
+      {
+        "filename": "quote_272.png",
         "voters": [],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
