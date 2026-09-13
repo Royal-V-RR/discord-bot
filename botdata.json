@@ -222,6 +222,13 @@
         "channelId": "1507898381635289192",
         "message": "Welcome to the server!  Enjoy your stay."
       }
+    ],
+    [
+      "1548020978242682970",
+      {
+        "channelId": "1548788604904411217",
+        "message": "Hello {user}! Welcome to the server!"
+      }
     ]
   ],
   "leaveChannels": [
@@ -6254,7 +6261,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 250,
+        "xp": 262,
         "level": 13,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -35449,7 +35456,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 67,
+        "xp": 74,
         "level": 9,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -41865,7 +41872,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 84,
+        "xp": 99,
         "level": 2,
         "lastWorkTime": 0,
         "lastBegTime": 0,
