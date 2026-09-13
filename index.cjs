@@ -3423,6 +3423,29 @@ async function runOlympicsInGuild(guild,event){
 
 async function sendCrisisToOwner(dmChannel){for(let i=0;i<CRISIS_MESSAGES.length;i++){await new Promise(res=>setTimeout(res,i===0?0:8000));try{await dmChannel.send(CRISIS_MESSAGES[i]);}catch{break;}}}
 
+// ══════════════════════════════════════════════════════════════════════════
+// TICKET SYSTEM — full rewrite
+// Every entry point below (the /ticketsetup command, the ts_/ticket_ button
+// handlers, and the /closeticket /addtoticket /removefromticket commands)
+// now reports its own errors back to the user instead of failing silently,
+// since a silent failure was indistinguishable from the wizard never running.
+// ══════════════════════════════════════════════════════════════════════════
+
+// Central "can this member administer tickets on this server" check, used by
+// the /ticketsetup command and every ts_ button. Wrapped defensively: a
+// missing/partial `member` object (which is what "doesn't even begin" looks
+// like from the outside) resolves to false instead of throwing.
+function isTicketAdmin(interaction) {
+  try {
+    if (!interaction.guildId) return false;
+    if (OWNER_IDS.includes(interaction.user.id)) return true;
+    return !!interaction.member?.permissions?.has?.("MANAGE_GUILD");
+  } catch (e) {
+    console.error("[isTicketAdmin]", e?.message);
+    return false;
+  }
+}
+
 // ── Ticket transcript helper ─────────────────────────────────────────────────
 async function sendTicketTranscript(channel, ticket, cfg, closedBy) {
   const transcriptChId = cfg?.transcriptChannelId;
@@ -3498,13 +3521,19 @@ function getEligibleTicketRoles(guild) {
 // Shared by every ticket action: the ticket_open/close/reopen/delete/claim
 // buttons and the /closeticket, /addtoticket, /removefromticket commands all
 // used to repeat this exact check inline. Same logic, same precedence as
-// before: owner, any configured support role, or Manage Channels.
+// before: owner, any configured support role, or Manage Channels. Wrapped so
+// a missing/partial member object can't throw and silently kill the caller.
 function isTicketStaff(cfg, member) {
-  if (!member) return false;
-  if (OWNER_IDS.includes(member.id)) return true;
-  const roleIds = (cfg?.supportRoleIds || [cfg?.supportRoleId]).filter(Boolean);
-  if (roleIds.some(rid => member.roles.cache.has(rid))) return true;
-  return member.permissions.has("MANAGE_CHANNELS");
+  try {
+    if (!member) return false;
+    if (OWNER_IDS.includes(member.id)) return true;
+    const roleIds = (cfg?.supportRoleIds || [cfg?.supportRoleId]).filter(Boolean);
+    if (roleIds.some(rid => member.roles?.cache?.has(rid))) return true;
+    return !!member.permissions?.has?.("MANAGE_CHANNELS");
+  } catch (e) {
+    console.error("[isTicketStaff]", e?.message);
+    return false;
+  }
 }
 
 // The two button rows a ticket channel cycles between: open/reopened
@@ -3568,6 +3597,15 @@ function getTicketSetupStep(cfg) {
 }
 
 function buildTicketSetupStep(guild, guildId, stepOverride) {
+  try {
+    return buildTicketSetupStepInner(guild, guildId, stepOverride);
+  } catch (e) {
+    console.error("[buildTicketSetupStep]", e?.stack || e?.message);
+    return { content: `❌ Ticket setup hit an internal error: \`${e?.message || e}\``, embeds: [], components: [], ephemeral: true };
+  }
+}
+
+function buildTicketSetupStepInner(guild, guildId, stepOverride) {
   const cfg = ticketConfigs.get(guildId) || {};
   const step = stepOverride ?? getTicketSetupStep(cfg);
   const catCh   = cfg.categoryId ? guild.channels.cache.get(cfg.categoryId) : null;
@@ -3653,7 +3691,7 @@ function buildTicketSetupStep(guild, guildId, stepOverride) {
     )];
   }
 
-  return { content: "", embeds: [embed], components };
+  return { content: "", embeds: [embed], components, ephemeral: true };
 }
 
 // ── YouTube helpers ───────────────────────────────────────────────────────────
@@ -7698,15 +7736,14 @@ client.on("interactionCreate",async interaction=>{
     // Ticket setup wizard
     if(cid.startsWith("ts_")){
       if(!interaction.guildId){await btnEphemeral(interaction,"Server only.");return;}
-      const isOwner=OWNER_IDS.includes(uid);
-      const isAdmin=interaction.member?.permissions.has("MANAGE_GUILD");
-      if(!isOwner&&!isAdmin){await btnEphemeral(interaction,"You need Manage Server permission.");return;}
+      if(!isTicketAdmin(interaction)){await btnEphemeral(interaction,"You need Manage Server permission.");return;}
       const guildId=interaction.guildId;
       const guild=interaction.guild;
       const buildStep=(stepOverride)=>buildTicketSetupStep(guild,guildId,stepOverride);
 
       if(!await btnAck(interaction))return;
       const cfg=ticketConfigs.get(guildId)||{nextId:0};
+      try{
 
       // Chunked single/multi select menus: ts_sel_<kind>_<chunkIndex>
       const selMatch=cid.match(/^ts_sel_(channel|roles|log|transcript|panel_ch)_(\d+)$/);
@@ -7795,6 +7832,11 @@ client.on("interactionCreate",async interaction=>{
       }
       try{await interaction.editReply(buildStep());}catch{}
       return;
+      }catch(e){
+        console.error("[ts_ button]",e?.stack||e?.message);
+        try{await interaction.followUp({content:`❌ Ticket setup hit an error: \`${e?.message||e}\``,ephemeral:true});}catch{}
+        return;
+      }
     }
 
     // Ticket open
@@ -8941,7 +8983,7 @@ by **${displayName}**`});
   const manageServerCmds=["channelpicker","counting","xpconfig","setwelcome","setleave","setwelcomemsg","setleavemsg","disableownermsg","serverconfig","autorole","setboostmsg","invitecomp","purge","reactionrole","ticketsetup","ytsetup","subgoal","subcount","milestones","dailyquote","serverstats"];
   if(manageServerCmds.includes(cmd)){
     if(!inGuild)return safeReply(interaction,{content:"Server only.",ephemeral:true});
-    if(!OWNER_IDS.includes(interaction.user.id)&&!interaction.member.permissions.has("MANAGE_GUILD"))
+    if(!OWNER_IDS.includes(interaction.user.id)&&!interaction.member?.permissions?.has?.("MANAGE_GUILD"))
       return safeReply(interaction,{content:"❌ You need **Manage Server** permission.",ephemeral:true});
   }
 
@@ -10437,11 +10479,14 @@ if(cmd==="divorce"){
     }
     // Ticket setup command
     if(cmd==="ticketsetup"){
-      if(!inGuild)return safeReply(interaction,{content:"Server only.",ephemeral:true});
-      const isOwnerTs=OWNER_IDS.includes(interaction.user.id);
-      const isAdminTs=interaction.member?.permissions.has("MANAGE_GUILD");
-      if(!isOwnerTs&&!isAdminTs)return safeReply(interaction,{content:"You need Manage Server permission to run this.",ephemeral:true});
-      return safeReply(interaction,buildTicketSetupStep(interaction.guild,interaction.guildId));
+      try{
+        if(!inGuild)return safeReply(interaction,{content:"Server only.",ephemeral:true});
+        if(!isTicketAdmin(interaction))return safeReply(interaction,{content:"You need Manage Server permission to run this.",ephemeral:true});
+        return safeReply(interaction,buildTicketSetupStep(interaction.guild,interaction.guildId));
+      }catch(e){
+        console.error("[/ticketsetup]",e?.stack||e?.message);
+        return safeReply(interaction,{content:`❌ Ticket setup failed to start: \`${e?.message||e}\``,ephemeral:true});
+      }
     }
     // Server stats command
     if(cmd==="serverstats"){
