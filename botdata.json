@@ -32513,7 +32513,7 @@
         "inventory": [],
         "marriedTo": "1480592876684706064",
         "pendingProposal": null,
-        "imagesUploaded": 10,
+        "imagesUploaded": 11,
         "forceMarried": true,
         "uploadedImages": [
           "quote_105.jpg",
@@ -32525,7 +32525,8 @@
           "quote_229.jpg",
           "quote_263.jpg",
           "quote_347.jpg",
-          "quote_377.png"
+          "quote_377.png",
+          "quote_390.jpg"
         ]
       }
     ],
@@ -104591,19 +104592,10 @@
         "rawName": "image.png",
         "mediaKind": "image"
       }
-    ],
-    [
-      "604194mu05z3x5",
-      {
-        "submitterId": "1213866609362604194",
-        "fileName": "1213866609362604194__image__Screenshot_2026_09_13_21_43_47_119_edit_com.discord.jpg",
-        "rawName": "Screenshot_2026_09_13_21_43_47_119_edit_com.discord.jpg",
-        "mediaKind": "image"
-      }
     ]
   ],
   "uploadCounters": {
-    "quote": 389,
+    "quote": 390,
     "eardestroyer": 1,
     "eyebleacher": 3
   },
