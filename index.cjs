@@ -3691,7 +3691,10 @@ function buildTicketSetupStepInner(guild, guildId, stepOverride) {
     )];
   }
 
-  return { content: "", embeds: [embed], components, ephemeral: true };
+  // NOTE: no `content` key here at all — discord.js v13 rejects content:""
+  // outright ("Message content must be a non-empty string"), which is what
+  // was silently killing every /ticketsetup reply before this fix.
+  return { embeds: [embed], components, ephemeral: true };
 }
 
 // ── YouTube helpers ───────────────────────────────────────────────────────────
