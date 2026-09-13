@@ -161,7 +161,14 @@
       "1534726116542251190",
       {
         "nextId": 0,
-        "categoryId": "1534726117582180484"
+        "categoryId": "1534726117582180484",
+        "supportRoleIds": [
+          "1534730943233917028"
+        ],
+        "supportRoleId": "1534730943233917028",
+        "logChannelId": "1534726117582180486",
+        "transcriptChannelId": "1534726117582180486",
+        "panelChannelId": "1534726117582180486"
       }
     ]
   ],
@@ -35518,7 +35525,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 955,
+        "xp": 967,
         "level": 8,
         "lastWorkTime": 0,
         "lastBegTime": 0,
