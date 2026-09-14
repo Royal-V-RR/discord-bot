@@ -5028,7 +5028,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-27",
-        "xp": 7746,
+        "xp": 7761,
         "level": 31,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -7094,7 +7094,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 7740,
+        "xp": 7752,
         "level": 29,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -18932,7 +18932,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 181,
+        "xp": 186,
         "level": 4,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -42491,22 +42491,7 @@
   ],
   "activeEffects": [],
   "reminders": [],
-  "scheduledMessages": [
-    [
-      "2m3qus",
-      {
-        "id": "2m3qus",
-        "userId": "969280648667889764",
-        "guildId": "1048053656035020911",
-        "channelId": "1048055007712387162",
-        "content": "<@969280648667889764>",
-        "sendAt": 1789349537174,
-        "createdAt": 1789348817174,
-        "imageURL": null,
-        "imageName": null
-      }
-    ]
-  ],
+  "scheduledMessages": [],
   "inviteComps": [],
   "premieres": [],
   "raConfig": [
