@@ -573,12 +573,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18100,
-        "lastSubsTimestamp": 1789512991878,
+        "lastSubsTimestamp": 1789513291931,
         "history": [
-          {
-            "ts": 1789208922021,
-            "subs": 17900
-          },
           {
             "ts": 1789209222033,
             "subs": 17900
@@ -4573,6 +4569,10 @@
           },
           {
             "ts": 1789512991878,
+            "subs": 18100
+          },
+          {
+            "ts": 1789513291931,
             "subs": 18100
           }
         ],
@@ -18034,7 +18034,7 @@
         "dailyStreak": 1,
         "bestStreak": 4,
         "lastDailyDate": "2026-06-13",
-        "xp": 2365,
+        "xp": 2384,
         "level": 18,
         "lastWorkTime": 1778166713164,
         "lastBegTime": 1778166374950,
@@ -18066,7 +18066,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 229,
+        "xp": 239,
         "level": 15,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -35217,7 +35217,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 1267,
+        "xp": 1280,
         "level": 12,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -41897,8 +41897,8 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 386,
-        "level": 4,
+        "xp": 0,
+        "level": 5,
         "lastWorkTime": 0,
         "lastBegTime": 0,
         "lastCrimeTime": 0,
@@ -43435,7 +43435,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 26,
+        "xp": 31,
         "level": 2,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -43534,6 +43534,30 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 5,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1300532724024475648",
+      {
+        "username": "derpamine",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 8,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
