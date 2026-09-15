@@ -72020,7 +72020,7 @@
     [
       "1254388539890860083",
       {
-        "flagged": 12,
+        "flagged": 13,
         "deleted": 3
       }
     ]
@@ -106088,10 +106088,12 @@
       "1549267937192579114",
       {
         "filename": "IMG_4196.png",
-        "voters": [],
+        "voters": [
+          "1254388539890860083"
+        ],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
-        "sentToDeleter": false,
+        "sentToDeleter": true,
         "type": "quote"
       }
     ],
