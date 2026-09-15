@@ -4822,7 +4822,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-15",
-        "xp": 3320,
+        "xp": 3328,
         "level": 27,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -5028,7 +5028,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-27",
-        "xp": 755,
+        "xp": 769,
         "level": 32,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -18034,7 +18034,7 @@
         "dailyStreak": 1,
         "bestStreak": 4,
         "lastDailyDate": "2026-06-13",
-        "xp": 2459,
+        "xp": 2465,
         "level": 18,
         "lastWorkTime": 1778166713164,
         "lastBegTime": 1778166374950,
@@ -35217,7 +35217,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 1367,
+        "xp": 1377,
         "level": 12,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -42451,7 +42451,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 127,
+        "xp": 136,
         "level": 3,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -50357,7 +50357,7 @@
     [
       "quote_110.png",
       {
-        "up": 0,
+        "up": 1,
         "down": 0
       }
     ]
@@ -72403,7 +72403,7 @@
     [
       "1515068394502750280",
       {
-        "up": 0,
+        "up": 1,
         "down": 0
       }
     ]
@@ -107746,7 +107746,7 @@
         ],
         "intervalMinutes": 15,
         "locked": true,
-        "lastUpdate": 1789512991727
+        "lastUpdate": 1789513891732
       }
     ]
   ],
@@ -113690,7 +113690,12 @@
     ],
     [
       "quote_110.png",
-      []
+      [
+        [
+          "1515068394502750280",
+          "up"
+        ]
+      ]
     ]
   ]
 }
