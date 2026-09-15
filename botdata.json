@@ -277,13 +277,6 @@
         "mode": "uwu",
         "ownerClanked": true
       }
-    ],
-    [
-      "969280648667889764",
-      {
-        "expiresAt": 1789515471026,
-        "mode": "british"
-      }
     ]
   ],
   "theCountChannels": [
@@ -107122,12 +107115,15 @@
     ],
     [
       "1548020978242682970",
-      [
-        "969280648667889764"
-      ]
+      []
     ]
   ],
-  "selfClankCooldown": [],
+  "selfClankCooldown": [
+    [
+      "969280648667889764",
+      1789516071053
+    ]
+  ],
   "pendingReviews": [
     [
       "821276msisi82v",
