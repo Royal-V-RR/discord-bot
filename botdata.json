@@ -41897,7 +41897,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 380,
+        "xp": 386,
         "level": 4,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -72219,6 +72219,10 @@
     [
       "1549554321686007869",
       "Zrzut_ekranu_2026-05-08_224109.png"
+    ],
+    [
+      "1549554378216706199",
+      "tuxe.png"
     ]
   ],
   "favoritedQuotes": [
@@ -106971,6 +106975,17 @@
         "voters": [],
         "guildId": "1548020978242682970",
         "channelId": "1548020979538853991",
+        "sentToDeleter": false,
+        "type": "quote"
+      }
+    ],
+    [
+      "1549554378216706199",
+      {
+        "filename": "tuxe.png",
+        "voters": [],
+        "guildId": "1548020978242682970",
+        "channelId": "1548041349767368795",
         "sentToDeleter": false,
         "type": "quote"
       }
