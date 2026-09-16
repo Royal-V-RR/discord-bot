@@ -43965,6 +43965,54 @@
         "forceMarried": false,
         "uploadedImages": []
       }
+    ],
+    [
+      "1548019040910442539",
+      {
+        "username": "waaaassssssssiiiiiiiiiiiiiiii",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 15,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1549501801617952949",
+      {
+        "username": "etienne0745",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 5,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
     ]
   ],
   "activeEffects": [],
@@ -47883,7 +47931,7 @@
       "IMG_5005.png",
       {
         "up": 5,
-        "down": 2
+        "down": 3
       }
     ],
     [
@@ -50751,6 +50799,20 @@
     ],
     [
       "quote_110.png",
+      {
+        "up": 1,
+        "down": 0
+      }
+    ],
+    [
+      "quote_388.png",
+      {
+        "up": 1,
+        "down": 0
+      }
+    ],
+    [
+      "1193150033864949811_Zrzut_ekranu_2026-06-06_210431.png",
       {
         "up": 1,
         "down": 0
@@ -72685,6 +72747,18 @@
     [
       "1549802342432641224",
       "IMG_5005.png"
+    ],
+    [
+      "1549802359293485086",
+      "quote_1487466684913680506.png"
+    ],
+    [
+      "1549802371960545322",
+      "1193150033864949811_Zrzut_ekranu_2026-06-06_210431.png"
+    ],
+    [
+      "1549802392193728513",
+      "quote_1498031378376167595.png"
     ]
   ],
   "favoritedQuotes": [
@@ -72742,8 +72816,8 @@
     [
       "1082452773787942922",
       {
-        "up": 5,
-        "down": 0
+        "up": 6,
+        "down": 1
       }
     ],
     [
@@ -72756,7 +72830,7 @@
     [
       "690219723472109616",
       {
-        "up": 20,
+        "up": 21,
         "down": 0
       }
     ],
@@ -107558,6 +107632,39 @@
         "sentToDeleter": false,
         "type": "quote"
       }
+    ],
+    [
+      "1549802359293485086",
+      {
+        "filename": "quote_1487466684913680506.png",
+        "voters": [],
+        "guildId": "1408975996715139084",
+        "channelId": "1408975997272854611",
+        "sentToDeleter": false,
+        "type": "quote"
+      }
+    ],
+    [
+      "1549802371960545322",
+      {
+        "filename": "1193150033864949811_Zrzut_ekranu_2026-06-06_210431.png",
+        "voters": [],
+        "guildId": "1408975996715139084",
+        "channelId": "1408975997272854611",
+        "sentToDeleter": false,
+        "type": "quote"
+      }
+    ],
+    [
+      "1549802392193728513",
+      {
+        "filename": "quote_1498031378376167595.png",
+        "voters": [],
+        "guildId": "1408975996715139084",
+        "channelId": "1408975997272854611",
+        "sentToDeleter": false,
+        "type": "quote"
+      }
     ]
   ],
   "selfClankUsers": [
@@ -114181,6 +114288,33 @@
         [
           "1515068394502750280",
           "up"
+        ]
+      ]
+    ],
+    [
+      "quote_388.png",
+      [
+        [
+          "1082452773787942922",
+          "up"
+        ]
+      ]
+    ],
+    [
+      "1193150033864949811_Zrzut_ekranu_2026-06-06_210431.png",
+      [
+        [
+          "690219723472109616",
+          "up"
+        ]
+      ]
+    ],
+    [
+      "IMG_5005.png",
+      [
+        [
+          "1082452773787942922",
+          "down"
         ]
       ]
     ]
