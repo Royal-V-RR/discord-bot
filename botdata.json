@@ -582,20 +582,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18100,
-        "lastSubsTimestamp": 1789590066562,
+        "lastSubsTimestamp": 1789590966628,
         "history": [
-          {
-            "ts": 1789284553692,
-            "subs": 18000
-          },
-          {
-            "ts": 1789284853662,
-            "subs": 18000
-          },
-          {
-            "ts": 1789285153722,
-            "subs": 18000
-          },
           {
             "ts": 1789285453694,
             "subs": 18000
@@ -4583,6 +4571,18 @@
           {
             "ts": 1789590066562,
             "subs": 18100
+          },
+          {
+            "ts": 1789590366581,
+            "subs": 18100
+          },
+          {
+            "ts": 1789590666702,
+            "subs": 18100
+          },
+          {
+            "ts": 1789590966628,
+            "subs": 18100
           }
         ],
         "subcountDiscordId": "1483595393999700080",
@@ -5037,7 +5037,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-27",
-        "xp": 1162,
+        "xp": 1188,
         "level": 32,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -5051,7 +5051,7 @@
         "marriedTo": null,
         "pendingProposal": null,
         "forceMarried": false,
-        "imagesUploaded": 392,
+        "imagesUploaded": 393,
         "uploadedImages": [
           "IMG_4186.png",
           "IMG_4211.png",
@@ -5407,7 +5407,8 @@
           "quote_385.png",
           "quote_392.png",
           "quote_394.png",
-          "quote_396.png"
+          "quote_396.png",
+          "quote_400.png"
         ],
         "lastFishTime": 0,
         "lastMineTime": 0,
@@ -6295,7 +6296,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 733,
+        "xp": 761,
         "level": 13,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -7104,7 +7105,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 1094,
+        "xp": 1106,
         "level": 30,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -29567,7 +29568,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 737,
+        "xp": 753,
         "level": 8,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -34819,7 +34820,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 488,
+        "xp": 501,
         "level": 11,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -107894,7 +107895,7 @@
     ]
   ],
   "uploadCounters": {
-    "quote": 399,
+    "quote": 400,
     "eardestroyer": 1,
     "eyebleacher": 3
   },
@@ -108510,7 +108511,7 @@
         ],
         "intervalMinutes": 15,
         "locked": true,
-        "lastUpdate": 1789589466475
+        "lastUpdate": 1789590366494
       }
     ]
   ],
