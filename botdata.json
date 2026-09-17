@@ -582,12 +582,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18100,
-        "lastSubsTimestamp": 1789682990791,
+        "lastSubsTimestamp": 1789683290804,
         "history": [
-          {
-            "ts": 1789378333089,
-            "subs": 18000
-          },
           {
             "ts": 1789378633098,
             "subs": 18000
@@ -4583,6 +4579,10 @@
           {
             "ts": 1789682990791,
             "subs": 18100
+          },
+          {
+            "ts": 1789683290804,
+            "subs": 18100
           }
         ],
         "subcountDiscordId": "1483595393999700080",
@@ -5052,7 +5052,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-27",
-        "xp": 1984,
+        "xp": 1989,
         "level": 32,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -44564,7 +44564,22 @@
   ],
   "activeEffects": [],
   "reminders": [],
-  "scheduledMessages": [],
+  "scheduledMessages": [
+    [
+      "r5exfm",
+      {
+        "id": "r5exfm",
+        "userId": "969280648667889764",
+        "guildId": "1048053656035020911",
+        "channelId": "1500899929474732234",
+        "content": "Dawn of the second day.",
+        "sendAt": 1789769688085,
+        "createdAt": 1789683288085,
+        "imageURL": null,
+        "imageName": null
+      }
+    ]
+  ],
   "inviteComps": [],
   "premieres": [],
   "raConfig": [
@@ -109876,7 +109891,7 @@
         ],
         "intervalMinutes": 15,
         "locked": true,
-        "lastUpdate": 1789682390674
+        "lastUpdate": 1789683290683
       }
     ]
   ],
