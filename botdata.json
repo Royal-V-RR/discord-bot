@@ -4649,14 +4649,15 @@
       "1082452773787942922",
       {
         "commands": [
-          "jarvisenhance"
+          "jarvisenhance",
+          "impersonation"
         ],
         "features": [
           "expose"
         ],
         "expiresAt": null,
         "grantedBy": "969280648667889764",
-        "grantedAt": 1789675595510
+        "grantedAt": 1789675731695
       }
     ],
     [
@@ -6169,7 +6170,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 3339,
+        "xp": 3354,
         "level": 18,
         "lastWorkTime": 0,
         "lastBegTime": 0,
