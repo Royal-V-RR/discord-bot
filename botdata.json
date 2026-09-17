@@ -5037,7 +5037,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-27",
-        "xp": 1506,
+        "xp": 1515,
         "level": 32,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -45573,7 +45573,7 @@
     [
       "quote_1491111271926464604.png",
       {
-        "up": 6,
+        "up": 7,
         "down": 0
       }
     ],
@@ -73089,6 +73089,18 @@
     [
       "1550087406110384178",
       "quote_1491111271926464604.png"
+    ],
+    [
+      "1550087431582130186",
+      "I bark to differ.png"
+    ],
+    [
+      "1550087433608233050",
+      "quote_1470144647933460571.png"
+    ],
+    [
+      "1550087449538203699",
+      "quote_1474468371826475020.png"
     ]
   ],
   "favoritedQuotes": [
@@ -73162,7 +73174,7 @@
     [
       "690219723472109616",
       {
-        "up": 24,
+        "up": 25,
         "down": 0
       }
     ],
@@ -108360,6 +108372,39 @@
         "sentToDeleter": false,
         "type": "quote"
       }
+    ],
+    [
+      "1550087431582130186",
+      {
+        "filename": "I bark to differ.png",
+        "voters": [],
+        "guildId": "1048053656035020911",
+        "channelId": "1477294439180537980",
+        "sentToDeleter": false,
+        "type": "quote"
+      }
+    ],
+    [
+      "1550087433608233050",
+      {
+        "filename": "quote_1470144647933460571.png",
+        "voters": [],
+        "guildId": "1048053656035020911",
+        "channelId": "1477294439180537980",
+        "sentToDeleter": false,
+        "type": "quote"
+      }
+    ],
+    [
+      "1550087449538203699",
+      {
+        "filename": "quote_1474468371826475020.png",
+        "voters": [],
+        "guildId": "1048053656035020911",
+        "channelId": "1477294439180537980",
+        "sentToDeleter": false,
+        "type": "quote"
+      }
     ]
   ],
   "selfClankUsers": [
@@ -115056,6 +115101,15 @@
     ],
     [
       "quote_221.png",
+      [
+        [
+          "690219723472109616",
+          "up"
+        ]
+      ]
+    ],
+    [
+      "quote_1491111271926464604.png",
       [
         [
           "690219723472109616",
