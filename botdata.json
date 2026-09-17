@@ -73209,6 +73209,10 @@
     [
       "1550088497602498621",
       "smash.jpeg"
+    ],
+    [
+      "1550088515054731365",
+      "quote_203.png"
     ]
   ],
   "favoritedQuotes": [
@@ -108808,6 +108812,17 @@
       "1550088497602498621",
       {
         "filename": "smash.jpeg",
+        "voters": [],
+        "guildId": "1048053656035020911",
+        "channelId": "1477294439180537980",
+        "sentToDeleter": false,
+        "type": "quote"
+      }
+    ],
+    [
+      "1550088515054731365",
+      {
+        "filename": "quote_203.png",
         "voters": [],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
