@@ -4651,10 +4651,12 @@
         "commands": [
           "jarvisenhance"
         ],
-        "features": [],
+        "features": [
+          "expose"
+        ],
         "expiresAt": null,
         "grantedBy": "969280648667889764",
-        "grantedAt": 1788658555941
+        "grantedAt": 1789675595510
       }
     ],
     [
@@ -5049,7 +5051,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-27",
-        "xp": 1703,
+        "xp": 1708,
         "level": 32,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -6167,7 +6169,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 3325,
+        "xp": 3339,
         "level": 18,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -6309,7 +6311,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 866,
+        "xp": 879,
         "level": 13,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -7118,7 +7120,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 1323,
+        "xp": 1338,
         "level": 30,
         "lastWorkTime": 0,
         "lastBegTime": 0,
