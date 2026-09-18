@@ -110301,6 +110301,33 @@
         "creatorName": "hawkshadow74",
         "createdAt": 1789750441933
       }
+    ],
+    [
+      "resetstatus",
+      {
+        "triggers": [
+          "return to default"
+        ],
+        "actions": [
+          {
+            "type": "setstatus",
+            "params": {
+              "text": "https://discord.gg/respawnraccoon"
+            }
+          },
+          {
+            "type": "echo",
+            "params": {
+              "message": "Status reset, sir.",
+              "replyMode": "replyactor"
+            }
+          }
+        ],
+        "ownerLocked": true,
+        "creatorId": "1082452773787942922",
+        "creatorName": "hawkshadow74",
+        "createdAt": 1789751023085
+      }
     ]
   ],
   "serverStatsConfig": [
