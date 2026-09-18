@@ -6312,7 +6312,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 1276,
+        "xp": 1281,
         "level": 13,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -110272,7 +110272,12 @@
       "kill",
       {
         "triggers": [
-          "kill"
+          "kill",
+          "take them out back",
+          "take him out back",
+          "take her out back",
+          "murder",
+          "silence"
         ],
         "actions": [
           {
@@ -110299,7 +110304,7 @@
         "ownerLocked": true,
         "creatorId": "1082452773787942922",
         "creatorName": "hawkshadow74",
-        "createdAt": 1789750441933
+        "createdAt": 1789751818926
       }
     ],
     [
