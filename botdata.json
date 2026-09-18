@@ -4649,15 +4649,16 @@
       "1082452773787942922",
       {
         "commands": [
+          "impersonation",
           "jarvisenhance",
-          "impersonation"
+          "echo"
         ],
         "features": [
           "expose"
         ],
         "expiresAt": null,
         "grantedBy": "969280648667889764",
-        "grantedAt": 1789675731695
+        "grantedAt": 1789754032919
       }
     ],
     [
@@ -6171,7 +6172,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 3566,
+        "xp": 3573,
         "level": 18,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -6313,7 +6314,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 1331,
+        "xp": 1340,
         "level": 13,
         "lastWorkTime": 0,
         "lastBegTime": 0,
