@@ -110239,7 +110239,13 @@
       "fatass",
       {
         "triggers": [
-          "i'm hungry"
+          "i'm hungry",
+          "im hungry",
+          "me hungry",
+          "me hungy",
+          "feed me",
+          "give me food",
+          "get me food"
         ],
         "actions": [
           {
@@ -110259,7 +110265,7 @@
         "ownerLocked": false,
         "creatorId": "1082452773787942922",
         "creatorName": "hawkshadow74",
-        "createdAt": 1789750045929
+        "createdAt": 1789750822368
       }
     ],
     [
