@@ -110213,6 +110213,27 @@
         "creatorName": "hawkshadow74",
         "createdAt": 1789749743174
       }
+    ],
+    [
+      "binted",
+      {
+        "triggers": [
+          "photos printed"
+        ],
+        "actions": [
+          {
+            "type": "echo",
+            "params": {
+              "message": "Meeble Vorp, Gleep?",
+              "replyMode": "replyactor"
+            }
+          }
+        ],
+        "ownerLocked": false,
+        "creatorId": "1082452773787942922",
+        "creatorName": "hawkshadow74",
+        "createdAt": 1789749806106
+      }
     ]
   ],
   "serverStatsConfig": [
