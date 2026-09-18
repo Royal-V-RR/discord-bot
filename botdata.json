@@ -110192,6 +110192,27 @@
         "creatorName": "royalvmusic",
         "createdAt": 1789150032736
       }
+    ],
+    [
+      "bogos",
+      {
+        "triggers": [
+          "bogos binted"
+        ],
+        "actions": [
+          {
+            "type": "echo",
+            "params": {
+              "message": "Are you alright, sir?",
+              "replyMode": "replyactor"
+            }
+          }
+        ],
+        "ownerLocked": false,
+        "creatorId": "1082452773787942922",
+        "creatorName": "hawkshadow74",
+        "createdAt": 1789749743174
+      }
     ]
   ],
   "serverStatsConfig": [
