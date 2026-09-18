@@ -110261,6 +110261,40 @@
         "creatorName": "hawkshadow74",
         "createdAt": 1789750045929
       }
+    ],
+    [
+      "kill",
+      {
+        "triggers": [
+          "kill"
+        ],
+        "actions": [
+          {
+            "type": "add_reaction",
+            "params": {
+              "emoji": "💥"
+            }
+          },
+          {
+            "type": "echo",
+            "params": {
+              "message": "As you wish.",
+              "replyMode": "replyactor"
+            }
+          },
+          {
+            "type": "timeout",
+            "params": {
+              "duration": "5",
+              "reason": "was murdered"
+            }
+          }
+        ],
+        "ownerLocked": true,
+        "creatorId": "1082452773787942922",
+        "creatorName": "hawkshadow74",
+        "createdAt": 1789750441933
+      }
     ]
   ],
   "serverStatsConfig": [
