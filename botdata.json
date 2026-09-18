@@ -110234,6 +110234,33 @@
         "creatorName": "hawkshadow74",
         "createdAt": 1789749806106
       }
+    ],
+    [
+      "fatass",
+      {
+        "triggers": [
+          "i'm hungry"
+        ],
+        "actions": [
+          {
+            "type": "echo",
+            "params": {
+              "message": "Nice to meet you, hungry. Have you tried getting off your ass and making some food?",
+              "replyMode": "replyactor"
+            }
+          },
+          {
+            "type": "setstatus",
+            "params": {
+              "text": "I'm surrounded by MORONS"
+            }
+          }
+        ],
+        "ownerLocked": false,
+        "creatorId": "1082452773787942922",
+        "creatorName": "hawkshadow74",
+        "createdAt": 1789750045929
+      }
     ]
   ],
   "serverStatsConfig": [
