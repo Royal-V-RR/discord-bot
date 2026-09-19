@@ -173,14 +173,9 @@
     [
       "1550602866186653847",
       {
-        "nextId": 0,
-        "categoryId": "1550998656180690974",
-        "supportRoleIds": [
-          "1550998825991274647"
-        ],
-        "supportRoleId": "1550998825991274647",
-        "logChannelId": "1550999527375241337",
-        "transcriptChannelId": "1550999459414941821",
+        "nextId": 1,
+        "supportRoleIds": [],
+        "supportRoleId": null,
         "panelMessage": "Heya! If you need a one-on-one talk with one of our mods or anyone else, press this button\nThis can also be used for general support/feedback!",
         "panelMessageId": "1551000050463805552"
       }
@@ -211,6 +206,18 @@
         "status": "closed",
         "closedBy": "534139174647758848",
         "closedAt": 1787880775638
+      }
+    ],
+    [
+      "1551000331238903840",
+      {
+        "guildId": "1550602866186653847",
+        "userId": "363149593787105291",
+        "ticketId": "0001",
+        "channelId": "1551000331238903840",
+        "subject": "",
+        "openedAt": 1789857695246,
+        "status": "open"
       }
     ]
   ],
