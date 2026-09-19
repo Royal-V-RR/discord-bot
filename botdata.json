@@ -611,12 +611,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18200,
-        "lastSubsTimestamp": 1789855658513,
+        "lastSubsTimestamp": 1789856129858,
         "history": [
-          {
-            "ts": 1789548794846,
-            "subs": 18000
-          },
           {
             "ts": 1789549094841,
             "subs": 18000
@@ -4612,6 +4608,10 @@
           {
             "ts": 1789855658513,
             "subs": 18200
+          },
+          {
+            "ts": 1789856129858,
+            "subs": 18200
           }
         ],
         "subcountDiscordId": "1483595393999700080",
@@ -5084,7 +5084,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-27",
-        "xp": 3655,
+        "xp": 3662,
         "level": 32,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -45580,22 +45580,7 @@
   ],
   "activeEffects": [],
   "reminders": [],
-  "scheduledMessages": [
-    [
-      "nforjq",
-      {
-        "id": "nforjq",
-        "userId": "969280648667889764",
-        "guildId": "1048053656035020911",
-        "channelId": "1500899929474732234",
-        "content": "Dawn of the final day.",
-        "sendAt": 1789856107574,
-        "createdAt": 1789683307574,
-        "imageURL": null,
-        "imageName": null
-      }
-    ]
-  ],
+  "scheduledMessages": [],
   "inviteComps": [],
   "premieres": [],
   "raConfig": [
