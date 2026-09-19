@@ -74793,7 +74793,7 @@
     [
       "1254388539890860083",
       {
-        "flagged": 14,
+        "flagged": 15,
         "deleted": 4
       }
     ],
@@ -110493,10 +110493,12 @@
       "1550964936514080775",
       {
         "filename": "quote_1493736541053521991.png",
-        "voters": [],
+        "voters": [
+          "1254388539890860083"
+        ],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
-        "sentToDeleter": false,
+        "sentToDeleter": true,
         "type": "quote"
       }
     ]
@@ -110549,10 +110551,10 @@
     [
       "1510645922604781821",
       {
-        "mode": "global",
-        "folder": null,
-        "requestChannelId": null,
-        "deleteChannelId": null,
+        "mode": "server",
+        "folder": "the_bebzy_memes",
+        "requestChannelId": "1550964129295241257",
+        "deleteChannelId": "1550964129618206724",
         "moderators": [],
         "globalToggled": false,
         "createdChannels": false
