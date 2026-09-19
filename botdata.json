@@ -4649,17 +4649,18 @@
       "1082452773787942922",
       {
         "commands": [
+          "restart",
           "impersonation",
           "echo",
           "jarvisenhance",
-          "restart"
+          "clankerify"
         ],
         "features": [
           "expose"
         ],
         "expiresAt": null,
         "grantedBy": "969280648667889764",
-        "grantedAt": 1789778495097
+        "grantedAt": 1789778634112
       }
     ],
     [
@@ -5054,7 +5055,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-27",
-        "xp": 2689,
+        "xp": 2703,
         "level": 32,
         "lastWorkTime": 0,
         "lastBegTime": 0,
