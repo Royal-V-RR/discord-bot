@@ -594,12 +594,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18200,
-        "lastSubsTimestamp": 1789846701884,
+        "lastSubsTimestamp": 1789847001905,
         "history": [
-          {
-            "ts": 1789540094543,
-            "subs": 18100
-          },
           {
             "ts": 1789540394527,
             "subs": 18100
@@ -4594,6 +4590,10 @@
           },
           {
             "ts": 1789846701884,
+            "subs": 18200
+          },
+          {
+            "ts": 1789847001905,
             "subs": 18200
           }
         ],
@@ -9070,7 +9070,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 159,
+        "xp": 168,
         "level": 12,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -74572,6 +74572,10 @@
     [
       "1550955424797429841",
       "IMG-20260429-WA0009.jpg"
+    ],
+    [
+      "1550955466014851106",
+      "raccoons fursona.png"
     ]
   ],
   "favoritedQuotes": [
@@ -110327,6 +110331,17 @@
         "sentToDeleter": false,
         "type": "quote"
       }
+    ],
+    [
+      "1550955466014851106",
+      {
+        "filename": "raccoons fursona.png",
+        "voters": [],
+        "guildId": "1048053656035020911",
+        "channelId": "1477294439180537980",
+        "sentToDeleter": false,
+        "type": "quote"
+      }
     ]
   ],
   "selfClankUsers": [
@@ -111220,7 +111235,7 @@
         ],
         "intervalMinutes": 15,
         "locked": true,
-        "lastUpdate": 1789846101765
+        "lastUpdate": 1789847001789
       }
     ]
   ],
