@@ -5067,7 +5067,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-27",
-        "xp": 3295,
+        "xp": 3309,
         "level": 32,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -32862,7 +32862,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 910,
+        "xp": 923,
         "level": 8,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -37287,7 +37287,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 110,
+        "xp": 120,
         "level": 3,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -110328,6 +110328,7 @@
       }
     ]
   ],
+  "quoteGuildConfigs": [],
   "uploadCounters": {
     "quote": 410,
     "eardestroyer": 1,
@@ -110651,6 +110652,26 @@
         "creatorId": "system",
         "creatorName": "RoyalBot",
         "createdAt": 1788985922163
+      }
+    ],
+    [
+      "clipship",
+      {
+        "triggers": [
+          "clip",
+          "ship"
+        ],
+        "matchAll": true,
+        "actions": [
+          {
+            "type": "make_quote_and_submit",
+            "params": {}
+          }
+        ],
+        "ownerLocked": false,
+        "creatorId": "system",
+        "creatorName": "RoyalBot",
+        "createdAt": 1789844601689
       }
     ],
     [
