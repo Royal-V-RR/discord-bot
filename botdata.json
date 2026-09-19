@@ -6409,7 +6409,7 @@
         "marriedTo": null,
         "pendingProposal": null,
         "forceMarried": false,
-        "imagesUploaded": 54,
+        "imagesUploaded": 55,
         "uploadedImages": [
           "image.png",
           "Zrzut_ekranu_2026-05-08_224109.png",
@@ -6436,7 +6436,8 @@
           "quote_414.png",
           "quote_415.png",
           "quote_417.png",
-          "quote_418.png"
+          "quote_418.png",
+          "quote_419.png"
         ],
         "lastFishTime": 0,
         "lastMineTime": 0,
@@ -110754,17 +110755,6 @@
         "rawName": "image.png",
         "mediaKind": "image"
       }
-    ],
-    [
-      "949811mu8uc1i8",
-      {
-        "submitterId": "1193150033864949811",
-        "fileName": "1193150033864949811__image__image.png",
-        "rawName": "image.png",
-        "mediaKind": "image",
-        "guildId": "1510645922604781821",
-        "destFolder": "the_bebzy_memes"
-      }
     ]
   ],
   "quoteGuildConfigs": [
@@ -110782,7 +110772,7 @@
     ]
   ],
   "uploadCounters": {
-    "quote": 418,
+    "quote": 419,
     "eardestroyer": 1,
     "eyebleacher": 3
   },
