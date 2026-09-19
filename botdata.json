@@ -174,8 +174,10 @@
       "1550602866186653847",
       {
         "nextId": 1,
-        "supportRoleIds": [],
-        "supportRoleId": null,
+        "supportRoleIds": [
+          "1550998825991274647"
+        ],
+        "supportRoleId": "1550998825991274647",
         "panelMessage": "Heya! If you need a one-on-one talk with one of our mods or anyone else, press this button\nThis can also be used for general support/feedback!",
         "panelMessageId": "1551000050463805552",
         "categoryId": "1551000255871459469"
