@@ -111063,6 +111063,55 @@
         "creatorName": "hawkshadow74",
         "createdAt": 1789817305528
       }
+    ],
+    [
+      "blank",
+      {
+        "triggers": [
+          "blank"
+        ],
+        "actions": [
+          {
+            "type": "echo",
+            "params": {
+              "message": "<@1254388539890860083>",
+              "replyMode": "normal"
+            }
+          },
+          {
+            "type": "echo",
+            "params": {
+              "message": "<@1254388539890860083>",
+              "replyMode": "normal"
+            }
+          },
+          {
+            "type": "echo",
+            "params": {
+              "message": "<@1254388539890860083>",
+              "replyMode": "normal"
+            }
+          },
+          {
+            "type": "echo",
+            "params": {
+              "message": "<@1254388539890860083>",
+              "replyMode": "normal"
+            }
+          },
+          {
+            "type": "echo",
+            "params": {
+              "message": "<@1254388539890860083>",
+              "replyMode": "normal"
+            }
+          }
+        ],
+        "ownerLocked": false,
+        "creatorId": "1082452773787942922",
+        "creatorName": "hawkshadow74",
+        "createdAt": 1789817609684
+      }
     ]
   ],
   "serverStatsConfig": [
