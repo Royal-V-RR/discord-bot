@@ -4650,15 +4650,16 @@
       {
         "commands": [
           "impersonation",
+          "echo",
           "jarvisenhance",
-          "echo"
+          "restart"
         ],
         "features": [
           "expose"
         ],
         "expiresAt": null,
         "grantedBy": "969280648667889764",
-        "grantedAt": 1789754032919
+        "grantedAt": 1789778495097
       }
     ],
     [
