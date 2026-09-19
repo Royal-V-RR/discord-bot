@@ -180,7 +180,10 @@
         "supportRoleId": "1550998825991274647",
         "panelMessage": "Heya! If you need a one-on-one talk with one of our mods or anyone else, press this button\nThis can also be used for general support/feedback!",
         "panelMessageId": "1551000050463805552",
-        "categoryId": "1551000255871459469"
+        "categoryId": "1551000255871459469",
+        "logChannelId": "1550999527375241337",
+        "transcriptChannelId": "1550999459414941821",
+        "panelChannelId": "1550999215637921804"
       }
     ]
   ],
@@ -220,7 +223,9 @@
         "channelId": "1551000331238903840",
         "subject": "",
         "openedAt": 1789857695246,
-        "status": "open"
+        "status": "closed",
+        "closedBy": "363149593787105291",
+        "closedAt": 1789857722733
       }
     ]
   ],
