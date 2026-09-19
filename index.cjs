@@ -418,8 +418,7 @@ const marriageProposals = new Map(); // proposerId -> { targetId, timeout }
 // In memory Fisher Yates shuffled queue so every image is shown before repeats.
 // No writes to botdata.json. Refills automatically when exhausted.
 // A fetch lock prevents multiple concurrent /quote calls from double fetching.
-let quoteQueue    = [];   // shuffled array of GitHub file objects
-let quoteFetching = false; // true while a refill fetch is in flight
+// Queues are kept per quote pool (global or a server folder): see quoteQueues below.
 // quoteVotes: filename -> { up: number, down: number }
 const quoteVotes = new Map();
 // quoteVoteMessages: messageId -> filename  (tracks which quote a message shows)
@@ -696,6 +695,7 @@ function isEffectiveOwner(userId, commandName){
 const SERVER_OWNER_CMDS = new Set([
   "fakemessage","fakequote","refreshcmds","shadowdelete","clankerify","impersonation",
   "forcemarry","forcedivorce","echo","paranoia",
+  "quotesetup","requestedquotes","deletedquotes","globaltoggle","quotemoderator",
 ]);
 function isGuildOwner(guildId, userId){
   const g = guildId ? client.guilds.cache.get(guildId) : null;
@@ -897,6 +897,20 @@ jarvisEnhanceProfiles.set("databaseupload", {
   creatorName: "RoyalBot",
   createdAt: Date.now(),
 });
+// "Jarvis, clip ship" while replying turns that message into a real quote card
+// and sends it straight to the request channel for review (the global one, or
+// the server's own if the server is on its own folder). matchAll means BOTH
+// words have to be in the message, and this profile wins over the plain "clip"
+// profile, which only posts the card.
+jarvisEnhanceProfiles.set("clipship", {
+  triggers: ["clip", "ship"],
+  matchAll: true,
+  actions: [{ type:"make_quote_and_submit", params:{} }],
+  ownerLocked: false,
+  creatorId: "system",
+  creatorName: "RoyalBot",
+  createdAt: Date.now(),
+});
 // jarvisEnhanceBuilders: token -> { ownerId, name, triggers, actions, ownerLocked,
 //   category (currently browsed category or null), selectedStep, pendingActionType, pendingMode }
 const jarvisEnhanceBuilders = new Map();
@@ -1006,6 +1020,7 @@ const JARVISENHANCE_ACTIONS = [
   ]},
   { id:"make_it_a_quote", category:"message", emoji:"📸", label:"Make it a Quote (real, no editing)", needs:"message", fields:[] },
   { id:"request_upload", category:"message", emoji:"📥", label:"Request Upload (media on the message, credit to you)", needs:"message", fields:[] },
+  { id:"make_quote_and_submit", category:"message", emoji:"📮", label:"Make it a Quote and send it to review (real, no editing)", needs:"message", fields:[] },
   { id:"pin_message", category:"message", emoji:"📌", label:"Pin the Message", needs:"message", fields:[] },
   { id:"delete_message", category:"message", emoji:"🗑️", label:"Delete the Message", needs:"message", fields:[] },
   { id:"add_reaction", category:"message", emoji:"🙂", label:"React to the Message", needs:"message", dynamicField:"emoji", fields:[
@@ -1341,9 +1356,34 @@ const JARVISENHANCE_RUNNERS = {
       attachmentContentType: mediaContentType,
       attachmentSize: mediaSize,
       guildName: ctx.guild?.name || "Unknown",
+      guildId: ctx.guild?.id || null,
       channelId: ctx.channel.id,
     });
     return result.ok ? "submitted for review" : `failed, ${result.reason}`;
+  },
+  async make_quote_and_submit(params, ctx){
+    const text = ctx.targetMsg.content;
+    if(!text) return "no text to quote";
+    if(ctx.targetUser.bot) return "skipped (bot)";
+    try{
+      const displayName = ctx.targetUser.globalName || ctx.targetUser.username;
+      const avatarURL = ctx.targetUser.displayAvatarURL({ size:512, dynamic:false, extension:"png" });
+      const avatarRes = await fetch(avatarURL);
+      if(!avatarRes.ok) return "avatar fetch failed";
+      const avatarBuffer = Buffer.from(await avatarRes.arrayBuffer());
+      const cardBuffer = await buildFakeQuoteCard({ avatarBuffer, quoteText: text, displayName, username: ctx.targetUser.username });
+      const result = await submitMediaForReview({
+        submitterUser: ctx.actorUser,
+        attachmentBuffer: cardBuffer,
+        attachmentName: `quote_${ctx.targetMsg.id}.png`,
+        attachmentContentType: "image/png",
+        attachmentSize: cardBuffer.length,
+        guildName: ctx.guild?.name || "Unknown",
+        guildId: ctx.guild?.id || null,
+        channelId: ctx.channel.id,
+      });
+      return result.ok ? "submitted for review" : `failed, ${result.reason}`;
+    }catch(e){ return `error: ${e.message}`; }
   },
   async pin_message(params, ctx){
     await ctx.targetMsg.pin();
@@ -1448,7 +1488,7 @@ const JARVISENHANCE_RUNNERS = {
     const last_q = quoteCooldown.get(ctx.actorId) || 0;
     if(now_q - last_q < 1500) return "on cooldown, try again shortly";
     quoteCooldown.set(ctx.actorId, now_q);
-    const chosen = await postRandomQuoteCard(nextQuoteImage, "quote", async (payload) => ctx.channel.send(payload).catch(()=>null));
+    const chosen = await postRandomQuoteCard(nextQuoteImage, "quote", async (payload) => ctx.channel.send(payload).catch(()=>null), ctx.guild?.id);
     return chosen ? "sent" : "no quotes available";
   },
   async random_good_quote(params, ctx){
@@ -1456,7 +1496,7 @@ const JARVISENHANCE_RUNNERS = {
     const last_q = quoteCooldown.get(ctx.actorId) || 0;
     if(now_q - last_q < 1500) return "on cooldown, try again shortly";
     quoteCooldown.set(ctx.actorId, now_q);
-    const chosen = await postRandomQuoteCard(nextGoodQuoteImage, "good", async (payload) => ctx.channel.send(payload).catch(()=>null));
+    const chosen = await postRandomQuoteCard(nextGoodQuoteImage, "good", async (payload) => ctx.channel.send(payload).catch(()=>null), ctx.guild?.id);
     return chosen ? "sent" : "no quotes available";
   },
   async random_bad_quote(params, ctx){
@@ -1464,7 +1504,7 @@ const JARVISENHANCE_RUNNERS = {
     const last_q = quoteCooldown.get(ctx.actorId) || 0;
     if(now_q - last_q < 1500) return "on cooldown, try again shortly";
     quoteCooldown.set(ctx.actorId, now_q);
-    const chosen = await postRandomQuoteCard(nextBadQuoteImage, "bad", async (payload) => ctx.channel.send(payload).catch(()=>null));
+    const chosen = await postRandomQuoteCard(nextBadQuoteImage, "bad", async (payload) => ctx.channel.send(payload).catch(()=>null), ctx.guild?.id);
     return chosen ? "sent" : "no quotes available";
   },
   async show_avatar(params, ctx){
@@ -1542,7 +1582,286 @@ const selfClankCooldown = new Map();
 // Pending quote review submissions (token -> submission data) ───────────────
 // Avoids Discord's 100 char custom_id limit by using a short token instead of
 // embedding the full filename in the button ID.
-const pendingReviews = new Map(); // token -> { submitterId, fileName, rawName, mediaKind }
+const pendingReviews = new Map(); // token maps to { submitterId, fileName, rawName, mediaKind, guildId, destFolder }
+
+// ── Server specific quotes (/quotesetup) ─────────────────────────────────────
+// Every server is on the global quote stream by default. A server owner can run
+// /quotesetup to give their server its own quote folder (created at the repo
+// root), its own request and delete channels, and its own moderators. A server
+// on its own folder only ever sees quotes from that folder, and that folder is
+// never mixed into the global pool (quotes and quotes2).
+// quoteGuildConfigs: guildId maps to {
+//   mode: "global" or "server",
+//   folder: string or null,
+//   requestChannelId, deleteChannelId: string or null,
+//   moderators: [userId, ...],
+//   globalToggled: boolean,   // /globaltoggle: own folder and channels paused, global stream used
+//   createdChannels: boolean, // both channels were made by "Make both channels for me"
+// }
+const quoteGuildConfigs = new Map();
+// quoteSetupBuilders: token maps to { ownerId, guildId, step, requestChannelId, deleteChannelId, folder, createdChannels }
+const quoteSetupBuilders = new Map();
+
+// Every line the server specific quote system says lives in this one object,
+// so any wording can be changed here without touching the logic.
+const QS_TEXT = {
+  askScope: "Would the funny screenshots be part of this server only, or would you like to contribute globally?",
+  globalChosen: "Quotes are now being sent to the global request/delete channels",
+  globalButton: "Globally",
+  serverButton: "Server specific",
+  panelTitle: "Server specific quotes",
+  pickRequest: "Select the channel where quote requests should go.",
+  pickDelete: "Select the channel where flagged quotes should go.",
+  folderStep: "Name your quote folder, then press Finish.",
+  requestPlaceholder: "Select the request channel",
+  deletePlaceholder: "Select the delete channel",
+  noTextChannels: "No text channels found",
+  truncatedNote: "Showing the first 100 text channels.",
+  fieldRequest: "Request channel",
+  fieldDelete: "Delete channel",
+  fieldFolder: "Quote folder",
+  notSet: "Not set",
+  makeBothButton: "Make both channels for me",
+  nameFolderButton: "Name quote folder",
+  finishButton: "Finish",
+  backButton: "Back",
+  cancelButton: "Cancel",
+  folderModalTitle: "Name your quote folder",
+  folderInputLabel: "Folder name",
+  folderInputHint: "Letters, numbers and underscores only",
+  cancelled: "Setup cancelled.",
+  expired: "This panel expired, run /quotesetup again.",
+  notYourPanel: "Only the person who ran this command can use this panel.",
+  needServerSetup: "This server is not set up for server specific quotes yet. Run /quotesetup first.",
+  textChannelOnly: "Please select a text channel.",
+  folderInvalid: "Folder names can only use lowercase letters, numbers and underscores, between 3 and 32 characters.",
+  folderTaken: "That folder name is not available, try another.",
+  folderCreateFailed: "Could not create that folder right now, try again.",
+  needAllThree: "Pick a request channel, a delete channel and a folder name first.",
+  makeBothFailed: "I could not create the channels. Make sure I have the Manage Channels permission, or pick existing channels instead.",
+  modBot: "Bots cannot be quote moderators.",
+  serverRequestChannelMissing: "This server has no quote request channel set. Ask the server owner to run /requestedquotes.",
+  serverRequestChannelGone: "This server's quote request channel no longer exists. Ask the server owner to run /requestedquotes.",
+  notAllowedServerReview: "❌ Only the server owner, quote moderators and RoyalBot owners can do this.",
+  serverDone: (reqId, delId, folder) => `Quotes are now server specific. Requests go to <#${reqId}>, flagged quotes go to <#${delId}>, and quotes are stored in the \`${folder}\` folder.`,
+  requestSet: (id) => `Quote requests for this server now go to <#${id}>.`,
+  deleteSet: (id) => `Flagged quotes for this server now go to <#${id}>.`,
+  toggledGlobal: "This server is now using the global quote stream. Your request and delete channels are paused until you run /globaltoggle again.",
+  toggledServer: "This server is back on its own quotes. Your request and delete channels are active again.",
+  modAdded: (id) => `<@${id}> can now keep, delete, accept and deny quotes in this server.`,
+  modRemoved: (id) => `<@${id}> can no longer keep, delete, accept or deny quotes in this server.`,
+  hubPing: (guildName, guildId, inviteUrl) => `<@${OWNER_ID}> **${guildName}** (\`${guildId}\`) chose server specific quotes.\n${inviteUrl ? `Invite: ${inviteUrl}` : "I could not make an invite for that server."}`,
+};
+
+const QS_FOLDER_RE = /^[a-z0-9_]{3,32}$/;
+// Names that can never be used for a server folder: the global folders plus
+// directories the repo itself already relies on.
+const QS_RESERVED_FOLDERS = new Set(["quotes","quotes2","jarvis","fonts","node_modules","src","lib","docs","public","static","assets","data","test","tests","dist","build","github","scripts","logs","tmp","temp"]);
+
+// Where a server's quotes, requests and flags go right now. A server on its
+// own folder (and not toggled to global) is "server"; everything else,
+// including DMs and servers that never ran /quotesetup, is "global".
+function getQuoteRoute(guildId){
+  const cfg = guildId ? quoteGuildConfigs.get(guildId) : null;
+  if(cfg && cfg.mode === "server" && cfg.folder && !cfg.globalToggled){
+    return { scope:"server", folder:cfg.folder, requestChannelId:cfg.requestChannelId, deleteChannelId:cfg.deleteChannelId, guildId };
+  }
+  return { scope:"global" };
+}
+function getQuoteConfigByFolder(folder){
+  for(const [guildId, cfg] of quoteGuildConfigs){
+    if(cfg.folder === folder) return { guildId, cfg };
+  }
+  return null;
+}
+function getOrCreateQuoteConfig(guildId){
+  let cfg = quoteGuildConfigs.get(guildId);
+  if(!cfg){
+    cfg = { mode:"global", folder:null, requestChannelId:null, deleteChannelId:null, moderators:[], globalToggled:false, createdChannels:false };
+    quoteGuildConfigs.set(guildId, cfg);
+  }
+  if(!Array.isArray(cfg.moderators)) cfg.moderators = [];
+  return cfg;
+}
+// The server owner and anyone added with /quotemoderator, only for that server.
+function isServerQuoteStaff(userId, guildId){
+  const cfg = guildId ? quoteGuildConfigs.get(guildId) : null;
+  if(!cfg) return false;
+  if(isGuildOwner(guildId, userId)) return true;
+  return Array.isArray(cfg.moderators) && cfg.moderators.includes(userId);
+}
+// Which channel a flagged quote is sent to. A quote living in a server folder
+// goes to that server's delete channel (while that server is on its own
+// folder); everything else goes to the global deleter channel.
+function getFlagChannelId(fileName, guildId){
+  const folder = quoteFileFolderCache.get(fileName);
+  if(folder){
+    if(QUOTE_FOLDERS.includes(folder)) return deleterChannelId;
+    const found = getQuoteConfigByFolder(folder);
+    if(found && found.cfg.mode === "server" && !found.cfg.globalToggled && found.cfg.deleteChannelId) return found.cfg.deleteChannelId;
+    return deleterChannelId;
+  }
+  const route = getQuoteRoute(guildId);
+  return route.scope === "server" && route.deleteChannelId ? route.deleteChannelId : deleterChannelId;
+}
+
+function ghApiHeaders(withBody){
+  const h = { "User-Agent":"RoyalBot", "Authorization":`token ${GH_TOKEN}`, "Accept":"application/vnd.github+json" };
+  if(withBody) h["Content-Type"] = "application/json";
+  return h;
+}
+// true if the path exists in the repo, false if it does not, null if GitHub could not say.
+async function ghFolderExists(folder){
+  try{
+    const res = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/${folder}`, { headers: ghApiHeaders(false) });
+    if(res.status === 404) return false;
+    if(res.ok) return true;
+    return null;
+  }catch(e){
+    console.error("[quotesetup] ghFolderExists:", e.message);
+    return null;
+  }
+}
+// GitHub cannot hold an empty directory, so a new folder is created by putting
+// placeholder.txt inside it.
+async function createQuoteFolderOnGitHub(folder){
+  try{
+    const res = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/${folder}/placeholder.txt`, {
+      method:"PUT",
+      headers: ghApiHeaders(true),
+      body: JSON.stringify({ message:`feat: create quote folder ${folder}`, content: Buffer.from("placeholder\n").toString("base64") }),
+    });
+    if(!res.ok){
+      console.error("[quotesetup] create folder failed:", res.status, (await res.text()).slice(0, 300));
+      return false;
+    }
+    return true;
+  }catch(e){
+    console.error("[quotesetup] create folder error:", e.message);
+    return false;
+  }
+}
+function cleanQuoteFolderName(raw){
+  return String(raw || "").trim().toLowerCase().replace(/\s+/g, "_");
+}
+// Returns { ok:true, name, exists } or { ok:false, reason }. exists means the
+// folder already belongs to this same server, so it is reused, not recreated.
+async function validateQuoteFolderChoice(rawName, guildId){
+  const name = cleanQuoteFolderName(rawName);
+  if(!QS_FOLDER_RE.test(name)) return { ok:false, reason: QS_TEXT.folderInvalid };
+  if(QS_RESERVED_FOLDERS.has(name)) return { ok:false, reason: QS_TEXT.folderTaken };
+  const owner = getQuoteConfigByFolder(name);
+  if(owner && owner.guildId !== guildId) return { ok:false, reason: QS_TEXT.folderTaken };
+  if(owner && owner.guildId === guildId) return { ok:true, name, exists:true };
+  const inRepo = await ghFolderExists(name);
+  if(inRepo === null) return { ok:false, reason: QS_TEXT.folderCreateFailed };
+  if(inRepo) return { ok:false, reason: QS_TEXT.folderTaken };
+  return { ok:true, name, exists:false };
+}
+
+function getQuoteSetupChannelItems(guild, emoji){
+  return [...guild.channels.cache.filter(ch => ch.type === "GUILD_TEXT").values()]
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map(ch => ({ label: `#${ch.name}`, value: ch.id, emoji: { name: emoji } }));
+}
+
+// The /quotesetup server specific panel. Three steps: request channel, delete
+// channel, folder name. Returned without a content key (discord.js v13 rejects
+// empty content); callers that edit an older message add content:null.
+function buildQuoteSetupPanel(token){
+  const b = quoteSetupBuilders.get(token);
+  const guild = b ? client.guilds.cache.get(b.guildId) : null;
+  if(!b || !guild) return { embeds:[], components:[] };
+  const embed = {
+    color: 0x5865F2,
+    title: QS_TEXT.panelTitle,
+    fields: [
+      { name: QS_TEXT.fieldRequest, value: b.requestChannelId ? `<#${b.requestChannelId}>` : QS_TEXT.notSet, inline:true },
+      { name: QS_TEXT.fieldDelete,  value: b.deleteChannelId  ? `<#${b.deleteChannelId}>`  : QS_TEXT.notSet, inline:true },
+      { name: QS_TEXT.fieldFolder,  value: b.folder ? `\`${b.folder}\`` : QS_TEXT.notSet, inline:true },
+    ],
+  };
+  const backBtn   = new MessageButton().setCustomId(`qs_back_${token}`).setLabel(QS_TEXT.backButton).setStyle("SECONDARY");
+  const makeBtn   = new MessageButton().setCustomId(`qs_make_${token}`).setLabel(QS_TEXT.makeBothButton).setStyle("SECONDARY");
+  const cancelBtn = new MessageButton().setCustomId(`qs_cancel_${token}`).setLabel(QS_TEXT.cancelButton).setStyle("DANGER");
+  let components = [];
+  if(b.step === "request" || b.step === "delete"){
+    const isReq = b.step === "request";
+    embed.description = isReq ? QS_TEXT.pickRequest : QS_TEXT.pickDelete;
+    const items = getQuoteSetupChannelItems(guild, isReq ? "📥" : "🗑️");
+    const { rows, truncated } = buildTicketPickerRows({
+      items: items.length ? items : [{ label: QS_TEXT.noTextChannels, value: "none" }],
+      idPrefix: `${isReq ? "qs_req_" : "qs_del_"}${token}`,
+      selectedIds: [isReq ? b.requestChannelId : b.deleteChannelId].filter(Boolean),
+      mode: "single",
+      placeholder: isReq ? QS_TEXT.requestPlaceholder : QS_TEXT.deletePlaceholder,
+    });
+    if(truncated) embed.footer = { text: QS_TEXT.truncatedNote };
+    const btns = isReq ? [makeBtn, cancelBtn] : [backBtn, makeBtn, cancelBtn];
+    components = [...rows, new MessageActionRow().addComponents(...btns)];
+  } else {
+    embed.description = QS_TEXT.folderStep;
+    const ready = !!(b.requestChannelId && b.deleteChannelId && b.folder);
+    components = [new MessageActionRow().addComponents(
+      new MessageButton().setCustomId(`qs_name_${token}`).setLabel(QS_TEXT.nameFolderButton).setStyle("PRIMARY"),
+      new MessageButton().setCustomId(`qs_finish_${token}`).setLabel(QS_TEXT.finishButton).setStyle("SUCCESS").setDisabled(!ready),
+      backBtn,
+      cancelBtn,
+    )];
+  }
+  return { embeds:[embed], components };
+}
+
+// "Make both channels for me": two private text channels the bot, the server
+// owner (who sees everything anyway) and any quote moderators can use.
+async function createQuoteChannels(guild, moderatorIds){
+  const botAllow = ["VIEW_CHANNEL","SEND_MESSAGES","EMBED_LINKS","ATTACH_FILES","READ_MESSAGE_HISTORY"];
+  const modAllow = ["VIEW_CHANNEL","SEND_MESSAGES","READ_MESSAGE_HISTORY"];
+  const overwrites = [
+    { id: guild.roles.everyone.id, type:"role", deny:["VIEW_CHANNEL"] },
+    { id: client.user.id, type:"member", allow: botAllow },
+  ];
+  for(const id of (moderatorIds || [])){
+    const u = await client.users.fetch(id).catch(() => null);
+    if(u && u.id !== client.user.id) overwrites.push({ id: u.id, type:"member", allow: modAllow });
+  }
+  const requestCh = await guild.channels.create("quote_requests", { type:"GUILD_TEXT", permissionOverwrites: overwrites });
+  const deleteCh  = await guild.channels.create("quote_deletes",  { type:"GUILD_TEXT", permissionOverwrites: overwrites });
+  return { requestCh, deleteCh };
+}
+// Keeps channels made by "Make both channels for me" visible to moderators as
+// they are added and removed. Channels the owner picked themselves are left alone.
+async function syncQuoteModeratorAccess(guild, cfg, userId, grant){
+  if(!guild || !cfg || !cfg.createdChannels) return;
+  const user = await client.users.fetch(userId).catch(() => null);
+  if(!user) return;
+  for(const chId of [cfg.requestChannelId, cfg.deleteChannelId]){
+    const ch = chId ? guild.channels.cache.get(chId) : null;
+    if(!ch) continue;
+    try{
+      if(grant) await ch.permissionOverwrites.edit(user, { VIEW_CHANNEL:true, SEND_MESSAGES:true, READ_MESSAGE_HISTORY:true });
+      else await ch.permissionOverwrites.delete(user);
+    }catch(e){ console.error("[quotemoderator] channel access sync failed:", e.message); }
+  }
+}
+// Pings the bot owner in their DM hub channel when a server picks server specific.
+async function notifyOwnerServerSpecific(guild){
+  try{
+    if(!dmRelayGuildId) return;
+    const ownerUser = await client.users.fetch(OWNER_ID).catch(() => null);
+    if(!ownerUser) return;
+    const relayCh = await ensureDmRelayChannel(ownerUser);
+    if(!relayCh) return;
+    let inviteUrl = null;
+    const me = guild.members.me;
+    const inviteCh = me ? guild.channels.cache.find(c => c.type === "GUILD_TEXT" && c.permissionsFor(me).has("CREATE_INSTANT_INVITE")) : null;
+    if(inviteCh){
+      const inv = await inviteCh.createInvite({ maxAge:0 }).catch(() => null);
+      inviteUrl = inv ? inv.url : null;
+    }
+    await relayCh.send({ content: QS_TEXT.hubPing(guild.name, guild.id, inviteUrl), allowedMentions:{ users:[OWNER_ID] } });
+  }catch(e){ console.error("[quotesetup] hub ping failed:", e.message); }
+}
 
 // ── Tomato This pending settings (messageId -> { count, speed, authorTag, msgContent }) ──
 const tomatoPending = new Map();
@@ -1689,10 +2008,15 @@ function nextUploadNumber(prefix) {
 // trigger: submits a piece of media into the review queue, crediting
 // submitterUser (the slash command's caller, or whoever said the trigger
 // word, not necessarily whoever originally posted the media).
-async function submitMediaForReview({ submitterUser, attachmentUrl, attachmentName, attachmentContentType, attachmentSize, guildName, channelId }) {
-  if(!reviewChannelId) return { ok:false, reason:"No global review channel has been set up yet. Ask an owner to use /requester." };
-  const reviewCh = await client.channels.fetch(reviewChannelId).catch(()=>null);
-  if(!reviewCh) return { ok:false, reason:"The configured review channel no longer exists. Ask an owner to rerun /requester." };
+async function submitMediaForReview({ submitterUser, attachmentUrl, attachmentName, attachmentContentType, attachmentSize, attachmentBuffer, guildName, guildId, channelId }) {
+  // A server on its own folder sends submissions to its own request channel and
+  // they are stored in its own folder; everyone else uses the global channel.
+  const route = getQuoteRoute(guildId);
+  const isServerRoute = route.scope === "server";
+  const destChannelId = isServerRoute ? route.requestChannelId : reviewChannelId;
+  if(!destChannelId) return { ok:false, reason: isServerRoute ? QS_TEXT.serverRequestChannelMissing : "No global review channel has been set up yet. Ask an owner to use /requester." };
+  const reviewCh = await client.channels.fetch(destChannelId).catch(()=>null);
+  if(!reviewCh) return { ok:false, reason: isServerRoute ? QS_TEXT.serverRequestChannelGone : "The configured review channel no longer exists. Ask an owner to rerun /requester." };
 
   const mediaInfo = detectMediaKind(attachmentContentType, attachmentName);
   if(!mediaInfo) return { ok:false, reason:"Unsupported file type. Images, audio, and video files only." };
@@ -1701,11 +2025,13 @@ async function submitMediaForReview({ submitterUser, attachmentUrl, attachmentNa
   if(!new RegExp(`\\.(${MEDIA_EXT[mediaInfo.kind].join("|")})$`,"i").test(rawName)) rawName += `.${mediaInfo.ext}`;
   const fileName = `${submitterUser.id}__${mediaInfo.kind}__${rawName}`;
 
-  const fileSizeMB = attachmentSize ? (attachmentSize/1024/1024).toFixed(1) : null;
-  if(attachmentSize && attachmentSize > 1_000_000) return { ok:false, reason:`File too large (${fileSizeMB} MB). Max is 1 MB.` };
+  const hasBuffer = Buffer.isBuffer(attachmentBuffer);
+  const knownSize = attachmentSize || (hasBuffer ? attachmentBuffer.length : null);
+  const fileSizeMB = knownSize ? (knownSize/1024/1024).toFixed(1) : null;
+  if(knownSize && knownSize > 1_000_000) return { ok:false, reason:`File too large (${fileSizeMB} MB). Max is 1 MB.` };
 
   const reviewToken = `${submitterUser.id.slice(-6)}${Date.now().toString(36)}`;
-  pendingReviews.set(reviewToken, { submitterId: submitterUser.id, fileName, rawName, mediaKind: mediaInfo.kind });
+  pendingReviews.set(reviewToken, { submitterId: submitterUser.id, fileName, rawName, mediaKind: mediaInfo.kind, guildId: guildId || null, destFolder: isServerRoute ? route.folder : null });
   setTimeout(() => pendingReviews.delete(reviewToken), 7 * 24 * 60 * 60 * 1000);
 
   const reviewRow = new MessageActionRow().addComponents(
@@ -1722,11 +2048,12 @@ async function submitMediaForReview({ submitterUser, attachmentUrl, attachmentNa
     if(mediaInfo.kind === "image"){
       reviewPayload.embeds = [{
         author:{name:`${submitterUser.username}: quote submission`,icon_url:submitterUser.displayAvatarURL({size:64,dynamic:true})},
-        image:{url:attachmentUrl},
+        image:{url: hasBuffer ? `attachment://${rawName}` : attachmentUrl},
         color:0x5865F2,
         footer:{text:`Submitted from: ${guildName}${fileSizeMB?` • ${fileSizeMB} MB`:""}`},
         timestamp:new Date().toISOString(),
       }];
+      if(hasBuffer) reviewPayload.files = [{attachment: attachmentBuffer, name: rawName}];
     } else {
       reviewPayload.embeds = [{
         author:{name:`${submitterUser.username}: quote submission`,icon_url:submitterUser.displayAvatarURL({size:64,dynamic:true})},
@@ -1734,7 +2061,7 @@ async function submitMediaForReview({ submitterUser, attachmentUrl, attachmentNa
         footer:{text:`Submitted from: ${guildName}${fileSizeMB?` • ${fileSizeMB} MB`:""}`},
         timestamp:new Date().toISOString(),
       }];
-      reviewPayload.files = [{attachment: attachmentUrl, name: rawName}];
+      reviewPayload.files = [{attachment: hasBuffer ? attachmentBuffer : attachmentUrl, name: rawName}];
     }
     await reviewCh.send(reviewPayload);
     return { ok:true };
@@ -1747,7 +2074,17 @@ async function submitMediaForReview({ submitterUser, attachmentUrl, attachmentNa
 // ── Quote source folders ──────────────────────────────────────────────────────
 // Quotes are read from BOTH folders below (merged), but /upload and /requestupload
 // approvals only ever WRITE into the last one (quotes2): see those handlers.
+// QUOTE_FOLDERS are the global folders (treated equally). Server specific
+// folders live in the repo root under names chosen in /quotesetup, and are
+// tracked in quoteGuildConfigs. getAllQuoteFolders() is every folder, used by
+// owner tools, the folder cache warm up and delete lookups; the random quote
+// pools never mix a server folder into the global pool (see getQuotePool).
 const QUOTE_FOLDERS = ["quotes", "quotes2"];
+function getAllQuoteFolders() {
+  const all = new Set(QUOTE_FOLDERS);
+  for (const cfg of quoteGuildConfigs.values()) { if (cfg.folder) all.add(cfg.folder); }
+  return [...all];
+}
 
 // Cache: fileName -> folder it actually lives in. Populated whenever we list a folder
 // (fetchAllQuoteFiles) or write a file (upload/approve), so call sites that only have a
@@ -1759,7 +2096,7 @@ function cacheQuoteFolder(fileName, folder) { quoteFileFolderCache.set(fileName,
 // Builds a raw.githubusercontent.com URL for a quote file, using the cached folder if known.
 function quoteRawUrl(fileName, folderHint) {
   const folder = folderHint || quoteFileFolderCache.get(fileName) || "quotes";
-  return `https://raw.githubusercontent.com/Royal-V-RR/discord-bot/main/${folder}/${encodeURIComponent(fileName)}`;
+  return `https://raw.githubusercontent.com/${GH_REPO || "Royal-V-RR/discord-bot"}/main/${folder}/${encodeURIComponent(fileName)}`;
 }
 
 // Builds the payload sent to the deleter channel for a flagged quote, matching
@@ -1801,11 +2138,11 @@ async function fetchQuoteFolderFiles(folder) {
   } catch(e) { console.error(`Quote folder fetch failed (${folder}):`, e.message); return []; }
 }
 
-// Merges the listings of every quote folder (quotes + quotes2) into one array. Each file
+// Merges the listings of every quote folder (global and server specific) into one array. Each file
 // object keeps its real `download_url` from the GitHub API, so nothing downstream needs to
 // know or care which folder it actually came from.
 async function fetchAllQuoteFiles() {
-  const perFolder = await Promise.all(QUOTE_FOLDERS.map(fetchQuoteFolderFiles));
+  const perFolder = await Promise.all(getAllQuoteFolders().map(fetchQuoteFolderFiles));
   return perFolder.flat();
 }
 
@@ -1815,7 +2152,7 @@ async function fetchAllQuoteFiles() {
 async function resolveQuoteGhPath(fileName) {
   const cached = quoteFileFolderCache.get(fileName);
   if (cached) return `${cached}/${fileName}`;
-  for (const folder of QUOTE_FOLDERS) {
+  for (const folder of getAllQuoteFolders()) {
     const res = await fetch(`https://api.github.com/repos/${GH_REPO || "Royal-V-RR/discord-bot"}/contents/${folder}/${encodeURIComponent(fileName)}`, {
       headers: { "User-Agent": "RoyalBot", "Authorization": `token ${GH_TOKEN}`, "Accept": "application/vnd.github+json" }
     });
@@ -1979,15 +2316,43 @@ function shuffleArray(arr) {
   return arr;
 }
 
-async function refillQuoteQueue() {
-  if (quoteFetching) return;
-  quoteFetching = true;
+// ── Quote pools ───────────────────────────────────────────────────────────────
+// Which folders a server draws random quotes from. Servers on the global stream
+// use quotes + quotes2 together; a server on its own folder (see /quotesetup)
+// only ever draws from that folder. Each pool has its own shuffled queues.
+function getQuotePool(guildId) {
+  const route = getQuoteRoute(guildId);
+  if (route.scope === "server") return { key: `server:${route.folder}`, folders: [route.folder] };
+  return { key: "global", folders: QUOTE_FOLDERS };
+}
+async function fetchQuotePoolImages(pool) {
+  const perFolder = await Promise.all(pool.folders.map(fetchQuoteFolderFiles));
+  return perFolder.flat().filter(f => /\.(png|jpe?g|gif|webp)$/i.test(f.name));
+}
+// Shuffled queues per pool: normal, good and bad each keep their own, plus a
+// fetch lock per pool so concurrent calls never double fetch.
+const quoteQueues = { normal: new Map(), good: new Map(), bad: new Map() };
+const quoteQueueLocks = { normal: new Set(), good: new Set(), bad: new Set() };
+
+async function refillQuoteQueueFor(kind, pool, shuffler) {
+  const locks = quoteQueueLocks[kind];
+  if (locks.has(pool.key)) return;
+  locks.add(pool.key);
   try {
-    const files  = await fetchAllQuoteFiles();
-    const images = files.filter(f => /\.(png|jpe?g|gif|webp)$/i.test(f.name));
-    if (images.length) quoteQueue = shuffleArray([...images]);
-  } catch(e) { console.error("Quote queue refill failed:", e); }
-  quoteFetching = false;
+    const images = await fetchQuotePoolImages(pool);
+    if (images.length) quoteQueues[kind].set(pool.key, shuffler(images));
+  } catch(e) { console.error(`Quote queue refill failed (${kind}, ${pool.key}):`, e); }
+  locks.delete(pool.key);
+}
+async function nextFromQuoteQueue(kind, guildId, shuffler) {
+  const pool = getQuotePool(guildId);
+  let queue = quoteQueues[kind].get(pool.key) || [];
+  if (queue.length === 0) {
+    await refillQuoteQueueFor(kind, pool, shuffler);
+    queue = quoteQueues[kind].get(pool.key) || [];
+  }
+  if (queue.length === 0) return null;
+  return queue.shift();
 }
 
 // Build a weighted shuffled array: each image gets a weight of max(1, baseWeight + up: down)
@@ -2031,44 +2396,12 @@ function badShuffleQuotes(images) {
   return shuffleArray(weighted);
 }
 
-// Separate queues and fetch locks for goodquote and badquote
-let goodQuoteQueue    = [];
-let goodQuoteFetching = false;
-let badQuoteQueue     = [];
-let badQuoteFetching  = false;
-
-async function refillGoodQuoteQueue() {
-  if (goodQuoteFetching) return;
-  goodQuoteFetching = true;
-  try {
-    const files  = await fetchAllQuoteFiles();
-    const images = files.filter(f => /\.(png|jpe?g|gif|webp)$/i.test(f.name));
-    if (images.length) goodQuoteQueue = goodShuffleQuotes(images);
-  } catch(e) { console.error("Good quote queue refill failed:", e); }
-  goodQuoteFetching = false;
+async function nextGoodQuoteImage(guildId) {
+  return nextFromQuoteQueue("good", guildId, goodShuffleQuotes);
 }
 
-async function refillBadQuoteQueue() {
-  if (badQuoteFetching) return;
-  badQuoteFetching = true;
-  try {
-    const files  = await fetchAllQuoteFiles();
-    const images = files.filter(f => /\.(png|jpe?g|gif|webp)$/i.test(f.name));
-    if (images.length) badQuoteQueue = badShuffleQuotes(images);
-  } catch(e) { console.error("Bad quote queue refill failed:", e); }
-  badQuoteFetching = false;
-}
-
-async function nextGoodQuoteImage() {
-  if (goodQuoteQueue.length === 0) await refillGoodQuoteQueue();
-  if (goodQuoteQueue.length === 0) return null;
-  return goodQuoteQueue.shift();
-}
-
-async function nextBadQuoteImage() {
-  if (badQuoteQueue.length === 0) await refillBadQuoteQueue();
-  if (badQuoteQueue.length === 0) return null;
-  return badQuoteQueue.shift();
+async function nextBadQuoteImage(guildId) {
+  return nextFromQuoteQueue("bad", guildId, badShuffleQuotes);
 }
 
 // Occasionally pick a low rated quote from the pool directly (no queue needed: just sample)
@@ -2087,10 +2420,8 @@ async function nextLowRatedQuoteImage(allImages) {
 // Returns the next image from the queue, refilling if needed.
 // Pure shuffle: no weighting. Weights only apply to /goodquote and /badquote.
 // Returns null if the queue can't be filled (GitHub unavailable).
-async function nextQuoteImage() {
-  if (quoteQueue.length === 0) await refillQuoteQueue();
-  if (quoteQueue.length === 0) return null;
-  return quoteQueue.shift();
+async function nextQuoteImage(guildId) {
+  return nextFromQuoteQueue("normal", guildId, (images) => shuffleArray([...images]));
 }
 
 // Shared by /quote, /goodquote, /badquote, and the "quote" Jarvis Enhance
@@ -2099,8 +2430,8 @@ async function nextQuoteImage() {
 // sendFn(payload) must send the message and return the resulting Message
 // object (or null on failure); callers handle their own reply mechanism
 // (safeReply for slash commands, channel.send for the chat trigger).
-async function postRandomQuoteCard(fetchFn, type, sendFn) {
-  const chosen = await fetchFn();
+async function postRandomQuoteCard(fetchFn, type, sendFn, guildId) {
+  const chosen = await fetchFn(guildId);
   if (!chosen) return null;
   const payload = Math.random() < 0.10
     ? { content:"Do you wish to contribute to /quote? run /requestupload to send in your best quotes, screenshots or memes!", files:[chosen.download_url] }
@@ -2387,6 +2718,7 @@ function buildDataObject() {
     selfClankUsers:       [...selfClankUsers.entries()].map(([guildId,set])=>[guildId,[...set]]),
     selfClankCooldown:    [...selfClankCooldown.entries()],
     pendingReviews:       [...pendingReviews.entries()],
+    quoteGuildConfigs:    [...quoteGuildConfigs.entries()],
     uploadCounters:       {...uploadCounters},
     botStatus:            botStatus,
     dmRelayGuildId:       dmRelayGuildId,
@@ -2629,6 +2961,17 @@ function loadData() {
       data.selfClankCooldown.forEach(([k,v]) => { if(v > now) selfClankCooldown.set(k, v); });
     }
     if (data.quoteVotes)         data.quoteVotes.forEach(([k,v]) => quoteVotes.set(k, v));
+    if (data.quoteGuildConfigs) {
+      data.quoteGuildConfigs.forEach(([gid, v]) => quoteGuildConfigs.set(gid, {
+        mode: v.mode === "server" ? "server" : "global",
+        folder: v.folder || null,
+        requestChannelId: v.requestChannelId || null,
+        deleteChannelId: v.deleteChannelId || null,
+        moderators: Array.isArray(v.moderators) ? v.moderators : [],
+        globalToggled: !!v.globalToggled,
+        createdChannels: !!v.createdChannels,
+      }));
+    }
     if (data.pendingReviews) {
       data.pendingReviews.forEach(([token, v]) => {
         pendingReviews.set(token, v);
@@ -2680,7 +3023,7 @@ setInterval(async () => {
       if (!guild) continue;
       const ch = guild.channels.cache.get(cfg.channelId);
       if (!ch) continue;
-      const chosen = await nextQuoteImage();
+      const chosen = await nextQuoteImage(guildId);
       if (!chosen) continue;
       const sent = await safeSend(ch, { content: `🌅 **Daily Quote**`, files: [chosen.download_url] });
       if (sent) {
@@ -4746,6 +5089,17 @@ function buildCommands(){
     {name:"deleter", description:"[Owner] Set the global quote deleter channel (where flagged quotes go for review)",options:[
       {name:"channel", description:"Text channel to receive flagged quotes", type:7, required:true},
     ]},
+    {name:"quotesetup", description:"[Server Owner] Choose whether this server uses global quotes or its own quotes"},
+    {name:"requestedquotes", description:"[Server Owner] Set this server's quote request channel",options:[
+      {name:"channel", description:"Text channel for quote requests", type:7, required:true, channel_types:[0]},
+    ]},
+    {name:"deletedquotes", description:"[Server Owner] Set this server's flagged quote channel",options:[
+      {name:"channel", description:"Text channel for flagged quotes", type:7, required:true, channel_types:[0]},
+    ]},
+    {name:"globaltoggle", description:"[Server Owner] Switch this server between its own quotes and global quotes"},
+    {name:"quotemoderator", description:"[Server Owner] Give or remove quote moderator access in this server",options:[
+      {name:"user", description:"User to add or remove", type:6, required:true},
+    ]},
     {name:"managememers",      description:"[Owner] Add or remove users from the upload allowlist",options:[
       {name:"action",          description:"Add or remove",type:3,required:true,choices:[
         {name:"Add",value:"add"},
@@ -6177,11 +6531,20 @@ client.on("messageCreate",async msg=>{
         const jeWords = jeContentLower.match(/[a-z0-9]+/g) || [];
         const jeWordSet = new Set(jeWords);
         let matchedTrigger = null;
-        const profile = [...jarvisEnhanceProfiles.values()].find(p => {
-          const hit = p.triggers.find(t => {
-            const tl = t.toLowerCase();
-            return tl.includes(" ") ? jeContentLower.includes(tl) : jeWordSet.has(tl);
-          });
+        // Profiles that need EVERY trigger word present (matchAll, like "clip"
+        // plus "ship") are checked first so they beat the single word profiles.
+        const jeAllProfiles = [...jarvisEnhanceProfiles.values()];
+        const jeOrdered = [...jeAllProfiles.filter(p => p.matchAll), ...jeAllProfiles.filter(p => !p.matchAll)];
+        const jeHasTrigger = (t) => {
+          const tl = t.toLowerCase();
+          return tl.includes(" ") ? jeContentLower.includes(tl) : jeWordSet.has(tl);
+        };
+        const profile = jeOrdered.find(p => {
+          if(p.matchAll){
+            if(p.triggers.length && p.triggers.every(jeHasTrigger)){ matchedTrigger = p.triggers[0]; return true; }
+            return false;
+          }
+          const hit = p.triggers.find(jeHasTrigger);
           if(hit){ matchedTrigger = hit; return true; }
           return false;
         });
@@ -6296,16 +6659,134 @@ client.on("interactionCreate",async interaction=>{
     const cid=interaction.customId;
     try {
 
-    // ── Quote review: accept / reject ────────────────────────────────────────
-    if(cid.startsWith("qr_accept_")||cid.startsWith("qr_reject_")){
-      if(!OWNER_IDS.includes(uid) && !hasTempOwnerFeature(uid,"quote_review")){
-        try{await interaction.reply({content:"❌ Only owners can approve quote submissions.",ephemeral:true});}catch{}
+    // ── /quotesetup panel: scope buttons, channel pickers, folder name, finish ─
+    if(cid.startsWith("qs_")){
+      let qsToken;
+      if(cid.startsWith("qs_req_")||cid.startsWith("qs_del_")){
+        const qsRest = cid.slice(7);
+        qsToken = qsRest.slice(0, qsRest.lastIndexOf("_"));
+      } else {
+        qsToken = cid.slice(cid.indexOf("_", 3) + 1);
+      }
+      const qb = quoteSetupBuilders.get(qsToken);
+      if(!qb){ await btnEphemeral(interaction, QS_TEXT.expired); return; }
+      if(qb.ownerId !== uid){ await btnEphemeral(interaction, QS_TEXT.notYourPanel); return; }
+      const qsGuild = client.guilds.cache.get(qb.guildId);
+      if(!qsGuild){ await btnEphemeral(interaction, QS_TEXT.expired); return; }
+
+      if(cid.startsWith("qs_global_")){
+        const gcfg = getOrCreateQuoteConfig(qb.guildId);
+        gcfg.mode = "global";
+        gcfg.globalToggled = false;
+        saveData();
+        quoteSetupBuilders.delete(qsToken);
+        try{ await interaction.update({ content: QS_TEXT.globalChosen, embeds:[], components:[] }); }catch{}
         return;
       }
+      if(cid.startsWith("qs_server_")){
+        notifyOwnerServerSpecific(qsGuild).catch(()=>{});
+        qb.step = "request";
+        try{ await interaction.update({ content:null, ...buildQuoteSetupPanel(qsToken) }); }catch(e){ console.error("[qs_server update]", e.message); }
+        return;
+      }
+      if(cid.startsWith("qs_req_")||cid.startsWith("qs_del_")){
+        const pickedId = interaction.values[0];
+        const picked = pickedId && pickedId !== "none" ? qsGuild.channels.cache.get(pickedId) : null;
+        if(!picked || picked.type !== "GUILD_TEXT"){ await btnEphemeral(interaction, QS_TEXT.textChannelOnly); return; }
+        if(cid.startsWith("qs_req_")){
+          qb.requestChannelId = picked.id;
+          qb.step = qb.deleteChannelId ? "folder" : "delete";
+        } else {
+          qb.deleteChannelId = picked.id;
+          qb.step = "folder";
+        }
+        qb.createdChannels = false;
+        try{ await interaction.update({ content:null, ...buildQuoteSetupPanel(qsToken) }); }catch{}
+        return;
+      }
+      if(cid.startsWith("qs_make_")){
+        if(!(await btnAck(interaction))) return;
+        const qsMe = qsGuild.members.me;
+        if(!qsMe || !qsMe.permissions.has("MANAGE_CHANNELS")){
+          await interaction.followUp({content:QS_TEXT.makeBothFailed,ephemeral:true}).catch(()=>{});
+          return;
+        }
+        try{
+          const gcfg = getOrCreateQuoteConfig(qb.guildId);
+          const made = await createQuoteChannels(qsGuild, gcfg.moderators);
+          qb.requestChannelId = made.requestCh.id;
+          qb.deleteChannelId = made.deleteCh.id;
+          qb.createdChannels = true;
+          qb.step = "folder";
+          await interaction.editReply({ content:null, ...buildQuoteSetupPanel(qsToken) });
+        }catch(e){
+          console.error("[qs_make] channel creation failed:", e.message);
+          await interaction.followUp({content:QS_TEXT.makeBothFailed,ephemeral:true}).catch(()=>{});
+        }
+        return;
+      }
+      if(cid.startsWith("qs_name_")){
+        await interaction.showModal({
+          title: QS_TEXT.folderModalTitle,
+          custom_id: `qs_modal_folder_${qsToken}`,
+          components:[{type:1,components:[{type:4,custom_id:"qs_folder_input",label:QS_TEXT.folderInputLabel,style:1,required:true,min_length:3,max_length:32,placeholder:QS_TEXT.folderInputHint,...(qb.folder?{value:qb.folder}:{})}]}],
+        }).catch(e=>console.error("[qs_name modal]",e.message));
+        return;
+      }
+      if(cid.startsWith("qs_back_")){
+        qb.step = qb.step === "folder" ? "delete" : "request";
+        try{ await interaction.update({ content:null, ...buildQuoteSetupPanel(qsToken) }); }catch{}
+        return;
+      }
+      if(cid.startsWith("qs_cancel_")){
+        quoteSetupBuilders.delete(qsToken);
+        try{ await interaction.update({ content: QS_TEXT.cancelled, embeds:[], components:[] }); }catch{}
+        return;
+      }
+      if(cid.startsWith("qs_finish_")){
+        if(!qb.requestChannelId || !qb.deleteChannelId || !qb.folder){ await btnEphemeral(interaction, QS_TEXT.needAllThree); return; }
+        if(!(await btnAck(interaction))) return;
+        try{
+          const check = await validateQuoteFolderChoice(qb.folder, qb.guildId);
+          if(!check.ok){ await interaction.followUp({content:check.reason,ephemeral:true}).catch(()=>{}); return; }
+          if(!check.exists){
+            const madeFolder = await createQuoteFolderOnGitHub(check.name);
+            if(!madeFolder){ await interaction.followUp({content:QS_TEXT.folderCreateFailed,ephemeral:true}).catch(()=>{}); return; }
+          }
+          const gcfg = getOrCreateQuoteConfig(qb.guildId);
+          gcfg.mode = "server";
+          gcfg.folder = check.name;
+          gcfg.requestChannelId = qb.requestChannelId;
+          gcfg.deleteChannelId = qb.deleteChannelId;
+          gcfg.globalToggled = false;
+          gcfg.createdChannels = !!qb.createdChannels;
+          saveData();
+          quoteSetupBuilders.delete(qsToken);
+          await interaction.editReply({ content: QS_TEXT.serverDone(gcfg.requestChannelId, gcfg.deleteChannelId, gcfg.folder), embeds:[], components:[] });
+        }catch(e){
+          console.error("[qs_finish] error:", e.message);
+          await interaction.followUp({content:QS_TEXT.folderCreateFailed,ephemeral:true}).catch(()=>{});
+        }
+        return;
+      }
+      return;
+    }
+
+    // ── Quote review: accept / reject ────────────────────────────────────────
+    if(cid.startsWith("qr_accept_")||cid.startsWith("qr_reject_")){
       const isAccept = cid.startsWith("qr_accept_");
       // New format: qr_accept_{token}: full submission data in pendingReviews
       const token = cid.slice(isAccept ? 10 : 10);
       const pending = pendingReviews.get(token);
+      // RoyalBot owners can action anything. A server owner or quote moderator
+      // can only action submissions made for their own server folder, and only
+      // from inside that server.
+      const isGlobalReviewer = OWNER_IDS.includes(uid) || hasTempOwnerFeature(uid,"quote_review");
+      const isServerReviewer = !!(pending && pending.destFolder && pending.guildId && interaction.guildId === pending.guildId && isServerQuoteStaff(uid, pending.guildId));
+      if(!isGlobalReviewer && !isServerReviewer){
+        try{await interaction.reply({content: pending && pending.destFolder ? QS_TEXT.notAllowedServerReview : "❌ Only owners can approve quote submissions.",ephemeral:true});}catch{}
+        return;
+      }
 
       // Legacy fallback: if no token match, parse old style IDs (submitterId_stagingName)
       let submitterId, stagingName, mediaKind, rawName;
@@ -6325,6 +6806,9 @@ client.on("interactionCreate",async interaction=>{
         rawName   = stagingMatch ? stagingMatch[3] : stagingName;
       }
       const prefix = mediaKind === "image" ? "quote" : mediaKind === "audio" ? "eardestroyer" : "eyebleacher";
+      // Approved submissions land in the folder they were requested for: a
+      // server folder for a server specific server, quotes2 for everyone else.
+      const destFolder = (pending && pending.destFolder) || "quotes2";
 
       if(!await btnAck(interaction)) return;
       if(pending) pendingReviews.delete(token);
@@ -6373,21 +6857,21 @@ client.on("interactionCreate",async interaction=>{
           const fileName = `${prefix}_${num}.${ext}`;
           try{
             await interaction.editReply({
-              content:`⚠️ **Submission approved** by <@${uid}>, but \`${fileName}\` is ${(fileBuffer.length/1024/1024).toFixed(1)} MB: too large for \`quotes2\` (1 MB limit), so it wasn't saved there.`,
+              content:`⚠️ **Submission approved** by <@${uid}>, but \`${fileName}\` is ${(fileBuffer.length/1024/1024).toFixed(1)} MB: too large for \`${destFolder}\` (1 MB limit), so it wasn't saved there.`,
               components:[],
               files:[{attachment:fileBuffer, name:fileName}],
             });
           }catch{}
           try{
             const submitter = await client.users.fetch(submitterId).catch(()=>null);
-            if(submitter) await submitter.send(`✅ Your quote submission \`${rawName}\` was **approved**, but it was too large to store in \`quotes2\` (1 MB limit). A reviewer has it as \`${fileName}\`.`).catch(()=>{});
+            if(submitter) await submitter.send(`✅ Your quote submission \`${rawName}\` was **approved**, but it was too large to store in \`${destFolder}\` (1 MB limit). A reviewer has it as \`${fileName}\`.`).catch(()=>{});
           }catch{}
           return;
         }
 
         const num = nextUploadNumber(prefix);
         const fileName = `${prefix}_${num}.${ext}`;
-        const ghPath  = `quotes2/${fileName}`; // approved submissions always land in quotes2
+        const ghPath  = `${destFolder}/${fileName}`;
         const encoded = fileBuffer.toString("base64");
 
         const checkRes = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/${ghPath}`,{
@@ -6409,7 +6893,7 @@ client.on("interactionCreate",async interaction=>{
           await interaction.followUp({content:`❌ GitHub upload failed (HTTP ${putRes.status}).`,ephemeral:true}).catch(()=>{});
           return;
         }
-        cacheQuoteFolder(fileName, "quotes2");
+        cacheQuoteFolder(fileName, destFolder);
 
         // Credit the uploader
         const s = getScore(submitterId, null);
@@ -6420,7 +6904,7 @@ client.on("interactionCreate",async interaction=>{
 
         try{
           await interaction.editReply({
-            content:`✅ **Quote approved** by <@${uid}>\n\`${fileName}\` has been uploaded to \`quotes2\`!`,
+            content:`✅ **Quote approved** by <@${uid}>\n\`${fileName}\` has been uploaded to \`${destFolder}\`!`,
             components:[]
           });
         }catch{}
@@ -6636,8 +7120,21 @@ client.on("interactionCreate",async interaction=>{
 
     // ── Deleter: keep or delete a trashcan flagged quote ─────────────────────
     if(cid.startsWith("del_keep_")||cid.startsWith("del_delete_")){
-      if(!OWNER_IDS.includes(uid) && !hasTempOwnerFeature(uid,"quote_review")){
-        try{await interaction.reply({content:"❌ Only owners can action flagged quotes.",ephemeral:true});}catch{}
+      // RoyalBot owners can action anything. A server owner or quote moderator
+      // can only action quotes that live in their own server folder, and only
+      // from inside that server.
+      let delAllowed = OWNER_IDS.includes(uid) || hasTempOwnerFeature(uid,"quote_review");
+      if(!delAllowed && interaction.guildId){
+        const delCfg = quoteGuildConfigs.get(interaction.guildId);
+        if(delCfg && delCfg.folder && isServerQuoteStaff(uid, interaction.guildId)){
+          const delFileName = cid.startsWith("del_keep_") ? cid.slice(9) : cid.slice(11);
+          const delPath = await resolveQuoteGhPath(delFileName);
+          if(delPath.startsWith(`${delCfg.folder}/`)) delAllowed = true;
+        }
+      }
+      if(!delAllowed){
+        const delMsg = interaction.guildId && quoteGuildConfigs.has(interaction.guildId) ? QS_TEXT.notAllowedServerReview : "❌ Only owners can action flagged quotes.";
+        try{await interaction.reply({content:delMsg,ephemeral:true});}catch{}
         return;
       }
       if(!(await btnAck(interaction))) return;
@@ -6714,9 +7211,9 @@ client.on("interactionCreate",async interaction=>{
       quoteCooldown.set(uid, now_q);
       await interaction.deferUpdate().catch(()=>{});
       try {
-        const chosen = qType==="good" ? await nextGoodQuoteImage()
-                     : qType==="bad"  ? await nextBadQuoteImage()
-                     : await nextQuoteImage();
+        const chosen = qType==="good" ? await nextGoodQuoteImage(interaction.guildId)
+                     : qType==="bad"  ? await nextBadQuoteImage(interaction.guildId)
+                     : await nextQuoteImage(interaction.guildId);
         if(!chosen){
           await interaction.followUp({content:"Couldn't load quotes right now.",ephemeral:true}).catch(()=>{});
           return;
@@ -6902,14 +7399,16 @@ client.on("interactionCreate",async interaction=>{
           tv.voters.delete(uid); // toggle off
         } else {
           tv.voters.add(uid);
-          // Check threshold
-          if(!tv.sentToDeleter && tv.voters.size >= trashcanThreshold && deleterChannelId){
+          // Check threshold. Where the flag goes depends on which folder the
+          // quote lives in: a server folder goes to that server's delete channel.
+          const flagChannelId = getFlagChannelId(tv.filename, tv.guildId);
+          if(!tv.sentToDeleter && tv.voters.size >= trashcanThreshold && flagChannelId){
             tv.sentToDeleter = true;
             pendingFlagDeleters.set(tv.filename, new Set(tv.voters));
             for(const voterId of tv.voters) bumpFlagStat(voterId, "flagged");
             (async()=>{
               try{
-                const deleterCh = await client.channels.fetch(deleterChannelId).catch(()=>null);
+                const deleterCh = await client.channels.fetch(flagChannelId).catch(()=>null);
                 if(!deleterCh) return;
                 const gId = tv.guildId || "@me";
                 const cId = tv.channelId || "0";
@@ -7379,7 +7878,8 @@ client.on("interactionCreate",async interaction=>{
       const fileName = files[idx];
       if(!fileName){ try{await interaction.reply({content:"❌ Couldn't find that image anymore.",ephemeral:true});}catch{}return; }
 
-      if(!deleterChannelId){
+      const libFlagChannelId = getFlagChannelId(fileName, interaction.guildId);
+      if(!libFlagChannelId){
         try{await interaction.reply({content:"No review channel configured.",ephemeral:true});}catch{}
         return;
       }
@@ -7390,7 +7890,7 @@ client.on("interactionCreate",async interaction=>{
       bumpFlagStat(uid, "flagged");
 
       try{
-        const deleterCh = await client.channels.fetch(deleterChannelId).catch(()=>null);
+        const deleterCh = await client.channels.fetch(libFlagChannelId).catch(()=>null);
         if(deleterCh){
           const payload = buildDeleterReviewPayload({
             fileName,
@@ -8633,6 +9133,21 @@ client.on("interactionCreate",async interaction=>{
       }
     }
 
+    // ── /quotesetup: folder name modal submit ───────────────────────────────────
+    if(cid.startsWith("qs_modal_folder_")){
+      const qsToken = cid.slice("qs_modal_folder_".length);
+      const qb = quoteSetupBuilders.get(qsToken);
+      if(!qb) return safeReply(interaction,{content:QS_TEXT.expired,ephemeral:true});
+      if(qb.ownerId !== uid) return safeReply(interaction,{content:QS_TEXT.notYourPanel,ephemeral:true});
+      const rawFolder = interaction.fields.getTextInputValue("qs_folder_input") || "";
+      await interaction.deferReply({ephemeral:true}).catch(()=>{});
+      const check = await validateQuoteFolderChoice(rawFolder, qb.guildId);
+      if(!check.ok) return safeReply(interaction,{content:check.reason,ephemeral:true});
+      qb.folder = check.name;
+      qb.step = "folder";
+      return safeReply(interaction,{...buildQuoteSetupPanel(qsToken), ephemeral:true});
+    }
+
     // ── Reaction role manual builder: emoji modal submit ────────────────────────
     if(cid.startsWith("rr_modal_emoji_")){
       const token = cid.slice("rr_modal_emoji_".length);
@@ -9048,7 +9563,7 @@ by **${displayName}**`});
   const cmd=interaction.commandName;
   const inGuild=!!interaction.guildId;
 
-  const ownerOnly=["servers","requester","deleter","dmconfig","leaveserver","restart","refreshcmds","botstats","setstatus","adminconfig","echo","shadowdelete","clankerify","impersonation","thecount","send","fakemessage","fakequote","forcemarry","forcedivorce","paranoia","tempowner","blacklist","theremnant","jarvisenhance"];
+  const ownerOnly=["servers","requester","deleter","dmconfig","leaveserver","restart","refreshcmds","botstats","setstatus","adminconfig","echo","shadowdelete","clankerify","impersonation","thecount","send","fakemessage","fakequote","forcemarry","forcedivorce","paranoia","tempowner","blacklist","theremnant","jarvisenhance","quotesetup","requestedquotes","deletedquotes","globaltoggle","quotemoderator"];
   if(ownerOnly.includes(cmd)){
     // SERVER_OWNER_CMDS need a guild context: a Discord server owner using one
     // of these is only ever allowed inside the server they own.
@@ -9726,7 +10241,7 @@ if(cmd==="divorce"){
         const chosen = await postRandomQuoteCard(nextQuoteImage, "quote", async (payload) => {
           const sent = await safeReply(interaction, payload);
           return sent?.id ? sent : await interaction.fetchReply().catch(()=>null);
-        });
+        }, interaction.guildId);
         if(!chosen) return safeReply(interaction, "Couldn't load quotes right now.");
         return;
       } catch(e) {
@@ -9747,7 +10262,7 @@ if(cmd==="divorce"){
         const chosen = await postRandomQuoteCard(nextGoodQuoteImage, "good", async (payload) => {
           const sent = await safeReply(interaction, payload);
           return sent?.id ? sent : await interaction.fetchReply().catch(()=>null);
-        });
+        }, interaction.guildId);
         if(!chosen) return safeReply(interaction, "Couldn't load quotes right now.");
         return;
       } catch(e) {
@@ -9768,7 +10283,7 @@ if(cmd==="divorce"){
         const chosen = await postRandomQuoteCard(nextBadQuoteImage, "bad", async (payload) => {
           const sent = await safeReply(interaction, payload);
           return sent?.id ? sent : await interaction.fetchReply().catch(()=>null);
-        });
+        }, interaction.guildId);
         if(!chosen) return safeReply(interaction, "Couldn't load quotes right now.");
         return;
       } catch(e) {
@@ -11254,6 +11769,62 @@ if(cmd==="divorce"){
       return safeReply(interaction,{content:`✅ Global quote deleter channel set to <#${ch.id}>. All 🗑️ flagged quotes will be sent there for owner review.`,ephemeral:true});
     }
 
+    // ── Server specific quotes: /quotesetup and the server owner commands ────
+    if(cmd==="quotesetup"){
+      const qsGid = interaction.guildId;
+      const qsToken = `${qsGid.slice(0,4)}${Date.now().toString(36)}`;
+      const qsExisting = quoteGuildConfigs.get(qsGid);
+      const qsPrefill = qsExisting && qsExisting.mode==="server" ? qsExisting : null;
+      quoteSetupBuilders.set(qsToken, {
+        ownerId: interaction.user.id,
+        guildId: qsGid,
+        step: "request",
+        requestChannelId: qsPrefill ? qsPrefill.requestChannelId : null,
+        deleteChannelId: qsPrefill ? qsPrefill.deleteChannelId : null,
+        folder: qsPrefill ? qsPrefill.folder : null,
+        createdChannels: qsPrefill ? !!qsPrefill.createdChannels : false,
+      });
+      setTimeout(() => quoteSetupBuilders.delete(qsToken), 30 * 60 * 1000);
+      const qsScopeRow = new MessageActionRow().addComponents(
+        new MessageButton().setCustomId(`qs_global_${qsToken}`).setLabel(QS_TEXT.globalButton).setStyle("PRIMARY"),
+        new MessageButton().setCustomId(`qs_server_${qsToken}`).setLabel(QS_TEXT.serverButton).setStyle("SECONDARY"),
+      );
+      return safeReply(interaction,{content:QS_TEXT.askScope,components:[qsScopeRow],ephemeral:true});
+    }
+
+    if(cmd==="requestedquotes"||cmd==="deletedquotes"){
+      const qsCh = interaction.options.getChannel("channel");
+      if(!qsCh || qsCh.type!=="GUILD_TEXT") return safeReply(interaction,{content:QS_TEXT.textChannelOnly,ephemeral:true});
+      const qsCfg = quoteGuildConfigs.get(interaction.guildId);
+      if(!qsCfg || qsCfg.mode!=="server" || !qsCfg.folder) return safeReply(interaction,{content:QS_TEXT.needServerSetup,ephemeral:true});
+      if(cmd==="requestedquotes") qsCfg.requestChannelId = qsCh.id; else qsCfg.deleteChannelId = qsCh.id;
+      qsCfg.createdChannels = false; // the owner picked a channel themselves, so moderator access is theirs to manage
+      saveData();
+      return safeReply(interaction,{content: cmd==="requestedquotes" ? QS_TEXT.requestSet(qsCh.id) : QS_TEXT.deleteSet(qsCh.id),ephemeral:true});
+    }
+
+    if(cmd==="globaltoggle"){
+      const qsCfg = quoteGuildConfigs.get(interaction.guildId);
+      if(!qsCfg || qsCfg.mode!=="server" || !qsCfg.folder) return safeReply(interaction,{content:QS_TEXT.needServerSetup,ephemeral:true});
+      qsCfg.globalToggled = !qsCfg.globalToggled;
+      saveData();
+      return safeReply(interaction,{content: qsCfg.globalToggled ? QS_TEXT.toggledGlobal : QS_TEXT.toggledServer,ephemeral:true});
+    }
+
+    if(cmd==="quotemoderator"){
+      const qsTarget = interaction.options.getUser("user");
+      if(!qsTarget) return safeReply(interaction,{content:QS_TEXT.textChannelOnly,ephemeral:true});
+      if(qsTarget.bot) return safeReply(interaction,{content:QS_TEXT.modBot,ephemeral:true});
+      const qsCfg = getOrCreateQuoteConfig(interaction.guildId);
+      const qsIdx = qsCfg.moderators.indexOf(qsTarget.id);
+      const qsGrant = qsIdx < 0;
+      if(qsGrant) qsCfg.moderators.push(qsTarget.id); else qsCfg.moderators.splice(qsIdx, 1);
+      saveData();
+      const qsSent = await safeReply(interaction,{content: qsGrant ? QS_TEXT.modAdded(qsTarget.id) : QS_TEXT.modRemoved(qsTarget.id),ephemeral:true});
+      await syncQuoteModeratorAccess(interaction.guild, qsCfg, qsTarget.id, qsGrant);
+      return qsSent;
+    }
+
     // ── /selfclank: selfclankerify yourself (0 to cancel, 1–5 min, max 2 per server) ────
     if(cmd==="selfclank"){
       if(!inGuild) return safeReply(interaction,{content:"❌ Server only.",ephemeral:true});
@@ -11441,6 +12012,7 @@ if(cmd==="divorce"){
         attachmentContentType: attachment.contentType,
         attachmentSize: attachment.size,
         guildName: interaction.guild.name,
+        guildId: interaction.guildId,
         channelId: interaction.channelId,
       });
       if(!result.ok) return safeReply(interaction,{content:`❌ ${result.reason}`,ephemeral:true});
