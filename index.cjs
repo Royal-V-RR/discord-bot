@@ -350,8 +350,18 @@ const reminders        = [];
 const scheduledMessages = new Map();
 const countGames       = new Map();
 const countingChannels = new Map(); // channelId -> { guildId, count, lastUserId, highScore }
-const shadowDelete = new Map(); // userId -> percentage (1-100)
-// clankerify: userId -> { expiresAt: number|null } (null = permanent)
+// ── Guild-scoped effect key helper ───────────────────────────────────────────
+// shadowDelete, clankerify, and paranoiaWatchers below all back "prank"
+// effects that a server owner can now trigger (see SERVER_OWNER_CMDS). Since
+// those are now triggerable by any server owner rather than only the bot's
+// real owners, every one of them is keyed by `${guildId}:${userId}` instead
+// of a bare userId, so an effect set in one server never follows the target
+// into a different server. Real bot owners can still set these globally by
+// passing guildId="global" (used by the Jarvis/context-menu paths that aren't
+// tied to a single invoking guild).
+function scopedKey(guildId, userId){ return `${guildId||"global"}:${userId}`; }
+const shadowDelete = new Map(); // scopedKey(guildId,userId) -> percentage (1-100)
+// clankerify: scopedKey(guildId,userId) -> { expiresAt: number|null } (null = permanent)
 const clankerify = new Map();
 const inviteComps      = new Map();
 const inviteCache      = new Map();
@@ -675,6 +685,28 @@ function hasTempOwnerFeature(userId, featureName){
 }
 function isEffectiveOwner(userId, commandName){
   return OWNER_IDS.includes(userId) || hasTempOwnerAccess(userId, commandName);
+}
+
+// ── Server-owner-usable commands ─────────────────────────────────────────────
+// These used to be strict bot-owner-only (global commands, hidden from
+// everyone but OWNER_IDS/tempowner grantees). They're now also usable by a
+// guild's actual Discord server owner, but ONLY inside the server they own —
+// never in another server, and never in DMs. Real bot owners (and anyone
+// with a /tempowner grant) can still use them anywhere, same as before.
+const SERVER_OWNER_CMDS = new Set([
+  "fakemessage","fakequote","refreshcmds","shadowdelete","clankerify","impersonation",
+  "forcemarry","forcedivorce","echo","paranoia",
+]);
+function isGuildOwner(guildId, userId){
+  const g = guildId ? client.guilds.cache.get(guildId) : null;
+  return !!g && g.ownerId === userId;
+}
+// Combines the existing bot-owner/tempowner check with the new "server owner,
+// in their own server" path for SERVER_OWNER_CMDS.
+function canUseOwnerCmd(interaction, commandName){
+  if(isEffectiveOwner(interaction.user.id, commandName)) return true;
+  if(SERVER_OWNER_CMDS.has(commandName) && interaction.guildId && isGuildOwner(interaction.guildId, interaction.user.id)) return true;
+  return false;
 }
 
 // ── /tempowner: interactive picker ─────────────────────────────────────────
@@ -1155,41 +1187,48 @@ async function deliverJarvisPayload(ctx, params, payload){
 // word at runtime (ctx.restText) fills it in live.
 const JARVISENHANCE_RUNNERS = {
   async clankerify(params, ctx){
+    const gid = ctx.guild?.id;
+    const key = scopedKey(gid, ctx.targetUser.id);
     const dur = (params.duration||"").trim();
-    if(dur === "0"){ clankerify.delete(ctx.targetUser.id); saveData(); return "disabled"; }
+    if(dur === "0"){ clankerify.delete(key); saveData(); return "disabled"; }
     const mode = (params.mode||"").trim();
     const expiresAt = dur ? Date.now() + parseInt(dur,10)*60000 : null;
-    clankerify.set(ctx.targetUser.id, { expiresAt, mode: mode && mode!=="none" ? mode : null, ownerClanked:true });
+    clankerify.set(key, { expiresAt, mode: mode && mode!=="none" ? mode : null, ownerClanked:true });
     saveData();
     return `set${mode?` (${mode})`:""}`;
   },
   async impersonation(params, ctx){
+    const gid = ctx.guild?.id;
+    const key = scopedKey(gid, ctx.targetUser.id);
     const dur = (params.duration||"").trim();
-    if(dur === "0"){ clankerify.delete(ctx.targetUser.id); saveData(); return "disabled"; }
+    if(dur === "0"){ clankerify.delete(key); saveData(); return "disabled"; }
     const mode = (params.mode||"").trim();
     const expiresAt = dur ? Date.now() + parseInt(dur,10)*60000 : null;
-    clankerify.set(ctx.targetUser.id, { expiresAt, mode: mode && mode!=="none" ? mode : null, ownerClanked:true, impersonateAsUserId:null, impersonateName:null, impersonateAvatarURL:null });
+    clankerify.set(key, { expiresAt, mode: mode && mode!=="none" ? mode : null, ownerClanked:true, impersonateAsUserId:null, impersonateName:null, impersonateAvatarURL:null });
     saveData();
     return `set${mode?` (${mode})`:""}`;
   },
   async clank_this(params, ctx){
     if(ctx.targetUser.bot) return "skipped (bot)";
-    clankerify.set(ctx.targetUser.id, { expiresAt: Date.now() + 10*60000, mode:null, ownerClanked:true });
+    const key = scopedKey(ctx.guild?.id, ctx.targetUser.id);
+    clankerify.set(key, { expiresAt: Date.now() + 10*60000, mode:null, ownerClanked:true });
     saveData();
-    setTimeout(() => { clankerify.delete(ctx.targetUser.id); saveData(); }, 10*60000);
+    setTimeout(() => { clankerify.delete(key); saveData(); }, 10*60000);
     return "10 min";
   },
   async shadowdelete(params, ctx){
+    const key = scopedKey(ctx.guild?.id, ctx.targetUser.id);
     const pct = Math.max(0, Math.min(100, parseInt(params.percentage,10)||0));
-    if(pct===0){ shadowDelete.delete(ctx.targetUser.id); saveData(); return "disabled"; }
-    shadowDelete.set(ctx.targetUser.id, pct);
+    if(pct===0){ shadowDelete.delete(key); saveData(); return "disabled"; }
+    shadowDelete.set(key, pct);
     saveData();
     return `${pct}%`;
   },
   async paranoia(params, ctx){
-    if(paranoiaWatchers.has(ctx.targetUser.id)){ paranoiaWatchers.delete(ctx.targetUser.id); saveData(); return "disarmed"; }
+    const key = scopedKey(ctx.guild?.id, ctx.targetUser.id);
+    if(paranoiaWatchers.has(key)){ paranoiaWatchers.delete(key); saveData(); return "disarmed"; }
     const chance = Math.min(100, Math.max(1, parseInt(params.chance,10)||100));
-    paranoiaWatchers.set(ctx.targetUser.id, { chance, armed:true });
+    paranoiaWatchers.set(key, { chance, armed:true });
     saveData();
     return `armed (${chance}%)`;
   },
@@ -1508,8 +1547,9 @@ const pendingReviews = new Map(); // token -> { submitterId, fileName, rawName, 
 // ── Tomato This pending settings (messageId -> { count, speed, authorTag, msgContent }) ──
 const tomatoPending = new Map();
 
-// ── Paranoia watchers (userId -> { chance, armed }) ───────────────────────────
-// When armed, any message the watched user sends gets a paranoia reply.
+// ── Paranoia watchers (scopedKey(guildId,userId) -> { chance, armed }) ───────
+// When armed, any message the watched user sends IN THAT GUILD gets a paranoia
+// reply (guild-scoped: see scopedKey near shadowDelete/clankerify above).
 const paranoiaWatchers = new Map();
 
 // ── DM relay (persisted in botdata.json, survives restarts) ──────────────────
@@ -1720,6 +1760,31 @@ function cacheQuoteFolder(fileName, folder) { quoteFileFolderCache.set(fileName,
 function quoteRawUrl(fileName, folderHint) {
   const folder = folderHint || quoteFileFolderCache.get(fileName) || "quotes";
   return `https://raw.githubusercontent.com/Royal-V-RR/discord-bot/main/${folder}/${encodeURIComponent(fileName)}`;
+}
+
+// Builds the payload sent to the deleter channel for a flagged quote, matching
+// the embed style submitMediaForReview() uses for the review channel (author
+// line, big image, blurple color, footer + timestamp) instead of the old
+// plain-content message, so both channels look and feel consistent.
+function buildDeleterReviewPayload({ fileName, flaggedLine, msgLink, folderHint }) {
+  const imageUrl = quoteRawUrl(fileName, folderHint);
+  const row = new MessageActionRow().addComponents(
+    new MessageButton().setCustomId(`del_keep_${fileName}`).setLabel("✅ Keep").setStyle("SUCCESS"),
+    new MessageButton().setCustomId(`del_delete_${fileName}`).setLabel("🗑️ Delete").setStyle("DANGER"),
+  );
+  const lines = [`🗑️ **Quote Flagged for Review**`, flaggedLine];
+  if(msgLink) lines.push(`🔗 [Jump to message](${msgLink})`);
+  return {
+    content: lines.join("\n"),
+    embeds: [{
+      author: { name: `${fileName}: flagged quote` },
+      image:  { url: imageUrl },
+      color:  0x5865F2,
+      footer: { text: `Filename: ${fileName}` },
+      timestamp: new Date().toISOString(),
+    }],
+    components: [row],
+  };
 }
 
 // Lists the contents of a single quote folder via the GitHub Contents API, tagging every
@@ -4510,14 +4575,21 @@ const client=new Client({
 //    per guild limits (100 chat_input + 5 context_menu).  They still show default_member_permissions:"0"
 //    so only the bot owner can see/use them.
 const OWNER_ONLY_CMDS = new Set([
-  "servers","fakemessage","fakequote","dmconfig","leaveserver","restart","refreshcmds",
+  "servers","dmconfig","leaveserver","restart",
   "botstats","setstatus","adminconfig",
-  "shadowdelete","clankerify","impersonation","forcemarry","forcedivorce","echo","paranoia",
   "thecount","send",
   "tempowner","blacklist","theremnant","jarvisenhance",
+  "requester","deleter",
   // Owner context menu commands
   "Reaction Bomb","Clank This","Expose",
 ]);
+// Registered per guild instead of globally (see SERVER_OWNER_CMDS above): a
+// guild's own owner can use these inside their server, so they need to be
+// visible there rather than hidden as global-only commands. Actual use is
+// still gated in code (canUseOwnerCmd), not by Discord's command visibility.
+// NOTE: fakemessage, fakequote, refreshcmds, shadowdelete, clankerify,
+// impersonation, forcemarry, forcedivorce, echo, paranoia intentionally live
+// in buildCommands() without being added to OWNER_ONLY_CMDS above.
 
 function buildCommands(){
   const uReq=(req=true)=>[{name:"user",description:"User",type:6,required:req}];
@@ -4527,12 +4599,12 @@ function buildCommands(){
     {name:"marry",         description:"Propose to or accept a proposal from someone 💍",options:[{name:"user",description:"User to propose to / accept from",type:6,required:true}]},
     {name:"divorce",       description:"Divorce your current partner 💔"},
     {name:"partner",       description:"Check who you (or someone else) are married to 💑",options:[{name:"user",description:"User to check (default: you)",type:6,required:false}]},
-    {name:"forcemarry",    description:"[Owner] Force marry two users 💍",options:[{name:"user1",description:"First user",type:6,required:true},{name:"user2",description:"Second user",type:6,required:true}]},
-    {name:"forcedivorce",  description:"[Owner] Force divorce a user 💔",options:[{name:"user",description:"User to divorce",type:6,required:true}]},
+    {name:"forcemarry",    description:"[Server Owner] Force marry two users 💍",options:[{name:"user1",description:"First user",type:6,required:true},{name:"user2",description:"Second user",type:6,required:true}]},
+    {name:"forcedivorce",  description:"[Server Owner] Force divorce a user 💔",options:[{name:"user",description:"User to divorce",type:6,required:true}]},
     {name:"quote",     description:"Get a random quote image (ignores ratings) ✨"},
     {name:"goodquote", description:"Get a top rated quote image ⭐"},
     {name:"badquote",  description:"Get a bottom rated quote image 💀"},
-    {name:"echo",           description:"Make the bot say something 📢",options:[
+    {name:"echo",           description:"[Server Owner] Make the bot say something 📢",options:[
   {name:"message",     description:"The text to send",                          type:3, required:false},
   {name:"embed",       description:"Turn the message into a rich embed",         type:5, required:false},
   {name:"image",       description:"Attach an image file",                       type:11,required:false},
@@ -4613,14 +4685,14 @@ function buildCommands(){
       {name:"message",       description:"Custom announcement message (for add, optional)",        type:3,required:false},
     ]},
     {name:"servers",        description:"[Owner] List servers"},
-    {name:"fakemessage",    description:"[Owner] Send a message as another user via webhook",options:[{name:"user",description:"User to impersonate",type:6,required:true},{name:"message",description:"Message text to send",type:3,required:false},{name:"file",description:"File to send",type:11,required:false},{name:"mode",description:"Clankerify mode to apply to the message",type:3,required:false,choices:[{name:"No mode (plain)",value:"none"},{name:"Evil",value:"evil"},{name:"Freaky",value:"freaky"},{name:"American",value:"american"},{name:"British",value:"british"},{name:"Stupid",value:"stupid"},{name:"Boomer",value:"boomer"},{name:"Conspiracy",value:"conspiracy"},{name:"NPC",value:"npc"},{name:"Sigma",value:"sigma"},{name:"Medieval",value:"medieval"},{name:"Ghost",value:"ghost"},{name:"Pirate",value:"pirate"},{name:"RespawnRaccoon Propaganda",value:"rr_propaganda"},{name:"French",value:"french"},{name:"UWU / LOLCAT",value:"uwu"},{name:"Random",value:"random"}]}]},
-    {name:"fakequote",      description:"[Owner] Generate a 'Make it a Quote' style image card for a user",options:[
+    {name:"fakemessage",    description:"[Server Owner] Send a message as another user via webhook",options:[{name:"user",description:"User to impersonate",type:6,required:true},{name:"message",description:"Message text to send",type:3,required:false},{name:"file",description:"File to send",type:11,required:false},{name:"mode",description:"Clankerify mode to apply to the message",type:3,required:false,choices:[{name:"No mode (plain)",value:"none"},{name:"Evil",value:"evil"},{name:"Freaky",value:"freaky"},{name:"American",value:"american"},{name:"British",value:"british"},{name:"Stupid",value:"stupid"},{name:"Boomer",value:"boomer"},{name:"Conspiracy",value:"conspiracy"},{name:"NPC",value:"npc"},{name:"Sigma",value:"sigma"},{name:"Medieval",value:"medieval"},{name:"Ghost",value:"ghost"},{name:"Pirate",value:"pirate"},{name:"RespawnRaccoon Propaganda",value:"rr_propaganda"},{name:"French",value:"french"},{name:"UWU / LOLCAT",value:"uwu"},{name:"Random",value:"random"}]}]},
+    {name:"fakequote",      description:"[Server Owner] Generate a 'Make it a Quote' style image card for a user",options:[
       {name:"user",         description:"User to feature (pulls their avatar, username & display name)",type:6,required:true},
       {name:"text",         description:"The quote text to display",type:3,required:true},
       {name:"displayname",  description:"Override the displayed name (default: their server display name)",type:3,required:false},
       {name:"username",     description:"Override the @username shown below the name (default: their actual username)",type:3,required:false},
     ]},
-    {name:"paranoia",       description:"[Owner] Watch a user and reply to their messages with paranoia lines (run again to disarm)",options:[
+    {name:"paranoia",       description:"[Server Owner] Watch a user and reply to their messages with paranoia lines (run again to disarm)",options:[
       {name:"user",         description:"Target user to haunt (run again on same user to disarm)",type:6,required:true},
       {name:"chance",       description:"% chance each message triggers a reply (1 to 100, default 100)",type:4,required:false},
     ]},
@@ -4630,7 +4702,7 @@ function buildCommands(){
     ]},
     {name:"leaveserver",    description:"[Owner] Leave a server",options:[{name:"server",description:"Server ID",type:3,required:true}]},
     {name:"restart",        description:"[Owner] Restart"},
-    {name:"refreshcmds",    description:"[Owner] Force reregister slash commands in this guild"},
+    {name:"refreshcmds",    description:"[Server Owner] Force reregister slash commands in this guild"},
     {name:"botstats",       description:"[Owner] Bot stats"},
     {name:"setstatus",      description:"[Owner] Set status",options:[{name:"text",description:"Text",type:3,required:true},{name:"type",description:"Type",type:3,required:false,choices:[{name:"Playing",value:"PLAYING"},{name:"Watching",value:"WATCHING"},{name:"Listening",value:"LISTENING"},{name:"Competing",value:"COMPETING"}]}]},
     {name:"adminconfig",      description:"[Owner] View/edit global config values",options:[{name:"key",description:"Config key (leave blank to list all)",type:3,required:false},{name:"value",description:"New integer value",type:4,required:false}]},
@@ -4641,15 +4713,15 @@ function buildCommands(){
       {name:"duration",       description:"Hours (optional: permanent if omitted)",type:4,required:false},
     ]},
     {name:"rolespingfix", description:"List roles that can @everyone and fix them (Manage Server)"},
-    {name:"shadowdelete", description:"[Owner] Randomly delete a % of a user's messages", options:[
+    {name:"shadowdelete", description:"[Server Owner] Randomly delete a % of a user's messages", options:[
       {name:"user", description:"Target user", type:6, required:true},
       {name:"percentage", description:"Delete chance % (0 to disable)", type:4, required:true},
     ]},
-    {name:"clankerify", description:"[Owner] Resend a user's messages as a webhook impersonating them", default_member_permissions:"0", options:[
+    {name:"clankerify", description:"[Server Owner] Resend a user's messages as a webhook impersonating them (this server only)", options:[
       {name:"user",     description:"Target user",                                             type:6, required:true},
       {name:"duration", description:"Duration in minutes (omit or 0 to disable)",              type:4, required:false},
     ]},
-    {name:"impersonation", description:"[Owner] Resend a user's messages via webhook as someone/something else", default_member_permissions:"0", options:[
+    {name:"impersonation", description:"[Server Owner] Resend a user's messages via webhook as someone/something else (this server only)", options:[
       {name:"user",     description:"Target user whose messages get intercepted",                 type:6, required:true},
       {name:"as_user",  description:"Impersonate as this user's name/avatar (can't combine with pfp/name)", type:6, required:false},
       {name:"pfp",      description:"Custom profile picture for the webhook (can't combine with as_user)",  type:11, required:false},
@@ -4667,6 +4739,12 @@ function buildCommands(){
     {name:"upload",            description:"Upload an image, audio, or video file to quotes2",options:[
       {name:"source",          description:"[Memers only] Upload a file directly from your device (image/audio/video)",type:11,required:false},
       {name:"link",            description:"[Memers only] Submit a file via URL link (image/audio/video)",type:3,required:false},
+    ]},
+    {name:"requester", description:"[Owner] Set the global quote review channel (where /requestupload submissions go)",options:[
+      {name:"channel", description:"Text channel to receive quote submissions", type:7, required:true},
+    ]},
+    {name:"deleter", description:"[Owner] Set the global quote deleter channel (where flagged quotes go for review)",options:[
+      {name:"channel", description:"Text channel to receive flagged quotes", type:7, required:true},
     ]},
     {name:"managememers",      description:"[Owner] Add or remove users from the upload allowlist",options:[
       {name:"action",          description:"Add or remove",type:3,required:true,choices:[
@@ -5334,18 +5412,19 @@ client.on("messageCreate",async msg=>{
     }
   }
 
-  const shadowPct=shadowDelete.get(msg.author.id);
+  const shadowPct=shadowDelete.get(scopedKey(msg.guild.id, msg.author.id));
   if(shadowPct&&Math.random()*100<shadowPct){
     msg.delete().catch(()=>{});
   }
 
   // ── Clankerify: delete message and resend via webhook as the user ───────────
-  const clankEntry = clankerify.get(msg.author.id);
+  const clankKey = scopedKey(msg.guild.id, msg.author.id);
+  const clankEntry = clankerify.get(clankKey);
   if(clankEntry){
     const now = Date.now();
     // Check expiry
     if(clankEntry.expiresAt !== null && clankEntry.expiresAt <= now){
-      clankerify.delete(msg.author.id);
+      clankerify.delete(clankKey);
       saveData();
     } else {
       try {
@@ -6033,7 +6112,7 @@ client.on("messageCreate",async msg=>{
   }
 
   // ── Paranoia watcher: reply to watched users' messages ─────────────────────
-  const paranoiaEntry = paranoiaWatchers.get(msg.author.id);
+  const paranoiaEntry = paranoiaWatchers.get(scopedKey(msg.guild.id, msg.author.id));
   if(paranoiaEntry && paranoiaEntry.armed){
     // Roll chance: if it passes, pick one random paranoia line and reply to this message
     if(Math.random() * 100 < paranoiaEntry.chance){
@@ -6835,21 +6914,12 @@ client.on("interactionCreate",async interaction=>{
                 const gId = tv.guildId || "@me";
                 const cId = tv.channelId || "0";
                 const msgLink = `https://discord.com/channels/${gId}/${cId}/${msgId}`;
-                const imageUrl = quoteRawUrl(tv.filename);
-                const row = new MessageActionRow().addComponents(
-                  new MessageButton().setCustomId(`del_keep_${msgId}`).setLabel("✅ Keep").setStyle("SUCCESS"),
-                  new MessageButton().setCustomId(`del_delete_${tv.filename}`).setLabel("🗑️ Delete").setStyle("DANGER"),
-                );
-                await deleterCh.send({
-                  content:[
-                    `🗑️ **Quote Flagged for Review**`,
-                    `📎 Filename: \`${tv.filename}\``,
-                    `🔗 [Jump to message](${msgLink})`,
-                    `👥 Flagged by: ${[...tv.voters].map(id=>`<@${id}>`).join(", ")} (${tv.voters.size}/${trashcanThreshold})`,
-                    `🖼️ ${imageUrl}`,
-                  ].join("\n"),
-                  components:[row],
+                const payload = buildDeleterReviewPayload({
+                  fileName: tv.filename,
+                  flaggedLine: `👥 Flagged by: ${[...tv.voters].map(id=>`<@${id}>`).join(", ")} (${tv.voters.size}/${trashcanThreshold})`,
+                  msgLink,
                 });
+                await deleterCh.send(payload);
               }catch(e){ console.error("[qvote trash] deleter send error:",e.message); }
             })();
           }
@@ -6894,27 +6964,29 @@ client.on("interactionCreate",async interaction=>{
     }
 
     if(cid.startsWith("clankerify_mode_")){
-      // Only the owner who triggered the command can use this dropdown
-      if(!OWNER_IDS.includes(uid)){
+      // customId format: clankerify_mode_{guildId}_{targetId}_{duration|"perm"}
+      const parts    = cid.split("_");
+      // parts: ["clankerify","mode",guildId,targetId,durKey]
+      const menuGuildId = parts[2];
+      const targetId = parts[3];
+      const durKey   = parts[4];
+      // Only the real bot owner OR that guild's own owner can use this dropdown
+      if(!(isEffectiveOwner(uid,"clankerify") || isGuildOwner(menuGuildId, uid))){
         try{await interaction.reply({content:"Not for you.",ephemeral:true});}catch{}
         return;
       }
-      // customId format: clankerify_mode_{targetId}_{duration|"perm"}
-      const parts    = cid.split("_");
-      // parts: ["clankerify","mode",targetId,durKey]
-      const targetId = parts[2];
-      const durKey   = parts[3];
       const duration = durKey === "perm" ? null : parseInt(durKey, 10);
       const mode     = interaction.values[0] === "none" ? null : interaction.values[0];
+      const cmKey    = scopedKey(menuGuildId, targetId);
 
       const expiresAt = duration ? Date.now() + duration * 60_000 : null;
-      clankerify.set(targetId, { expiresAt, mode, ownerClanked: true });
+      clankerify.set(cmKey, { expiresAt, mode, ownerClanked: true });
       saveData();
 
       // Auto remove when timer fires
       if(expiresAt){
         setTimeout(() => {
-          clankerify.delete(targetId);
+          clankerify.delete(cmKey);
           saveData();
         }, duration * 60_000);
       }
@@ -6923,7 +6995,7 @@ client.on("interactionCreate",async interaction=>{
       const modeStr     = mode ? ` in **${mode.charAt(0).toUpperCase()+mode.slice(1)}** mode` : "";
       try{
         await interaction.update({
-          content:`🤖 <@${targetId}> has been clankerified ${durationStr}${modeStr}. Their messages will be deleted and resent as a webhook.`,
+          content:`🤖 <@${targetId}> has been clankerified ${durationStr}${modeStr} in this server. Their messages will be deleted and resent as a webhook.`,
           components:[]
         });
       }catch{}
@@ -6941,10 +7013,11 @@ client.on("interactionCreate",async interaction=>{
         try{await interaction.reply({content:"Not your selfclank menu.",ephemeral:true});}catch{}
         return;
       }
+      const scKey = scopedKey(interaction.guildId, uid);
       const duration = parseInt(durKey, 10); // minutes, always 1–5
       const mode = interaction.values[0] === "none" ? null : interaction.values[0];
       const expiresAt = Date.now() + duration * 60_000;
-      clankerify.set(uid, { expiresAt, mode });
+      clankerify.set(scKey, { expiresAt, mode });
       // Track in selfClankUsers for guild limit
       if(interaction.guildId){
         if(!selfClankUsers.has(interaction.guildId)) selfClankUsers.set(interaction.guildId, new Set());
@@ -6954,7 +7027,7 @@ client.on("interactionCreate",async interaction=>{
       // Auto remove and start 10 min cooldown
       const guildIdSnap = interaction.guildId;
       setTimeout(() => {
-        clankerify.delete(uid);
+        clankerify.delete(scKey);
         if(guildIdSnap){
           const gs = selfClankUsers.get(guildIdSnap);
           if(gs) gs.delete(uid);
@@ -6983,6 +7056,7 @@ client.on("interactionCreate",async interaction=>{
         try{await interaction.reply({content:"Not your selfclank menu.",ephemeral:true});}catch{}
         return;
       }
+      const scKey2 = scopedKey(interaction.guildId, uid);
       const duration = parseInt(durKey, 10);
       const mode = interaction.values[0];
       if(!customClankerModes.has(mode)){
@@ -6990,7 +7064,7 @@ client.on("interactionCreate",async interaction=>{
         return;
       }
       const expiresAt = Date.now() + duration * 60_000;
-      clankerify.set(uid, { expiresAt, mode });
+      clankerify.set(scKey2, { expiresAt, mode });
       if(interaction.guildId){
         if(!selfClankUsers.has(interaction.guildId)) selfClankUsers.set(interaction.guildId, new Set());
         selfClankUsers.get(interaction.guildId).add(uid);
@@ -6998,7 +7072,7 @@ client.on("interactionCreate",async interaction=>{
       saveData();
       const guildIdSnap2 = interaction.guildId;
       setTimeout(() => {
-        clankerify.delete(uid);
+        clankerify.delete(scKey2);
         if(guildIdSnap2){ const gs=selfClankUsers.get(guildIdSnap2); if(gs) gs.delete(uid); }
         selfClankCooldown.set(uid, Date.now() + 10 * 60_000);
         saveData();
@@ -7015,29 +7089,31 @@ client.on("interactionCreate",async interaction=>{
 
     // ── Clankerify community mode selection ───────────────────────────────────
     if(cid.startsWith("clankerify_community_")){
-      if(!OWNER_IDS.includes(uid)){
+      // customId: clankerify_community_{guildId}_{targetId}_{durKey}
+      const parts    = cid.split("_");
+      const menuGuildId = parts[2];
+      const targetId = parts[3];
+      const durKey2  = parts[4];
+      if(!(isEffectiveOwner(uid,"clankerify") || isGuildOwner(menuGuildId, uid))){
         try{await interaction.reply({content:"Not for you.",ephemeral:true});}catch{}
         return;
       }
-      // customId: clankerify_community_{targetId}_{durKey}
-      const parts    = cid.split("_");
-      const targetId = parts[2];
-      const durKey2  = parts[3];
       const duration = durKey2 === "perm" ? null : parseInt(durKey2, 10);
       const mode     = interaction.values[0];
       if(!customClankerModes.has(mode)){
         try{await interaction.reply({content:"❌ That community mode no longer exists.",ephemeral:true});}catch{}
         return;
       }
+      const ccKey = scopedKey(menuGuildId, targetId);
       const expiresAt = duration ? Date.now() + duration * 60_000 : null;
-      clankerify.set(targetId, { expiresAt, mode, ownerClanked: true });
+      clankerify.set(ccKey, { expiresAt, mode, ownerClanked: true });
       saveData();
-      if(expiresAt) setTimeout(() => { clankerify.delete(targetId); saveData(); }, duration * 60_000);
+      if(expiresAt) setTimeout(() => { clankerify.delete(ccKey); saveData(); }, duration * 60_000);
       const cm = customClankerModes.get(mode);
       const durationStr = duration ? `**${duration} minute(s)**` : "**permanently**";
       try{
         await interaction.update({
-          content:`🤖 <@${targetId}> has been clankerified ${durationStr} in **${cm.emoji||"⭐"} ${mode}** (community mode).`,
+          content:`🤖 <@${targetId}> has been clankerified ${durationStr} in **${cm.emoji||"⭐"} ${mode}** (community mode) in this server.`,
           components:[]
         });
       }catch{}
@@ -7316,20 +7392,11 @@ client.on("interactionCreate",async interaction=>{
       try{
         const deleterCh = await client.channels.fetch(deleterChannelId).catch(()=>null);
         if(deleterCh){
-          const imageUrl = quoteRawUrl(fileName);
-          const row = new MessageActionRow().addComponents(
-            new MessageButton().setCustomId(`del_keep_${fileName}`).setLabel("✅ Keep").setStyle("SUCCESS"),
-            new MessageButton().setCustomId(`del_delete_${fileName}`).setLabel("🗑️ Delete").setStyle("DANGER"),
-          );
-          await deleterCh.send({
-            content:[
-              `🗑️ **Quote Flagged for Review**`,
-              `📎 Filename: \`${fileName}\``,
-              `👤 Flagged by <@${uid}> via /library`,
-              `🖼️ ${imageUrl}`,
-            ].join("\n"),
-            components:[row],
+          const payload = buildDeleterReviewPayload({
+            fileName,
+            flaggedLine: `👤 Flagged by <@${uid}> via /library`,
           });
+          await deleterCh.send(payload);
         }
       }catch(e){ console.error("[libflag] send to deleter failed:", e.message); }
 
@@ -8767,10 +8834,11 @@ client.on("interactionCreate",async interaction=>{
       if(!OWNER_IDS.includes(uid) && !hasTempOwnerFeature(uid,"clank_this")) return safeReply(interaction,{content:"Owner only.",ephemeral:true});
       const target = targetMsg.author;
       if(target.bot) return safeReply(interaction,{content:"Can't clankerify a bot.",ephemeral:true});
-      clankerify.set(target.id, { expiresAt: Date.now() + 10 * 60_000, mode: null, ownerClanked: true });
+      const ctKey = scopedKey(interaction.guildId, target.id);
+      clankerify.set(ctKey, { expiresAt: Date.now() + 10 * 60_000, mode: null, ownerClanked: true });
       saveData();
-      setTimeout(() => { clankerify.delete(target.id); saveData(); }, 10 * 60_000);
-      return safeReply(interaction,{content:`🤖 <@${target.id}> has been clankerified for 10 minutes.`,ephemeral:true});
+      setTimeout(() => { clankerify.delete(ctKey); saveData(); }, 10 * 60_000);
+      return safeReply(interaction,{content:`🤖 <@${target.id}> has been clankerified for 10 minutes in this server.`,ephemeral:true});
     }
 
     // ── Expose (owner only) ─────────────────────────────────────────────────────
@@ -8981,7 +9049,12 @@ by **${displayName}**`});
   const inGuild=!!interaction.guildId;
 
   const ownerOnly=["servers","requester","deleter","dmconfig","leaveserver","restart","refreshcmds","botstats","setstatus","adminconfig","echo","shadowdelete","clankerify","impersonation","thecount","send","fakemessage","fakequote","forcemarry","forcedivorce","paranoia","tempowner","blacklist","theremnant","jarvisenhance"];
-  if(ownerOnly.includes(cmd)&&!isEffectiveOwner(interaction.user.id, cmd))return safeReply(interaction,{content:"Owner only.",ephemeral:true});
+  if(ownerOnly.includes(cmd)){
+    // SERVER_OWNER_CMDS need a guild context: a Discord server owner using one
+    // of these is only ever allowed inside the server they own.
+    if(SERVER_OWNER_CMDS.has(cmd) && !inGuild) return safeReply(interaction,{content:"❌ Server only.",ephemeral:true});
+    if(!canUseOwnerCmd(interaction, cmd)) return safeReply(interaction,{content:"Owner only.",ephemeral:true});
+  }
 
   const manageServerCmds=["channelpicker","counting","xpconfig","setwelcome","setleave","setwelcomemsg","setleavemsg","disableownermsg","serverconfig","autorole","setboostmsg","invitecomp","purge","reactionrole","ticketsetup","ytsetup","subgoal","subcount","milestones","dailyquote","serverstats"];
   if(manageServerCmds.includes(cmd)){
@@ -9081,6 +9154,16 @@ by **${displayName}**`});
   const u1=interaction.options.getUser("user1");
   const u2=interaction.options.getUser("user2");
   if(u1.id===u2.id)return safeReply(interaction,{content:"Can't marry someone to themselves.",ephemeral:true});
+  // Marriage state itself is global (same record /marry, /divorce, /partner use
+  // bot wide), but a server owner (as opposed to a real bot owner) can only
+  // force this on people actually in their own server: keeps the ACTION
+  // scoped to the server even though the resulting marriage is, by design,
+  // visible everywhere (same as a normal /marry).
+  if(!isEffectiveOwner(interaction.user.id,"forcemarry")){
+    const m1=await interaction.guild.members.fetch(u1.id).catch(()=>null);
+    const m2=await interaction.guild.members.fetch(u2.id).catch(()=>null);
+    if(!m1||!m2) return safeReply(interaction,{content:"❌ Both users must be members of this server.",ephemeral:true});
+  }
   const s1=getScore(u1.id,u1.username);
   const s2=getScore(u2.id,u2.username);
   if(s1.marriedTo)return safeReply(interaction,{content:`❌ <@${u1.id}> is already married to <@${s1.marriedTo}>.`,ephemeral:true});
@@ -9092,6 +9175,10 @@ by **${displayName}**`});
 }
     if(cmd==="forcedivorce"){
   const u=interaction.options.getUser("user");
+  if(!isEffectiveOwner(interaction.user.id,"forcedivorce")){
+    const m=await interaction.guild.members.fetch(u.id).catch(()=>null);
+    if(!m) return safeReply(interaction,{content:"❌ That user must be a member of this server.",ephemeral:true});
+  }
   const s=getScore(u.id,u.username);
   if(!s.marriedTo)return safeReply(interaction,{content:`❌ <@${u.id}> is not married.`,ephemeral:true});
   const partnerId=s.marriedTo;
@@ -9110,15 +9197,16 @@ by **${displayName}**`});
     if(cmd==="shadowdelete"){
   const target = interaction.options.getUser("user");
   const pct = interaction.options.getInteger("percentage");
+  const sdKey = scopedKey(interaction.guildId, target.id);
   if(pct < 0 || pct > 100) return safeReply(interaction,{content:"❌ Percentage must be 0–100.",ephemeral:true});
   if(pct === 0){
-    shadowDelete.delete(target.id);
+    shadowDelete.delete(sdKey);
     saveData();
-    return safeReply(interaction,{content:`✅ Shadow delete **disabled** for <@${target.id}>.`,ephemeral:true});
+    return safeReply(interaction,{content:`✅ Shadow delete **disabled** for <@${target.id}> in this server.`,ephemeral:true});
   }
-  shadowDelete.set(target.id, pct);
+  shadowDelete.set(sdKey, pct);
   saveData();
-  return safeReply(interaction,{content:`👻 Shadow delete set to **${pct}%** for <@${target.id}>.`,ephemeral:true});
+  return safeReply(interaction,{content:`👻 Shadow delete set to **${pct}%** for <@${target.id}> in this server.`,ephemeral:true});
 }
 
 // ── /clankerbuild ─────────────────────────────────────────────────────────────
@@ -9250,10 +9338,41 @@ if(cmd==="jarvisenhance"){
   if(action==="list"){
     if(!jarvisEnhanceProfiles.size)
       return safeReply(interaction,{content:"No Jarvis Enhance profiles yet. Use `/jarvisenhance action:create name:<id>` to make one.",ephemeral:true});
-    const lines = [...jarvisEnhanceProfiles.entries()].map(([id,p]) =>
+
+    const blocks = [...jarvisEnhanceProfiles.entries()].map(([id,p]) =>
       `**${id}** ${p.ownerLocked===false ? "🔓" : "🔒"}: trigger word(s): ${p.triggers.map(t=>`\`${t}\``).join(" ")}\n${formatJarvisActionsList(p.actions)}`
     );
-    return safeReply(interaction,{content:`**🧠 Jarvis Enhance Profiles (${jarvisEnhanceProfiles.size})**\n\n${lines.join("\n\n")}`,ephemeral:true});
+
+    // Plain message content is capped at 2000 chars by Discord, which a
+    // handful of profiles blows through instantly (the old bug here — the
+    // reply would silently fail to send). Embeds cap descriptions at 4096,
+    // so build embed pages instead, chunking well under that limit, and
+    // send any extra pages as ephemeral follow ups.
+    const pages = [];
+    let current = [];
+    let currentLen = 0;
+    for(const block of blocks){
+      if(current.length && currentLen + block.length + 2 > 3800){
+        pages.push(current);
+        current = [];
+        currentLen = 0;
+      }
+      current.push(block);
+      currentLen += block.length + 2;
+    }
+    if(current.length) pages.push(current);
+
+    const embeds = pages.map((page, i) => ({
+      title: `🧠 Jarvis Enhance Profiles (${jarvisEnhanceProfiles.size})${pages.length>1?` — Page ${i+1}/${pages.length}`:""}`,
+      description: page.join("\n\n"),
+      color: 0x5865F2,
+    }));
+
+    await safeReply(interaction,{embeds:[embeds[0]],ephemeral:true});
+    for(let i=1;i<embeds.length;i++){
+      await interaction.followUp({embeds:[embeds[i]],ephemeral:true}).catch(e=>console.error("[jarvisenhance list followUp]",e.message));
+    }
+    return;
   }
 
   if(action==="delete"){
@@ -9399,16 +9518,18 @@ if(cmd==="theremnant"){
 if(cmd==="clankerify"){
   const target   = interaction.options.getUser("user");
   const duration = interaction.options.getInteger("duration") ?? null; // minutes, null = permanent
+  const guildId  = interaction.guildId;
+  const cKey     = scopedKey(guildId, target.id);
 
   // duration === 0 means disable
   if(duration === 0){
-    clankerify.delete(target.id);
+    clankerify.delete(cKey);
     saveData();
-    return safeReply(interaction,{content:`✅ Clankerify **disabled** for <@${target.id}>.`,ephemeral:true});
+    return safeReply(interaction,{content:`✅ Clankerify **disabled** for <@${target.id}> in this server.`,ephemeral:true});
   }
 
-  // Encode target and duration into customId so the select handler can read them
-  // Format: clankerify_mode_{targetId}_{duration|"perm"}
+  // Encode guild, target and duration into customId so the select handler can read them
+  // Format: clankerify_mode_{guildId}_{targetId}_{duration|"perm"}
   const durKey = duration ? String(duration) : "perm";
   const builtInOptions = [
     {label:"No mode (plain)",  value:"none",        emoji:"🤖"},
@@ -9431,7 +9552,7 @@ if(cmd==="clankerify"){
   ];
   const modeRow = new MessageActionRow().addComponents(
     new MessageSelectMenu()
-      .setCustomId(`clankerify_mode_${target.id}_${durKey}`)
+      .setCustomId(`clankerify_mode_${guildId}_${target.id}_${durKey}`)
       .setPlaceholder("Pick a built in personality mode…")
       .addOptions(builtInOptions)
   );
@@ -9445,14 +9566,14 @@ if(cmd==="clankerify"){
   if(communityOpts.length){
     clankerifyComponents.push(new MessageActionRow().addComponents(
       new MessageSelectMenu()
-        .setCustomId(`clankerify_community_${target.id}_${durKey}`)
+        .setCustomId(`clankerify_community_${guildId}_${target.id}_${durKey}`)
         .setPlaceholder("🤖 Community modes…")
         .addOptions(communityOpts.slice(0,25))
     ));
   }
   const durationStr = duration ? `**${duration} minute(s)**` : "**permanently**";
   return safeReply(interaction,{
-    content:`🤖 Clankerifying <@${target.id}> ${durationStr}. Pick a mode:`,
+    content:`🤖 Clankerifying <@${target.id}> ${durationStr} in this server. Pick a mode:`,
     components: clankerifyComponents,
     ephemeral:true
   });
@@ -9465,6 +9586,7 @@ if(cmd==="impersonation"){
   const name     = interaction.options.getString("name");
   const modeOpt  = interaction.options.getString("mode");
   const duration = interaction.options.getInteger("duration") ?? null; // minutes, null = permanent
+  const iKey     = scopedKey(interaction.guildId, target.id);
 
   if(target.bot) return safeReply(interaction,{content:"❌ Can't impersonate a bot's messages.",ephemeral:true});
   if(asUser && (pfp || name))
@@ -9472,15 +9594,15 @@ if(cmd==="impersonation"){
 
   // duration === 0 means disable
   if(duration === 0){
-    clankerify.delete(target.id);
+    clankerify.delete(iKey);
     saveData();
-    return safeReply(interaction,{content:`✅ Impersonation **disabled** for <@${target.id}>.`,ephemeral:true});
+    return safeReply(interaction,{content:`✅ Impersonation **disabled** for <@${target.id}> in this server.`,ephemeral:true});
   }
 
   const mode = (modeOpt && modeOpt !== "none") ? modeOpt : null;
   const expiresAt = duration ? Date.now() + duration*60000 : null;
 
-  clankerify.set(target.id, {
+  clankerify.set(iKey, {
     expiresAt,
     mode,
     ownerClanked: true,
@@ -9495,7 +9617,7 @@ if(cmd==="impersonation"){
     : (name || pfp) ? `as **${name || "(their own name)"}**${pfp ? " with a custom pfp" : ""}` : "as themselves (no persona set)";
   const durationStr2 = duration ? `**${duration} minute(s)**` : "**permanently**";
   return safeReply(interaction,{
-    content:`🎭 Impersonating <@${target.id}>'s messages ${personaDesc} for ${durationStr2}${mode?` (mode: **${mode}**)`:""}.`,
+    content:`🎭 Impersonating <@${target.id}>'s messages ${personaDesc} for ${durationStr2}${mode?` (mode: **${mode}**)`:""} in this server.`,
     ephemeral:true,
   });
 }
@@ -10132,28 +10254,36 @@ if(cmd==="divorce"){
       const target  = interaction.options.getUser("user");
       const chance  = Math.min(100, Math.max(1, interaction.options.getInteger("chance") ?? 100));
       if(target.bot) return safeReply(interaction,{content:"❌ Can't haunt a bot.",ephemeral:true});
+      const pKey = scopedKey(interaction.guildId, target.id);
 
       // If already watching this user, toggle off
-      if(paranoiaWatchers.has(target.id)){
-        paranoiaWatchers.delete(target.id);
+      if(paranoiaWatchers.has(pKey)){
+        paranoiaWatchers.delete(pKey);
         saveData();
-        return safeReply(interaction,{content:`🔕 Paranoia **disarmed** for <@${target.id}>.`,ephemeral:true});
+        return safeReply(interaction,{content:`🔕 Paranoia **disarmed** for <@${target.id}> in this server.`,ephemeral:true});
       }
 
-      // Arm watcher: fires on every message the target sends in any guild channel
-      paranoiaWatchers.set(target.id, { chance, armed: true });
+      // Arm watcher: fires on every message the target sends in THIS guild only
+      paranoiaWatchers.set(pKey, { chance, armed: true });
       saveData();
-      return safeReply(interaction,{content:`👻 Now watching <@${target.id}>: each message they send has a **${chance}%** chance of getting a paranoia reply in that channel.\nRun \`/paranoia\` on them again to disarm.`,ephemeral:true});
+      return safeReply(interaction,{content:`👻 Now watching <@${target.id}> in this server: each message they send here has a **${chance}%** chance of getting a paranoia reply.\nRun \`/paranoia\` on them again (in this server) to disarm.`,ephemeral:true});
     }
     if(cmd==="leaveserver"){const guild=client.guilds.cache.get(interaction.options.getString("server"));if(!guild)return safeReply(interaction,{content:"Server not found.",ephemeral:true});const name=guild.name;await guild.leave();return safeReply(interaction,{content:`Left ${name}`,ephemeral:true});}
     if(cmd==="restart"){await safeReply(interaction,{content:"Restarting…",ephemeral:true});process.exit(0);}
     if(cmd==="refreshcmds"){
       if(!interaction.guildId) return safeReply(interaction,{content:"Server only.",ephemeral:true});
-      await safeReply(interaction,{content:"🔄 Re registering slash commands (guild + global)…",ephemeral:true});
+      // A server owner (not a real bot owner) only ever gets THEIR guild's
+      // commands re-registered: forcing the global (owner-only) command set
+      // to reregister is a bot-wide action and stays owner-only.
+      const canTouchGlobal = isEffectiveOwner(interaction.user.id, "refreshcmds");
+      await safeReply(interaction,{content: canTouchGlobal ? "🔄 Re registering slash commands (guild + global)…" : "🔄 Re registering slash commands for this server…", ephemeral:true});
       try{
         await registerGuildCommands(interaction.guildId, true);
-        await registerGlobalCommands(true);
-        return safeReply(interaction,{content:`✅ Commands reregistered for **${interaction.guild.name}** and globally. Guild commands update instantly; global (owner) commands may take up to 1hr to propagate.`,ephemeral:true});
+        if(canTouchGlobal){
+          await registerGlobalCommands(true);
+          return safeReply(interaction,{content:`✅ Commands reregistered for **${interaction.guild.name}** and globally. Guild commands update instantly; global (owner) commands may take up to 1hr to propagate.`,ephemeral:true});
+        }
+        return safeReply(interaction,{content:`✅ Commands reregistered for **${interaction.guild.name}**.`,ephemeral:true});
       }catch(e){
         return safeReply(interaction,{content:`❌ Failed to reregister: ${e.message}`,ephemeral:true});
       }
@@ -11115,6 +11245,8 @@ if(cmd==="divorce"){
 
     // ── /deleter: owner sets the flagged quote review channel ───────────────
     if(cmd==="deleter"||((cmd==="quotemanage")&&interaction.options.getSubcommand(false)==="set-delete-channel")){
+      if(!OWNER_IDS.includes(interaction.user.id))
+        return safeReply(interaction,{content:"❌ Owner only.",ephemeral:true});
       const ch = interaction.options.getChannel("channel");
       if(ch.type!=="GUILD_TEXT") return safeReply(interaction,{content:"❌ Please select a text channel.",ephemeral:true});
       deleterChannelId = ch.id;
@@ -11126,18 +11258,19 @@ if(cmd==="divorce"){
     if(cmd==="selfclank"){
       if(!inGuild) return safeReply(interaction,{content:"❌ Server only.",ephemeral:true});
       const duration = interaction.options.getInteger("duration");
+      const myKey = scopedKey(interaction.guildId, interaction.user.id);
 
       // duration === 0 → cancel and start cooldown
       if(duration === 0){
-        if(!clankerify.has(interaction.user.id)){
+        if(!clankerify.has(myKey)){
           return safeReply(interaction,{content:"❌ You're not currently selfclanked.",ephemeral:true});
         }
         // Can't cancel an owner applied clank
-        const existingEntry = clankerify.get(interaction.user.id);
+        const existingEntry = clankerify.get(myKey);
         if(existingEntry?.ownerClanked){
           return safeReply(interaction,{content:"❌ Your clank was applied by an owner: you can't remove it yourself. Wait for it to expire.",ephemeral:true});
         }
-        clankerify.delete(interaction.user.id);
+        clankerify.delete(myKey);
         if(interaction.guildId){
           const gs = selfClankUsers.get(interaction.guildId);
           if(gs) gs.delete(interaction.user.id);
@@ -11157,8 +11290,8 @@ if(cmd==="divorce"){
       }
 
       // Check if already clanked (by self OR by owner)
-      if(clankerify.has(interaction.user.id)){
-        const entry = clankerify.get(interaction.user.id);
+      if(clankerify.has(myKey)){
+        const entry = clankerify.get(myKey);
         if(entry?.ownerClanked){
           return safeReply(interaction,{content:"❌ You've been clankerified by an owner. You can't selfclank until that expires.",ephemeral:true});
         }
@@ -11172,7 +11305,7 @@ if(cmd==="divorce"){
       const guildSelfClanks = selfClankUsers.get(interaction.guildId);
       // Clean expired entries first
       for(const uid2 of [...guildSelfClanks]){
-        const entry = clankerify.get(uid2);
+        const entry = clankerify.get(scopedKey(interaction.guildId, uid2));
         if(!entry || (entry.expiresAt && entry.expiresAt <= Date.now())) guildSelfClanks.delete(uid2);
       }
       if(guildSelfClanks.size >= 2){
@@ -11225,6 +11358,8 @@ if(cmd==="divorce"){
 
     // ── /requester: owner sets the review channel ────────────────────────────
     if(cmd==="requester"||((cmd==="quotemanage")&&interaction.options.getSubcommand(false)==="set-review-channel")){
+      if(!OWNER_IDS.includes(interaction.user.id))
+        return safeReply(interaction,{content:"❌ Owner only.",ephemeral:true});
       const ch = interaction.options.getChannel("channel");
       if(ch.type!=="GUILD_TEXT") return safeReply(interaction,{content:"❌ Please select a text channel.",ephemeral:true});
       reviewChannelId = ch.id;
