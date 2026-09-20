@@ -45737,7 +45737,7 @@
       {
         "channelId": "1408975997272854611",
         "hour": 9,
-        "_lastFire": "1408975996715139084:2026-8-19:9"
+        "_lastFire": "1408975996715139084:2026-8-20:9"
       }
     ],
     [
@@ -75137,6 +75137,10 @@
     [
       "1550972798703378442",
       "quote_1497220831770574958.png"
+    ],
+    [
+      "1551156166225166477",
+      "I bark to differ.png"
     ]
   ],
   "favoritedQuotes": [
@@ -111777,6 +111781,17 @@
         "voters": [],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
+        "sentToDeleter": false,
+        "type": "quote"
+      }
+    ],
+    [
+      "1551156166225166477",
+      {
+        "filename": "I bark to differ.png",
+        "voters": [],
+        "guildId": "1408975996715139084",
+        "channelId": "1408975997272854611",
         "sentToDeleter": false,
         "type": "quote"
       }
