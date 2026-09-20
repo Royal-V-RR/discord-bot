@@ -173,7 +173,7 @@
     [
       "1550602866186653847",
       {
-        "nextId": 2,
+        "nextId": 3,
         "supportRoleIds": [
           "1550998825991274647"
         ],
@@ -212,6 +212,18 @@
         "status": "closed",
         "closedBy": "534139174647758848",
         "closedAt": 1787880775638
+      }
+    ],
+    [
+      "1551336539475411014",
+      {
+        "guildId": "1550602866186653847",
+        "userId": "363149593787105291",
+        "ticketId": "0003",
+        "channelId": "1551336539475411014",
+        "subject": "",
+        "openedAt": 1789937853675,
+        "status": "open"
       }
     ]
   ],
@@ -4894,7 +4906,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-15",
-        "xp": 4506,
+        "xp": 4515,
         "level": 27,
         "lastWorkTime": 0,
         "lastBegTime": 0,
