@@ -75783,6 +75783,10 @@
     [
       "1551320348073664584",
       "IMG_1005.jpeg"
+    ],
+    [
+      "1551320507893162095",
+      "quote_285.jpg"
     ]
   ],
   "favoritedQuotes": [
@@ -113095,6 +113099,17 @@
         "sentToDeleter": false,
         "type": "quote"
       }
+    ],
+    [
+      "1551320507893162095",
+      {
+        "filename": "quote_285.jpg",
+        "voters": [],
+        "guildId": "1048053656035020911",
+        "channelId": "1477294439180537980",
+        "sentToDeleter": false,
+        "type": "quote"
+      }
     ]
   ],
   "selfClankUsers": [
@@ -114024,7 +114039,7 @@
         ],
         "intervalMinutes": 15,
         "locked": true,
-        "lastUpdate": 1789933126004
+        "lastUpdate": 1789934026016
       }
     ]
   ],
