@@ -52976,6 +52976,13 @@
         "up": 1,
         "down": 0
       }
+    ],
+    [
+      "quote_74.png",
+      {
+        "up": 1,
+        "down": 0
+      }
     ]
   ],
   "quoteVoteMessages": [
@@ -75718,6 +75725,10 @@
     [
       "1551319542305792050",
       "quote_74.png"
+    ],
+    [
+      "1551319590687088670",
+      "Screenshot_20260426-2005102.png"
     ]
   ],
   "favoritedQuotes": [
@@ -75778,7 +75789,8 @@
         "quote_319.png",
         "Screenshot_2026-04-29_141053.png",
         "quote_409.png",
-        "Screenshot_20260430_001845.jpg"
+        "Screenshot_20260430_001845.jpg",
+        "quote_74.png"
       ]
     ]
   ],
@@ -75821,7 +75833,7 @@
     [
       "1213866609362604194",
       {
-        "up": 14,
+        "up": 15,
         "down": 1
       }
     ],
@@ -112905,6 +112917,17 @@
         "sentToDeleter": false,
         "type": "quote"
       }
+    ],
+    [
+      "1551319590687088670",
+      {
+        "filename": "Screenshot_20260426-2005102.png",
+        "voters": [],
+        "guildId": "1048053656035020911",
+        "channelId": "1477294439180537980",
+        "sentToDeleter": false,
+        "type": "quote"
+      }
     ]
   ],
   "selfClankUsers": [
@@ -120105,6 +120128,15 @@
     ],
     [
       "quote_409.png",
+      [
+        [
+          "1213866609362604194",
+          "up"
+        ]
+      ]
+    ],
+    [
+      "quote_74.png",
       [
         [
           "1213866609362604194",
