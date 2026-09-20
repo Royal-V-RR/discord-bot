@@ -310,8 +310,8 @@
     [
       "1510645922604781821:723242009640435773",
       {
-        "expiresAt": 1789926188200,
-        "mode": "conspiracy",
+        "expiresAt": null,
+        "mode": "tuxedo",
         "ownerClanked": true
       }
     ]
@@ -5108,7 +5108,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-27",
-        "xp": 4358,
+        "xp": 4371,
         "level": 32,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -6445,7 +6445,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 325,
+        "xp": 336,
         "level": 20,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -35595,7 +35595,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 436,
+        "xp": 445,
         "level": 10,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -42467,7 +42467,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 96,
+        "xp": 111,
         "level": 3,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -44683,7 +44683,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 20,
+        "xp": 34,
         "level": 2,
         "lastWorkTime": 0,
         "lastBegTime": 0,
