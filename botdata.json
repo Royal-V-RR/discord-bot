@@ -653,12 +653,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18200,
-        "lastSubsTimestamp": 1790009366668,
+        "lastSubsTimestamp": 1790009666675,
         "history": [
-          {
-            "ts": 1789702114154,
-            "subs": 18100
-          },
           {
             "ts": 1789702414211,
             "subs": 18100
@@ -4654,6 +4650,10 @@
           {
             "ts": 1790009366668,
             "subs": 18200
+          },
+          {
+            "ts": 1790009666675,
+            "subs": 18200
           }
         ],
         "subcountDiscordId": "1483595393999700080",
@@ -5126,7 +5126,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-27",
-        "xp": 5333,
+        "xp": 5340,
         "level": 32,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -6252,7 +6252,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 869,
+        "xp": 879,
         "level": 19,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -7226,7 +7226,7 @@
         "marriedTo": null,
         "pendingProposal": null,
         "forceMarried": false,
-        "imagesUploaded": 226,
+        "imagesUploaded": 227,
         "uploadedImages": [
           "quote_1497935819296477225.png",
           "IMG_7931.png",
@@ -7437,7 +7437,8 @@
           "quote_440.png",
           "quote_441.png",
           "quote_443.png",
-          "quote_444.png"
+          "quote_444.png",
+          "quote_445.png"
         ],
         "lastFishTime": 0,
         "lastMineTime": 0,
@@ -114362,17 +114363,6 @@
         "guildId": "1245220909149716553",
         "destFolder": "cqc"
       }
-    ],
-    [
-      "860083mubhfrz7",
-      {
-        "submitterId": "1254388539890860083",
-        "fileName": "1254388539890860083__image__IMG_9881.png",
-        "rawName": "IMG_9881.png",
-        "mediaKind": "image",
-        "guildId": "1048053656035020911",
-        "destFolder": null
-      }
     ]
   ],
   "quoteGuildConfigs": [
@@ -114402,7 +114392,7 @@
     ]
   ],
   "uploadCounters": {
-    "quote": 444,
+    "quote": 445,
     "eardestroyer": 1,
     "eyebleacher": 3
   },
@@ -115261,7 +115251,7 @@
         ],
         "intervalMinutes": 15,
         "locked": true,
-        "lastUpdate": 1790008766555
+        "lastUpdate": 1790009666557
       }
     ]
   ],
