@@ -46351,7 +46351,7 @@
       {
         "channelId": "1408975997272854611",
         "hour": 9,
-        "_lastFire": "1408975996715139084:2026-8-20:9"
+        "_lastFire": "1408975996715139084:2026-8-21:9"
       }
     ],
     [
@@ -76128,6 +76128,10 @@
     [
       "1551423719388483604",
       "quote_1511331938928033943.png"
+    ],
+    [
+      "1551518501829742633",
+      "I know longer know what's going on in here.png"
     ]
   ],
   "favoritedQuotes": [
@@ -113690,6 +113694,17 @@
         "voters": [],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
+        "sentToDeleter": false,
+        "type": "quote"
+      }
+    ],
+    [
+      "1551518501829742633",
+      {
+        "filename": "I know longer know what's going on in here.png",
+        "voters": [],
+        "guildId": "1408975996715139084",
+        "channelId": "1408975997272854611",
         "sentToDeleter": false,
         "type": "quote"
       }
