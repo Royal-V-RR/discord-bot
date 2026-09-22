@@ -342,6 +342,173 @@ function buildReactionRoleRolePicker(token) {
   ));
   return { content: `Emoji: ${b.pendingEmoji}\nNow pick which role it should give:`, components: rows };
 }
+// ── Dropdown roles (select-menu upgrade to reaction roles) ──────────────────
+// dropdownRoleSets: `${guildId}:${setId}` -> { dropdowns: [ { name, options: [{emojiRaw, roleId}] } ] }
+// Persisted. A "set" is one posted message's worth of dropdowns (up to 5, one
+// per action row). setId is generated when the builder starts and has nothing
+// to do with the eventual message ID, so the live select menus keep working
+// no matter what happens to the message afterward.
+const dropdownRoleSets = new Map();
+
+// ddBuilders: token -> {
+//   ownerId, guildId, setId,
+//   dropdowns: [ { name, options: [{emojiRaw, roleId}] } ],
+//   pendingEmoji: string|null,   // set while waiting for a role pick after the emoji modal
+//   pendingIndex: number|null,   // which dropdown pendingEmoji belongs to
+// }
+// Ephemeral, in-progress state for the /dropdownroles builder. Never persisted;
+// expires 15 minutes after the last edit, same pattern as rrBuilders.
+const ddBuilders = new Map();
+const DD_MAX_DROPDOWNS = 5; // one select menu per action row, 5 rows max per message
+
+function newDdSetId() {
+  return `dd${Date.now().toString(36)}${Math.random().toString(36).slice(2,6)}`;
+}
+
+// Turns a typed/pasted emoji into the {name,id,animated} shape MessageSelectMenu
+// options and MessageButton.setEmoji() expect.
+function emojiOptionFromRaw(emojiRaw) {
+  const m = (emojiRaw||"").trim().match(/^<(a)?:([^:]+):(\d+)>$/);
+  if (m) return { name: m[2], id: m[3], animated: !!m[1] };
+  return { name: (emojiRaw||"").trim() || "🔘" };
+}
+// Plain display text for an emoji (used in panel text, not in select options).
+function emojiDisplayFromRaw(emojiRaw) {
+  const m = (emojiRaw||"").trim().match(/^<(a)?:([^:]+):(\d+)>$/);
+  if (m) return `<${m[1]?"a":""}:${m[2]}:${m[3]}>`;
+  return (emojiRaw||"").trim();
+}
+
+function ddTouch(token) {
+  const b = ddBuilders.get(token);
+  if (!b) return;
+  clearTimeout(b._expireTimer);
+  b._expireTimer = setTimeout(()=>ddBuilders.delete(token), 15*60*1000);
+}
+
+// Main overview panel: pick a dropdown to edit, or add/detect/post/cancel.
+function buildDdMainPanel(token) {
+  const b = ddBuilders.get(token);
+  const rows = [];
+  if (b.dropdowns.length) {
+    const options = b.dropdowns.map((dd, i) => ({
+      label: `${i+1}. ${dd.name}`.slice(0,100),
+      description: `${dd.options.length} option${dd.options.length!==1?"s":""}`.slice(0,100),
+      value: String(i),
+    }));
+    rows.push(new MessageActionRow().addComponents(
+      new MessageSelectMenu().setCustomId(`ddb_edit_${token}`).setPlaceholder("Choose a dropdown to edit...").setOptions(options)
+    ));
+  }
+  rows.push(new MessageActionRow().addComponents(
+    new MessageButton().setCustomId(`ddb_new_${token}`).setLabel("New Dropdown").setStyle("PRIMARY").setEmoji({name:"➕"}),
+    new MessageButton().setCustomId(`ddb_detect_${token}`).setLabel("Detect from Messages").setStyle("SECONDARY").setEmoji({name:"🔎"}),
+  ));
+  rows.push(new MessageActionRow().addComponents(
+    new MessageButton().setCustomId(`ddb_post_${token}`).setLabel("Post").setStyle("SUCCESS").setDisabled(!b.dropdowns.length),
+    new MessageButton().setCustomId(`ddb_cancel_${token}`).setLabel("Cancel").setStyle("DANGER"),
+  ));
+  const lines = b.dropdowns.length
+    ? b.dropdowns.map((dd,i)=>`**${i+1}. ${dd.name}** — ${dd.options.length} option${dd.options.length!==1?"s":""}`).join("\n")
+    : "_No dropdowns yet. Add one, or paste message IDs to detect from existing reaction-role-style messages._";
+  const content = [
+    "**Dropdown Roles Builder**",
+    b.dropdowns.length > DD_MAX_DROPDOWNS ? `⚠️ Only the first ${DD_MAX_DROPDOWNS} dropdowns will be posted (one per row, ${DD_MAX_DROPDOWNS} max per message).` : null,
+    "",
+    lines,
+  ].filter(Boolean).join("\n");
+  return { content, components: rows };
+}
+
+// Edit screen for one dropdown: its options, rename, reorder, delete.
+function buildDdEditPanel(token, index) {
+  const b = ddBuilders.get(token);
+  const dd = b.dropdowns[index];
+  const guild = client.guilds.cache.get(b.guildId);
+  const rows = [];
+  if (dd.options.length) {
+    const options = dd.options.map((opt, i) => {
+      const role = guild?.roles.cache.get(opt.roleId);
+      return {
+        label: `${role ? role.name : "unknown role"}`.slice(0,100),
+        description: emojiDisplayFromRaw(opt.emojiRaw).slice(0,100),
+        value: String(i),
+        emoji: emojiOptionFromRaw(opt.emojiRaw),
+      };
+    });
+    rows.push(new MessageActionRow().addComponents(
+      new MessageSelectMenu().setCustomId(`ddb_removeopt_${token}_${index}`).setPlaceholder("Select an option to remove...").setOptions(options)
+    ));
+  }
+  rows.push(new MessageActionRow().addComponents(
+    new MessageButton().setCustomId(`ddb_addopt_${token}_${index}`).setLabel("Add Option").setStyle("PRIMARY").setEmoji({name:"➕"}),
+    new MessageButton().setCustomId(`ddb_rename_${token}_${index}`).setLabel("Rename").setStyle("SECONDARY"),
+  ));
+  rows.push(new MessageActionRow().addComponents(
+    new MessageButton().setCustomId(`ddb_moveup_${token}_${index}`).setLabel("Move Up").setStyle("SECONDARY").setEmoji({name:"⬆️"}).setDisabled(index===0),
+    new MessageButton().setCustomId(`ddb_movedown_${token}_${index}`).setLabel("Move Down").setStyle("SECONDARY").setEmoji({name:"⬇️"}).setDisabled(index===b.dropdowns.length-1),
+    new MessageButton().setCustomId(`ddb_deletedd_${token}_${index}`).setLabel("Delete Dropdown").setStyle("DANGER"),
+  ));
+  rows.push(new MessageActionRow().addComponents(
+    new MessageButton().setCustomId(`ddb_back_${token}`).setLabel("← Back").setStyle("SECONDARY"),
+  ));
+  const optLines = dd.options.length
+    ? dd.options.map(opt => {
+        const role = guild?.roles.cache.get(opt.roleId);
+        return `${emojiDisplayFromRaw(opt.emojiRaw)} → ${role ? `<@&${role.id}>` : "unknown role"}`;
+      }).join("\n")
+    : "_No options yet._";
+  const content = `Editing dropdown **${dd.name}** (${index+1}/${b.dropdowns.length})\n\n${optLines}`;
+  return { content, components: rows };
+}
+
+// The "pick a role" screen shown after typing an emoji in the dropdown builder.
+function buildDdRolePicker(token, index) {
+  const b = ddBuilders.get(token);
+  const guild = client.guilds.cache.get(b.guildId);
+  const items = getEligibleTicketRoles(guild).map(r => ({ label: r.name, value: r.id }));
+  const { rows } = buildTicketPickerRows({ items, idPrefix:`ddb_pickrole_${token}_${index}`, mode:"single", placeholder:"Pick a role..." });
+  rows.push(new MessageActionRow().addComponents(
+    new MessageButton().setCustomId(`ddb_cancelopt_${token}_${index}`).setLabel("Cancel").setStyle("SECONDARY"),
+  ));
+  return { content: `Emoji: ${emojiDisplayFromRaw(b.pendingEmoji)}\nNow pick which role it should give:`, components: rows };
+}
+
+// The channel-picker screen shown when hitting Post.
+function buildDdChannelPicker(token) {
+  const b = ddBuilders.get(token);
+  const guild = client.guilds.cache.get(b.guildId);
+  const items = [...guild.channels.cache.filter(ch =>
+    ch.type==="GUILD_TEXT" && guild.members.me &&
+    ch.permissionsFor(guild.members.me).has("SEND_MESSAGES")
+  ).values()].map(ch => ({ label:`#${ch.name}`, value: ch.id }));
+  const { rows } = buildTicketPickerRows({ items, idPrefix:`ddb_postchannel_${token}`, mode:"single", placeholder:"Pick a channel to post in..." });
+  rows.push(new MessageActionRow().addComponents(
+    new MessageButton().setCustomId(`ddb_back_${token}`).setLabel("← Back").setStyle("SECONDARY"),
+  ));
+  return { content: "Which channel should the dropdown message be posted in?", components: rows };
+}
+
+// Builds the real, live select menus for a finished set (used both right after
+// posting and if it's ever reconstructed). One MessageSelectMenu per dropdown.
+function buildLiveDropdownRows(guild, setId, dropdowns) {
+  return dropdowns.slice(0, DD_MAX_DROPDOWNS).map((dd, i) => {
+    const options = dd.options.map(opt => ({
+      label: (guild?.roles.cache.get(opt.roleId)?.name || "unknown role").slice(0,100),
+      value: opt.roleId,
+      emoji: emojiOptionFromRaw(opt.emojiRaw),
+    }));
+    return new MessageActionRow().addComponents(
+      new MessageSelectMenu()
+        .setCustomId(`ddsel_${setId}_${i}`)
+        .setPlaceholder(dd.name.slice(0,100))
+        .setMinValues(0)
+        .setMaxValues(options.length)
+        .setOptions(options)
+    );
+  });
+}
+
 const disabledOwnerMsg = new Set();
 const activeGames      = new Map();
 const reminders        = [];
@@ -2678,6 +2845,7 @@ function buildDataObject() {
     clankerify:   [...clankerify.entries()],
     theCountChannels: [...theCountChannels.entries()],
     reactionRoles:    [...reactionRoles.entries()],
+    dropdownRoleSets: [...dropdownRoleSets.entries()],
     disabledOwnerMsg: [...disabledOwnerMsg],
     disabledLevelUp:  [...disabledLevelUp],
     levelUpConfig:    [...levelUpConfig.entries()],
@@ -2783,6 +2951,7 @@ function loadData() {
     if (data.theCountChannels) data.theCountChannels.forEach(([k,v]) => theCountChannels.set(k, v));
     if (data.autoRoles)        data.autoRoles       .forEach(([k,v]) => autoRoles.set(k, v));
     if (data.reactionRoles)    data.reactionRoles   .forEach(([k,v]) => reactionRoles.set(k, v));
+    if (data.dropdownRoleSets) data.dropdownRoleSets.forEach(([k,v]) => dropdownRoleSets.set(k, v));
     if (data.disabledOwnerMsg) data.disabledOwnerMsg.forEach(v => disabledOwnerMsg.add(v));
     if (data.wipeProtected)    data.wipeProtected.forEach(v => wipeProtected.add(v));
     if (data.disabledLevelUp)  data.disabledLevelUp .forEach(v => disabledLevelUp.add(v));
@@ -2996,7 +3165,7 @@ function loadData() {
     if (data.boostHistory) data.boostHistory.forEach(([gid,arr]) => { boostHistory.set(gid, new Map(arr)); });
     if (data.quoteUserVotes) data.quoteUserVotes.forEach(([fn, entries]) => quoteUserVotes.set(fn, new Map(entries)));
 
-    console.log(`✅ Data loaded: ${ticketConfigs.size} ticket configs, ${reactionRoles.size} reaction roles, ${scores.size} scores, ${guildChannels.size} channels, ${activeEffects.size} active effects, ${reminders.length} reminders, ${scheduledMessages.size} scheduled messages, ${inviteComps.size} active competitions, ${premieres.size} premieres, ${activityChecks.size} activity checks, ${raConfig.size} RA configs, ${dailyQuoteChannels.size} daily quote channels`);
+    console.log(`✅ Data loaded: ${ticketConfigs.size} ticket configs, ${reactionRoles.size} reaction roles, ${dropdownRoleSets.size} dropdown role sets, ${scores.size} scores, ${guildChannels.size} channels, ${activeEffects.size} active effects, ${reminders.length} reminders, ${scheduledMessages.size} scheduled messages, ${inviteComps.size} active competitions, ${premieres.size} premieres, ${activityChecks.size} activity checks, ${raConfig.size} RA configs, ${dailyQuoteChannels.size} daily quote channels`);
   } catch(e) { console.error("loadData error:", e.message); }
 }
 
@@ -4995,6 +5164,7 @@ function buildCommands(){
     {name:"serverconfig",    description:"View this server's current bot config (Manage Server)"},
     {name:"autorole",        description:"Auto assign a role when someone joins (Manage Server)",options:[{name:"role",description:"Role to give (leave blank to disable)",type:8,required:false}]},
     {name:"reactionrole",     description:"Manage reaction roles (Manage Server)",options:[{name:"action",description:"What to do",type:3,required:true,choices:[{name:"Add",value:"add"},{name:"Remove",value:"remove"},{name:"List",value:"list"},{name:"Auto Detect from Message",value:"auto"},{name:"Manual Builder",value:"manual"}]},{name:"messageid",description:"Message ID (for add/remove/auto/manual)",type:3,required:false},{name:"emoji",description:"Emoji (for add/remove)",type:3,required:false},{name:"role",description:"Role to give (for add)",type:8,required:false}]},
+    {name:"dropdownroles",   description:"Interactive dropdown-menu role builder, an upgrade to reaction roles (Manage Server)",options:[{name:"action",description:"What to do",type:3,required:true,choices:[{name:"Build",value:"build"},{name:"List",value:"list"},{name:"Delete a posted set",value:"delete"}]},{name:"setid",description:"Dropdown set ID (for delete, shown by List)",type:3,required:false}]},
     {name:"setboostmsg",     description:"Set a server boost announcement message (Manage Server)",options:[{name:"channel",description:"Channel",type:7,required:true},{name:"message",description:"Use {user} {server}",type:3,required:false}]},
     {name:"invitecomp",      description:"Start an invite competition (Manage Server)",options:[{name:"hours",description:"Duration in hours (1 to 720)",type:4,required:true}]},
     {name:"purge",           description:"Delete messages in bulk (Manage Messages)",options:[
@@ -8173,7 +8343,7 @@ client.on("interactionCreate",async interaction=>{
       const HELP_PAGES=[
         {title:"🎉 Social & Utility :  Page 1 / 8",description:["**Romance**","`/marry user:…`: Propose 💍: target gets Accept/Decline buttons","`/divorce`: End the marriage 💔","`/partner [user]`: See who someone is married to","","**Media**","`/quote`: Inspirational quote image ✨","`/goodquote`: Top rated quote image ⭐","`/badquote`: Bottom rated quote image 💀","`/avatar user:…`: Get someone's avatar","","**Utility**","`/ping`: Bot latency 🏓","`/echo [message] [embed] [image] [title] [color] [replyto]`: Make the bot say something","`/remind time:… message:…`: Set a reminder (1 min – 1 week)","`/messageschedule time:… message:…`: Schedule a message to send later, as you, via webhook 📨 (e.g. `5 hours`, `2 days`, `1 week`, `1 month`)","`/premiere hours:… channel:… [title]`: Countdown to a video upload 🎬","`/upload source|link:…`: Upload an image/audio/video to the quotes folder 🖼️🔊🎬 *(authorized users)*","","**Info**","`/botinfo`: Bot stats","`/serverinfo`: Server member/channel/role info"].join("\n")},
         {title:"📈 XP & Leaderboards :  Page 2 / 8",description:["**XP**","You earn XP by sending messages (1 min cooldown). 5–15 XP per message.","Level formula: `floor(50 × level^1.5)` XP per level","","`/xp [user]`: Check XP, level, and progress bar","`/xpleaderboard [scope:global|server]`: Top 10 by XP","","**Stats & Leaderboards**","`/score [user]`: Wins, losses, win rate, streak","`/leaderboard [type]`: Global top 10","`/serverleaderboard [type]`: Server top 10","> Types: `wins` `coins` `streak` `beststreak` `games` `winrate` `images`"].join("\n")},
-        {title:"⚙️ Server Config :  Page 3 / 8",description:["Most commands here require **Manage Server** permission.","","**Channels & Messages**","`/channelpicker channel:… [levelup]`: Set the bot's main channel","`/xpconfig setting:…`: Level up messages (on/off, ping toggle, channel)","`/setwelcome channel:… [message]`: Welcome message (`{user}` `{server}` `{count}`)","`/setleave channel:… [message]`: Leave message","`/setboostmsg channel:… [message]`: Boost announcement","`/disableownermsg enabled:…`: Toggle bot owner broadcasts","`/purge amount:…`: Bulk delete (needs Manage Messages)","`/counting action:set|remove|status`: Set a permanent counting channel","","**Roles**","`/autorole [role]`: Auto assign role on join (blank to disable)","`/reactionrole action:add|remove|list …`: Emoji reaction roles","`/rolespingfix`: List & fix roles that can @everyone","","**Competitions & Tickets**","`/invitecomp hours:…`: Invite competition with coin rewards","`/ticketsetup` · `/closeticket` · `/addtoticket` · `/removefromticket`","","**Overview**","`/serverconfig`: View all current settings"].join("\n")},
+        {title:"⚙️ Server Config :  Page 3 / 8",description:["Most commands here require **Manage Server** permission.","","**Channels & Messages**","`/channelpicker channel:… [levelup]`: Set the bot's main channel","`/xpconfig setting:…`: Level up messages (on/off, ping toggle, channel)","`/setwelcome channel:… [message]`: Welcome message (`{user}` `{server}` `{count}`)","`/setleave channel:… [message]`: Leave message","`/setboostmsg channel:… [message]`: Boost announcement","`/disableownermsg enabled:…`: Toggle bot owner broadcasts","`/purge amount:…`: Bulk delete (needs Manage Messages)","`/counting action:set|remove|status`: Set a permanent counting channel","","**Roles**","`/autorole [role]`: Auto assign role on join (blank to disable)","`/reactionrole action:add|remove|list …`: Emoji reaction roles","`/dropdownroles action:build`: Dropdown-menu roles (upgrade to reaction roles)","`/rolespingfix`: List & fix roles that can @everyone","","**Competitions & Tickets**","`/invitecomp hours:…`: Invite competition with coin rewards","`/ticketsetup` · `/closeticket` · `/addtoticket` · `/removefromticket`","","**Overview**","`/serverconfig`: View all current settings"].join("\n")},
         {title:"🛡️ Activity & RA/LOA :  Page 4 / 8",description:["**Activity Checks** *(Manage Server)*","`/activity-check channel:… [deadline] [message] [ping] [schedule]` - Send a check-in to staff","> Specify which roles must respond and who is excluded","> Auto closes after the deadline and reports who didn't check in","> Add `schedule:Monday 09:00` (UTC) to repeat it weekly automatically","","**RA / LOA Setup** *(Manage Server)*","`/raconfig action:create`: Auto create Reduced Activity + LOA roles","`/raconfig action:set_ra|set_loa role:…`: Use existing roles","`/raconfig action:view`: See current config","","**Assigning Roles**","`/staffrole type:ra|loa user:… action:give|remove [duration]`: Give/remove RA or LOA role","> `duration` is in hours: omit for permanent"].join("\n")},
         {title:"📺 YouTube Tracking :  Page 5 / 8",description:["Track a YouTube channel's subscriber count live in Discord.","All commands require **Manage Server** permission.","","**Setup (do this first)**","`/ytsetup channel:… discord_channel:… [apikey:…]`: Connect a YouTube channel","> Accepts `@handle`, full URL, or channel ID starting with UC","> Provide your YouTube Data API v3 key on first use: it's saved to botdata","> Get a free key at console.cloud.google.com → enable YouTube Data API v3","","**Live Sub Count**","`/subcount threshold:1K|10K`: Post an embed that edits itself every 5 min","","**Sub Goal**","`/subgoal goal:N [message]`: Live progress bar towards a target sub count","> Fires a custom or default message when the goal is reached","","**Milestones**","`/milestones action:add subs:N [message]`: Announce when a sub count is crossed","`/milestones action:remove subs:N`: Remove a milestone","`/milestones action:list`: View all milestones and their status"].join("\n")},
         {title:"🤖 Community Modes :  Page 6 / 8",description:["Clankerify replaces a user's messages with a webhook impersonating them in a chosen personality.","","**For Everyone**","`/selfclank duration:1 to 5`: Clankerify yourself for 1–5 min with any mode","> Choose from built in modes or any custom modes players have built","> Max 2 selfclanked users per server at once","> `/selfclank duration:0` to cancel early","","**Built-in Modes**","🤖 No mode (plain) · 😈 Evil · 😏 Freaky · 🦅 American · 🫖 British","🪖 Stupid · 📰 Boomer · 🔺 Conspiracy · 🗺️ NPC · 😤 Sigma","⚔️ Medieval · 👻 Ghost · 🏴‍☠️ Pirate · 🦝 RespawnRaccoon Propaganda","🇫🇷 French · 🐱 UWU/LOLCAT · 🎲 Random","","**Custom Modes**: anyone can build one with `/clankerbuild`","`/clankerbuild action:create name:<id>`: Opens a builder modal with:","  • Display name format (`{name}` = the user's name)","  • Word replacements (`Test>Test2; friend>pardner, …`)","  • Signoffs (`yeehaw!;much obliged;git along now`)","  • Message start prefix","  • Emoji shown in the mode selector","`/clankerbuild action:list`: View all custom modes","`/clankerbuild action:delete name:<id>`: Remove a custom mode","","Custom modes appear automatically in the `/clankerify` and `/selfclank` dropdowns."].join("\n")},
@@ -8301,6 +8471,232 @@ client.on("interactionCreate",async interaction=>{
         try{ await interaction.update({content:"Done.", components:[]}); }catch{}
         return;
       }
+    }
+
+    // ── Dropdown roles builder (/dropdownroles action:build) ─────────────────────
+    if(cid.startsWith("ddb_")){
+      const expiredMsg = "This panel expired, run /dropdownroles action:build again.";
+
+      if(cid.startsWith("ddb_edit_")){
+        const token = cid.slice("ddb_edit_".length);
+        const b = ddBuilders.get(token);
+        if(!b || b.ownerId!==uid){ try{await interaction.reply({content:expiredMsg,ephemeral:true});}catch{} return; }
+        const index = parseInt(interaction.values[0],10);
+        ddTouch(token);
+        try{ await interaction.update(buildDdEditPanel(token, index)); }catch{}
+        return;
+      }
+      if(cid.startsWith("ddb_new_")){
+        const token = cid.slice("ddb_new_".length);
+        const b = ddBuilders.get(token);
+        if(!b || b.ownerId!==uid){ try{await interaction.reply({content:expiredMsg,ephemeral:true});}catch{} return; }
+        if(b.dropdowns.length>=DD_MAX_DROPDOWNS){ try{await interaction.reply({content:`❌ Max ${DD_MAX_DROPDOWNS} dropdowns per message.`,ephemeral:true});}catch{} return; }
+        await interaction.showModal({
+          title:"New Dropdown",
+          custom_id:`ddb_modal_newname_${token}`,
+          components:[
+            {type:1,components:[{type:4,custom_id:"ddb_name_input",label:"Dropdown name (shown as the placeholder)",style:1,required:true,max_length:100}]},
+          ],
+        }).catch(e=>console.error("[ddb_new modal]",e.message));
+        return;
+      }
+      if(cid.startsWith("ddb_detect_")){
+        const token = cid.slice("ddb_detect_".length);
+        const b = ddBuilders.get(token);
+        if(!b || b.ownerId!==uid){ try{await interaction.reply({content:expiredMsg,ephemeral:true});}catch{} return; }
+        await interaction.showModal({
+          title:"Detect from Messages",
+          custom_id:`ddb_modal_detect_${token}`,
+          components:[
+            {type:1,components:[{type:4,custom_id:"ddb_detect_input",label:"Message IDs (one per line)",style:2,required:true,max_length:1000,placeholder:"Each ID's message needs EMOJI | @Role lines, like /reactionrole auto"}]},
+          ],
+        }).catch(e=>console.error("[ddb_detect modal]",e.message));
+        return;
+      }
+      if(cid.startsWith("ddb_post_")){
+        const token = cid.slice("ddb_post_".length);
+        const b = ddBuilders.get(token);
+        if(!b || b.ownerId!==uid){ try{await interaction.reply({content:expiredMsg,ephemeral:true});}catch{} return; }
+        if(!b.dropdowns.length){ try{await interaction.reply({content:"❌ Add at least one dropdown first.",ephemeral:true});}catch{} return; }
+        ddTouch(token);
+        try{ await interaction.update(buildDdChannelPicker(token)); }catch{}
+        return;
+      }
+      if(cid.startsWith("ddb_cancel_")){
+        const token = cid.slice("ddb_cancel_".length);
+        const b = ddBuilders.get(token);
+        if(!b || b.ownerId!==uid){ try{await interaction.reply({content:expiredMsg,ephemeral:true});}catch{} return; }
+        ddBuilders.delete(token);
+        try{ await interaction.update({content:"Cancelled.", components:[]}); }catch{}
+        return;
+      }
+      if(cid.startsWith("ddb_back_")){
+        const token = cid.slice("ddb_back_".length);
+        const b = ddBuilders.get(token);
+        if(!b || b.ownerId!==uid){ try{await interaction.reply({content:expiredMsg,ephemeral:true});}catch{} return; }
+        ddTouch(token);
+        try{ await interaction.update(buildDdMainPanel(token)); }catch{}
+        return;
+      }
+      if(cid.startsWith("ddb_removeopt_")){
+        const rest = cid.slice("ddb_removeopt_".length);
+        const [token, indexStr] = rest.split("_");
+        const index = parseInt(indexStr,10);
+        const b = ddBuilders.get(token);
+        if(!b || b.ownerId!==uid || !b.dropdowns[index]){ try{await interaction.reply({content:expiredMsg,ephemeral:true});}catch{} return; }
+        const optIndex = parseInt(interaction.values[0],10);
+        b.dropdowns[index].options.splice(optIndex,1);
+        ddTouch(token);
+        try{ await interaction.update(buildDdEditPanel(token, index)); }catch{}
+        return;
+      }
+      if(cid.startsWith("ddb_addopt_")){
+        const rest = cid.slice("ddb_addopt_".length);
+        const [token, indexStr] = rest.split("_");
+        const index = parseInt(indexStr,10);
+        const b = ddBuilders.get(token);
+        if(!b || b.ownerId!==uid || !b.dropdowns[index]){ try{await interaction.reply({content:expiredMsg,ephemeral:true});}catch{} return; }
+        await interaction.showModal({
+          title:"Add an Option",
+          custom_id:`ddb_modal_emoji_${token}_${index}`,
+          components:[
+            {type:1,components:[{type:4,custom_id:"ddb_emoji_input",label:"Emoji (paste it, or type a custom emoji code)",style:1,required:true,max_length:100}]},
+          ],
+        }).catch(e=>console.error("[ddb_addopt modal]",e.message));
+        return;
+      }
+      if(cid.startsWith("ddb_rename_")){
+        const rest = cid.slice("ddb_rename_".length);
+        const [token, indexStr] = rest.split("_");
+        const index = parseInt(indexStr,10);
+        const b = ddBuilders.get(token);
+        if(!b || b.ownerId!==uid || !b.dropdowns[index]){ try{await interaction.reply({content:expiredMsg,ephemeral:true});}catch{} return; }
+        await interaction.showModal({
+          title:"Rename Dropdown",
+          custom_id:`ddb_modal_rename_${token}_${index}`,
+          components:[
+            {type:1,components:[{type:4,custom_id:"ddb_rename_input",label:"New name",style:1,required:true,max_length:100,value:b.dropdowns[index].name}]},
+          ],
+        }).catch(e=>console.error("[ddb_rename modal]",e.message));
+        return;
+      }
+      if(cid.startsWith("ddb_moveup_")){
+        const rest = cid.slice("ddb_moveup_".length);
+        const [token, indexStr] = rest.split("_");
+        const index = parseInt(indexStr,10);
+        const b = ddBuilders.get(token);
+        if(!b || b.ownerId!==uid || index<=0 || !b.dropdowns[index]){ try{await interaction.reply({content:expiredMsg,ephemeral:true});}catch{} return; }
+        [b.dropdowns[index-1], b.dropdowns[index]] = [b.dropdowns[index], b.dropdowns[index-1]];
+        ddTouch(token);
+        try{ await interaction.update(buildDdEditPanel(token, index-1)); }catch{}
+        return;
+      }
+      if(cid.startsWith("ddb_movedown_")){
+        const rest = cid.slice("ddb_movedown_".length);
+        const [token, indexStr] = rest.split("_");
+        const index = parseInt(indexStr,10);
+        const b = ddBuilders.get(token);
+        if(!b || b.ownerId!==uid || index>=b.dropdowns.length-1){ try{await interaction.reply({content:expiredMsg,ephemeral:true});}catch{} return; }
+        [b.dropdowns[index+1], b.dropdowns[index]] = [b.dropdowns[index], b.dropdowns[index+1]];
+        ddTouch(token);
+        try{ await interaction.update(buildDdEditPanel(token, index+1)); }catch{}
+        return;
+      }
+      if(cid.startsWith("ddb_deletedd_")){
+        const rest = cid.slice("ddb_deletedd_".length);
+        const [token, indexStr] = rest.split("_");
+        const index = parseInt(indexStr,10);
+        const b = ddBuilders.get(token);
+        if(!b || b.ownerId!==uid || !b.dropdowns[index]){ try{await interaction.reply({content:expiredMsg,ephemeral:true});}catch{} return; }
+        b.dropdowns.splice(index,1);
+        ddTouch(token);
+        try{ await interaction.update(buildDdMainPanel(token)); }catch{}
+        return;
+      }
+      if(cid.startsWith("ddb_pickrole_")){
+        const rest = cid.slice("ddb_pickrole_".length);
+        const [token, indexStr] = rest.split("_");
+        const index = parseInt(indexStr,10);
+        const b = ddBuilders.get(token);
+        if(!b || b.ownerId!==uid || b.pendingEmoji==null || !b.dropdowns[index]) return;
+        const roleId = interaction.values[0];
+        b.dropdowns[index].options.push({ emojiRaw: b.pendingEmoji, roleId });
+        b.pendingEmoji = null;
+        b.pendingIndex = null;
+        ddTouch(token);
+        try{ await interaction.update(buildDdEditPanel(token, index)); }catch{}
+        return;
+      }
+      if(cid.startsWith("ddb_cancelopt_")){
+        const rest = cid.slice("ddb_cancelopt_".length);
+        const [token, indexStr] = rest.split("_");
+        const index = parseInt(indexStr,10);
+        const b = ddBuilders.get(token);
+        if(!b || b.ownerId!==uid){ try{await interaction.reply({content:expiredMsg,ephemeral:true});}catch{} return; }
+        b.pendingEmoji = null;
+        b.pendingIndex = null;
+        try{ await interaction.update(buildDdEditPanel(token, index)); }catch{}
+        return;
+      }
+      if(cid.startsWith("ddb_postchannel_")){
+        const rest = cid.slice("ddb_postchannel_".length);
+        const [token] = rest.split("_");
+        const b = ddBuilders.get(token);
+        if(!b || b.ownerId!==uid){ try{await interaction.reply({content:expiredMsg,ephemeral:true});}catch{} return; }
+        const channelId = interaction.values[0];
+        const guild = client.guilds.cache.get(b.guildId);
+        const targetCh = guild?.channels.cache.get(channelId);
+        if(!targetCh){ try{await interaction.reply({content:"❌ Channel not found.",ephemeral:true});}catch{} return; }
+        if(!(await btnAck(interaction))) return;
+        try{
+          const rows = buildLiveDropdownRows(guild, b.setId, b.dropdowns);
+          const sent = await targetCh.send({ content:"🎛️ **Choose your roles below!**", components: rows });
+          dropdownRoleSets.set(`${b.guildId}:${b.setId}`, {
+            dropdowns: b.dropdowns.map(dd => ({ name:dd.name, options: dd.options.map(o=>({emojiRaw:o.emojiRaw, roleId:o.roleId})) })),
+          });
+          saveData();
+          ddBuilders.delete(token);
+          await interaction.editReply({content:`✅ Posted! [Jump to message](${sent.url})\nSet ID: \`${b.setId}\` (use it with /dropdownroles action:delete if you ever want to take it down)`, components:[]}).catch(()=>{});
+        }catch(e){
+          console.error("[ddb_postchannel]", e.message);
+          await interaction.editReply({content:`❌ Failed to post: ${e.message}`, components:[]}).catch(()=>{});
+        }
+        return;
+      }
+    }
+
+    // ── Live dropdown roles: a user picking roles from a posted select menu ──────
+    if(cid.startsWith("ddsel_")){
+      const rest = cid.slice("ddsel_".length);
+      const ddIndex = parseInt(rest.slice(rest.lastIndexOf("_")+1),10);
+      const setId = rest.slice(0, rest.lastIndexOf("_"));
+      const guildId = interaction.guildId;
+      if(!guildId) return;
+      const set = dropdownRoleSets.get(`${guildId}:${setId}`);
+      const dd = set?.dropdowns?.[ddIndex];
+      if(!dd){ try{await interaction.reply({content:"❌ This dropdown is no longer configured.",ephemeral:true});}catch{} return; }
+      if(!(await btnAck(interaction))) return;
+      try{
+        const guild = client.guilds.cache.get(guildId);
+        const member = await guild.members.fetch(uid).catch(()=>null);
+        if(!member){ await interaction.followUp({content:"❌ Couldn't find your member record, try again.",ephemeral:true}).catch(()=>{}); return; }
+        const allRoleIds = dd.options.map(o=>o.roleId);
+        const selected = interaction.values;
+        const toAdd = selected.filter(id=>!member.roles.cache.has(id));
+        const toRemove = allRoleIds.filter(id=>!selected.includes(id) && member.roles.cache.has(id));
+        if(toAdd.length) await member.roles.add(toAdd).catch(e=>console.error("[ddsel add]",e.message));
+        if(toRemove.length) await member.roles.remove(toRemove).catch(e=>console.error("[ddsel remove]",e.message));
+        const addedNames = toAdd.map(id=>guild.roles.cache.get(id)?.name).filter(Boolean);
+        const removedNames = toRemove.map(id=>guild.roles.cache.get(id)?.name).filter(Boolean);
+        const parts = [];
+        if(addedNames.length) parts.push(`Added: ${addedNames.join(", ")}`);
+        if(removedNames.length) parts.push(`Removed: ${removedNames.join(", ")}`);
+        await interaction.followUp({content: parts.length ? `✅ ${parts.join(" | ")}` : "No changes.", ephemeral:true}).catch(()=>{});
+      }catch(e){
+        console.error("[ddsel] error:", e.message);
+        await interaction.followUp({content:"❌ Something went wrong applying your roles.",ephemeral:true}).catch(()=>{});
+      }
+      return;
     }
 
     // Ticket setup wizard
@@ -9160,6 +9556,85 @@ client.on("interactionCreate",async interaction=>{
       return safeReply(interaction,{...buildReactionRoleRolePicker(token), ephemeral:true});
     }
 
+    // ── Dropdown roles builder: modal submits ───────────────────────────────────
+    if(cid.startsWith("ddb_modal_newname_")){
+      const token = cid.slice("ddb_modal_newname_".length);
+      const b = ddBuilders.get(token);
+      if(!b || b.ownerId!==uid)
+        return safeReply(interaction,{content:"This panel expired, run /dropdownroles action:build again.",ephemeral:true});
+      const name = (interaction.fields.getTextInputValue("ddb_name_input")||"").trim();
+      if(!name) return safeReply(interaction,{content:"Provide a name.",ephemeral:true});
+      if(b.dropdowns.length>=DD_MAX_DROPDOWNS) return safeReply(interaction,{content:`❌ Max ${DD_MAX_DROPDOWNS} dropdowns per message.`,ephemeral:true});
+      b.dropdowns.push({ name: name.slice(0,100), options: [] });
+      ddTouch(token);
+      return safeReply(interaction,{...buildDdEditPanel(token, b.dropdowns.length-1), ephemeral:true});
+    }
+
+    if(cid.startsWith("ddb_modal_rename_")){
+      const rest = cid.slice("ddb_modal_rename_".length);
+      const [token, indexStr] = rest.split("_");
+      const index = parseInt(indexStr,10);
+      const b = ddBuilders.get(token);
+      if(!b || b.ownerId!==uid || !b.dropdowns[index])
+        return safeReply(interaction,{content:"This panel expired, run /dropdownroles action:build again.",ephemeral:true});
+      const name = (interaction.fields.getTextInputValue("ddb_rename_input")||"").trim();
+      if(!name) return safeReply(interaction,{content:"Provide a name.",ephemeral:true});
+      b.dropdowns[index].name = name.slice(0,100);
+      ddTouch(token);
+      return safeReply(interaction,{...buildDdEditPanel(token, index), ephemeral:true});
+    }
+
+    if(cid.startsWith("ddb_modal_emoji_")){
+      const rest = cid.slice("ddb_modal_emoji_".length);
+      const [token, indexStr] = rest.split("_");
+      const index = parseInt(indexStr,10);
+      const b = ddBuilders.get(token);
+      if(!b || b.ownerId!==uid || !b.dropdowns[index])
+        return safeReply(interaction,{content:"This panel expired, run /dropdownroles action:build again.",ephemeral:true});
+      const emoji = (interaction.fields.getTextInputValue("ddb_emoji_input")||"").trim();
+      if(!emoji) return safeReply(interaction,{content:"Provide an emoji.",ephemeral:true});
+      b.pendingEmoji = emoji;
+      b.pendingIndex = index;
+      ddTouch(token);
+      return safeReply(interaction,{...buildDdRolePicker(token, index), ephemeral:true});
+    }
+
+    // ── Dropdown roles builder: detect from pasted message IDs ──────────────────
+    // Reuses the exact same "EMOJI | @Role" line parser as /reactionrole auto,
+    // one new dropdown per message ID, named after the message's own content.
+    if(cid.startsWith("ddb_modal_detect_")){
+      const token = cid.slice("ddb_modal_detect_".length);
+      const b = ddBuilders.get(token);
+      if(!b || b.ownerId!==uid)
+        return safeReply(interaction,{content:"This panel expired, run /dropdownroles action:build again.",ephemeral:true});
+      const raw = (interaction.fields.getTextInputValue("ddb_detect_input")||"").trim();
+      const ids = [...new Set(raw.split(/[\s,]+/).map(s=>s.trim()).filter(s=>/^\d{10,25}$/.test(s)))];
+      if(!ids.length) return safeReply(interaction,{content:"❌ No valid message IDs found.",ephemeral:true});
+      await interaction.deferReply({ephemeral:true}).catch(()=>{});
+      const guild = client.guilds.cache.get(b.guildId);
+      const results = [];
+      for(const messageId of ids){
+        if(b.dropdowns.length>=DD_MAX_DROPDOWNS){ results.push(`⚠️ \`${messageId}\`: skipped, already at ${DD_MAX_DROPDOWNS} dropdowns`); continue; }
+        const targetMsg = await findMessageInGuild(guild, messageId);
+        if(!targetMsg){ results.push(`❌ \`${messageId}\`: message not found`); continue; }
+        const parsed = parseReactionRoleLines(targetMsg.content);
+        if(!parsed.length){ results.push(`❌ \`${messageId}\`: no \`EMOJI | @Role\` lines found`); continue; }
+        const options = [];
+        for(const {emojiRaw, roleId} of parsed){
+          if(!guild.roles.cache.get(roleId)) continue;
+          options.push({ emojiRaw, roleId });
+        }
+        if(!options.length){ results.push(`❌ \`${messageId}\`: no valid roles found`); continue; }
+        const firstLine = targetMsg.content.split("\n").map(l=>l.trim()).find(l=>l && !/<@&\d+>/.test(l));
+        const name = (firstLine || `Dropdown (msg ${messageId})`).slice(0,100);
+        b.dropdowns.push({ name, options });
+        results.push(`✅ \`${messageId}\`: created "${name}" with ${options.length} option${options.length!==1?"s":""}`);
+      }
+      ddTouch(token);
+      const panel = buildDdMainPanel(token);
+      return safeReply(interaction,{content:`**Detection results:**\n${results.join("\n")}\n\n${panel.content}`, components:panel.components, ephemeral:true});
+    }
+
     // ── /jarvisenhance builder: action params modal submit ─────────────────────
     if(cid.startsWith("je_modal_params_")){
       const token = cid.slice("je_modal_params_".length);
@@ -9571,7 +10046,7 @@ by **${displayName}**`});
     if(!canUseOwnerCmd(interaction, cmd)) return safeReply(interaction,{content:"Owner only.",ephemeral:true});
   }
 
-  const manageServerCmds=["channelpicker","counting","xpconfig","setwelcome","setleave","setwelcomemsg","setleavemsg","disableownermsg","serverconfig","autorole","setboostmsg","invitecomp","purge","reactionrole","ticketsetup","ytsetup","subgoal","subcount","milestones","dailyquote","serverstats"];
+  const manageServerCmds=["channelpicker","counting","xpconfig","setwelcome","setleave","setwelcomemsg","setleavemsg","disableownermsg","serverconfig","autorole","setboostmsg","invitecomp","purge","reactionrole","dropdownroles","ticketsetup","ytsetup","subgoal","subcount","milestones","dailyquote","serverstats"];
   if(manageServerCmds.includes(cmd)){
     if(!inGuild)return safeReply(interaction,{content:"Server only.",ephemeral:true});
     if(!OWNER_IDS.includes(interaction.user.id)&&!interaction.member?.permissions?.has?.("MANAGE_GUILD"))
@@ -10421,7 +10896,7 @@ if(cmd==="divorce"){
       const HELP_PAGES=[
         {title:"🎉 Social & Utility :  Page 1 / 8",description:["**Romance**","`/marry user:…`: Propose 💍: target gets Accept/Decline buttons","`/divorce`: End the marriage 💔","`/partner [user]`: See who someone is married to","","**Media**","`/quote`: Inspirational quote image ✨","`/goodquote`: Top rated quote image ⭐","`/badquote`: Bottom rated quote image 💀","`/avatar user:…`: Get someone's avatar","","**Utility**","`/ping`: Bot latency 🏓","`/echo [message] [embed] [image] [title] [color] [replyto]`: Make the bot say something","`/remind time:… message:…`: Set a reminder (1 min – 1 week)","`/messageschedule time:… message:…`: Schedule a message to send later, as you, via webhook 📨 (e.g. `5 hours`, `2 days`, `1 week`, `1 month`)","`/premiere hours:… channel:… [title]`: Countdown to a video upload 🎬","`/upload source|link:…`: Upload an image/audio/video to the quotes folder 🖼️🔊🎬 *(authorized users)*","","**Info**","`/botinfo`: Bot stats","`/serverinfo`: Server member/channel/role info"].join("\n")},
         {title:"📈 XP & Leaderboards :  Page 2 / 8",description:["**XP**","You earn XP by sending messages (1 min cooldown). 5–15 XP per message.","Level formula: `floor(50 × level^1.5)` XP per level","","`/xp [user]`: Check XP, level, and progress bar","`/xpleaderboard [scope:global|server]`: Top 10 by XP","","**Stats & Leaderboards**","`/score [user]`: Wins, losses, win rate, streak","`/leaderboard [type]`: Global top 10","`/serverleaderboard [type]`: Server top 10","> Types: `wins` `coins` `streak` `beststreak` `games` `winrate` `images`"].join("\n")},
-        {title:"⚙️ Server Config :  Page 3 / 8",description:["Most commands here require **Manage Server** permission.","","**Channels & Messages**","`/channelpicker channel:… [levelup]`: Set the bot's main channel","`/xpconfig setting:…`: Level up messages (on/off, ping toggle, channel)","`/setwelcome channel:… [message]`: Welcome message (`{user}` `{server}` `{count}`)","`/setleave channel:… [message]`: Leave message","`/setboostmsg channel:… [message]`: Boost announcement","`/disableownermsg enabled:…`: Toggle bot owner broadcasts","`/purge amount:…`: Bulk delete (needs Manage Messages)","`/counting action:set|remove|status`: Set a permanent counting channel","","**Roles**","`/autorole [role]`: Auto assign role on join (blank to disable)","`/reactionrole action:add|remove|list …`: Emoji reaction roles","`/rolespingfix`: List & fix roles that can @everyone","","**Competitions & Tickets**","`/invitecomp hours:…`: Invite competition with coin rewards","`/ticketsetup` · `/closeticket` · `/addtoticket` · `/removefromticket`","","**Overview**","`/serverconfig`: View all current settings"].join("\n")},
+        {title:"⚙️ Server Config :  Page 3 / 8",description:["Most commands here require **Manage Server** permission.","","**Channels & Messages**","`/channelpicker channel:… [levelup]`: Set the bot's main channel","`/xpconfig setting:…`: Level up messages (on/off, ping toggle, channel)","`/setwelcome channel:… [message]`: Welcome message (`{user}` `{server}` `{count}`)","`/setleave channel:… [message]`: Leave message","`/setboostmsg channel:… [message]`: Boost announcement","`/disableownermsg enabled:…`: Toggle bot owner broadcasts","`/purge amount:…`: Bulk delete (needs Manage Messages)","`/counting action:set|remove|status`: Set a permanent counting channel","","**Roles**","`/autorole [role]`: Auto assign role on join (blank to disable)","`/reactionrole action:add|remove|list …`: Emoji reaction roles","`/dropdownroles action:build`: Dropdown-menu roles (upgrade to reaction roles)","`/rolespingfix`: List & fix roles that can @everyone","","**Competitions & Tickets**","`/invitecomp hours:…`: Invite competition with coin rewards","`/ticketsetup` · `/closeticket` · `/addtoticket` · `/removefromticket`","","**Overview**","`/serverconfig`: View all current settings"].join("\n")},
         {title:"🛡️ Activity & RA/LOA :  Page 4 / 8",description:["**Activity Checks** *(Manage Server)*","`/activity-check channel:… [deadline] [message] [ping] [schedule]` - Send a check-in to staff","> Specify which roles must respond and who is excluded","> Auto closes after the deadline and reports who didn't check in","> Add `schedule:Monday 09:00` (UTC) to repeat it weekly automatically","","**RA / LOA Setup** *(Manage Server)*","`/raconfig action:create`: Auto create Reduced Activity + LOA roles","`/raconfig action:set_ra|set_loa role:…`: Use existing roles","`/raconfig action:view`: See current config","","**Assigning Roles**","`/staffrole type:ra|loa user:… action:give|remove [duration]`: Give/remove RA or LOA role","> `duration` is in hours: omit for permanent"].join("\n")},
         {title:"📺 YouTube Tracking :  Page 5 / 8",description:["Track a YouTube channel's subscriber count live in Discord.","All commands require **Manage Server** permission.","","**Setup (do this first)**","`/ytsetup channel:… discord_channel:… [apikey:…]`: Connect a YouTube channel","> Accepts `@handle`, full URL, or channel ID starting with UC","> Provide your YouTube Data API v3 key on first use: it's saved to botdata","> Get a free key at console.cloud.google.com → enable YouTube Data API v3","","**Live Sub Count**","`/subcount threshold:1K|10K`: Post an embed that edits itself every 5 min","","**Sub Goal**","`/subgoal goal:N [message]`: Live progress bar towards a target sub count","> Fires a custom or default message when the goal is reached","","**Milestones**","`/milestones action:add subs:N [message]`: Announce when a sub count is crossed","`/milestones action:remove subs:N`: Remove a milestone","`/milestones action:list`: View all milestones and their status"].join("\n")},
         {title:"🤖 Community Modes :  Page 6 / 8",description:["Clankerify replaces a user's messages with a webhook impersonating them in a chosen personality.","","**For Everyone**","`/selfclank duration:1 to 5`: Clankerify yourself for 1–5 min with any mode","> Choose from built in modes or any custom modes players have built","> Max 2 selfclanked users per server at once","> `/selfclank duration:0` to cancel early","","**Built-in Modes**","🤖 No mode (plain) · 😈 Evil · 😏 Freaky · 🦅 American · 🫖 British","🪖 Stupid · 📰 Boomer · 🔺 Conspiracy · 🗺️ NPC · 😤 Sigma","⚔️ Medieval · 👻 Ghost · 🏴‍☠️ Pirate · 🦝 RespawnRaccoon Propaganda","🇫🇷 French · 🐱 UWU/LOLCAT · 🎲 Random","","**Custom Modes**: anyone can build one with `/clankerbuild`","`/clankerbuild action:create name:<id>`: Opens a builder modal with:","  • Display name format (`{name}` = the user's name)","  • Word replacements (`Test>Test2; friend>pardner, …`)","  • Signoffs (`yeehaw!;much obliged;git along now`)","  • Message start prefix","  • Emoji shown in the mode selector","`/clankerbuild action:list`: View all custom modes","`/clankerbuild action:delete name:<id>`: Remove a custom mode","","Custom modes appear automatically in the `/clankerify` and `/selfclank` dropdowns."].join("\n")},
@@ -10971,6 +11446,34 @@ if(cmd==="divorce"){
       try{ await targetMsg.react(emojiRaw); }catch(e){ console.warn("reactionrole react failed:",e.message); }
 
       return safeReply(interaction,{content:`✅ **Reaction role added!**\n📨 [Jump to message](${targetMsg.url})\n${emojiRaw} → <@&${role.id}>\n\n> Tip: users must be able to see and react to that message. Bot needs \`Manage Roles\` and its role must be above <@&${role.id}> in the role list.`,ephemeral:true});
+    }
+    if(cmd==="dropdownroles"){
+      if(!inGuild)return safeReply(interaction,{content:"Server only.",ephemeral:true});
+      const action=interaction.options.getString("action");
+      if(action==="list"){
+        const prefix=`${interaction.guildId}:`;
+        const entries=[...dropdownRoleSets.entries()].filter(([k])=>k.startsWith(prefix));
+        if(!entries.length)return safeReply(interaction,{content:"No dropdown role sets posted yet.",ephemeral:true});
+        const lines=entries.map(([key,set])=>{
+          const setId=key.slice(prefix.length);
+          const ddLines=set.dropdowns.map(dd=>`  • ${dd.name} (${dd.options.length} option${dd.options.length!==1?"s":""})`).join("\n");
+          return `\`${setId}\`\n${ddLines}`;
+        });
+        return safeReply(interaction,{content:`🎛️ **Dropdown Role Sets: ${interaction.guild.name}**\n\n${lines.join("\n\n")}`,ephemeral:true});
+      }
+      if(action==="delete"){
+        const setId=interaction.options.getString("setid")?.trim();
+        if(!setId)return safeReply(interaction,{content:"❌ Provide `setid` (see /dropdownroles action:List).",ephemeral:true});
+        const key=`${interaction.guildId}:${setId}`;
+        if(!dropdownRoleSets.has(key))return safeReply(interaction,{content:"❌ No dropdown set found with that ID.",ephemeral:true});
+        dropdownRoleSets.delete(key);saveData();
+        return safeReply(interaction,{content:`✅ Deleted dropdown set \`${setId}\`. Any already-posted message will stop responding to selections.`,ephemeral:true});
+      }
+      // action === "build"
+      const token=`${interaction.user.id.slice(-6)}${Date.now().toString(36)}`;
+      ddBuilders.set(token, { ownerId:interaction.user.id, guildId:interaction.guildId, setId:newDdSetId(), dropdowns:[], pendingEmoji:null, pendingIndex:null });
+      ddTouch(token);
+      return safeReply(interaction, {...buildDdMainPanel(token), ephemeral:true});
     }
     if(cmd==="setboostmsg"){
       const ch=interaction.options.getChannel("channel");
