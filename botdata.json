@@ -46859,7 +46859,7 @@
       {
         "channelId": "1408975997272854611",
         "hour": 9,
-        "_lastFire": "1408975996715139084:2026-8-21:9"
+        "_lastFire": "1408975996715139084:2026-8-22:9"
       }
     ],
     [
@@ -76844,6 +76844,10 @@
     [
       "1551806010023223356",
       "b71fa716-35f0-48c9-a7ac-2190068e46ef.png"
+    ],
+    [
+      "1551880865947328543",
+      "Beb_stomach_ache.png"
     ]
   ],
   "favoritedQuotes": [
@@ -114906,6 +114910,17 @@
         "voters": [],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
+        "sentToDeleter": false,
+        "type": "quote"
+      }
+    ],
+    [
+      "1551880865947328543",
+      {
+        "filename": "Beb_stomach_ache.png",
+        "voters": [],
+        "guildId": "1408975996715139084",
+        "channelId": "1408975997272854611",
         "sentToDeleter": false,
         "type": "quote"
       }
