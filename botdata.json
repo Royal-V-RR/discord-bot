@@ -76780,6 +76780,10 @@
     [
       "1551801828310777916",
       "I want a quote.png"
+    ],
+    [
+      "1551801842789261372",
+      "quote_324.jpg"
     ]
   ],
   "favoritedQuotes": [
@@ -114663,6 +114667,17 @@
       "1551801828310777916",
       {
         "filename": "I want a quote.png",
+        "voters": [],
+        "guildId": "1048053656035020911",
+        "channelId": "1477294439180537980",
+        "sentToDeleter": false,
+        "type": "quote"
+      }
+    ],
+    [
+      "1551801842789261372",
+      {
+        "filename": "quote_324.jpg",
         "voters": [],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
