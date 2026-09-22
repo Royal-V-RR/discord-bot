@@ -551,7 +551,90 @@
       "1550981682016817263"
     ]
   ],
-  "dropdownRoleSets": [],
+  "dropdownRoleSets": [
+    [
+      "1408975996715139084:ddmud7yuy5ndew",
+      {
+        "dropdowns": [
+          {
+            "name": "Ping roles",
+            "options": [
+              {
+                "emojiRaw": "👀",
+                "roleId": "1413209958564106341"
+              },
+              {
+                "emojiRaw": "📣",
+                "roleId": "1413208447259906078"
+              },
+              {
+                "emojiRaw": "🪙",
+                "roleId": "1413209079396171837"
+              },
+              {
+                "emojiRaw": "❗",
+                "roleId": "1433942970629099662"
+              },
+              {
+                "emojiRaw": "📺",
+                "roleId": "1433972610881949716"
+              },
+              {
+                "emojiRaw": "🎮",
+                "roleId": "1434697364756762755"
+              }
+            ]
+          },
+          {
+            "name": "Ping roles",
+            "options": [
+              {
+                "emojiRaw": "👀",
+                "roleId": "1413209958564106341"
+              },
+              {
+                "emojiRaw": "📣",
+                "roleId": "1413208447259906078"
+              },
+              {
+                "emojiRaw": "🪙",
+                "roleId": "1413209079396171837"
+              },
+              {
+                "emojiRaw": "❗",
+                "roleId": "1433942970629099662"
+              },
+              {
+                "emojiRaw": "📺",
+                "roleId": "1433972610881949716"
+              },
+              {
+                "emojiRaw": "🎮",
+                "roleId": "1434697364756762755"
+              }
+            ]
+          },
+          {
+            "name": "Maker Pen roles",
+            "options": [
+              {
+                "emojiRaw": "⚡",
+                "roleId": "1413210294200828057"
+              },
+              {
+                "emojiRaw": "⚒️",
+                "roleId": "1413210457900056678"
+              },
+              {
+                "emojiRaw": "🖌️",
+                "roleId": "1413210598862356500"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  ],
   "disabledOwnerMsg": [],
   "disabledLevelUp": [
     "1048053656035020911",
