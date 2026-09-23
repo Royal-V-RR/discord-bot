@@ -4782,8 +4782,8 @@
       "1515972755424673902",
       {
         "guildId": "1048053656035020911",
-        "count": 23,
-        "lastUserId": "1528529543923499039",
+        "count": 24,
+        "lastUserId": "922582069979275325",
         "highScore": 323
       }
     ]
@@ -4974,7 +4974,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 4016,
+        "xp": 4028,
         "level": 19,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -5218,7 +5218,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-27",
-        "xp": 6366,
+        "xp": 6371,
         "level": 32,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -23960,7 +23960,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 1486,
+        "xp": 1498,
         "level": 15,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -47204,7 +47204,7 @@
       {
         "channelId": "1477294439180537980",
         "hour": 10,
-        "_lastFire": "1048053656035020911:2026-8-22:10"
+        "_lastFire": "1048053656035020911:2026-8-23:10"
       }
     ],
     [
@@ -77375,6 +77375,10 @@
     [
       "1552243201916801104",
       "quote_232.png"
+    ],
+    [
+      "1552258293383299123",
+      "quote_47.png"
     ]
   ],
   "favoritedQuotes": [
@@ -115864,6 +115868,17 @@
         "voters": [],
         "guildId": "1408975996715139084",
         "channelId": "1408975997272854611",
+        "sentToDeleter": false,
+        "type": "quote"
+      }
+    ],
+    [
+      "1552258293383299123",
+      {
+        "filename": "quote_47.png",
+        "voters": [],
+        "guildId": "1048053656035020911",
+        "channelId": "1477294439180537980",
         "sentToDeleter": false,
         "type": "quote"
       }
