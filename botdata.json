@@ -47348,6 +47348,30 @@
         "forceMarried": false,
         "uploadedImages": []
       }
+    ],
+    [
+      "1552264091140104193",
+      {
+        "username": "playful_quokka_11749",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 5,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
     ]
   ],
   "activeEffects": [],
@@ -77716,6 +77740,10 @@
     [
       "1552333579382689792",
       "quote_1498753041564958840.png"
+    ],
+    [
+      "1552333606133825586",
+      "quote_1498689610841325669.png"
     ]
   ],
   "favoritedQuotes": [
@@ -116620,6 +116648,17 @@
       "1552333579382689792",
       {
         "filename": "quote_1498753041564958840.png",
+        "voters": [],
+        "guildId": "1048053656035020911",
+        "channelId": "1477294439180537980",
+        "sentToDeleter": false,
+        "type": "quote"
+      }
+    ],
+    [
+      "1552333606133825586",
+      {
+        "filename": "quote_1498689610841325669.png",
         "voters": [],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
