@@ -6486,7 +6486,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 2226,
+        "xp": 2231,
         "level": 13,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -7308,7 +7308,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 4309,
+        "xp": 4319,
         "level": 30,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -36331,9 +36331,11 @@
         "inventory": [],
         "marriedTo": null,
         "pendingProposal": null,
-        "imagesUploaded": 0,
+        "imagesUploaded": 1,
         "forceMarried": false,
-        "uploadedImages": []
+        "uploadedImages": [
+          "quote_454.png"
+        ]
       }
     ],
     [
@@ -36898,7 +36900,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 598,
+        "xp": 609,
         "level": 8,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -116904,7 +116906,7 @@
     ]
   ],
   "uploadCounters": {
-    "quote": 453,
+    "quote": 454,
     "eardestroyer": 1,
     "eyebleacher": 3
   },
