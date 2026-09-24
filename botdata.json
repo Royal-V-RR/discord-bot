@@ -741,12 +741,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18300,
-        "lastSubsTimestamp": 1790246892006,
+        "lastSubsTimestamp": 1790247192051,
         "history": [
-          {
-            "ts": 1789942986504,
-            "subs": 17700
-          },
           {
             "ts": 1789943286523,
             "subs": 17700
@@ -4742,6 +4738,10 @@
           {
             "ts": 1790246892006,
             "subs": 18300
+          },
+          {
+            "ts": 1790247192051,
+            "subs": 18300
           }
         ],
         "subcountDiscordId": "1483595393999700080",
@@ -6339,7 +6339,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 1143,
+        "xp": 1148,
         "level": 19,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -47639,6 +47639,30 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 8,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1313165458039640174",
+      {
+        "username": "devqtz",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 10,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
