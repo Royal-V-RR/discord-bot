@@ -741,12 +741,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18300,
-        "lastSubsTimestamp": 1790269344415,
+        "lastSubsTimestamp": 1790269644396,
         "history": [
-          {
-            "ts": 1789965478977,
-            "subs": 18200
-          },
           {
             "ts": 1789965779008,
             "subs": 18200
@@ -4741,6 +4737,10 @@
           },
           {
             "ts": 1790269344415,
+            "subs": 18300
+          },
+          {
+            "ts": 1790269644396,
             "subs": 18300
           }
         ],
@@ -47903,6 +47903,30 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 5,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1551136915217063970",
+      {
+        "username": "_ryu.21",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 12,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
