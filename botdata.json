@@ -741,12 +741,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18300,
-        "lastSubsTimestamp": 1790281563411,
+        "lastSubsTimestamp": 1790281863431,
         "history": [
-          {
-            "ts": 1789977575316,
-            "subs": 18200
-          },
           {
             "ts": 1789977875321,
             "subs": 18200
@@ -4741,6 +4737,10 @@
           },
           {
             "ts": 1790281563411,
+            "subs": 18300
+          },
+          {
+            "ts": 1790281863431,
             "subs": 18300
           }
         ],
@@ -42686,7 +42686,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 138,
+        "xp": 151,
         "level": 5,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -48287,6 +48287,30 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 10,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "510790029300334592",
+      {
+        "username": "cristo_9099",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 6,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -119936,7 +119960,7 @@
         ],
         "intervalMinutes": 15,
         "locked": true,
-        "lastUpdate": 1790280963305
+        "lastUpdate": 1790281863328
       }
     ]
   ],
