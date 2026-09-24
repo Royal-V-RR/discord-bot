@@ -6481,8 +6481,8 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 2341,
-        "level": 13,
+        "xp": 11,
+        "level": 14,
         "lastWorkTime": 0,
         "lastBegTime": 0,
         "lastCrimeTime": 0,
@@ -55034,6 +55034,13 @@
         "up": 2,
         "down": 0
       }
+    ],
+    [
+      "quote_33.png",
+      {
+        "up": 1,
+        "down": 0
+      }
     ]
   ],
   "quoteVoteMessages": [
@@ -78715,7 +78722,7 @@
     [
       "1082452773787942922",
       {
-        "up": 12,
+        "up": 13,
         "down": 3
       }
     ],
@@ -126026,6 +126033,15 @@
         ],
         [
           "813764807609155604",
+          "up"
+        ]
+      ]
+    ],
+    [
+      "quote_33.png",
+      [
+        [
+          "1082452773787942922",
           "up"
         ]
       ]
