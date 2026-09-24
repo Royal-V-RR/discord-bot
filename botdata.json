@@ -47891,6 +47891,30 @@
         "forceMarried": false,
         "uploadedImages": []
       }
+    ],
+    [
+      "1251411089602904158",
+      {
+        "username": "notpremog",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 5,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
     ]
   ],
   "activeEffects": [],
@@ -78560,6 +78584,10 @@
     [
       "1552719989860204616",
       "quote_418.png"
+    ],
+    [
+      "1552721383061192744",
+      "quote_33.png"
     ]
   ],
   "favoritedQuotes": [
@@ -118044,6 +118072,17 @@
         "channelId": "1510645923498295347",
         "sentToDeleter": false,
         "type": "good"
+      }
+    ],
+    [
+      "1552721383061192744",
+      {
+        "filename": "quote_33.png",
+        "voters": [],
+        "guildId": "1408975996715139084",
+        "channelId": "1408975997272854611",
+        "sentToDeleter": false,
+        "type": "quote"
       }
     ]
   ],
