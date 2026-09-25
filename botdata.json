@@ -741,12 +741,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18300,
-        "lastSubsTimestamp": 1790351282903,
+        "lastSubsTimestamp": 1790351582918,
         "history": [
-          {
-            "ts": 1790047069420,
-            "subs": 18200
-          },
           {
             "ts": 1790047369434,
             "subs": 18200
@@ -4741,6 +4737,10 @@
           },
           {
             "ts": 1790351282903,
+            "subs": 18300
+          },
+          {
+            "ts": 1790351582918,
             "subs": 18300
           }
         ],
@@ -48741,6 +48741,30 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 15,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1459177331816923344",
+      {
+        "username": "starboy_thato",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 14,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
