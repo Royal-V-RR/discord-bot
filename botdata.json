@@ -49433,7 +49433,22 @@
   ],
   "activeEffects": [],
   "reminders": [],
-  "scheduledMessages": [],
+  "scheduledMessages": [
+    [
+      "arre9c",
+      {
+        "id": "arre9c",
+        "userId": "1254388539890860083",
+        "guildId": "1048053656035020911",
+        "channelId": "1048055007712387162",
+        "content": "happy birthday ike!",
+        "sendAt": 1792065304643,
+        "createdAt": 1790423704643,
+        "imageURL": null,
+        "imageName": null
+      }
+    ]
+  ],
   "inviteComps": [],
   "premieres": [],
   "raConfig": [
@@ -80612,6 +80627,10 @@
     [
       "1553374320519151790",
       "760031383598530630_quote_1504805055377969152.png"
+    ],
+    [
+      "1553374341348204574",
+      "quote_1496968691487604908.png"
     ]
   ],
   "favoritedQuotes": [
@@ -121180,6 +121199,17 @@
       "1553374320519151790",
       {
         "filename": "760031383598530630_quote_1504805055377969152.png",
+        "voters": [],
+        "guildId": "1048053656035020911",
+        "channelId": "1477294439180537980",
+        "sentToDeleter": false,
+        "type": "quote"
+      }
+    ],
+    [
+      "1553374341348204574",
+      {
+        "filename": "quote_1496968691487604908.png",
         "voters": [],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
