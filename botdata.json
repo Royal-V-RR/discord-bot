@@ -741,12 +741,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18300,
-        "lastSubsTimestamp": 1790411600587,
+        "lastSubsTimestamp": 1790411900619,
         "history": [
-          {
-            "ts": 1790107019671,
-            "subs": 18200
-          },
           {
             "ts": 1790107319691,
             "subs": 18200
@@ -4741,6 +4737,10 @@
           },
           {
             "ts": 1790411600587,
+            "subs": 18300
+          },
+          {
+            "ts": 1790411900619,
             "subs": 18300
           }
         ],
@@ -49177,6 +49177,30 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 10,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1552713484859482133",
+      {
+        "username": "noble_star_70369",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 6,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -121796,7 +121820,7 @@
         ],
         "intervalMinutes": 15,
         "locked": true,
-        "lastUpdate": 1790411000500
+        "lastUpdate": 1790411900534
       }
     ]
   ],
