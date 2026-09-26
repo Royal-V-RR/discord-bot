@@ -323,7 +323,12 @@
       "1377073493752938526"
     ]
   ],
-  "shadowDelete": [],
+  "shadowDelete": [
+    [
+      "1048053656035020911:1254388539890860083",
+      100
+    ]
+  ],
   "clankerify": [
     [
       "544063175855964190",
@@ -5214,7 +5219,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-27",
-        "xp": 8896,
+        "xp": 8910,
         "level": 32,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -6341,7 +6346,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 1362,
+        "xp": 1372,
         "level": 19,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -7308,7 +7313,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 6405,
+        "xp": 6419,
         "level": 30,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -49135,7 +49140,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 297,
+        "xp": 311,
         "level": 4,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -121673,6 +121678,17 @@
         "mediaKind": "image",
         "guildId": "1245220909149716553",
         "destFolder": "cqc"
+      }
+    ],
+    [
+      "860083muioj8nk",
+      {
+        "submitterId": "1254388539890860083",
+        "fileName": "1254388539890860083__image__quote_1553461907187572919.png",
+        "rawName": "quote_1553461907187572919.png",
+        "mediaKind": "image",
+        "guildId": "1048053656035020911",
+        "destFolder": null
       }
     ]
   ],
