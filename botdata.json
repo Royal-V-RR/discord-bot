@@ -5214,7 +5214,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-27",
-        "xp": 8505,
+        "xp": 8520,
         "level": 32,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -80596,6 +80596,10 @@
     [
       "1553345478567927909",
       "IMG_5619.png"
+    ],
+    [
+      "1553374234456227943",
+      "IMG_4112.png"
     ]
   ],
   "favoritedQuotes": [
@@ -121120,6 +121124,17 @@
       "1553345478567927909",
       {
         "filename": "IMG_5619.png",
+        "voters": [],
+        "guildId": "1048053656035020911",
+        "channelId": "1477294439180537980",
+        "sentToDeleter": false,
+        "type": "quote"
+      }
+    ],
+    [
+      "1553374234456227943",
+      {
+        "filename": "IMG_4112.png",
         "voters": [],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
