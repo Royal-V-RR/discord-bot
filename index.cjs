@@ -528,6 +528,456 @@ const countingChannels = new Map(); // channelId -> { guildId, count, lastUserId
 // tied to a single invoking guild).
 function scopedKey(guildId, userId){ return `${guildId||"global"}:${userId}`; }
 const shadowDelete = new Map(); // scopedKey(guildId,userId) -> percentage (1-100)
+// ── Delete flavor lines (shadowdelete + a user deleting their own message) ──
+// One shared pool of lines, picked at random, sent (no reference to what the
+// deleted message said) when: (a) shadowdelete silently deletes a message, or
+// (b) a user deletes their own message themselves. A deletion made by someone
+// else, or by another RoyalBot feature (clankerify, impersonation, a Jarvis
+// delete_message action, /purge), never sends one.
+const MESSAGE_DELETE_FLAVOR_LINES = [
+  "Must’ve been the wind.",
+  "The Lord giveth message perms, and the Lord taketh them away.",
+  "What message?",
+  "There was never a message here.",
+  "Must be a skill issue.",
+  "I saw nothing.",
+  "Nothing to see here.",
+  "The void has spoken.",
+  "Your message has been selected for deletion.",
+  "Congratulations! Your message has been deemed unnecessary.",
+  "Your message has been promoted to the shadow realm.",
+  "Interesting. I seem to have misplaced that.",
+  "This message was brought to you by poor decisions.",
+  "The council has decided.",
+  "The council has spoken. The message has not.",
+  "Your message failed the vibe check.",
+  "Message.exe has stopped working.",
+  "Message successfully sentn't.",
+  "Oops.",
+  "Anyway.",
+  "Moving on.",
+  "We don't talk about what just happened.",
+  "I have no idea what you're talking about.",
+  "I am just as surprised as you are.",
+  "That was weird. Huh. Anyway...",
+  "The message was never real.",
+  "Your message has been sacrificed for the greater good.",
+  "One message has been taken by the algorithm.",
+  "The algorithm demands a sacrifice.",
+  "A small price to pay for salvation.",
+  "The deletion was foretold.",
+  "It has been decided.",
+  "Your message has been judged.",
+  "Your message has been found wanting.",
+  "The prophecy has been fulfilled.",
+  "Natural causes.",
+  "Probably a bug.",
+  "Definitely not me.",
+  "Don't look at me.",
+  "I didn't do it.",
+  "I was never here.",
+  "This is above my pay grade.",
+  "Please remain calm.",
+  "Please do not investigate.",
+  "Nothing unusual has occurred.",
+  "Everything is functioning exactly as intended.",
+  "This incident has been classified.",
+  "The Department of Message Removal has been notified.",
+  "Your message has been sent to the recycling bin.",
+  "Your message has been carefully reviewed and subsequently regretted.",
+  "We appreciate your sacrifice.",
+  "Thank you for your contribution to science.",
+  "Your message will be missed.",
+  "Gone, but not forgotten.",
+  "F.",
+  "🫡",
+  "Skill issue.",
+  "Thy message hath been stricken from the record.",
+  "The scribe hath deemed thy words unworthy.",
+  "By royal decree, thy message is no more.",
+  "The king hath spoken. Thy message hath not.",
+  "Thy words have been claimed by the abyss.",
+  "The scroll hath been burned.",
+  "The ink hath dried, yet thy words remain not.",
+  "Henceforth, thou shalt speak no more.",
+  "Thy message has been cast into the flames.",
+  "The archives shall remember thee not.",
+  "Thy words have been erased from history.",
+  "By decree of the crown, this message never existed.",
+  "The messenger was slain before delivering thy words.",
+  "The raven hath returned empty-handed.",
+  "The royal scribe hath misplaced thy message.",
+  "Alas, thy message hath fallen from the scroll.",
+  "The parchment hath been confiscated.",
+  "Thy words have offended the court.",
+  "The court finds thy message... disposable.",
+  "The council hath reached its decision.",
+  "The council hath spoken. Thy message hath been silenced.",
+  "Thy message hath been judged and found wanting.",
+  "The gods demand a sacrifice. They chose thy message.",
+  "The heavens have judged thy words.",
+  "Divine intervention hath occurred.",
+  "The Lord giveth messages, and the Lord taketh messages away.",
+  "The bell tolls for thy message.",
+  "Thy message hath met its maker.",
+  "Rest well, fallen message. Thou served thy purpose.",
+  "Here lies a message. It lived briefly.",
+  "A moment of silence for the fallen words.",
+  "Thy message has been banished from the realm.",
+  "Exiled by order of the crown.",
+  "Thou hast been censored by the kingdom.",
+  "The royal censor hath arrived.",
+  "The castle guards have removed thy message.",
+  "The message hath been seized by the king's men.",
+  "By order of His Majesty, nah.",
+  "The king has decided that you didn't say that.",
+  "The king hath reconsidered thy words.",
+  "His Majesty would prefer if thou said nothing.",
+  "Speak thy words again, peasant. Perhaps they shall survive this time.",
+  "Thou hast rolled poorly.",
+  "The dice have spoken. Thy message is gone.",
+  "Fate hath dealt thee an unfortunate hand.",
+  "Thy message hath been claimed by fate.",
+  "The ancient prophecy foretold this deletion.",
+  "It was written. It was read. It was erased.",
+  "Thus concludes thy contribution to the realm.",
+  "And lo, the message was no more.",
+  "Call me deletion.",
+  "It was the best of messages, it was the worst of messages.",
+  "All messages are equal, but some messages are more equal than others.",
+  "Big Brother has deleted your message.",
+  "The message is dead. Long live the message.",
+  "Abandon hope, all ye whose messages are deleted here.",
+  "It was a dark and deletion-filled night.",
+  "The message? It is gone.",
+  "I have no message, and I must scream.",
+  "I have no message, and I must delete.",
+  "HATE. LET ME TELL YOU HOW MUCH I’VE COME TO HATE YOUR MESSAGE SINCE YOU SENT IT.",
+  "Your message has been deemed unworthy of continued existence.",
+  "You died.",
+  "[Message] was slain by RoyalBot.",
+  "[Message] fell from a high place.",
+  "Your message has fallen into the void.",
+  "Your message tried to swim in lava.",
+  "The chat was blown up by Creeper.",
+  "Your message has entered the Nether.",
+  "* The message refused to stay.",
+  "* Your message has been erased.",
+  "* Despite everything, your message is gone.",
+  "* You feel like you’re going to have a bad time.",
+  "* The message is filled with determination.",
+  "* It’s a message. Or was.",
+  "* The [MESSAGE] was thrown away.",
+  "* You encountered the DELETE button.",
+  "MESSAGE DELETED.",
+  "MANKIND IS DEAD. MESSAGE IS FUEL. ROYALBOT IS GOD.",
+  "BE GONE.",
+  "THY MESSAGE IS DEAD.",
+  "JUDGEMENT.",
+  "PREPARE THY MESSAGE.",
+  "CRUSH.",
+  "+DISRESPECT",
+  "+MESSAGE DELETED",
+  "Your message has been sent to Heresy.",
+  "The message was a triumph.",
+  "We do what we must because we can. Your message was deleted.",
+  "This was a triumph. I'm making a note here: huge deletion.",
+  "The Enrichment Center reminds you that your message does not exist.",
+  "You have been given a message. It has now been taken away.",
+  "The cake was a lie. The message was also a lie.",
+  "Rise and shine, Mr. Message.",
+  "The right message in the wrong place can make all the difference in the world.",
+  "Wake up and smell the ashes.",
+  "Your message has been removed from the Black Mesa incident.",
+  "War. War never changes. Messages do.",
+  "Your message has been lost to the wastes.",
+  "Patrolling the Mojave almost makes you wish for a message deletion.",
+  "The message has encountered a critical failure.",
+  "Courier? What courier?",
+  "YOU DIED.",
+  "Message ahead. Therefore, deletion.",
+  "Try message, but hole.",
+  "Git gud.",
+  "Bearer of the deleted message, seek seek lest.",
+  "The message has been felled.",
+  "O message, thou art of passing skill.",
+  "I am Malenia, Blade of Miquella. And I have deleted your message.",
+  "Kept you waiting, huh? Your message is gone.",
+  "A message dies when it is deleted.",
+  "War has changed.",
+  "The message... it was never yours.",
+  "What a thrill...",
+  "Snake? Snake? SNAKE!",
+  "It's dangerous to go alone! Take this deletion.",
+  "Do a barrel roll. Your message won't.",
+  "Wake me when you need me.",
+  "Finish the message.",
+  "Fatality.",
+  "Hadouken!",
+  "Get over here!",
+  "The message is approaching.",
+  "You cannot simply walk into chat.",
+  "One does not simply send a message here.",
+  "My precious message.",
+  "Why did it have to be messages?",
+  "Somehow, the message returned.",
+  "The message has been taken to a farm upstate.",
+  "What is a message? A miserable little pile of permissions.",
+  "You either die a message, or live long enough to see yourself become deleted.",
+  "I am become deletion, destroyer of messages.",
+  "There is no message in Ba Sing Se.",
+  "The message must flow.",
+  "Message? Message? Message?",
+  "It’s over. I have the high ground.",
+  "I am altering the message. Pray I don’t alter it further.",
+  "I have no mouth, and I must scream.",
+  "HATE. LET ME DELETE YOUR MESSAGE.",
+  "Achievement unlocked: Message Deleted.",
+  "The message has been sent to the End.",
+  "The message has been corrupted.",
+  "Despite everything, it’s still deleted.",
+  "Despite everything, your message is still gone.",
+  "Your message has been [BIG SHOT].",
+  "NOW’S YOUR CHANCE TO BE A [DELETED MESSAGE]!",
+  "HEY EVERY !! IT’S YOUR BOY!! THE MESSAGE HAS BEEN [DELETED]!!",
+  "Your message is a [BIG SHOT] no more.",
+  "A [LIMITED TIME OFFER]: your message is gone!",
+  "You’ve been [PIPE DOWN]’d.",
+  "The message has fallen into the Dark World.",
+  "A Dark Fountain has appeared where your message used to be.",
+  "The Roaring has begun. Your message is gone.",
+  "The three heroes have arrived. Unfortunately, your message has not.",
+  "Your message has been sealed away.",
+  "The darkness calls...",
+  "You felt your sins crawling on your back.",
+  "Your message fills you with DETERMINATION.",
+  "You are filled with the power of deletion.",
+  "You have reached the end of the message.",
+  "It’s a lone message. It’s not doing anything.",
+  "The message doesn’t seem to understand what’s happening.",
+  "Your message is now [Hyperlink Blocked].",
+  "Your message has been added to the [Discard Pile].",
+  "You tried to send a message. It refused.",
+  "The message is still thinking about that.",
+  "The message is doing its best.",
+  "The message has no idea what to do.",
+  "You recalled the message.",
+  "You remembered something you already knew.",
+  "The message has been spared.",
+  "You spared the message. RoyalBot did not.",
+  "The message looked like it was going to say something...",
+  "The message was not happy about this.",
+  "The message became very tired.",
+  "You whispered something to the message.",
+  "The message whispered something back.",
+  "The message refused.",
+  "The message refused to be controlled.",
+  "Your SOUL is gone. So is your message.",
+  "Your message became lost in the Cyber World.",
+  "HEY EVERY !! IT’S TIME TO DELETE YOUR [[Message]]!!",
+  "YOU TOO CAN BECOME A [[BIG SHOT]]!! Just not in this chat.",
+  "YOUR MESSAGE HAS BEEN [[DISCONTINUED]]!!",
+  "GET YOUR MESSAGE NOW AT THE LOW LOW PRICE OF [[ONE DELETION]]!!",
+  "WOAH!! THIS MESSAGE IS [[HYPERLINK BLOCKED]]!!",
+  "YOU’RE [[100% OFF]] YOUR MESSAGE!!",
+  "SORRY PAL!! THE [[FREE TRIAL]] HAS ENDED!!",
+  "YOU WANT TO BE A [[BIG SHOT]]? FIRST YOU GOTTA LOSE THE MESSAGE!!",
+  "THIS IS YOUR CHANCE TO BE A [[BIG SHOT]]!!",
+  "YOUR MESSAGE HAS BEEN [[DISCONNECTED]] FROM THE [[INTERNET]]!!",
+  "CALL NOW!! OPERATORS ARE [[NOT]] STANDING BY!!",
+  "YOUR MESSAGE HAS BEEN [[BLOCKED]] BY OUR [HYPERLINK] DEPARTMENT.",
+  "You feel like you’re going to have a bad time.",
+  "It’s a beautiful day outside. Birds are singing, flowers are blooming... and your message is gone.",
+  "You’re gonna have a bad time.",
+  "But nobody came.",
+  "You tried to send a message. But nobody came.",
+  "A message was added to the pile.",
+  "The message was not spared.",
+  "You won’t like what happens next.",
+  "You have died.",
+  "Game Over.",
+  "You cannot give up just yet.",
+  "Stay determined.",
+  "Despite everything... it’s still gone.",
+  "DESTROY.",
+  "+PARRY",
+  "+ENRAGED",
+  "MANKIND IS DEAD.",
+  "MESSAGE IS FUEL.",
+  "ROYALBOT IS ETERNAL.",
+  "YOU CAN’T ESCAPE.",
+  "USELESS.",
+  "THIS WILL HURT.",
+  "YOU ARE NOT GETTING AWAY.",
+  "Machine, what happened to your message?",
+  "The message has entered Heresy.",
+  "I’m making a note here: huge deletion.",
+  "Thank you for helping us help you help us.",
+  "Please proceed to the next test chamber.",
+  "The test is now over.",
+  "The cake was a lie. So was your message.",
+  "Your message has been removed from the testing area.",
+  "Time, Dr. Message? Is it really that time again?",
+  "This message has been removed by the Administrator.",
+  "Gordon doesn’t need to hear all this.",
+  "Forget about Freeman.",
+  "You died. Again.",
+  "Be wary of message.",
+  "Foul message.",
+  "Put these foolish messages to rest.",
+  "Ahh... you were at my side, all along. Your message.",
+  "A message to surpass Metal Gear.",
+  "Message has changed.",
+  "SNAAAAKE!",
+  "You’re pretty good.",
+  "The message is coming from inside the server.",
+  "I see dead messages.",
+  "May the message rest in peace.",
+  "The first rule of the server is: we do not talk about the deleted message.",
+  "Suffer like G did.",
+  "A NEW HAND TOUCHES THE MESSAGE.",
+  "Hey, you. You’re finally awake.",
+  "Stop right there, criminal message!",
+  "You picked the wrong message, fool!",
+  "Protocol 3: Protect the message.",
+  "Trust me.",
+  "Stand by for Titanfall.",
+  "Would you kindly... delete that?",
+  "Would you kindly stop sending messages?",
+  "A corpse should be left well alone.",
+  "Fear the old message.",
+  "Grant us messages.",
+  "A hoonter must hoont. RoyalBot must delete.",
+  "Tonight, the message joins the hunt.",
+  "Wake up, Samurai. We’ve got a message to delete.",
+  "Your message was covered.",
+  "The Void has no use for your message.",
+  "Something survived. Your message did not.",
+  "The dimension is gone. So is the message.",
+  "There was only one survivor. It wasn't your message.",
+  "The Void does not remember your words.",
+  "The portal opened. Your message did not return.",
+  "4736251.",
+  "The number has seen your message.",
+  "Do not follow the message through the portal.",
+  "Your message came from somewhere that no longer exists.",
+  "Something on the other side is reading your message.",
+  "The mask smiled. Then the message disappeared.",
+  "The Void took it.",
+  "It was here before the covering.",
+  "The covering has begun.",
+  "Your message has become a Remnant.",
+  "A Remnant remembers what the world forgot.",
+  "The world forgot your message.",
+  "There is nothing left of the dimension. Check again.",
+  "You shouldn't have looked through that portal.",
+  "The portal is still open. Your message isn't.",
+  "The Void does not destroy things twice.",
+  "Something is wrong with the number.",
+  "The message has been displaced between dimensions.",
+  "This message has no known origin.",
+  "Origin: [REDACTED]",
+  "Destination: [REDACTED]",
+  "Survivor count: 1.",
+  "Survivor count: 0.",
+  "Do not ask what happened to the others.",
+  "The Void event has concluded.",
+  "The Void event is still occurring.",
+  "The scar is still there.",
+  "Something is standing inside the Void Scar.",
+  "The message was never from this dimension.",
+  "It learned your intent before you finished typing.",
+  "It knows what you meant.",
+  "It shouldn't be able to read this.",
+  "The portal shouldn't be here.",
+  "There is no reason for this portal to exist.",
+  "Someone has been here before.",
+  "You have been here before.",
+  "You just don't remember.",
+  "The mask remembers.",
+  "The number remembers.",
+  "Something remembers.",
+  "The message has been archived by the Watcher.",
+  "The Watcher saw this happen.",
+  "IT SAW YOU SEND THAT.",
+  "IT WAS NOT SUPPOSED TO SEE THAT.",
+  "A dimension has been removed from the record.",
+  "One more portal.",
+  "One more message.",
+  "One less world.",
+  "Do not make the same mistake twice.",
+  "There are things beyond the portal.",
+  "There are things beyond the message.",
+  "The Void is not empty.",
+  "The message was covered.",
+  "The message survived. Somehow.",
+  "The message should not have survived.",
+  "It survived for exactly 4736251 milliseconds.",
+  "No one knows why.",
+  "The last thing that dimension saw was your message.",
+  "The first thing the next dimension saw was its deletion.",
+  "Something followed the message here.",
+  "You should not be reading this.",
+  "You are not supposed to know about the Void.",
+  "Fred evaporated your message.",
+  "Royal V- reference.",
+  "Paavan reference.",
+  "Hawky reference.",
+  "Bla- Krow reference.",
+  "Respawn Raccoon reference.",
+  "Me reference.",
+  "This message has been Royal V- approved. Unfortunately, it was deleted.",
+  "Paavan knows what happened.",
+  "Hawky was here five minutes ago.",
+  "Krow was here. Then the message wasn't.",
+  "Respawn Raccoon has respawned your message somewhere else.",
+  "Fred evaporated it. Don't ask how.",
+  "A Royal V- reference has been detected.",
+  "A Paavan reference has been detected.",
+  "A Hawky reference has been detected.",
+  "A Bla- Krow reference has been detected.",
+  "A Respawn Raccoon reference has been detected.",
+  "A me reference has been detected.",
+  "You have triggered the forbidden Royal V- reference.",
+  "You have triggered the Paavan event.",
+  "You have triggered the Hawky protocol.",
+  "You have triggered the Bla- Krow incident.",
+  "You have triggered the Respawn Raccoon contingency.",
+  "You have triggered the me incident.",
+  "The reference was so powerful that your message evaporated.",
+  "Fred has been notified.",
+  "Royal V- knows what you did.",
+  "Paavan knows what you did.",
+  "Hawky knows what you did.",
+  "Krow knows what you did.",
+  "Respawn Raccoon knows what you did.",
+  "I know what you did.",
+  "The references are watching.",
+  "This was a reference. You wouldn't get it.",
+  "If you understood this reference, I'm sorry.",
+  "The council has determined that this is a Royal V- reference.",
+  "Your message has been sacrificed to the lore.",
+  "The lore demanded your message.",
+  "Your message is now canon.",
+  "Unfortunately, canonically, it was deleted."
+];
+function pickDeleteFlavorLine(){
+  return MESSAGE_DELETE_FLAVOR_LINES[Math.floor(Math.random() * MESSAGE_DELETE_FLAVOR_LINES.length)];
+}
+async function sendDeleteFlavorLine(channel){
+  if(!channel) return;
+  try{ await channel.send({ content: pickDeleteFlavorLine() }); }catch(e){ console.error("[deleteFlavor] send failed:", e.message); }
+}
+// messageId -> "shadow" (shadowdelete did this: send a flavor line right away)
+// or "silent" (some other RoyalBot feature did this: never send a flavor line,
+// and skip the audit log lookup below). Untagged deletions fall through to the
+// audit log check to tell a self-delete from a moderator/other-user delete.
+const pendingBotMessageDeletes = new Map();
+function tagBotMessageDelete(messageId, kind){
+  pendingBotMessageDeletes.set(messageId, kind);
+  setTimeout(() => pendingBotMessageDeletes.delete(messageId), 10_000);
+}
+
 // clankerify: scopedKey(guildId,userId) -> { expiresAt: number|null } (null = permanent)
 const clankerify = new Map();
 const inviteComps      = new Map();
@@ -1557,7 +2007,8 @@ const JARVISENHANCE_RUNNERS = {
     return "pinned";
   },
   async delete_message(params, ctx){
-    await ctx.targetMsg.delete();
+    tagBotMessageDelete(ctx.targetMsg.id, "silent");
+    await ctx.targetMsg.delete().catch(e=>{ pendingBotMessageDeletes.delete(ctx.targetMsg.id); throw e; });
     return "deleted";
   },
   async add_reaction(params, ctx){
@@ -5582,6 +6033,43 @@ client.once("ready", async () => {
   }
 });
 
+client.on("messageDelete", async msg => {
+  try{
+    const tag = pendingBotMessageDeletes.get(msg.id);
+    if(tag) pendingBotMessageDeletes.delete(msg.id);
+    if(tag === "silent") return; // some other RoyalBot feature deleted this on purpose
+
+    if(tag === "shadow"){ await sendDeleteFlavorLine(msg.channel); return; }
+
+    // Not a tagged RoyalBot deletion: a real Discord delete, by either the
+    // author or someone else. Partial messages with no cached author can't be
+    // told apart, so those are skipped rather than guessed at.
+    if(msg.partial || !msg.author || msg.author.bot) return;
+    if(!msg.guild) return; // DMs have no audit log to check against
+
+    const me = msg.guild.members.me;
+    if(!me || !me.permissions.has("VIEW_AUDIT_LOG")){
+      console.error("[deleteFlavor] missing View Audit Log permission in", msg.guild.id, "- skipping self-delete check");
+      return;
+    }
+
+    // Discord only logs MESSAGE_DELETE when someone deletes another user's
+    // message; a real self-delete never appears here. Give the log a moment
+    // to catch up, then look for a very recent entry matching this message's
+    // author and channel. Found = someone else deleted it, so stay quiet.
+    await new Promise(res => setTimeout(res, 1200));
+    const logs = await msg.guild.fetchAuditLogs({ type: "MESSAGE_DELETE", limit: 5 }).catch(() => null);
+    const matchingEntry = logs ? [...logs.entries.values()].find(entry =>
+      entry.target?.id === msg.author.id &&
+      entry.extra?.channel?.id === msg.channel.id &&
+      (Date.now() - entry.createdTimestamp) < 10_000
+    ) : null;
+    if(matchingEntry) return; // someone else deleted this user's message
+
+    await sendDeleteFlavorLine(msg.channel);
+  }catch(e){ console.error("[deleteFlavor] messageDelete handler error:", e.message); }
+});
+
 client.on("guildCreate", async g => {
   console.log(`Joined: ${g.name} (${g.id})`);
   // Register guild only commands instantly when joining a new server
@@ -5938,7 +6426,8 @@ client.on("messageCreate",async msg=>{
 
   const shadowPct=shadowDelete.get(scopedKey(msg.guild.id, msg.author.id));
   if(shadowPct&&Math.random()*100<shadowPct){
-    msg.delete().catch(()=>{});
+    tagBotMessageDelete(msg.id, "shadow");
+    msg.delete().catch(()=>{ pendingBotMessageDeletes.delete(msg.id); });
   }
 
   // ── Clankerify: delete message and resend via webhook as the user ───────────
@@ -5971,7 +6460,8 @@ client.on("messageCreate",async msg=>{
           } catch(e) { console.error("[clank attach download]", e.message); }
         }
 
-        await msg.delete().catch(()=>{});
+        tagBotMessageDelete(msg.id, "silent");
+        await msg.delete().catch(()=>{ pendingBotMessageDeletes.delete(msg.id); });
 
         const member = await msg.guild.members.fetch(msg.author.id).catch(()=>null);
         const originalName = member?.displayName || msg.author.displayName || msg.author.globalName || msg.author.username;
@@ -11510,7 +12000,8 @@ if(cmd==="divorce"){
         if(old.length){
           await safeReply(interaction,{content:`⏳ Deleting **${old.length}** old message(s) one by one, this may take a moment…`,ephemeral:true});
           for(const m of old){
-            await m.delete().catch(()=>{});
+            tagBotMessageDelete(m.id, "silent");
+            await m.delete().catch(()=>{ pendingBotMessageDeletes.delete(m.id); });
             deletedCount++;
             await new Promise(res=>setTimeout(res,1000)); // 1 second delay to avoid rate limits
           }
