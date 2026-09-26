@@ -4778,8 +4778,8 @@
       "1515972755424673902",
       {
         "guildId": "1048053656035020911",
-        "count": 0,
-        "lastUserId": null,
+        "count": 1,
+        "lastUserId": "1530177135480799400",
         "highScore": 323
       }
     ]
@@ -49905,6 +49905,30 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 6,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1530177135480799400",
+      {
+        "username": "thereal_lans",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 12,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
