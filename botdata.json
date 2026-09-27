@@ -749,12 +749,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18300,
-        "lastSubsTimestamp": 1790529314150,
+        "lastSubsTimestamp": 1790529614161,
         "history": [
-          {
-            "ts": 1790225123298,
-            "subs": 18300
-          },
           {
             "ts": 1790225423257,
             "subs": 18300
@@ -4749,6 +4745,10 @@
           },
           {
             "ts": 1790529314150,
+            "subs": 18300
+          },
+          {
+            "ts": 1790529614161,
             "subs": 18300
           }
         ],
@@ -50775,6 +50775,30 @@
       "1524626631552143510",
       {
         "username": "bubbless0_1",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 9,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1379853097223852113",
+      {
+        "username": "revv_guy",
         "wins": 0,
         "gamesPlayed": 0,
         "coins": 0,
