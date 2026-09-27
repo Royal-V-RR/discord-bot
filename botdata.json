@@ -82238,7 +82238,7 @@
     [
       "690219723472109616",
       {
-        "flagged": 12,
+        "flagged": 13,
         "deleted": 9
       }
     ],
@@ -82434,6 +82434,12 @@
       "1193150033864949811_Screenshot_20260530_174543_Discord.jpg",
       [
         "363149593787105291"
+      ]
+    ],
+    [
+      "If talking is power what are you without it.png",
+      [
+        "690219723472109616"
       ]
     ]
   ],
@@ -122810,10 +122816,12 @@
       "1553786964225036459",
       {
         "filename": "If talking is power what are you without it.png",
-        "voters": [],
+        "voters": [
+          "690219723472109616"
+        ],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
-        "sentToDeleter": false,
+        "sentToDeleter": true,
         "type": "quote"
       }
     ],
