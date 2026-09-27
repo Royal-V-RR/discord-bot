@@ -5717,7 +5717,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 2507,
+        "xp": 2517,
         "level": 26,
         "lastWorkTime": 1778752522595,
         "lastBegTime": 0,
@@ -81454,7 +81454,7 @@
     [
       "690219723472109616",
       {
-        "flagged": 11,
+        "flagged": 12,
         "deleted": 8
       }
     ],
@@ -81650,6 +81650,12 @@
       "1193150033864949811_Screenshot_20260530_174543_Discord.jpg",
       [
         "363149593787105291"
+      ]
+    ],
+    [
+      "IMG_4112.png",
+      [
+        "690219723472109616"
       ]
     ]
   ],
@@ -121791,10 +121797,12 @@
       "1553374234456227943",
       {
         "filename": "IMG_4112.png",
-        "voters": [],
+        "voters": [
+          "690219723472109616"
+        ],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
-        "sentToDeleter": false,
+        "sentToDeleter": true,
         "type": "quote"
       }
     ],
