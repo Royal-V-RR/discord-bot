@@ -50718,6 +50718,30 @@
         "forceMarried": false,
         "uploadedImages": []
       }
+    ],
+    [
+      "1506962494869209159",
+      {
+        "username": "ark04088",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 5,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
     ]
   ],
   "activeEffects": [],
@@ -81963,6 +81987,10 @@
     [
       "1553707805720973322",
       "IMG_5658.png"
+    ],
+    [
+      "1553786827222290594",
+      "quote_378.jpg"
     ]
   ],
   "favoritedQuotes": [
@@ -122658,6 +122686,17 @@
       "1553707805720973322",
       {
         "filename": "IMG_5658.png",
+        "voters": [],
+        "guildId": "1048053656035020911",
+        "channelId": "1477294439180537980",
+        "sentToDeleter": false,
+        "type": "quote"
+      }
+    ],
+    [
+      "1553786827222290594",
+      {
+        "filename": "quote_378.jpg",
         "voters": [],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
