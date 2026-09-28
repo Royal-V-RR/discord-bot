@@ -741,12 +741,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18300,
-        "lastSubsTimestamp": 1790590339420,
+        "lastSubsTimestamp": 1790590639409,
         "history": [
-          {
-            "ts": 1790286063490,
-            "subs": 18300
-          },
           {
             "ts": 1790286363506,
             "subs": 18300
@@ -4742,6 +4738,10 @@
           {
             "ts": 1790590339420,
             "subs": 18300
+          },
+          {
+            "ts": 1790590639409,
+            "subs": 18300
           }
         ],
         "subcountDiscordId": "1483595393999700080",
@@ -5214,7 +5214,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-27",
-        "xp": 933,
+        "xp": 946,
         "level": 33,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -50944,6 +50944,30 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 34,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1326101557216935987",
+      {
+        "username": "jima__gr",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 6,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
