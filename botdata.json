@@ -741,12 +741,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18400,
-        "lastSubsTimestamp": 1790594823180,
+        "lastSubsTimestamp": 1790595123164,
         "history": [
-          {
-            "ts": 1790290263604,
-            "subs": 18300
-          },
           {
             "ts": 1790290563622,
             "subs": 18300
@@ -4741,6 +4737,10 @@
           },
           {
             "ts": 1790594823180,
+            "subs": 18400
+          },
+          {
+            "ts": 1790595123164,
             "subs": 18400
           }
         ],
@@ -50985,6 +50985,30 @@
       "1542928524338397190",
       {
         "username": "croniquees",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 15,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1387409751645618407",
+      {
+        "username": "boiz_12",
         "wins": 0,
         "gamesPlayed": 0,
         "coins": 0,
