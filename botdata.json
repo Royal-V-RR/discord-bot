@@ -741,12 +741,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18400,
-        "lastSubsTimestamp": 1790684196229,
+        "lastSubsTimestamp": 1790684496197,
         "history": [
-          {
-            "ts": 1790380109289,
-            "subs": 18300
-          },
           {
             "ts": 1790380409286,
             "subs": 18300
@@ -4742,6 +4738,10 @@
           {
             "ts": 1790684196229,
             "subs": 18400
+          },
+          {
+            "ts": 1790684496197,
+            "subs": 18400
           }
         ],
         "subcountDiscordId": "1483595393999700080",
@@ -5008,7 +5008,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-15",
-        "xp": 6946,
+        "xp": 6956,
         "level": 27,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -52193,6 +52193,30 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 14,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1211700196459675658",
+      {
+        "username": "a2xre",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 12,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -126331,7 +126355,7 @@
         ],
         "intervalMinutes": 15,
         "locked": true,
-        "lastUpdate": 1790683596067
+        "lastUpdate": 1790684496085
       }
     ]
   ],
