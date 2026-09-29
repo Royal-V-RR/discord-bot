@@ -741,12 +741,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18400,
-        "lastSubsTimestamp": 1790698896615,
+        "lastSubsTimestamp": 1790699232790,
         "history": [
-          {
-            "ts": 1790395130867,
-            "subs": 18300
-          },
           {
             "ts": 1790395430870,
             "subs": 18300
@@ -4741,6 +4737,10 @@
           },
           {
             "ts": 1790698896615,
+            "subs": 18400
+          },
+          {
+            "ts": 1790699232790,
             "subs": 18400
           }
         ],
@@ -52313,6 +52313,30 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 12,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1501925908976636014",
+      {
+        "username": "darsh_bhau.",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 14,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
