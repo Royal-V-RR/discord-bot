@@ -741,12 +741,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18400,
-        "lastSubsTimestamp": 1790796212286,
+        "lastSubsTimestamp": 1790796512263,
         "history": [
-          {
-            "ts": 1790492225978,
-            "subs": 18300
-          },
           {
             "ts": 1790492525984,
             "subs": 18300
@@ -4742,6 +4738,10 @@
           {
             "ts": 1790796212286,
             "subs": 18400
+          },
+          {
+            "ts": 1790796512263,
+            "subs": 18400
           }
         ],
         "subcountDiscordId": "1483595393999700080",
@@ -5214,7 +5214,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-27",
-        "xp": 1763,
+        "xp": 1776,
         "level": 33,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -42010,7 +42010,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 248,
+        "xp": 257,
         "level": 4,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -47612,7 +47612,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 67,
+        "xp": 78,
         "level": 3,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -50972,7 +50972,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 71,
+        "xp": 94,
         "level": 2,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -53488,6 +53488,30 @@
       "1554907866589167646",
       {
         "username": "avacampbell547ec",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 12,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1554907733717680152",
+      {
+        "username": "kevinlewis60956",
         "wins": 0,
         "gamesPlayed": 0,
         "coins": 0,
