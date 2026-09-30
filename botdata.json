@@ -5214,7 +5214,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-27",
-        "xp": 1457,
+        "xp": 1472,
         "level": 33,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -7313,7 +7313,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 7738,
+        "xp": 7757,
         "level": 30,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -7323,7 +7323,7 @@
         "marriedTo": null,
         "pendingProposal": null,
         "forceMarried": false,
-        "imagesUploaded": 244,
+        "imagesUploaded": 245,
         "uploadedImages": [
           "quote_1497935819296477225.png",
           "IMG_7931.png",
@@ -7551,7 +7551,8 @@
           "quote_467.png",
           "quote_468.png",
           "quote_473.png",
-          "quote_475.png"
+          "quote_475.png",
+          "quote_477.png"
         ],
         "lastFishTime": 0,
         "lastMineTime": 0,
@@ -32785,7 +32786,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 2162,
+        "xp": 2172,
         "level": 15,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -52852,6 +52853,32 @@
         "imagesUploaded": 0,
         "forceMarried": false,
         "uploadedImages": []
+      }
+    ],
+    [
+      "860083muo9dwe",
+      {
+        "username": null,
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 0,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 1,
+        "forceMarried": false,
+        "uploadedImages": [
+          "quote_478.jpg"
+        ]
       }
     ]
   ],
@@ -127041,17 +127068,6 @@
         "guildId": "1245220909149716553",
         "destFolder": "cqc"
       }
-    ],
-    [
-      "860083muo9dwev",
-      {
-        "submitterId": "1254388539890860083",
-        "fileName": "1254388539890860083__image__IMG_0099.png",
-        "rawName": "IMG_0099.png",
-        "mediaKind": "image",
-        "guildId": "1048053656035020911",
-        "destFolder": null
-      }
     ]
   ],
   "quoteGuildConfigs": [
@@ -127081,7 +127097,7 @@
     ]
   ],
   "uploadCounters": {
-    "quote": 476,
+    "quote": 478,
     "eardestroyer": 1,
     "eyebleacher": 3
   },
