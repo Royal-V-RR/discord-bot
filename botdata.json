@@ -741,12 +741,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18400,
-        "lastSubsTimestamp": 1790795012212,
+        "lastSubsTimestamp": 1790795312205,
         "history": [
-          {
-            "ts": 1790491025919,
-            "subs": 18300
-          },
           {
             "ts": 1790491325927,
             "subs": 18300
@@ -4741,6 +4737,10 @@
           },
           {
             "ts": 1790795012212,
+            "subs": 18400
+          },
+          {
+            "ts": 1790795312205,
             "subs": 18400
           }
         ],
@@ -35472,7 +35472,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 2154,
+        "xp": 2167,
         "level": 13,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -35784,7 +35784,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 775,
+        "xp": 787,
         "level": 9,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -47612,7 +47612,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 31,
+        "xp": 41,
         "level": 3,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -53351,6 +53351,30 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 11,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1554908110898995396",
+      {
+        "username": "anthony268_da14",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 15,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -128447,7 +128471,7 @@
         ],
         "intervalMinutes": 15,
         "locked": true,
-        "lastUpdate": 1790794412097
+        "lastUpdate": 1790795312104
       }
     ]
   ],
