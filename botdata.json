@@ -85629,6 +85629,10 @@
     [
       "1555054068823625808",
       "Are you a terrorist.png"
+    ],
+    [
+      "1555054094920450078",
+      "quote_242.png"
     ]
   ],
   "favoritedQuotes": [
@@ -128260,6 +128264,17 @@
       "1555054068823625808",
       {
         "filename": "Are you a terrorist.png",
+        "voters": [],
+        "guildId": "1048053656035020911",
+        "channelId": "1477294439180537980",
+        "sentToDeleter": false,
+        "type": "quote"
+      }
+    ],
+    [
+      "1555054094920450078",
+      {
+        "filename": "quote_242.png",
         "voters": [],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
