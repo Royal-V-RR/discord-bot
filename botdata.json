@@ -53788,7 +53788,7 @@
       {
         "channelId": "1408975997272854611",
         "hour": 9,
-        "_lastFire": "1408975996715139084:2026-8-30:9"
+        "_lastFire": "1408975996715139084:2026-9-1:9"
       }
     ],
     [
@@ -85767,6 +85767,10 @@
     [
       "1555054240559267921",
       "quote_151.png"
+    ],
+    [
+      "1555142477407723580",
+      "judges be like.jpeg"
     ]
   ],
   "favoritedQuotes": [
@@ -128478,6 +128482,17 @@
         "voters": [],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
+        "sentToDeleter": false,
+        "type": "quote"
+      }
+    ],
+    [
+      "1555142477407723580",
+      {
+        "filename": "judges be like.jpeg",
+        "voters": [],
+        "guildId": "1408975996715139084",
+        "channelId": "1408975997272854611",
         "sentToDeleter": false,
         "type": "quote"
       }
