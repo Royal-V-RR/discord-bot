@@ -743,12 +743,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18400,
-        "lastSubsTimestamp": 1790865270453,
+        "lastSubsTimestamp": 1790865570397,
         "history": [
-          {
-            "ts": 1790561355912,
-            "subs": 18300
-          },
           {
             "ts": 1790561656183,
             "subs": 18300
@@ -4743,6 +4739,10 @@
           },
           {
             "ts": 1790865270453,
+            "subs": 18400
+          },
+          {
+            "ts": 1790865570397,
             "subs": 18400
           }
         ],
@@ -54314,6 +54314,54 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 15,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1068183118529445888",
+      {
+        "username": "im_not_koko",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 9,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1548908318771384362",
+      {
+        "username": "mobst3rcodes",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 11,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
