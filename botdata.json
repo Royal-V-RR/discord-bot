@@ -743,12 +743,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18400,
-        "lastSubsTimestamp": 1790895004522,
+        "lastSubsTimestamp": 1790895304497,
         "history": [
-          {
-            "ts": 1790590939428,
-            "subs": 18300
-          },
           {
             "ts": 1790591523069,
             "subs": 18400
@@ -4743,6 +4739,10 @@
           },
           {
             "ts": 1790895004522,
+            "subs": 18400
+          },
+          {
+            "ts": 1790895304497,
             "subs": 18400
           }
         ],
@@ -55086,6 +55086,30 @@
         "lastDailyDate": "",
         "xp": 8,
         "level": 2,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "877778798479810621",
+      {
+        "username": "rinasbun",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 7,
+        "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
         "lastCrimeTime": 0,
@@ -130938,7 +130962,7 @@
         ],
         "intervalMinutes": 15,
         "locked": true,
-        "lastUpdate": 1790894404413
+        "lastUpdate": 1790895304425
       }
     ]
   ],
