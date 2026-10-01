@@ -743,12 +743,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18400,
-        "lastSubsTimestamp": 1790891404429,
+        "lastSubsTimestamp": 1790891704455,
         "history": [
-          {
-            "ts": 1790587339325,
-            "subs": 18300
-          },
           {
             "ts": 1790587639368,
             "subs": 18300
@@ -4744,6 +4740,10 @@
           {
             "ts": 1790891404429,
             "subs": 18400
+          },
+          {
+            "ts": 1790891704455,
+            "subs": 18400
           }
         ],
         "subcountDiscordId": "1483595393999700080",
@@ -7318,7 +7318,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 100,
+        "xp": 115,
         "level": 31,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -42160,7 +42160,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 579,
+        "xp": 592,
         "level": 7,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -54988,7 +54988,31 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 6,
+        "xp": 12,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1524953328289710180",
+      {
+        "username": "magic_kinda_man98",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 10,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -130842,7 +130866,7 @@
         ],
         "intervalMinutes": 15,
         "locked": true,
-        "lastUpdate": 1790890804342
+        "lastUpdate": 1790891704361
       }
     ]
   ],
