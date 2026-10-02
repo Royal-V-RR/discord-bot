@@ -5216,7 +5216,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-27",
-        "xp": 2992,
+        "xp": 2998,
         "level": 33,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -7319,7 +7319,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 588,
+        "xp": 595,
         "level": 31,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -32810,7 +32810,7 @@
         "inventory": [],
         "marriedTo": "1480592876684706064",
         "pendingProposal": null,
-        "imagesUploaded": 14,
+        "imagesUploaded": 15,
         "forceMarried": true,
         "uploadedImages": [
           "quote_105.jpg",
@@ -32826,7 +32826,8 @@
           "quote_390.jpg",
           "quote_395.jpg",
           "quote_453.jpg",
-          "quote_488.jpg"
+          "quote_488.jpg",
+          "quote_493.jpg"
         ]
       }
     ],
@@ -40029,7 +40030,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 364,
+        "xp": 375,
         "level": 6,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -131894,17 +131895,6 @@
         "guildId": "1245220909149716553",
         "destFolder": "cqc"
       }
-    ],
-    [
-      "604194murbvqx3",
-      {
-        "submitterId": "1213866609362604194",
-        "fileName": "1213866609362604194__image__Screenshot_2026_10_02_22_00_04_685_edit_com.discord.jpg",
-        "rawName": "Screenshot_2026_10_02_22_00_04_685_edit_com.discord.jpg",
-        "mediaKind": "image",
-        "guildId": "1048053656035020911",
-        "destFolder": null
-      }
     ]
   ],
   "quoteGuildConfigs": [
@@ -131934,7 +131924,7 @@
     ]
   ],
   "uploadCounters": {
-    "quote": 492,
+    "quote": 493,
     "eardestroyer": 1,
     "eyebleacher": 3
   },
