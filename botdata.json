@@ -743,12 +743,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18400,
-        "lastSubsTimestamp": 1790972231608,
+        "lastSubsTimestamp": 1790972531592,
         "history": [
-          {
-            "ts": 1790667859790,
-            "subs": 18400
-          },
           {
             "ts": 1790668159808,
             "subs": 18400
@@ -4743,6 +4739,10 @@
           },
           {
             "ts": 1790972231608,
+            "subs": 18400
+          },
+          {
+            "ts": 1790972531592,
             "subs": 18400
           }
         ],
@@ -18303,7 +18303,7 @@
         "dailyStreak": 1,
         "bestStreak": 4,
         "lastDailyDate": "2026-06-13",
-        "xp": 1252,
+        "xp": 1262,
         "level": 19,
         "lastWorkTime": 1778166713164,
         "lastBegTime": 1778166374950,
@@ -18367,7 +18367,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 585,
+        "xp": 598,
         "level": 19,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -29826,7 +29826,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 224,
+        "xp": 230,
         "level": 10,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -35753,7 +35753,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 402,
+        "xp": 408,
         "level": 12,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -55816,6 +55816,78 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 20,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1443389751909683210",
+      {
+        "username": "locustforit",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 5,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1361667843858497596",
+      {
+        "username": "lamineyamaly2k",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 12,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1086202461552906260",
+      {
+        "username": "bluejay1457",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 12,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
