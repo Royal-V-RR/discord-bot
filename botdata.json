@@ -87678,7 +87678,7 @@
     [
       "969280648667889764",
       {
-        "flagged": 18,
+        "flagged": 19,
         "deleted": 15
       }
     ],
@@ -87906,6 +87906,12 @@
       "quote_29.png",
       [
         "1254388539890860083"
+      ]
+    ],
+    [
+      "Beating Minecraft while jorking it.png",
+      [
+        "969280648667889764"
       ]
     ]
   ],
@@ -130634,10 +130640,12 @@
       "1555417059565899970",
       {
         "filename": "Beating Minecraft while jorking it.png",
-        "voters": [],
+        "voters": [
+          "969280648667889764"
+        ],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
-        "sentToDeleter": false,
+        "sentToDeleter": true,
         "type": "quote"
       }
     ],
