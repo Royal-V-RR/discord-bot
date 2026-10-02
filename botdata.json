@@ -18169,8 +18169,10 @@
         "marriedTo": null,
         "pendingProposal": null,
         "forceMarried": false,
-        "imagesUploaded": 0,
-        "uploadedImages": []
+        "imagesUploaded": 1,
+        "uploadedImages": [
+          "quote_487.jpg"
+        ]
       }
     ],
     [
@@ -131388,17 +131390,6 @@
       }
     ],
     [
-      "632552muqz46ds",
-      {
-        "submitterId": "1497010899645632552",
-        "fileName": "1497010899645632552__image__C93850EE_E2AD_4E74_AAC4_35320EBC32EE.jpg",
-        "rawName": "C93850EE_E2AD_4E74_AAC4_35320EBC32EE.jpg",
-        "mediaKind": "image",
-        "guildId": "1048053656035020911",
-        "destFolder": null
-      }
-    ],
-    [
       "604194mur2ln45",
       {
         "submitterId": "1213866609362604194",
@@ -131437,7 +131428,7 @@
     ]
   ],
   "uploadCounters": {
-    "quote": 486,
+    "quote": 487,
     "eardestroyer": 1,
     "eyebleacher": 3
   },
