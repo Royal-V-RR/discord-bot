@@ -743,12 +743,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18400,
-        "lastSubsTimestamp": 1791064038229,
+        "lastSubsTimestamp": 1791064338204,
         "history": [
-          {
-            "ts": 1790759799053,
-            "subs": 18400
-          },
           {
             "ts": 1790760099098,
             "subs": 18400
@@ -4743,6 +4739,10 @@
           },
           {
             "ts": 1791064038229,
+            "subs": 18400
+          },
+          {
+            "ts": 1791064338204,
             "subs": 18400
           }
         ],
@@ -36046,7 +36046,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 225,
+        "xp": 237,
         "level": 6,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -56561,6 +56561,30 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 13,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1024704068192583720",
+      {
+        "username": "hollow9ine",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 6,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -133615,7 +133639,7 @@
         ],
         "intervalMinutes": 15,
         "locked": true,
-        "lastUpdate": 1791063438131
+        "lastUpdate": 1791064338142
       }
     ]
   ],
