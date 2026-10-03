@@ -89171,6 +89171,10 @@
     [
       "1556074001317499082",
       "quote_8.jpg"
+    ],
+    [
+      "1556074026122874960",
+      "mommy.png"
     ]
   ],
   "favoritedQuotes": [
@@ -133068,6 +133072,17 @@
       "1556074001317499082",
       {
         "filename": "quote_8.jpg",
+        "voters": [],
+        "guildId": "1408975996715139084",
+        "channelId": "1408975997272854611",
+        "sentToDeleter": false,
+        "type": "quote"
+      }
+    ],
+    [
+      "1556074026122874960",
+      {
+        "filename": "mommy.png",
         "voters": [],
         "guildId": "1408975996715139084",
         "channelId": "1408975997272854611",
