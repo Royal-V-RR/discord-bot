@@ -334,13 +334,6 @@
         "mode": "uwu",
         "ownerClanked": true
       }
-    ],
-    [
-      "1048053656035020911:690219723472109616",
-      {
-        "expiresAt": 1791065611679,
-        "mode": "tuxedo"
-      }
     ]
   ],
   "theCountChannels": [
@@ -36053,7 +36046,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 278,
+        "xp": 285,
         "level": 6,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -132843,9 +132836,7 @@
   "selfClankUsers": [
     [
       "1048053656035020911",
-      [
-        "690219723472109616"
-      ]
+      []
     ],
     [
       "1408975996715139084",
@@ -132856,7 +132847,12 @@
       []
     ]
   ],
-  "selfClankCooldown": [],
+  "selfClankCooldown": [
+    [
+      "690219723472109616",
+      1791066211703
+    ]
+  ],
   "pendingReviews": [
     [
       "821276msisi82v",
