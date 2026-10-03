@@ -743,12 +743,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18400,
-        "lastSubsTimestamp": 1791060438155,
+        "lastSubsTimestamp": 1791060738164,
         "history": [
-          {
-            "ts": 1790756198924,
-            "subs": 18400
-          },
           {
             "ts": 1790756498937,
             "subs": 18400
@@ -4744,6 +4740,10 @@
           {
             "ts": 1791060438155,
             "subs": 18400
+          },
+          {
+            "ts": 1791060738164,
+            "subs": 18400
           }
         ],
         "subcountDiscordId": "1483595393999700080",
@@ -6493,7 +6493,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 1268,
+        "xp": 1275,
         "level": 14,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -6566,7 +6566,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 1292,
+        "xp": 1304,
         "level": 20,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -35754,7 +35754,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 617,
+        "xp": 628,
         "level": 12,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -42172,7 +42172,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 907,
+        "xp": 913,
         "level": 7,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -42628,7 +42628,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 388,
+        "xp": 394,
         "level": 4,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -47630,7 +47630,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 50,
+        "xp": 60,
         "level": 5,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -133567,7 +133567,7 @@
         ],
         "intervalMinutes": 15,
         "locked": true,
-        "lastUpdate": 1791059838051
+        "lastUpdate": 1791060738068
       }
     ]
   ],
