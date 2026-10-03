@@ -743,12 +743,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18400,
-        "lastSubsTimestamp": 1791064038229,
+        "lastSubsTimestamp": 1791064338204,
         "history": [
-          {
-            "ts": 1790759799053,
-            "subs": 18400
-          },
           {
             "ts": 1790760099098,
             "subs": 18400
@@ -4744,6 +4740,10 @@
           {
             "ts": 1791064038229,
             "subs": 18400
+          },
+          {
+            "ts": 1791064338204,
+            "subs": 18400
           }
         ],
         "subcountDiscordId": "1483595393999700080",
@@ -4780,8 +4780,8 @@
       "1515972755424673902",
       {
         "guildId": "1048053656035020911",
-        "count": 7,
-        "lastUserId": "922582069979275325",
+        "count": 8,
+        "lastUserId": "1391972162285604966",
         "highScore": 323
       }
     ]
@@ -5216,7 +5216,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-27",
-        "xp": 4072,
+        "xp": 4078,
         "level": 33,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -9288,7 +9288,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 447,
+        "xp": 462,
         "level": 12,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -35082,7 +35082,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 1889,
+        "xp": 1894,
         "level": 12,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -56561,6 +56561,30 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 13,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1024704068192583720",
+      {
+        "username": "hollow9ine",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 12,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -133615,7 +133639,7 @@
         ],
         "intervalMinutes": 15,
         "locked": true,
-        "lastUpdate": 1791063438131
+        "lastUpdate": 1791064338142
       }
     ]
   ],
