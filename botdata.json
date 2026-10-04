@@ -743,12 +743,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18500,
-        "lastSubsTimestamp": 1791122154837,
+        "lastSubsTimestamp": 1791122454855,
         "history": [
-          {
-            "ts": 1790818104160,
-            "subs": 18400
-          },
           {
             "ts": 1790818404166,
             "subs": 18400
@@ -4744,6 +4740,10 @@
           {
             "ts": 1791122154837,
             "subs": 18500
+          },
+          {
+            "ts": 1791122454855,
+            "subs": 18500
           }
         ],
         "subcountDiscordId": "1483595393999700080",
@@ -5216,7 +5216,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-27",
-        "xp": 4540,
+        "xp": 4548,
         "level": 33,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -5725,7 +5725,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 3193,
+        "xp": 3200,
         "level": 26,
         "lastWorkTime": 1778752522595,
         "lastBegTime": 0,
@@ -57067,6 +57067,30 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 8,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1227705581813366856",
+      {
+        "username": "_akshat03",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 14,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
