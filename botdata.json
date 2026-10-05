@@ -35827,7 +35827,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 1375,
+        "xp": 1389,
         "level": 10,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -90119,6 +90119,10 @@
     [
       "1556502924815765565",
       "fucking important.png"
+    ],
+    [
+      "1556502988434972764",
+      "Screenshot_20260530_221441.jpg"
     ]
   ],
   "favoritedQuotes": [
@@ -134103,6 +134107,17 @@
         "sentToDeleter": false,
         "type": "quote"
       }
+    ],
+    [
+      "1556502988434972764",
+      {
+        "filename": "Screenshot_20260530_221441.jpg",
+        "voters": [],
+        "guildId": "1048053656035020911",
+        "channelId": "1477294439180537980",
+        "sentToDeleter": false,
+        "type": "quote"
+      }
     ]
   ],
   "selfClankUsers": [
@@ -135058,7 +135073,7 @@
         ],
         "intervalMinutes": 15,
         "locked": true,
-        "lastUpdate": 1791168717892
+        "lastUpdate": 1791169617899
       }
     ]
   ],
