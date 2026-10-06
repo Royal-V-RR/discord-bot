@@ -91355,6 +91355,10 @@
     [
       "1557027661899898951",
       "quote_419.png"
+    ],
+    [
+      "1557096157132497068",
+      "quote_1499764163713699912.png"
     ]
   ],
   "favoritedQuotes": [
@@ -136479,6 +136483,17 @@
         "voters": [],
         "guildId": "1510645922604781821",
         "channelId": "1510645923498295347",
+        "sentToDeleter": false,
+        "type": "quote"
+      }
+    ],
+    [
+      "1557096157132497068",
+      {
+        "filename": "quote_1499764163713699912.png",
+        "voters": [],
+        "guildId": "1048053656035020911",
+        "channelId": "1477294439180537980",
         "sentToDeleter": false,
         "type": "quote"
       }
