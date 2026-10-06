@@ -743,12 +743,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18500,
-        "lastSubsTimestamp": 1791310799130,
+        "lastSubsTimestamp": 1791311099145,
         "history": [
-          {
-            "ts": 1790998015318,
-            "subs": 18400
-          },
           {
             "ts": 1790998315295,
             "subs": 18400
@@ -4743,6 +4739,10 @@
           },
           {
             "ts": 1791310799130,
+            "subs": 18500
+          },
+          {
+            "ts": 1791311099145,
             "subs": 18500
           }
         ],
@@ -91383,6 +91383,14 @@
     [
       "1557096312263016512",
       "quote_1497964566800367730.png"
+    ],
+    [
+      "1557096335134560336",
+      "quote_47.png"
+    ],
+    [
+      "1557096346496933968",
+      "quote_429.png"
     ]
   ],
   "favoritedQuotes": [
@@ -136581,6 +136589,28 @@
       "1557096312263016512",
       {
         "filename": "quote_1497964566800367730.png",
+        "voters": [],
+        "guildId": "1048053656035020911",
+        "channelId": "1477294439180537980",
+        "sentToDeleter": false,
+        "type": "quote"
+      }
+    ],
+    [
+      "1557096335134560336",
+      {
+        "filename": "quote_47.png",
+        "voters": [],
+        "guildId": "1048053656035020911",
+        "channelId": "1477294439180537980",
+        "sentToDeleter": false,
+        "type": "quote"
+      }
+    ],
+    [
+      "1557096346496933968",
+      {
+        "filename": "quote_429.png",
         "voters": [],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
