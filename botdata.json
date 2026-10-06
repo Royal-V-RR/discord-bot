@@ -5216,7 +5216,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-27",
-        "xp": 6166,
+        "xp": 6173,
         "level": 33,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -58234,7 +58234,7 @@
       {
         "channelId": "1477294439180537980",
         "hour": 10,
-        "_lastFire": "1048053656035020911:2026-9-5:10"
+        "_lastFire": "1048053656035020911:2026-9-6:10"
       }
     ],
     [
@@ -91032,6 +91032,10 @@
     [
       "1556954210032164959",
       "Beb_stomach_ache.png"
+    ],
+    [
+      "1556969309450936371",
+      "quote_1497975070637822135.png"
     ]
   ],
   "favoritedQuotes": [
@@ -135794,6 +135798,17 @@
         "voters": [],
         "guildId": "1408975996715139084",
         "channelId": "1408975997272854611",
+        "sentToDeleter": false,
+        "type": "quote"
+      }
+    ],
+    [
+      "1556969309450936371",
+      {
+        "filename": "quote_1497975070637822135.png",
+        "voters": [],
+        "guildId": "1048053656035020911",
+        "channelId": "1477294439180537980",
         "sentToDeleter": false,
         "type": "quote"
       }
