@@ -91655,6 +91655,14 @@
     [
       "1557100848704782367",
       "quote_318.jpg"
+    ],
+    [
+      "1557100902035226706",
+      "quote_1500531718178734161.png"
+    ],
+    [
+      "1557100922591518750",
+      "spits again.png"
     ]
   ],
   "favoritedQuotes": [
@@ -137472,6 +137480,28 @@
       "1557100848704782367",
       {
         "filename": "quote_318.jpg",
+        "voters": [],
+        "guildId": "1048053656035020911",
+        "channelId": "1477294439180537980",
+        "sentToDeleter": false,
+        "type": "quote"
+      }
+    ],
+    [
+      "1557100902035226706",
+      {
+        "filename": "quote_1500531718178734161.png",
+        "voters": [],
+        "guildId": "1048053656035020911",
+        "channelId": "1477294439180537980",
+        "sentToDeleter": false,
+        "type": "quote"
+      }
+    ],
+    [
+      "1557100922591518750",
+      {
+        "filename": "spits again.png",
         "voters": [],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
