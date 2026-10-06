@@ -743,12 +743,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18500,
-        "lastSubsTimestamp": 1791311399148,
+        "lastSubsTimestamp": 1791311699132,
         "history": [
-          {
-            "ts": 1790998615302,
-            "subs": 18400
-          },
           {
             "ts": 1790998915318,
             "subs": 18400
@@ -4744,6 +4740,10 @@
           {
             "ts": 1791311399148,
             "subs": 18500
+          },
+          {
+            "ts": 1791311699132,
+            "subs": 18500
           }
         ],
         "subcountDiscordId": "1483595393999700080",
@@ -6352,7 +6352,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 2710,
+        "xp": 2723,
         "level": 19,
         "lastWorkTime": 0,
         "lastBegTime": 0,
