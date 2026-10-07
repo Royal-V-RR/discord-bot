@@ -8845,7 +8845,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 3105,
+        "xp": 3114,
         "level": 18,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -58623,6 +58623,54 @@
         "forceMarried": false,
         "uploadedImages": []
       }
+    ],
+    [
+      "1392527529914531980",
+      {
+        "username": "mxosh",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 15,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1319292911757557760",
+      {
+        "username": "begula028482",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 6,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
     ]
   ],
   "activeEffects": [],
@@ -92086,6 +92134,10 @@
     [
       "1557334750652403723",
       "IMG_4310.png"
+    ],
+    [
+      "1557355926334214184",
+      "IMG-20260418-WA0006.jpg"
     ]
   ],
   "favoritedQuotes": [
@@ -138406,6 +138458,17 @@
         "voters": [],
         "guildId": "1548020978242682970",
         "channelId": "1548041349767368795",
+        "sentToDeleter": false,
+        "type": "quote"
+      }
+    ],
+    [
+      "1557355926334214184",
+      {
+        "filename": "IMG-20260418-WA0006.jpg",
+        "voters": [],
+        "guildId": "1048053656035020911",
+        "channelId": "1477294439180537980",
         "sentToDeleter": false,
         "type": "quote"
       }
