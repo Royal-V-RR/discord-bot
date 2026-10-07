@@ -139465,6 +139465,38 @@
         "creatorName": "royalvmusic",
         "createdAt": 1789820338514
       }
+    ],
+    [
+      "revive",
+      {
+        "triggers": [
+          "save",
+          "revive"
+        ],
+        "actions": [
+          {
+            "type": "remove_timeout",
+            "params": {}
+          },
+          {
+            "type": "add_reaction",
+            "params": {
+              "emoji": "✨"
+            }
+          },
+          {
+            "type": "echo",
+            "params": {
+              "message": "It is done.",
+              "replyMode": "replyactor"
+            }
+          }
+        ],
+        "ownerLocked": true,
+        "creatorId": "1082452773787942922",
+        "creatorName": "hawkshadow74",
+        "createdAt": 1791380478171
+      }
     ]
   ],
   "serverStatsConfig": [
