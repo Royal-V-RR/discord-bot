@@ -732,12 +732,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18500,
-        "lastSubsTimestamp": 1791553295342,
+        "lastSubsTimestamp": 1791553595326,
         "history": [
-          {
-            "ts": 1791249888993,
-            "subs": 18500
-          },
           {
             "ts": 1791250189020,
             "subs": 18500
@@ -4732,6 +4728,10 @@
           },
           {
             "ts": 1791553295342,
+            "subs": 18500
+          },
+          {
+            "ts": 1791553595326,
             "subs": 18500
           }
         ],
@@ -59770,6 +59770,30 @@
       "1556603569627471872",
       {
         "username": "oprator_gaming",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 14,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1361657920957452510",
+      {
+        "username": "toboga_05",
         "wins": 0,
         "gamesPlayed": 0,
         "coins": 0,
