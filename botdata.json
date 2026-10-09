@@ -732,12 +732,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18500,
-        "lastSubsTimestamp": 1791542494955,
+        "lastSubsTimestamp": 1791542794973,
         "history": [
-          {
-            "ts": 1791238895010,
-            "subs": 18500
-          },
           {
             "ts": 1791239195043,
             "subs": 18500
@@ -4732,6 +4728,10 @@
           },
           {
             "ts": 1791542494955,
+            "subs": 18500
+          },
+          {
+            "ts": 1791542794973,
             "subs": 18500
           }
         ],
@@ -59633,6 +59633,30 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 9,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1302943325757767680",
+      {
+        "username": "freze_1234",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 14,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
