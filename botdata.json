@@ -732,12 +732,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18500,
-        "lastSubsTimestamp": 1791588122617,
+        "lastSubsTimestamp": 1791588422630,
         "history": [
-          {
-            "ts": 1791284625204,
-            "subs": 18500
-          },
           {
             "ts": 1791284925196,
             "subs": 18500
@@ -4732,6 +4728,10 @@
           },
           {
             "ts": 1791588122617,
+            "subs": 18500
+          },
+          {
+            "ts": 1791588422630,
             "subs": 18500
           }
         ],
@@ -60263,6 +60263,30 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 13,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1456772338677973083",
+      {
+        "username": "twistedspellz",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 12,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
