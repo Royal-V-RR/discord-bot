@@ -1109,14 +1109,14 @@ function sotdPickNextEntry(cfg){
   return picked;
 }
 
-function buildSotdEmbed(guild, entry, meta){
+function buildSotdEmbed(guild, entry, meta, { preview=false } = {}){
   const matchedRole = findMatchingGenreRole(guild, meta.genres);
   const fields = [];
   if(meta.genres.length) fields.push({ name:"🎧 Genres", value: meta.genres.slice(0,3).join(", ") + (matchedRole ? `  •  matches **${matchedRole}**` : ""), inline:false });
   fields.push({ name:"📻 Source", value: `**${entry.playlistLabel}** • Track ${entry.index} of ${entry.playlistTrackCount}`, inline:false });
   return {
-    color: 0x5865F2,
-    author: { name: "🎵 Song of the Day" },
+    color: preview ? 0xFEE75C : 0x5865F2,
+    author: { name: preview ? "🔀 Preview: a random pick from your playlists" : "🎵 Song of the Day" },
     title: meta.title,
     description: `by **${meta.artist}**`,
     image: { url: meta.artwork },
@@ -1124,6 +1124,19 @@ function buildSotdEmbed(guild, entry, meta){
     timestamp: new Date().toISOString(),
     footer: { text: meta.matched ? "Metadata via iTunes / MusicBrainz" : "Metadata unavailable, showing the YouTube title" },
   };
+}
+// Picks a random not-yet-used-aware preview track from every playlist combined
+// (doesn't touch usedVideoIds, this is just a look, not an actual post) and
+// resolves+renders it the same way the real daily post would.
+async function buildSotdPreviewEmbed(guild, cfg){
+  const pool = [];
+  for(const pl of cfg.playlists || []){
+    for(const e of pl.entries || []) pool.push({ ...e, playlistLabel: pl.label, playlistTrackCount: pl.entries.length });
+  }
+  if(!pool.length) return null;
+  const entry = pool[Math.floor(Math.random() * pool.length)];
+  const meta = await resolveSongMetadata(entry.title, null, entry.videoId);
+  return buildSotdEmbed(guild, entry, meta, { preview:true });
 }
 async function postSotdForGuild(guildId, { manual=false } = {}){
   const cfg = sotdConfig.get(guildId);
@@ -9688,8 +9701,13 @@ client.on("interactionCreate",async interaction=>{
       if(!interaction.guildId || !isGuildOwner(interaction.guildId, uid)) return safeReply(interaction,{content:"Server owner only.",ephemeral:true});
       const url = (interaction.fields.getTextInputValue("sp_url") || "").trim();
       const labelInput = (interaction.fields.getTextInputValue("sp_label") || "").trim();
-      if(!/^https?:\/\/(www\.)?(youtube\.com|youtu\.be)\/.+list=/.test(url) && !/^https?:\/\/(www\.)?youtube\.com\/playlist\?list=/.test(url)){
-        return safeReply(interaction,{content:"❌ That doesn't look like a YouTube playlist URL (needs a `list=` in it).",ephemeral:true});
+      let sotdParsedUrl;
+      try{ sotdParsedUrl = new URL(url); }
+      catch{ return safeReply(interaction,{content:"❌ That's not a valid URL.",ephemeral:true}); }
+      const sotdHost = sotdParsedUrl.hostname.replace(/^(www|m|music)\./, "");
+      const sotdIsYoutube = sotdHost === "youtube.com" || sotdHost === "youtu.be";
+      if(!sotdIsYoutube || !sotdParsedUrl.searchParams.has("list")){
+        return safeReply(interaction,{content:"❌ That doesn't look like a YouTube playlist URL (needs `list=` in it, from a youtube.com or youtu.be link).",ephemeral:true});
       }
       await interaction.deferReply({ephemeral:true});
       let info;
@@ -9700,7 +9718,10 @@ client.on("interactionCreate",async interaction=>{
       const cfg = (() => { let c = sotdConfig.get(interaction.guildId); if(!c){ c = { playlists:[], usedVideoIds:[] }; sotdConfig.set(interaction.guildId, c); } return c; })();
       cfg.playlists.push({ id: `${Date.now().toString(36)}${Math.floor(Math.random()*1000)}`, url, label: labelInput || info.title, entries: info.entries });
       saveData();
-      return safeReply(interaction,{ ...buildSotdPlaylistPanel(interaction.guild, interaction.guildId), content:`✅ Added **${labelInput || info.title}** (${info.entries.length} track(s)).` });
+      const addedPanel = buildSotdPlaylistPanel(interaction.guild, interaction.guildId);
+      const addedPreview = await buildSotdPreviewEmbed(interaction.guild, cfg).catch(()=>null);
+      if(addedPreview) addedPanel.embeds.push(addedPreview);
+      return safeReply(interaction,{ ...addedPanel, content:`✅ Added **${labelInput || info.title}** (${info.entries.length} track(s)).` });
     }
 
     // ── Reaction role manual builder: emoji modal submit ────────────────────────
@@ -12399,7 +12420,14 @@ if(cmd==="divorce"){
     if(cmd==="sotd-playlist"){
       if(!inGuild) return safeReply(interaction,{content:"❌ Server only.",ephemeral:true});
       if(!isGuildOwner(interaction.guildId, interaction.user.id)) return safeReply(interaction,{content:"❌ Server owner only.",ephemeral:true});
-      return safeReply(interaction, buildSotdPlaylistPanel(interaction.guild, interaction.guildId));
+      const cfg = sotdConfig.get(interaction.guildId);
+      const panel = buildSotdPlaylistPanel(interaction.guild, interaction.guildId);
+      if(cfg?.playlists?.length){
+        await interaction.deferReply({ephemeral:true});
+        const preview = await buildSotdPreviewEmbed(interaction.guild, cfg).catch(()=>null);
+        if(preview) panel.embeds.push(preview);
+      }
+      return safeReply(interaction, panel);
     }
 
     // ── /selfclank: selfclankerify yourself (0 to cancel, 1–5 min, max 2 per server) ────
