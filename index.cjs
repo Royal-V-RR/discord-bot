@@ -11,17 +11,10 @@ const youtubedl  = require("yt-dlp-exec");
 const ffmpegPath = require("ffmpeg-static");
 
 // ── Bundled font registration (for /fakequote card rendering) ────────────────
-// Sharp renders SVG text through fontconfig, which depends on whatever fonts
-// happen to be installed on the host OS. To make the "Make it a Quote" card
-// font (Poppins) render identically no matter where the bot is deployed, a
-// copy of the Poppins TTFs ships in ./fonts and gets registered via a small
-// fontconfig file pointed at that directory through FONTCONFIG_FILE. This is
-// additive: system fonts are still found via <include> of the default config,
-// so nothing else in the bot is affected.
 (function registerBundledFonts() {
   try {
     const fontsDir = path.join(__dirname, "fonts");
-    if (!fs.existsSync(fontsDir)) return; // no bundled fonts shipped: fall back to system fonts silently
+    if (!fs.existsSync(fontsDir)) return;
     const fcDir = path.join(__dirname, ".fontconfig");
     if (!fs.existsSync(fcDir)) fs.mkdirSync(fcDir, { recursive: true });
     const fontsConfPath = path.join(fcDir, "fonts.conf");
@@ -42,31 +35,15 @@ const ffmpegPath = require("ffmpeg-static");
 })();
 
 const TOKEN     = process.env.TOKEN;
-// Was hardcoded to the main bot's application ID: harmless for the main bot,
-// but since index_beta.cjs is shipped as a byte identical copy, the beta bot
-// was authenticating with its own TOKEN while registering commands under the
-// MAIN bot's CLIENT_ID. Discord correctly 403s that mismatch (code 20012:
-// "not authorized on this application"), which is why command registration
-// was failing for the beta bot specifically. Now reads from the environment
-// (same pattern as TOKEN) so each deployment's own CLIENT_ID secret is used;
-// falls back to the main bot's ID only if the env var isn't set.
 const CLIENT_ID = process.env.CLIENT_ID || "1480592876684706064";
-// The beta bot's own application ID, used to tell which deployment this is
-// since both run from the same file. If this ever changes, update it here.
 const BETA_CLIENT_ID = "1533598420504412261";
 const IS_BETA_BOT = CLIENT_ID === BETA_CLIENT_ID;
 const OWNER_IDS = ["1419803002771865722","969280648667889764","363149593787105291"];
 const OWNER_ID  = OWNER_IDS[1];
 const GAY_IDS   = ["1245284545452834857","1413943805203189800","1057320311453913149","1193150033864949811"];
-// Mutable: managed via /managememers (owner only), persisted in botdata.json
-const MEMERS = new Set(["1419803002771865722","1259223683826712729","1254388539890860083","1082452773787942922","1193150033864949811","1413943805203189800","969280648667889764","690219723472109616"]); // Users allowed to use /upload
+const MEMERS = new Set(["1419803002771865722","1259223683826712729","1254388539890860083","1082452773787942922","1193150033864949811","1413943805203189800","969280648667889764","690219723472109616"]);
 
 // ── Restart webhook notice ────────────────────────────────────────────────────
-// Announces every reboot in Discord: an immediate "restarting" ping the instant
-// the process starts (works even before the bot has logged in), which then gets
-// edited in place once ready into a live uptime/next reset status. Uses Discord's
-// native <t:...:R> timestamp formatting, which renders as "in 3 hours" and updates
-// itself client side automatically: no repeated edits needed to keep it live.
 const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL || null;
 let restartMessageId = null;
 
@@ -97,13 +74,12 @@ async function editWebhookMessage(messageId, content) {
   } catch(e) { console.error("webhook edit error:", e.message); return false; }
 }
 
-// Fire the "restarting" notice immediately: don't block startup on it.
 postWebhookMessage("🔄 RoyalBot restarting, please give us a few seconds…")
   .then(id => { restartMessageId = id; })
   .catch(() => {});
 
 // ── App emoji cache (populated on ready) ─────────────────────────────────────
-const appEmojiCache = new Map(); // name → { id, name, animated }
+const appEmojiCache = new Map();
 
 // ── Instance lock ─────────────────────────────────────────────────────────────
 const INSTANCE_ID = Math.random().toString(36).slice(2, 8);
@@ -130,16 +106,8 @@ async function acquireInstanceLock(ownerUser) {
 }
 
 // ── Heartbeat / status page support ───────────────────────────────────────────
-// Writes a small status.json (start time, last heartbeat, estimated next restart)
-// to the repo every 60s, so an external status page and watchdog workflow can
-// tell whether the bot is alive without needing any inbound connection to it.
 const STATUS_FILE = "./status.json";
 const BOT_START_TIME = Date.now();
-// Mirrors bot.yml's `timeout minutes`: the GitHub Actions job (and this bot
-// process along with it) gets killed and a fresh run dispatched once this many
-// minutes have elapsed since the process started. Only used to show an estimated
-// countdown on the status page: if bot.yml's timeout minutes ever changes,
-// update this too so the countdown stays accurate.
 const RESTART_TIMEOUT_MIN = 401;
 
 function buildStatusObject() {
@@ -152,9 +120,6 @@ function buildStatusObject() {
   };
 }
 
-// Same "fetch SHA, PUT, retry on conflict" pattern as commitDataToGitHub, but
-// targets status.json on its own timer so heartbeat writes never fight with
-// botdata.json saves for the same file.
 async function commitStatusToGitHub() {
   if (!GH_TOKEN || !GH_REPO) return;
   const jsonString = JSON.stringify(buildStatusObject(), null, 2);
@@ -210,7 +175,6 @@ async function commitStatusToGitHub() {
   } catch(e) { console.error("commitStatusToGitHub error:", e.message); }
 }
 
-// Heartbeat tick: every 60s for as long as the process is alive.
 setInterval(() => { commitStatusToGitHub().catch(()=>{}); }, 60 * 1000);
 
 // ── State ─────────────────────────────────────────────────────────────────────
@@ -218,11 +182,6 @@ const guildChannels    = new Map();
 const welcomeChannels  = new Map();
 const leaveChannels    = new Map();
 const boostChannels    = new Map();
-// boostHistory: guildId -> Map<userId, {count, firstBoostAt, lastBoostAt}>
-// Tracks how many times each member has *started* boosting this server (not
-// simultaneous Nitro boost slots: Discord's API doesn't expose that count,
-// only whether a member is currently boosting). Members already boosting when
-// this feature first sees them are seeded at count:1.
 const boostHistory = new Map();
 function ensureBoostGuildMap(guildId){
   if(!boostHistory.has(guildId)) boostHistory.set(guildId, new Map());
@@ -249,23 +208,12 @@ async function seedBoostHistory(guild){
 }
 const autoRoles        = new Map();
 const reactionRoles    = new Map();
-// rrBuilders: token -> {ownerId, guildId, channelId, messageId, pendingEmoji}
-// Ephemeral in-progress state for the /reactionrole manual builder, never persisted.
 const rrBuilders = new Map();
 
-// Normalizes a typed/raw emoji into the same key format used everywhere else
-// (custom emoji <:name:id> or <a:name:id> becomes "name:id", unicode emoji
-// stays as is), so add/remove/auto/manual all produce matching keys.
 function normalizeEmojiKey(emojiRaw) {
   return emojiRaw.trim().replace(/^<a?:([^:]+:\d+)>$/, "$1");
 }
 
-// Parses "EMOJI ... @Role" lines out of a message's raw content, regardless
-// of what separates them (a pipe, a colon, a dash, just a space, nothing at
-// all). The role must be an actual role mention (<@&id>), not just typed
-// text, since that's the only reliable way to know which role was meant.
-// Whatever's left on the line after removing the role mention and any common
-// separator characters is treated as the emoji. Returns [{emojiRaw, roleId}].
 function parseReactionRoleLines(content) {
   const results = [];
   for (const line of (content || "").split("\n")) {
@@ -291,8 +239,6 @@ function formatReactionRoleBindings(guildId, messageId) {
   }).join("\n");
 }
 
-// Finds a message by ID by checking every text channel in the guild: shared
-// by /reactionrole's add, auto, and manual actions.
 async function findMessageInGuild(guild, messageId) {
   for (const ch of guild.channels.cache.filter(c => (c.isText && c.isText()) || c.type === "GUILD_TEXT").values()) {
     const found = await ch.messages.fetch(messageId).catch(() => null);
@@ -331,7 +277,6 @@ function buildReactionRoleManualPanel(token) {
   return { content, components: rows };
 }
 
-// The "pick a role" screen shown after typing an emoji in the manual builder.
 function buildReactionRoleRolePicker(token) {
   const b = rrBuilders.get(token);
   const guild = client.guilds.cache.get(b.guildId);
@@ -343,36 +288,20 @@ function buildReactionRoleRolePicker(token) {
   return { content: `Emoji: ${b.pendingEmoji}\nNow pick which role it should give:`, components: rows };
 }
 // ── Dropdown roles (select-menu upgrade to reaction roles) ──────────────────
-// dropdownRoleSets: `${guildId}:${setId}` -> { dropdowns: [ { name, options: [{emojiRaw, roleId}] } ] }
-// Persisted. A "set" is one posted message's worth of dropdowns (up to 5, one
-// per action row). setId is generated when the builder starts and has nothing
-// to do with the eventual message ID, so the live select menus keep working
-// no matter what happens to the message afterward.
 const dropdownRoleSets = new Map();
 
-// ddBuilders: token -> {
-//   ownerId, guildId, setId,
-//   dropdowns: [ { name, options: [{emojiRaw, roleId}] } ],
-//   pendingEmoji: string|null,   // set while waiting for a role pick after the emoji modal
-//   pendingIndex: number|null,   // which dropdown pendingEmoji belongs to
-// }
-// Ephemeral, in-progress state for the /dropdownroles builder. Never persisted;
-// expires 15 minutes after the last edit, same pattern as rrBuilders.
 const ddBuilders = new Map();
-const DD_MAX_DROPDOWNS = 5; // one select menu per action row, 5 rows max per message
+const DD_MAX_DROPDOWNS = 5;
 
 function newDdSetId() {
   return `dd${Date.now().toString(36)}${Math.random().toString(36).slice(2,6)}`;
 }
 
-// Turns a typed/pasted emoji into the {name,id,animated} shape MessageSelectMenu
-// options and MessageButton.setEmoji() expect.
 function emojiOptionFromRaw(emojiRaw) {
   const m = (emojiRaw||"").trim().match(/^<(a)?:([^:]+):(\d+)>$/);
   if (m) return { name: m[2], id: m[3], animated: !!m[1] };
   return { name: (emojiRaw||"").trim() || "🔘" };
 }
-// Plain display text for an emoji (used in panel text, not in select options).
 function emojiDisplayFromRaw(emojiRaw) {
   const m = (emojiRaw||"").trim().match(/^<(a)?:([^:]+):(\d+)>$/);
   if (m) return `<${m[1]?"a":""}:${m[2]}:${m[3]}>`;
@@ -386,7 +315,6 @@ function ddTouch(token) {
   b._expireTimer = setTimeout(()=>ddBuilders.delete(token), 15*60*1000);
 }
 
-// Main overview panel: pick a dropdown to edit, or add/detect/post/cancel.
 function buildDdMainPanel(token) {
   const b = ddBuilders.get(token);
   const rows = [];
@@ -420,7 +348,6 @@ function buildDdMainPanel(token) {
   return { content, components: rows };
 }
 
-// Edit screen for one dropdown: its options, rename, reorder, delete.
 function buildDdEditPanel(token, index) {
   const b = ddBuilders.get(token);
   const dd = b.dropdowns[index];
@@ -462,7 +389,6 @@ function buildDdEditPanel(token, index) {
   return { content, components: rows };
 }
 
-// The "pick a role" screen shown after typing an emoji in the dropdown builder.
 function buildDdRolePicker(token, index) {
   const b = ddBuilders.get(token);
   const guild = client.guilds.cache.get(b.guildId);
@@ -474,7 +400,6 @@ function buildDdRolePicker(token, index) {
   return { content: `Emoji: ${emojiDisplayFromRaw(b.pendingEmoji)}\nNow pick which role it should give:`, components: rows };
 }
 
-// The channel-picker screen shown when hitting Post.
 function buildDdChannelPicker(token) {
   const b = ddBuilders.get(token);
   const guild = client.guilds.cache.get(b.guildId);
@@ -489,8 +414,6 @@ function buildDdChannelPicker(token) {
   return { content: "Which channel should the dropdown message be posted in?", components: rows };
 }
 
-// Builds the real, live select menus for a finished set (used both right after
-// posting and if it's ever reconstructed). One MessageSelectMenu per dropdown.
 function buildLiveDropdownRows(guild, setId, dropdowns) {
   return dropdowns.slice(0, DD_MAX_DROPDOWNS).map((dd, i) => {
     const options = dd.options.map(opt => ({
@@ -512,28 +435,13 @@ function buildLiveDropdownRows(guild, setId, dropdowns) {
 const disabledOwnerMsg = new Set();
 const activeGames      = new Map();
 const reminders        = [];
-// scheduledMessages: id -> { id, userId, guildId, channelId, content, sendAt, createdAt, imageURL, imageName }
-// A user's future message, delivered later via a webhook that impersonates them (their name + avatar).
 const scheduledMessages = new Map();
 const countGames       = new Map();
-const countingChannels = new Map(); // channelId -> { guildId, count, lastUserId, highScore }
+const countingChannels = new Map();
 // ── Guild-scoped effect key helper ───────────────────────────────────────────
-// shadowDelete, clankerify, and paranoiaWatchers below all back "prank"
-// effects that a server owner can now trigger (see SERVER_OWNER_CMDS). Since
-// those are now triggerable by any server owner rather than only the bot's
-// real owners, every one of them is keyed by `${guildId}:${userId}` instead
-// of a bare userId, so an effect set in one server never follows the target
-// into a different server. Real bot owners can still set these globally by
-// passing guildId="global" (used by the Jarvis/context-menu paths that aren't
-// tied to a single invoking guild).
 function scopedKey(guildId, userId){ return `${guildId||"global"}:${userId}`; }
-const shadowDelete = new Map(); // scopedKey(guildId,userId) -> percentage (1-100)
+const shadowDelete = new Map();
 // ── Delete flavor lines (shadowdelete + a user deleting their own message) ──
-// One shared pool of lines, picked at random, sent (no reference to what the
-// deleted message said) when: (a) shadowdelete silently deletes a message, or
-// (b) a user deletes their own message themselves. A deletion made by someone
-// else, or by another RoyalBot feature (clankerify, impersonation, a Jarvis
-// delete_message action, /purge), never sends one.
 const MESSAGE_DELETE_FLAVOR_LINES = [
   "Must’ve been the wind.",
   "The Lord giveth message perms, and the Lord taketh them away.",
@@ -968,29 +876,15 @@ async function sendDeleteFlavorLine(channel){
   if(!channel) return;
   try{ await channel.send({ content: pickDeleteFlavorLine() }); }catch(e){ console.error("[deleteFlavor] send failed:", e.message); }
 }
-// messageId -> "shadow" (shadowdelete did this: send a flavor line right away)
-// or "silent" (some other RoyalBot feature did this: never send a flavor line,
-// and skip the audit log lookup below). Untagged deletions fall through to the
-// audit log check to tell a self-delete from a moderator/other-user delete.
-const pendingBotMessageDeletes = new Map();
-function tagBotMessageDelete(messageId, kind){
-  pendingBotMessageDeletes.set(messageId, kind);
-  setTimeout(() => pendingBotMessageDeletes.delete(messageId), 10_000);
-}
 
-// clankerify: scopedKey(guildId,userId) -> { expiresAt: number|null } (null = permanent)
 const clankerify = new Map();
 const inviteComps      = new Map();
 const inviteCache      = new Map();
 const ticketConfigs    = new Map();
 const openTickets      = new Map();
-const premieres        = new Map(); // premiereId -> { title, endsAt, channelId, userId, messageId, guildId }
-const disabledLevelUp  = new Set(); // legacy: now superseded by levelUpConfig.enabled
+const premieres        = new Map();
+const disabledLevelUp  = new Set();
 const userInstalls     = new Set();
-// featureBlacklist: userId -> { features: Set<string>, silent: boolean }
-// "all" in features means a full blacklist (blocked from every command/feature);
-// any other value is a specific command/feature name blocked just for that user.
-// Persisted in botdata.json.
 const featureBlacklist = new Map();
 function isFeatureBlacklisted(userId, featureName){
   const b = featureBlacklist.get(userId);
@@ -1003,57 +897,30 @@ function isFullyBlacklisted(userId){
 function isSilentBlacklisted(userId){
   return !!featureBlacklist.get(userId)?.silent;
 }
-const activityChecks   = new Map(); // messageId -> { guildId, channelId, roleIds, deadline, respondedUsers: Set }
-const scheduledChecks  = new Map(); // `${guildId}:${channelId}` -> { guildId, channelId, dayOfWeek, hour, minute, deadlineHr, customMsg, doPing, roleIds, excludedIds, nextFire }
-const raConfig         = new Map(); // guildId -> { raRoleId, loaRoleId }
-const raTimers         = new Map(); // `${guildId}:${userId}:${type}` -> timeoutId
-// Per guild XP level up notification config
-// { enabled: bool, ping: bool, channelId: string|null }
-// enabled: whether to post at all (default true)
-// ping:    whether to @mention the user (default true)
-// channelId: override channel: null means use guildChannels fallback then same channel
-const levelUpConfig    = new Map(); // guildId -> { enabled, ping, channelId }
-const dailyQuoteChannels = new Map(); // guildId -> { channelId, hour, timezone }
-const quoteCooldown    = new Map(); // userId -> last use timestamp
+const activityChecks   = new Map();
+const scheduledChecks  = new Map();
+const raConfig         = new Map();
+const raTimers         = new Map();
+const levelUpConfig    = new Map();
+const dailyQuoteChannels = new Map();
+const quoteCooldown    = new Map();
 
 // ── YouTube tracking ─────────────────────────────────────────────────────────
-// ytConfig: per guild YouTube settings persisted in botdata.json
-// { apiKey: string, ytChannelId: string, channelTitle: string,
-//   discordChannelId: string, goal, goalMessage, goalReached, goalDiscordId, goalMessageId,
-//   subcountMessageId, subcountDiscordId, subcountThreshold,
-//   milestones: [{subs, message, reached}], milestoneDiscordId,
-//   lastSubs, lastSubsTimestamp, history: [{ts, subs}] }
-const ytConfig = new Map(); // guildId -> config object
+const ytConfig = new Map();
 
-// Helper: get the API key for a guild
 function getYtKey(guildId) { return ytConfig.get(guildId)?.apiKey || null; }
 
 // ── Marriage proposals ────────────────────────────────────────────────────────
-const marriageProposals = new Map(); // proposerId -> { targetId, timeout }
+const marriageProposals = new Map();
 
 // ── Quote shuffle queue ───────────────────────────────────────────────────────
-// In memory Fisher Yates shuffled queue so every image is shown before repeats.
-// No writes to botdata.json. Refills automatically when exhausted.
-// A fetch lock prevents multiple concurrent /quote calls from double fetching.
-// Queues are kept per quote pool (global or a server folder): see quoteQueues below.
-// quoteVotes: filename -> { up: number, down: number }
 const quoteVotes = new Map();
-// quoteVoteMessages: messageId -> filename  (tracks which quote a message shows)
 const quoteVoteMessages = new Map();
 
-// favoritedQuotes: userId -> Set<filename> - Patreon-exclusive quote favorites.
 const favoritedQuotes = new Map();
 
-// Per user quote voting/flagging stats: feeds /userprofile.
-// userVoteStats: userId -> { up, down } - quote up/down votes cast BY this user
 const userVoteStats = new Map();
-// userFlagStats: userId -> { flagged, deleted } - quotes this user flagged for
-// review (crossed the trashcan threshold, or flagged solo via /library), and
-// how many of those were actually deleted by an owner
 const userFlagStats = new Map();
-// pendingFlagDeleters: filename -> Set<userId> who flagged it, awaiting the
-// owner's Keep/Delete call in the deleter channel: read by del_delete_ to
-// credit userFlagStats.deleted, then cleared.
 const pendingFlagDeleters = new Map();
 function bumpVoteStat(userId, field, delta) {
   let s = userVoteStats.get(userId);
@@ -1066,9 +933,6 @@ function bumpFlagStat(userId, field) {
   s[field]++;
 }
 
-// Patreon gating: checked against a specific server (roles are per server,
-// so this isn't a "global Patreon role"; someone only counts if they hold
-// one of these roles in the Patreon server specifically, refreshed below).
 const PATREON_GUILD_ID = "1533594455125397654";
 const PATREON_LINK = "https://www.patreon.com/c/RoyalV_/membership";
 const PATREON_ROLE_IDS = [
@@ -1078,17 +942,11 @@ const PATREON_ROLE_IDS = [
   "1542615428264894555",
   "1542615456492552334",
 ];
-// patreonMemberIds: Set<userId>: built fresh from the Patreon server's member
-// list on every startup. Deliberately NOT persisted to botdata: if someone
-// leaves the Patreon server or loses their role, they should fall off this
-// list on the next restart rather than lingering in saved data forever.
 const patreonMemberIds = new Set();
 async function refreshPatreonMembers() {
   if (!PATREON_GUILD_ID) return;
   let guild = client.guilds.cache.get(PATREON_GUILD_ID);
   if (!guild) {
-    // Cache miss doesn't always mean "not a member": try a live API fetch
-    // before giving up, in case the guild just hasn't been cached yet.
     guild = await client.guilds.fetch(PATREON_GUILD_ID).catch(() => null);
   }
   if (!guild) {
@@ -1109,18 +967,53 @@ async function refreshPatreonMembers() {
 async function isPatreonMember(userId) {
   return patreonMemberIds.has(userId);
 }
-let reviewChannelId = null; // global channel ID for quote review submissions
-let deleterChannelId = null; // global channel ID where trashcan flagged quotes are sent for reevaluation
-// quoteUserVotes: filename → Map<userId, 'up'|'down'>  (in session tracking, prevents double vote per session)
+let reviewChannelId = null;
+let deleterChannelId = null;
+let emojiStealDestGuildId = null;
+
+async function stealEmojisToGuild(destGuild, text){
+  const matches = [...(text || "").matchAll(/<(a)?:([a-zA-Z0-9_]+):(\d+)>/g)];
+  if(!matches.length) return "❌ No custom emojis found.";
+  const found = new Map();
+  for(const m of matches){
+    const id = m[3];
+    if(!found.has(id)) found.set(id, { name: m[2].slice(0,32), animated: !!m[1] });
+  }
+  const results = [];
+  for(const [id, info] of found){
+    const url = `https://cdn.discordapp.com/emojis/${id}.${info.animated ? "gif" : "png"}`;
+    try{
+      await destGuild.emojis.create(url, info.name);
+      results.push(`✅ :${info.name}:`);
+    }catch(e){
+      results.push(`❌ :${info.name}: (${e.message})`);
+    }
+    await new Promise(res => setTimeout(res, 1200));
+  }
+  const full = `Emojis copied to **${destGuild.name}**:\n${results.join("\n")}`;
+  if(full.length <= 1600) return full;
+  console.log("[emojisteal]", full);
+  return `Copied ${found.size} emoji(s) to **${destGuild.name}** (${results.filter(r=>r.startsWith("✅")).length} succeeded, full list in console).`;
+}
+async function stealStickersToGuild(destGuild, stickers){
+  if(!stickers || !stickers.size) return null;
+  const results = [];
+  for(const sticker of stickers.values()){
+    if(sticker.format === "LOTTIE"){ results.push(`❌ ${sticker.name} (Lottie stickers can't be copied)`); continue; }
+    try{
+      await destGuild.stickers.create(sticker.url, { name: sticker.name.slice(0,30), tags: sticker.tags || "🙂", description: sticker.description || sticker.name });
+      results.push(`✅ ${sticker.name}`);
+    }catch(e){
+      results.push(`❌ ${sticker.name} (${e.message})`);
+    }
+    await new Promise(res => setTimeout(res, 1200));
+  }
+  return `Stickers copied to **${destGuild.name}**:\n${results.join("\n")}`;
+}
 const quoteUserVotes = new Map();
-// customClankerModes: modeId → { emoji, displayNameFormat, words: [[from,to],...], signoffs: [...], messageStart }
 const customClankerModes = new Map();
 
 // ── Server Stats ("/serverstats") ────────────────────────────────────────────
-// serverStatsConfig: guildId → {
-//   categoryId, channels: [{id, type, label, emoji, roleId?}],
-//   intervalMinutes, locked, lastUpdate
-// }
 const serverStatsConfig = new Map();
 
 const SS_STAT_TYPES = {
@@ -1137,7 +1030,7 @@ const SS_STAT_TYPES = {
   role:          {emoji:"🏷️",label:"Role Count",   desc:"Members with a specific role"},
 };
 const SS_MAX_CHANNELS = 10;
-const SS_MIN_INTERVAL_MIN = 10; // Discord only allows ~2 channel renames per 10 minutes
+const SS_MIN_INTERVAL_MIN = 10;
 
 function ssComputeValue(guild, entry){
   switch(entry.type){
@@ -1283,9 +1176,6 @@ function ssBuildSettingsPanel(guild,cfg){
   const row3 = new MessageActionRow().addComponents(new MessageButton().setCustomId("ss_back").setLabel("← Back").setStyle("SECONDARY"));
   return {content, components:[row1,row2,row3]};
 }
-// tempOwnerGrants: userId → { commands: Set<string>, features: Set<string>, expiresAt: number|null, timerId: Timeout|null, grantedBy: string, grantedAt: number }
-// expiresAt === null means a permanent grant (no autoexpiry timer).
-// Must be at module level so isEffectiveOwner() is available before the try block in interactionCreate.
 const tempOwnerGrants = new Map();
 function hasTempOwnerAccess(userId, commandName){
   const grant = tempOwnerGrants.get(userId);
@@ -1304,11 +1194,6 @@ function isEffectiveOwner(userId, commandName){
 }
 
 // ── Server-owner-usable commands ─────────────────────────────────────────────
-// These used to be strict bot-owner-only (global commands, hidden from
-// everyone but OWNER_IDS/tempowner grantees). They're now also usable by a
-// guild's actual Discord server owner, but ONLY inside the server they own —
-// never in another server, and never in DMs. Real bot owners (and anyone
-// with a /tempowner grant) can still use them anywhere, same as before.
 const SERVER_OWNER_CMDS = new Set([
   "fakemessage","fakequote","refreshcmds","shadowdelete","clankerify","impersonation",
   "forcemarry","forcedivorce","echo","paranoia",
@@ -1318,8 +1203,6 @@ function isGuildOwner(guildId, userId){
   const g = guildId ? client.guilds.cache.get(guildId) : null;
   return !!g && g.ownerId === userId;
 }
-// Combines the existing bot-owner/tempowner check with the new "server owner,
-// in their own server" path for SERVER_OWNER_CMDS.
 function canUseOwnerCmd(interaction, commandName){
   if(isEffectiveOwner(interaction.user.id, commandName)) return true;
   if(SERVER_OWNER_CMDS.has(commandName) && interaction.guildId && isGuildOwner(interaction.guildId, interaction.user.id)) return true;
@@ -1343,7 +1226,7 @@ const TEMPOWNER_DURATIONS = [
   { label:"7 days",      value:"10080" },
   { label:"♾️ Permanent", value:"permanent" },
 ];
-const tempOwnerBuilders = new Map(); // token -> { ownerId, targetUserId, commands:Set, features:Set, duration:string|null }
+const tempOwnerBuilders = new Map();
 
 function formatGrantsList(){
   if(tempOwnerGrants.size === 0) return "_No active grants._";
@@ -1405,11 +1288,7 @@ function buildTempOwnerPanel(token){
 }
 
 // ── /blacklist: interactive picker ─────────────────────────────────────────
-// Replaces the old all or nothing blacklist: an owner can block a user from
-// specific commands, or hit "Full Blacklist" for the old block everything
-// behavior (still backed by the same featureBlacklist data, just with "all"
-// in the feature set). Mirrors the /tempowner builder UI.
-const blacklistBuilders = new Map(); // token -> { ownerId, targetUserId, features:Set<string>, silent:boolean }
+const blacklistBuilders = new Map();
 
 function formatBlacklistList(){
   if(featureBlacklist.size === 0) return "_No users are currently blacklisted._";
@@ -1461,18 +1340,7 @@ function buildBlacklistPanel(token){
 }
 
 // ── /jarvisenhance: customizable Jarvis automation chains ─────────────────────
-// A "profile" is a named, owner built macro: one or more trigger words (matched
-// the exact same way as the Jarvis image trigger: tokenized whole word match,
-// not loose substring) plus an ordered list of actions to run in sequence when
-// someone says "Jarvis, <word>" or "RoyalBot, <word>" as a reply. Any leftover
-// text after the trigger word (e.g. "Jarvis, dm stop that") is available to the
-// first dynamic eligible action as free text, so a single word + custom text
-// works like a live command, not just a fixed macro.
-// jarvisEnhanceProfiles: name -> { triggers:[word,...], actions:[{type,params}], ownerLocked, creatorId, creatorName, createdAt }
 const jarvisEnhanceProfiles = new Map();
-// Seed the example from the spec: "Jarvis, clankerfy him" while replying picks
-// a random personality mode. Loaded save data (below) overwrites this if the
-// owner has since customized or deleted it.
 jarvisEnhanceProfiles.set("clankerfy", {
   triggers: ["clankerfy", "clankerify", "clank"],
   actions: [{ type:"clankerify", params:{ mode:"random", duration:"10" } }],
@@ -1481,9 +1349,6 @@ jarvisEnhanceProfiles.set("clankerfy", {
   creatorName: "RoyalBot",
   createdAt: Date.now(),
 });
-// "Jarvis, quote" (anywhere in the message) triggers a random quote, same as
-// /quote (with the vote buttons). Doesn't need a reply: /quote itself isn't
-// owner restricted, so this isn't either.
 jarvisEnhanceProfiles.set("hitaclip", {
   triggers: ["quote"],
   actions: [{ type:"random_quote", params:{} }],
@@ -1492,9 +1357,6 @@ jarvisEnhanceProfiles.set("hitaclip", {
   creatorName: "RoyalBot",
   createdAt: Date.now(),
 });
-// "Jarvis, clip" while replying turns that message into a real quote card,
-// same as the "Make it a quote" context command: real text, real global name
-// and avatar, no editing possible.
 jarvisEnhanceProfiles.set("clipquote", {
   triggers: ["clip"],
   actions: [{ type:"make_it_a_quote", params:{} }],
@@ -1503,9 +1365,6 @@ jarvisEnhanceProfiles.set("clipquote", {
   creatorName: "RoyalBot",
   createdAt: Date.now(),
 });
-// "Jarvis, database" or "Jarvis, upload" while replying to a message with
-// media submits it for review, same as /requestupload, but credit goes to
-// whoever said the trigger word, not whoever originally posted the media.
 jarvisEnhanceProfiles.set("databaseupload", {
   triggers: ["database", "upload"],
   actions: [{ type:"request_upload", params:{} }],
@@ -1514,11 +1373,6 @@ jarvisEnhanceProfiles.set("databaseupload", {
   creatorName: "RoyalBot",
   createdAt: Date.now(),
 });
-// "Jarvis, clip ship" while replying turns that message into a real quote card
-// and sends it straight to the request channel for review (the global one, or
-// the server's own if the server is on its own folder). matchAll means BOTH
-// words have to be in the message, and this profile wins over the plain "clip"
-// profile, which only posts the card.
 jarvisEnhanceProfiles.set("clipship", {
   triggers: ["clip", "ship"],
   matchAll: true,
@@ -1528,16 +1382,8 @@ jarvisEnhanceProfiles.set("clipship", {
   creatorName: "RoyalBot",
   createdAt: Date.now(),
 });
-// jarvisEnhanceBuilders: token -> { ownerId, name, triggers, actions, ownerLocked,
-//   category (currently browsed category or null), selectedStep, pendingActionType, pendingMode }
 const jarvisEnhanceBuilders = new Map();
 
-// Categories split strictly by whether the action needs the reply target
-// (the user/message being replied to) or not. clanker/mod/message all act on
-// the reply target; broadcast actions run in the channel/bot itself and
-// ignore whatever was replied to (a reply is still required to say the
-// trigger word: the wake system doesn't work without one: the action
-// itself just doesn't use the target).
 const JARVISENHANCE_CATEGORIES = [
   { id:"clanker",   label:"🤖 Clankerify & Impersonation", needsTarget:true },
   { id:"mod",       label:"🔨 Moderation",                 needsTarget:true },
@@ -1545,8 +1391,6 @@ const JARVISENHANCE_CATEGORIES = [
   { id:"broadcast", label:"📢 Broadcast / Bot (no target needed)", needsTarget:false },
 ];
 
-// Modes offered for Clankerify/Impersonation: point and click only, no typing.
-// Community modes from /clankerbuild are appended at render time.
 const JARVIS_MODE_OPTIONS_BASE = [
   {label:"No mode (plain)",  value:"none",        emoji:"🤖"},
   {label:"Evil",             value:"evil",        emoji:"😈"},
@@ -1582,15 +1426,6 @@ const JARVIS_DURATION_OPTIONS = [
   {label:"Disable",    value:"disable",   emoji:"🛑"},
 ];
 
-// Every action available to /jarvisenhance, grouped by category (above).
-// `needs` documents what context the step uses: "user"/"member"/"message" all
-// require the reply target; "channel"/"none" don't. `dynamicField`, if set, is
-// the field that falls back to whatever text follows the trigger word in chat
-// when left blank in the builder (e.g. "Jarvis, dm stop that" → message:"stop
-// that" even though the profile itself was saved with no message set).
-// `fields` become a Discord modal (max 5 fields; every action here uses 0–2).
-// Clankerify/Impersonation skip modals entirely: their mode+duration are
-// chosen through point and click select menus instead (see the builder below).
 const JARVISENHANCE_ACTIONS = [
   // ── Clankerify & Impersonation: mode+duration picked via select, no typing ──
   { id:"clankerify", category:"clanker", emoji:"🤖", label:"Clankerify", needs:"user", fields:[] },
@@ -1779,11 +1614,6 @@ function buildJarvisDurationPicker(token){
   return { content:`${def?.emoji||"🤖"} **${def?.label||b.pendingActionType}**: mode: \`${b.pendingMode}\`. Now pick a duration:`, components:rows };
 }
 
-// Actions that send text into the channel (echo/send_embed/theremnant) can
-// optionally reply to the message you're replying to instead of just posting
-// normally: a pick from a list choice, no typing. Picking "Reply" is what
-// makes that specific action step require the trigger to be said as a reply;
-// "Send normally" means it never needs one.
 function buildJarvisReplyModePicker(token){
   const b = jarvisEnhanceBuilders.get(token);
   const def = JARVISENHANCE_ACTIONS.find(a => a.id===b.pendingActionType);
@@ -1802,21 +1632,12 @@ function buildJarvisReplyModePicker(token){
   return { content:`${def?.emoji||"📢"} **${def?.label||b.pendingActionType}**: how should it be sent?`, components:rows };
 }
 
-// Shared by echo/send_embed/theremnant: delivers a message per the picked
-// reply mode: reply to the reply target, reply to whoever said the trigger,
-// or just post normally.
 async function deliverJarvisPayload(ctx, params, payload){
   if(params.replyMode==="reply" && ctx.targetMsg) return ctx.targetMsg.reply(payload).catch(()=>{});
   if(params.replyMode==="replyactor" && ctx.actorMsg) return ctx.actorMsg.reply(payload).catch(()=>{});
   return ctx.channel.send(payload).catch(()=>{});
 }
 
-// Executes one saved profile's action chain in order against the resolved
-// context. Each runner mirrors the exact logic of the equivalent existing
-// owner command/context menu action, just invoked directly instead of through
-// a slash command interaction. If an action has a `dynamicField` and it was
-// left blank when the profile was built, whatever text followed the trigger
-// word at runtime (ctx.restText) fills it in live.
 const JARVISENHANCE_RUNNERS = {
   async clankerify(params, ctx){
     const gid = ctx.guild?.id;
@@ -2007,8 +1828,7 @@ const JARVISENHANCE_RUNNERS = {
     return "pinned";
   },
   async delete_message(params, ctx){
-    tagBotMessageDelete(ctx.targetMsg.id, "silent");
-    await ctx.targetMsg.delete().catch(e=>{ pendingBotMessageDeletes.delete(ctx.targetMsg.id); throw e; });
+    await ctx.targetMsg.delete();
     return "deleted";
   },
   async add_reaction(params, ctx){
@@ -2160,11 +1980,6 @@ async function runJarvisEnhanceProfile(profile, ctx){
     if(!def || !runner){ results.push(`❓ ${step.type}: unknown action`); continue; }
     try{
       let params = step.params||{};
-      // Template placeholders: a {anything} token typed into ANY field gets
-      // replaced with whatever text followed the trigger word: works
-      // anywhere in a field, not just when the field is entirely blank, e.g.
-      // a nickname field set to literally "{nickname}", or a message field
-      // set to "Welcome {text} to the crew!".
       const hasPlaceholder = Object.values(params).some(v => typeof v==="string" && /\{[^}]*\}/.test(v));
       if(hasPlaceholder){
         const filled = {};
@@ -2173,8 +1988,6 @@ async function runJarvisEnhanceProfile(profile, ctx){
         }
         params = filled;
       }
-      // Shorthand: leaving the dynamic field entirely blank still falls back
-      // to the full trailing text, no {…} needed.
       if(def.dynamicField && !(params[def.dynamicField]||"").trim() && ctx.restText){
         params = { ...params, [def.dynamicField]: ctx.restText };
       }
@@ -2188,40 +2001,18 @@ async function runJarvisEnhanceProfile(profile, ctx){
   return results;
 }
 
-// trashcanVotes: messageId -> { filename, voters: Set<userId>, guildId, channelId, sentToDeleter: bool }
 const trashcanVotes = new Map();
-// Configurable threshold for trashcan reactions (default: 3)
 let trashcanThreshold = 3;
-// selfClank: per-guild tracking - guildId -> Set of userIds currently self-clanked
-const selfClankUsers = new Map(); // guildId -> Set<userId>
-// selfClankCooldown: userId -> timestamp when cooldown expires
+const selfClankUsers = new Map();
 const selfClankCooldown = new Map();
 
 // Pending quote review submissions (token -> submission data) ───────────────
-// Avoids Discord's 100 char custom_id limit by using a short token instead of
-// embedding the full filename in the button ID.
-const pendingReviews = new Map(); // token maps to { submitterId, fileName, rawName, mediaKind, guildId, destFolder }
+const pendingReviews = new Map();
 
 // ── Server specific quotes (/quotesetup) ─────────────────────────────────────
-// Every server is on the global quote stream by default. A server owner can run
-// /quotesetup to give their server its own quote folder (created at the repo
-// root), its own request and delete channels, and its own moderators. A server
-// on its own folder only ever sees quotes from that folder, and that folder is
-// never mixed into the global pool (quotes and quotes2).
-// quoteGuildConfigs: guildId maps to {
-//   mode: "global" or "server",
-//   folder: string or null,
-//   requestChannelId, deleteChannelId: string or null,
-//   moderators: [userId, ...],
-//   globalToggled: boolean,   // /globaltoggle: own folder and channels paused, global stream used
-//   createdChannels: boolean, // both channels were made by "Make both channels for me"
-// }
 const quoteGuildConfigs = new Map();
-// quoteSetupBuilders: token maps to { ownerId, guildId, step, requestChannelId, deleteChannelId, folder, createdChannels }
 const quoteSetupBuilders = new Map();
 
-// Every line the server specific quote system says lives in this one object,
-// so any wording can be changed here without touching the logic.
 const QS_TEXT = {
   askScope: "Would the funny screenshots be part of this server only, or would you like to contribute globally?",
   globalChosen: "Quotes are now being sent to the global request/delete channels",
@@ -2272,13 +2063,8 @@ const QS_TEXT = {
 };
 
 const QS_FOLDER_RE = /^[a-z0-9_]{3,32}$/;
-// Names that can never be used for a server folder: the global folders plus
-// directories the repo itself already relies on.
 const QS_RESERVED_FOLDERS = new Set(["quotes","quotes2","jarvis","fonts","node_modules","src","lib","docs","public","static","assets","data","test","tests","dist","build","github","scripts","logs","tmp","temp"]);
 
-// Where a server's quotes, requests and flags go right now. A server on its
-// own folder (and not toggled to global) is "server"; everything else,
-// including DMs and servers that never ran /quotesetup, is "global".
 function getQuoteRoute(guildId){
   const cfg = guildId ? quoteGuildConfigs.get(guildId) : null;
   if(cfg && cfg.mode === "server" && cfg.folder && !cfg.globalToggled){
@@ -2301,16 +2087,12 @@ function getOrCreateQuoteConfig(guildId){
   if(!Array.isArray(cfg.moderators)) cfg.moderators = [];
   return cfg;
 }
-// The server owner and anyone added with /quotemoderator, only for that server.
 function isServerQuoteStaff(userId, guildId){
   const cfg = guildId ? quoteGuildConfigs.get(guildId) : null;
   if(!cfg) return false;
   if(isGuildOwner(guildId, userId)) return true;
   return Array.isArray(cfg.moderators) && cfg.moderators.includes(userId);
 }
-// Which channel a flagged quote is sent to. A quote living in a server folder
-// goes to that server's delete channel (while that server is on its own
-// folder); everything else goes to the global deleter channel.
 function getFlagChannelId(fileName, guildId){
   const folder = quoteFileFolderCache.get(fileName);
   if(folder){
@@ -2328,7 +2110,6 @@ function ghApiHeaders(withBody){
   if(withBody) h["Content-Type"] = "application/json";
   return h;
 }
-// true if the path exists in the repo, false if it does not, null if GitHub could not say.
 async function ghFolderExists(folder){
   try{
     const res = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/${folder}`, { headers: ghApiHeaders(false) });
@@ -2340,8 +2121,6 @@ async function ghFolderExists(folder){
     return null;
   }
 }
-// GitHub cannot hold an empty directory, so a new folder is created by putting
-// placeholder.txt inside it.
 async function createQuoteFolderOnGitHub(folder){
   try{
     const res = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/${folder}/placeholder.txt`, {
@@ -2362,8 +2141,6 @@ async function createQuoteFolderOnGitHub(folder){
 function cleanQuoteFolderName(raw){
   return String(raw || "").trim().toLowerCase().replace(/\s+/g, "_");
 }
-// Returns { ok:true, name, exists } or { ok:false, reason }. exists means the
-// folder already belongs to this same server, so it is reused, not recreated.
 async function validateQuoteFolderChoice(rawName, guildId){
   const name = cleanQuoteFolderName(rawName);
   if(!QS_FOLDER_RE.test(name)) return { ok:false, reason: QS_TEXT.folderInvalid };
@@ -2383,9 +2160,6 @@ function getQuoteSetupChannelItems(guild, emoji){
     .map(ch => ({ label: `#${ch.name}`, value: ch.id, emoji: { name: emoji } }));
 }
 
-// The /quotesetup server specific panel. Three steps: request channel, delete
-// channel, folder name. Returned without a content key (discord.js v13 rejects
-// empty content); callers that edit an older message add content:null.
 function buildQuoteSetupPanel(token){
   const b = quoteSetupBuilders.get(token);
   const guild = b ? client.guilds.cache.get(b.guildId) : null;
@@ -2430,8 +2204,6 @@ function buildQuoteSetupPanel(token){
   return { embeds:[embed], components };
 }
 
-// "Make both channels for me": two private text channels the bot, the server
-// owner (who sees everything anyway) and any quote moderators can use.
 async function createQuoteChannels(guild, moderatorIds){
   const botAllow = ["VIEW_CHANNEL","SEND_MESSAGES","EMBED_LINKS","ATTACH_FILES","READ_MESSAGE_HISTORY"];
   const modAllow = ["VIEW_CHANNEL","SEND_MESSAGES","READ_MESSAGE_HISTORY"];
@@ -2447,8 +2219,6 @@ async function createQuoteChannels(guild, moderatorIds){
   const deleteCh  = await guild.channels.create("quote_deletes",  { type:"GUILD_TEXT", permissionOverwrites: overwrites });
   return { requestCh, deleteCh };
 }
-// Keeps channels made by "Make both channels for me" visible to moderators as
-// they are added and removed. Channels the owner picked themselves are left alone.
 async function syncQuoteModeratorAccess(guild, cfg, userId, grant){
   if(!guild || !cfg || !cfg.createdChannels) return;
   const user = await client.users.fetch(userId).catch(() => null);
@@ -2462,7 +2232,6 @@ async function syncQuoteModeratorAccess(guild, cfg, userId, grant){
     }catch(e){ console.error("[quotemoderator] channel access sync failed:", e.message); }
   }
 }
-// Pings the bot owner in their DM hub channel when a server picks server specific.
 async function notifyOwnerServerSpecific(guild){
   try{
     if(!dmRelayGuildId) return;
@@ -2485,17 +2254,12 @@ async function notifyOwnerServerSpecific(guild){
 const tomatoPending = new Map();
 
 // ── Paranoia watchers (scopedKey(guildId,userId) -> { chance, armed }) ───────
-// When armed, any message the watched user sends IN THAT GUILD gets a paranoia
-// reply (guild-scoped: see scopedKey near shadowDelete/clankerify above).
 const paranoiaWatchers = new Map();
 
 // ── DM relay (persisted in botdata.json, survives restarts) ──────────────────
-// /dmconfig turns one server into a "hub": each DM'd user gets their own channel
-// there. Messages sent in that channel get DMed out to the user; the user's DM
-// replies get forwarded back into that same channel.
-let dmRelayGuildId = null;                 // the hub server ID
-const dmRelayChannels = new Map();         // userId -> channelId (the persisted source of truth)
-const dmRelayChannelsByChannel = new Map(); // channelId -> userId (derived, rebuilt from the map above)
+let dmRelayGuildId = null;
+const dmRelayChannels = new Map();
+const dmRelayChannelsByChannel = new Map();
 function setDmRelayChannel(userId, channelId) {
   dmRelayChannels.set(userId, channelId);
   dmRelayChannelsByChannel.set(channelId, userId);
@@ -2504,8 +2268,6 @@ function rebuildDmRelayReverseMap() {
   dmRelayChannelsByChannel.clear();
   for (const [userId, channelId] of dmRelayChannels) dmRelayChannelsByChannel.set(channelId, userId);
 }
-// Returns (creating if necessary) the relay channel for a user in the configured hub server.
-// Used by /dmconfig (manual open) and automatically the instant someone DMs the bot for the first time.
 async function ensureDmRelayChannel(user) {
   if (!dmRelayGuildId) return null;
   const hubGuild = client.guilds.cache.get(dmRelayGuildId);
@@ -2515,7 +2277,6 @@ async function ensureDmRelayChannel(user) {
   if (existingChannelId) {
     const existingChannel = hubGuild.channels.cache.get(existingChannelId);
     if (existingChannel) return existingChannel;
-    // stale entry (channel deleted): fall through and recreate
   }
 
   try {
@@ -2540,9 +2301,7 @@ async function ensureDmRelayChannel(user) {
 }
 
 // ── /thecount: queue messages in a hub channel, flush them all with /send ──
-// Reuses the same hub guild (dmRelayGuildId) as DM relay, but under its own
-// "The Count" category so queued messages stay clearly separate from live relays.
-const theCountChannels = new Map(); // userId -> { channelId, lastSentMessageId }
+const theCountChannels = new Map();
 async function ensureTheCountChannel(user) {
   if (!dmRelayGuildId) return null;
   const hubGuild = client.guilds.cache.get(dmRelayGuildId);
@@ -2552,7 +2311,6 @@ async function ensureTheCountChannel(user) {
   if (existing) {
     const existingChannel = hubGuild.channels.cache.get(existing.channelId);
     if (existingChannel) return existingChannel;
-    // stale entry (channel deleted): fall through and recreate
   }
 
   try {
@@ -2577,13 +2335,10 @@ async function ensureTheCountChannel(user) {
 }
 
 // ── Upload counters & persistent status ───────────────────────────────────────
-// Global sequential counters for /upload + /requestupload filenames (persisted in botdata.json)
 let uploadCounters = { quote: 0, eardestroyer: 0, eyebleacher: 0 };
-// Persistent bot status: restored on every boot via /setstatus
-let botStatus = null; // { text: string, type: "PLAYING"|"WATCHING"|"LISTENING"|"COMPETING" }
+let botStatus = null;
 
 // ── Media type detection for /upload & /requestupload ────────────────────────
-// Returns {kind:"image"|"audio"|"video", prefix:"quote"|"eardestroyer"|"eyebleacher", ext:string} or null if unsupported.
 const MEDIA_EXT = {
   image: ["png","jpg","jpeg","gif","webp"],
   audio: ["mp3","wav","ogg","flac","m4a","aac","opus"],
@@ -2604,7 +2359,6 @@ function detectMediaKind(contentType, fileName) {
 
   if (!kind) return null;
 
-  // Normalize extension: prefer the real extension if it matches the kind, else fall back to a sane default
   let finalExt = ext && MEDIA_EXT[kind].includes(ext) ? ext : null;
   if (!finalExt) {
     if (kind === "image") finalExt = /gif/.test(ct) ? "gif" : /png/.test(ct) ? "png" : /webp/.test(ct) ? "webp" : "jpg";
@@ -2615,20 +2369,13 @@ function detectMediaKind(contentType, fileName) {
   const prefix = kind === "image" ? "quote" : kind === "audio" ? "eardestroyer" : "eyebleacher";
   return { kind, prefix, ext: finalExt };
 }
-// Allocates the next sequential number for a given prefix and persists it.
 function nextUploadNumber(prefix) {
   if (!uploadCounters || typeof uploadCounters !== "object") uploadCounters = { quote:0, eardestroyer:0, eyebleacher:0 };
   uploadCounters[prefix] = (uploadCounters[prefix] || 0) + 1;
   return uploadCounters[prefix];
 }
 
-// Shared by /requestupload and the "database"/"upload" Jarvis Enhance
-// trigger: submits a piece of media into the review queue, crediting
-// submitterUser (the slash command's caller, or whoever said the trigger
-// word, not necessarily whoever originally posted the media).
 async function submitMediaForReview({ submitterUser, attachmentUrl, attachmentName, attachmentContentType, attachmentSize, attachmentBuffer, guildName, guildId, channelId }) {
-  // A server on its own folder sends submissions to its own request channel and
-  // they are stored in its own folder; everyone else uses the global channel.
   const route = getQuoteRoute(guildId);
   const isServerRoute = route.scope === "server";
   const destChannelId = isServerRoute ? route.requestChannelId : reviewChannelId;
@@ -2690,13 +2437,6 @@ async function submitMediaForReview({ submitterUser, attachmentUrl, attachmentNa
 }
 
 // ── Quote source folders ──────────────────────────────────────────────────────
-// Quotes are read from BOTH folders below (merged), but /upload and /requestupload
-// approvals only ever WRITE into the last one (quotes2): see those handlers.
-// QUOTE_FOLDERS are the global folders (treated equally). Server specific
-// folders live in the repo root under names chosen in /quotesetup, and are
-// tracked in quoteGuildConfigs. getAllQuoteFolders() is every folder, used by
-// owner tools, the folder cache warm up and delete lookups; the random quote
-// pools never mix a server folder into the global pool (see getQuotePool).
 const QUOTE_FOLDERS = ["quotes", "quotes2"];
 function getAllQuoteFolders() {
   const all = new Set(QUOTE_FOLDERS);
@@ -2704,23 +2444,14 @@ function getAllQuoteFolders() {
   return [...all];
 }
 
-// Cache: fileName -> folder it actually lives in. Populated whenever we list a folder
-// (fetchAllQuoteFiles) or write a file (upload/approve), so call sites that only have a
-// bare filename (library browser, quote manager, trashcan review) can build the right
-// raw.githubusercontent.com URL or GitHub API path without an extra network round trip.
 const quoteFileFolderCache = new Map();
 function cacheQuoteFolder(fileName, folder) { quoteFileFolderCache.set(fileName, folder); }
 
-// Builds a raw.githubusercontent.com URL for a quote file, using the cached folder if known.
 function quoteRawUrl(fileName, folderHint) {
   const folder = folderHint || quoteFileFolderCache.get(fileName) || "quotes";
   return `https://raw.githubusercontent.com/${GH_REPO || "Royal-V-RR/discord-bot"}/main/${folder}/${encodeURIComponent(fileName)}`;
 }
 
-// Builds the payload sent to the deleter channel for a flagged quote, matching
-// the embed style submitMediaForReview() uses for the review channel (author
-// line, big image, blurple color, footer + timestamp) instead of the old
-// plain-content message, so both channels look and feel consistent.
 function buildDeleterReviewPayload({ fileName, flaggedLine, msgLink, folderHint }) {
   const imageUrl = quoteRawUrl(fileName, folderHint);
   const row = new MessageActionRow().addComponents(
@@ -2742,8 +2473,6 @@ function buildDeleterReviewPayload({ fileName, flaggedLine, msgLink, folderHint 
   };
 }
 
-// Lists the contents of a single quote folder via the GitHub Contents API, tagging every
-// file with which folder it came from and populating the folder cache as a side effect.
 async function fetchQuoteFolderFiles(folder) {
   try {
     const res = await fetch(`https://api.github.com/repos/${GH_REPO || "Royal-V-RR/discord-bot"}/contents/${folder}`, {
@@ -2756,17 +2485,11 @@ async function fetchQuoteFolderFiles(folder) {
   } catch(e) { console.error(`Quote folder fetch failed (${folder}):`, e.message); return []; }
 }
 
-// Merges the listings of every quote folder (global and server specific) into one array. Each file
-// object keeps its real `download_url` from the GitHub API, so nothing downstream needs to
-// know or care which folder it actually came from.
 async function fetchAllQuoteFiles() {
   const perFolder = await Promise.all(getAllQuoteFolders().map(fetchQuoteFolderFiles));
   return perFolder.flat();
 }
 
-// Resolves the GitHub Contents API path (folder/filename) for an existing quote file that
-// we only know the bare filename for (e.g. from a delete button). Checks the folder cache
-// first, then falls back to probing each folder directly.
 async function resolveQuoteGhPath(fileName) {
   const cached = quoteFileFolderCache.get(fileName);
   if (cached) return `${cached}/${fileName}`;
@@ -2776,19 +2499,14 @@ async function resolveQuoteGhPath(fileName) {
     });
     if (res.ok) { cacheQuoteFolder(fileName, folder); return `${folder}/${fileName}`; }
   }
-  return `quotes/${fileName}`; // fallback default: matches legacy behavior
+  return `quotes/${fileName}`;
 }
 
 // ── Jarvis image trigger folder ───────────────────────────────────────────────
-// Word triggered images: a message starting with "RoyalBot" or "Jarvis" that's a
-// reply, and that also contains a word matching a filename in this GitHub folder
-// (e.g. carpenter.png → the word "carpenter"), makes the bot reply to the ORIGINAL
-// message (the one being replied to) with that image. Drop a new image into the
-// "jarvis" folder and it works immediately: no code changes needed.
 const JARVIS_FOLDER = "jarvis";
-let jarvisImageCache = []; // [{ name, word, download_url }]
+let jarvisImageCache = [];
 let jarvisCacheFetchedAt = 0;
-const JARVIS_CACHE_TTL_MS = 2 * 60 * 1000; // refresh at most every 2 minutes
+const JARVIS_CACHE_TTL_MS = 2 * 60 * 1000;
 
 // ── /jarvislist: paginated embed gallery of every image in the Jarvis folder ──
 // ── /userprofile: Patreon exclusive supporter profile card ────────────────────
@@ -2823,7 +2541,7 @@ async function getJarvisImages() {
     const res = await fetch(`https://api.github.com/repos/${GH_REPO || "Royal-V-RR/discord-bot"}/contents/${JARVIS_FOLDER}`, {
       headers: { "User-Agent": "RoyalBot", "Authorization": `token ${GH_TOKEN}` }
     });
-    if (!res.ok) return jarvisImageCache; // keep stale cache on failure
+    if (!res.ok) return jarvisImageCache;
     const files = await res.json();
     if (!Array.isArray(files)) return jarvisImageCache;
     jarvisImageCache = files
@@ -2835,16 +2553,12 @@ async function getJarvisImages() {
 }
 
 // ── /download helpers (YouTube fetch + split to fit) ─────────────────────────
-// Discord's per guild upload cap depends on server boost tier. DMs / no guild use the base
-// tier. A small margin is shaved off to leave headroom for multipart/container overhead.
 function getUploadLimitBytes(guild) {
   const tier = guild?.premiumTier || 0;
   const raw = tier >= 3 ? 100_000_000 : tier === 2 ? 50_000_000 : 8_000_000;
   return Math.floor(raw * 0.92);
 }
 
-// Probes a media file's duration (seconds) by parsing ffmpeg's own stderr banner: avoids
-// needing a separate ffprobe binary since ffmpeg-static already ships one binary we reuse.
 function probeDuration(filePath) {
   return new Promise((resolve) => {
     const proc = spawn(ffmpegPath, ["-i", filePath], { stdio: ["ignore","ignore","pipe"] });
@@ -2867,9 +2581,6 @@ function runFfmpeg(args) {
   });
 }
 
-// Splits a media file into the minimum number of equal length, stream copied parts such that
-// every resulting part fits under limitBytes. Starts at 2 parts and grows by 1 each retry
-// (rather than jumping straight to many tiny parts) until every part fits, or gives up.
 async function splitToFit(filePath, workDir, jobId, ext, limitBytes, knownDuration) {
   const duration = knownDuration || await probeDuration(filePath);
   if (!duration) throw new Error("Couldn't determine the video's duration to split it.");
@@ -2898,16 +2609,9 @@ async function splitToFit(filePath, workDir, jobId, ext, limitBytes, knownDurati
   return [];
 }
 
-// YouTube sometimes rejects the default web client (bot check errors, or player response
-// quirks that hit Shorts more often): retrying with alternate client spoofs is yt dlp's own
-// documented workaround. `client` is null for the default attempt, else passed as extractor args.
 const YT_CLIENT_FALLBACKS = [null, "android", "ios", "web_safari"];
 function ytExtractorArgs(client) { return client ? { extractorArgs: `youtube:player_client=${client}` } : {}; }
 
-// Fetches metadata via ytdlp's single JSON dump option, retrying across client spoofs until one works.
-// Returns { info, client } so the caller can reuse whichever client succeeded for the
-// actual download step too (metadata working with client X is the best predictor download
-// will also work with client X).
 async function ytFetchInfoWithFallback(url) {
   let lastErr;
   for (const client of YT_CLIENT_FALLBACKS) {
@@ -2920,8 +2624,6 @@ async function ytFetchInfoWithFallback(url) {
 }
 function ytErrorMessage(e) {
   const raw = (e.stderr || e.shortMessage || e.message || "Unknown error").toString();
-  // Trim to the last real "ERROR:" line yt dlp printed, which is the actual reason: the
-  // rest is just the invoked command line, which isn't useful to a Discord user.
   const m = raw.match(/ERROR:.*/);
   return (m ? m[0] : raw).slice(0, 350);
 }
@@ -2935,9 +2637,6 @@ function shuffleArray(arr) {
 }
 
 // ── Quote pools ───────────────────────────────────────────────────────────────
-// Which folders a server draws random quotes from. Servers on the global stream
-// use quotes + quotes2 together; a server on its own folder (see /quotesetup)
-// only ever draws from that folder. Each pool has its own shuffled queues.
 function getQuotePool(guildId) {
   const route = getQuoteRoute(guildId);
   if (route.scope === "server") return { key: `server:${route.folder}`, folders: [route.folder] };
@@ -2947,8 +2646,6 @@ async function fetchQuotePoolImages(pool) {
   const perFolder = await Promise.all(pool.folders.map(fetchQuoteFolderFiles));
   return perFolder.flat().filter(f => /\.(png|jpe?g|gif|webp)$/i.test(f.name));
 }
-// Shuffled queues per pool: normal, good and bad each keep their own, plus a
-// fetch lock per pool so concurrent calls never double fetch.
 const quoteQueues = { normal: new Map(), good: new Map(), bad: new Map() };
 const quoteQueueLocks = { normal: new Set(), good: new Set(), bad: new Set() };
 
@@ -2973,8 +2670,6 @@ async function nextFromQuoteQueue(kind, guildId, shuffler) {
   return queue.shift();
 }
 
-// Build a weighted shuffled array: each image gets a weight of max(1, baseWeight + up: down)
-// baseWeight = 10 so a new quote starts neutral and can be voted down but not to 0
 function weightedShuffleQuotes(images) {
   const BASE = 10;
   const weighted = [];
@@ -2986,28 +2681,24 @@ function weightedShuffleQuotes(images) {
   return shuffleArray(weighted);
 }
 
-// Build a shuffled array biased toward HIGH rated images (net score > 0)
 function goodShuffleQuotes(images) {
   const BASE = 10;
   const weighted = [];
   for (const img of images) {
     const v = quoteVotes.get(img.name) || { up: 0, down: 0 };
     const net = v.up - v.down;
-    // Only heavily favour positive net images; neutral images get a small weight
     const w = net > 0 ? Math.max(1, BASE + net * 3) : Math.max(1, Math.floor(BASE / 3));
     for (let i = 0; i < w; i++) weighted.push(img);
   }
   return shuffleArray(weighted);
 }
 
-// Build a shuffled array biased toward LOW rated images (net score < 0)
 function badShuffleQuotes(images) {
   const BASE = 10;
   const weighted = [];
   for (const img of images) {
     const v = quoteVotes.get(img.name) || { up: 0, down: 0 };
     const net = v.up - v.down;
-    // Only heavily favour negative net images; neutral images get a small weight
     const w = net < 0 ? Math.max(1, BASE + Math.abs(net) * 3) : Math.max(1, Math.floor(BASE / 3));
     for (let i = 0; i < w; i++) weighted.push(img);
   }
@@ -3022,32 +2713,20 @@ async function nextBadQuoteImage(guildId) {
   return nextFromQuoteQueue("bad", guildId, badShuffleQuotes);
 }
 
-// Occasionally pick a low rated quote from the pool directly (no queue needed: just sample)
 async function nextLowRatedQuoteImage(allImages) {
   const BASE = 10;
-  // Candidates: images with a negative or zero net rating
   const candidates = allImages.filter(img => {
     const v = quoteVotes.get(img.name) || { up: 0, down: 0 };
     return (v.up - v.down) <= 0;
   });
-  // Fall back to full list if somehow everything is positive
   const pool = candidates.length ? candidates : allImages;
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
-// Returns the next image from the queue, refilling if needed.
-// Pure shuffle: no weighting. Weights only apply to /goodquote and /badquote.
-// Returns null if the queue can't be filled (GitHub unavailable).
 async function nextQuoteImage(guildId) {
   return nextFromQuoteQueue("normal", guildId, (images) => shuffleArray([...images]));
 }
 
-// Shared by /quote, /goodquote, /badquote, and the "quote" Jarvis Enhance
-// trigger, so all four behave identically: same 10% chance to show the
-// upload promo line, same vote button setup, same trashcan tracking.
-// sendFn(payload) must send the message and return the resulting Message
-// object (or null on failure); callers handle their own reply mechanism
-// (safeReply for slash commands, channel.send for the chat trigger).
 async function postRandomQuoteCard(fetchFn, type, sendFn, guildId) {
   const chosen = await fetchFn(guildId);
   if (!chosen) return null;
@@ -3067,7 +2746,6 @@ async function postRandomQuoteCard(fetchFn, type, sendFn, guildId) {
 }
 
 // ── Scores ────────────────────────────────────────────────────────────────────
-// FIX: scores MUST be declared before loadData() so loadData can populate it
 const scores = new Map();
 
 function getScore(userId, username) {
@@ -3110,7 +2788,6 @@ function xpInfo(s) {
   s.level=lv; s.xp=xp; return{level:lv,xp,needed};
 }
 const xpCooldown = new Map();
-// Active timed item effects: userId -> { lucky_charm_expiry, xp_boost_expiry }
 const activeEffects = new Map();
 function tryAwardXP(uid, uname) {
   const now=Date.now(), last=xpCooldown.get(uid)||0;
@@ -3126,55 +2803,43 @@ function tryAwardXP(uid, uname) {
 
 // ── Config ────────────────────────────────────────────────────────────────────
 const CONFIG = {
-  // XP
   xp_per_msg_min:5,        xp_per_msg_max:15,
   xp_cooldown_ms:60000,
-  // Economy cooldowns (ms)
   work_cooldown_ms:3600000, beg_cooldown_ms:300000,
   crime_cooldown_ms:7200000, rob_cooldown_ms:3600000,
-  // Economy rewards
   daily_base_coins:100,    daily_streak_bonus:10,
   daily_wrong_penalty:5,
   starting_coins:100,
-  // Economy success chances (whole %, e.g. 60 = 60%)
   beg_success_chance:60,
   crime_success_chance:57,
-  // Rob percentages (whole numbers, e.g. 10 = 10%)
   rob_steal_pct_min:10,    rob_steal_pct_max:30,
   rob_fine_pct_min:5,      rob_fine_pct_max:15,
   rob_success_chance:45,
-  // Gambling
   slots_min_bet:1,
   coinbet_win_chance:50,
-  // Slot multipliers (stored as integers, /100 when used: e.g. 1000 = 10×)
   slots_jackpot_mult:1000,
   slots_bigwin_mult:500,
   slots_triple_mult:300,
   slots_pair_mult:150,
-  // Blackjack natural payout (integer /100: 150 = 1.5×)
   blackjack_natural_mult:150,
-  // Item effects (whole %, e.g. 10 = +10%)
   lucky_charm_bonus:10,
   xp_boost_mult:200,
   coin_magnet_mult:300,
   mystery_box_coin_chance:50,
-  // Normal Mystery Box drop weights (sum doesn't need to equal 100: weights are relative)
-  mb_coins_small:10,   // 50–200 coins
-  mb_coins_large:15,   // 200–500 coins
+  mb_coins_small:10,
+  mb_coins_large:15,
   mb_lucky_charm:15,
   mb_xp_boost:15,
   mb_shield:15,
   mb_coin_magnet:15,
   mb_rob_insurance:15,
-  // Item Mystery Box drop weights (cheaper box, lower quality)
-  imb_coins_tiny:30,   // exactly 5 coins (junk)
-  imb_coins_small:20,  // 20–80 coins
+  imb_coins_tiny:30,
+  imb_coins_small:20,
   imb_lucky_charm:12,
   imb_xp_boost:8,
   imb_shield:12,
   imb_coin_magnet:8,
   imb_rob_insurance:10,
-  // Shop prices
   shop_lucky_charm_price:200,
   shop_xp_boost_price:300,
   shop_shield_price:150,
@@ -3182,13 +2847,11 @@ const CONFIG = {
   shop_mystery_box_price:100,
   shop_item_mystery_box_price:40,
   shop_rob_insurance_price:250,
-  // Solo game win coins
   win_hangman:40,
   win_snake_per_point:5,
   win_minesweeper_easy:30,  win_minesweeper_medium:60,  win_minesweeper_hard:100,
   win_numberguess:30,
   win_wordscramble:25,
-  // 2 player game win coins
   win_ttt:50,
   win_c4:50,
   win_rps:40,
@@ -3197,9 +2860,7 @@ const CONFIG = {
   win_trivia:60,
   win_scramblerace:80,
   win_countgame:200,
-  // Events / Olympics
   olympics_win_coins:75,
-  // Invite competition rewards (1st/2nd/3rd place)
   invite_comp_1st:500,     invite_comp_2nd:250,     invite_comp_3rd:100,
   invite_comp_per_invite:10,
 };
@@ -3213,7 +2874,6 @@ let   _commitTimer = null;
 async function commitDataToGitHub(jsonString) {
   if (!GH_TOKEN || !GH_REPO) return;
 
-  // Helper: fetch current SHA of botdata.json (required for updates)
   async function fetchSHA() {
     return new Promise(resolve => {
       const req = https.request({
@@ -3235,7 +2895,6 @@ async function commitDataToGitHub(jsonString) {
     });
   }
 
-  // Helper: attempt one PUT
   async function tryPut(sha) {
     const encoded = Buffer.from(jsonString).toString("base64");
     const body = JSON.stringify({
@@ -3263,11 +2922,9 @@ async function commitDataToGitHub(jsonString) {
   }
 
   try {
-    // Attempt 1: fetch SHA and PUT
     let sha = await fetchSHA();
     let result = await tryPut(sha);
 
-    // If 409 (conflict) or 422 (wrong/missing SHA), fetch fresh SHA and retry once
     if (result.status === 409 || result.status === 422) {
       console.log(`⚠️  GitHub commit ${result.status}: retrying with fresh SHA`);
       sha = await fetchSHA();
@@ -3304,16 +2961,11 @@ function buildDataObject() {
     countingChannels: [...countingChannels.entries()],
     userInstalls:     [...userInstalls],
     featureBlacklist: [...featureBlacklist.entries()].map(([id,b]) => [id, [...b.features], b.silent]),
-    // Temp/permanent owner grants: expiresAt:null means permanent, so it must survive restarts
     tempOwnerGrants:  [...tempOwnerGrants.entries()].map(([id,g]) => [id, { commands:[...g.commands], features:[...g.features], expiresAt:g.expiresAt, grantedBy:g.grantedBy, grantedAt:g.grantedAt }]),
     scores:           [...scores.entries()],
-    // Active item effects: expiry timestamps so buffs survive restarts
     activeEffects:    [...activeEffects.entries()],
-    // Reminders: fire any overdue ones immediately on load
     reminders:        [...reminders],
-    // Scheduled messages: fire any overdue ones immediately on load
     scheduledMessages: [...scheduledMessages.entries()],
-    // Invite competitions: baseline stored as array of [code, uses] pairs
     inviteComps:      [...inviteComps.entries()].map(([guildId, comp]) => [
       guildId,
       { endsAt: comp.endsAt, channelId: comp.channelId, baseline: [...comp.baseline.entries()] }
@@ -3332,6 +2984,7 @@ function buildDataObject() {
     pendingFlagDeleters:  [...pendingFlagDeleters.entries()].map(([k,v]) => [k, [...v]]),
     reviewChannelId:      reviewChannelId,
     deleterChannelId:     deleterChannelId,
+    emojiStealDestGuildId: emojiStealDestGuildId,
     trashcanThreshold:    trashcanThreshold,
     trashcanVotes:        [...trashcanVotes.entries()].map(([k,v])=>[k,{filename:v.filename,voters:[...v.voters],guildId:v.guildId,channelId:v.channelId,sentToDeleter:v.sentToDeleter,type:v.type||"quote"}]),
     selfClankUsers:       [...selfClankUsers.entries()].map(([guildId,set])=>[guildId,[...set]]),
@@ -3363,7 +3016,6 @@ function saveData() {
   } catch(e) { console.error("saveData error:", e.message); }
 }
 
-// FIX: immediate commit (no debounce) for use on process exit
 async function saveDataAndCommitNow() {
   try {
     if (_commitTimer) { clearTimeout(_commitTimer); _commitTimer = null; }
@@ -3379,7 +3031,6 @@ function loadData() {
     const raw = fs.readFileSync(DATA_FILE, "utf8");
     if (!raw || !raw.trim()) { console.log("botdata.json is empty, starting fresh."); return; }
     const data = JSON.parse(raw);
-    // Restore saved CONFIG values: only known keys, only numbers, never overwrites defaults with bad data
     if (data.config && typeof data.config === "object") {
       for (const [k, v] of Object.entries(data.config)) {
         if (k in CONFIG && typeof v === "number") CONFIG[k] = v;
@@ -3395,7 +3046,6 @@ function loadData() {
     if (data.clankerify) {
       const now = Date.now();
       data.clankerify.forEach(([k,v]) => {
-        // Drop entries that have already expired
         if (v.expiresAt === null || v.expiresAt > now) clankerify.set(k, v);
       });
     }
@@ -3413,7 +3063,6 @@ function loadData() {
     if (data.featureBlacklist) {
       data.featureBlacklist.forEach(([id, feats, silent]) => featureBlacklist.set(id, { features: new Set(feats), silent: !!silent }));
     }
-    // Legacy data migration: old all or nothing blacklist format
     if (data.blacklistedUsers) data.blacklistedUsers.forEach(id => {
       if(!featureBlacklist.has(id)) featureBlacklist.set(id, { features: new Set(["all"]), silent: (data.silentBlacklistUsers||[]).includes(id) });
     });
@@ -3429,7 +3078,7 @@ function loadData() {
         };
         if (grant.expiresAt !== null) {
           const remaining = grant.expiresAt - Date.now();
-          if (remaining <= 0) return; // expired while offline: drop it
+          if (remaining <= 0) return;
           grant.timerId = setTimeout(() => { tempOwnerGrants.delete(id); }, remaining);
         }
         tempOwnerGrants.set(id, grant);
@@ -3438,7 +3087,6 @@ function loadData() {
     if (data.scores)           data.scores          .forEach(([k,v]) => scores.set(k, v));
     if (data.memers)           { MEMERS.clear(); data.memers.forEach(v => MEMERS.add(v)); }
 
-    // Restore active item effects: drop any that have already expired
     if (data.activeEffects) {
       const now = Date.now();
       data.activeEffects.forEach(([uid, fx]) => {
@@ -3449,36 +3097,30 @@ function loadData() {
       });
     }
 
-    // Restore reminders: overdue ones will fire on the next 30s tick
     if (data.reminders) {
       const now = Date.now();
       data.reminders.forEach(rem => {
         if (rem.time && rem.userId && rem.channelId && rem.message) {
-          // Keep future reminders; also keep ones up to 24h overdue so they fire ASAP
           if (rem.time > now - 86400000) reminders.push(rem);
         }
       });
     }
 
-    // Restore scheduled messages: overdue ones will fire on the next 30s tick
     if (data.scheduledMessages) {
       const now = Date.now();
       data.scheduledMessages.forEach(([id, sm]) => {
         if (sm && sm.sendAt && sm.userId && sm.channelId) {
-          // Keep future ones; also keep ones up to 24h overdue so they fire ASAP
           if (sm.sendAt > now - 86400000) scheduledMessages.set(id, sm);
         }
       });
     }
 
-    // Restore invite competitions: recreate baseline Map and rearm the timeout
     if (data.inviteComps) {
       const now = Date.now();
       data.inviteComps.forEach(([guildId, comp]) => {
-        if (!comp.endsAt || comp.endsAt <= now) return; // already expired
+        if (!comp.endsAt || comp.endsAt <= now) return;
         const baseline = new Map(comp.baseline || []);
         inviteComps.set(guildId, { endsAt: comp.endsAt, channelId: comp.channelId, baseline });
-        // Re arm the timer for the remaining duration
         const remaining = comp.endsAt - now;
         setTimeout(async () => {
           const live = inviteComps.get(guildId); if (!live) return;
@@ -3500,7 +3142,6 @@ function loadData() {
       });
     }
 
-    // Restore premieres: rearm their update intervals
     if (data.premieres) {
       const now = Date.now();
       data.premieres.forEach(([id, p]) => {
@@ -3511,11 +3152,10 @@ function loadData() {
     if (data.raConfig) data.raConfig.forEach(([k,v]) => raConfig.set(k, v));
 
     if (data.scheduledChecks) data.scheduledChecks.forEach(([k,v]) => scheduledChecks.set(k, v));
-    // Restore active activity checks: rearm their expiry timers
     if (data.activityChecks) {
       const now = Date.now();
       data.activityChecks.forEach(([msgId, check]) => {
-        if (!check.deadline || check.deadline <= now) return; // already expired
+        if (!check.deadline || check.deadline <= now) return;
         activityChecks.set(msgId, check);
         const remaining = check.deadline - now;
         setTimeout(async () => {
@@ -3561,10 +3201,10 @@ function loadData() {
       });
     }
 
-
     if (data.dailyQuoteChannels) data.dailyQuoteChannels.forEach(([k,v]) => dailyQuoteChannels.set(k, v));
     if (data.reviewChannelId)    reviewChannelId = data.reviewChannelId;
     if (data.deleterChannelId)   deleterChannelId = data.deleterChannelId;
+    if (data.emojiStealDestGuildId) emojiStealDestGuildId = data.emojiStealDestGuildId;
     if (typeof data.trashcanThreshold === "number") trashcanThreshold = data.trashcanThreshold;
     if (data.uploadCounters && typeof data.uploadCounters === "object") {
       uploadCounters.quote        = data.uploadCounters.quote        || 0;
@@ -3620,10 +3260,8 @@ function loadData() {
   } catch(e) { console.error("loadData error:", e.message); }
 }
 
-// Load data at startup: scores/maps are declared above so this works correctly now
 loadData();
 
-// Auto save every 2 minutes
 setInterval(() => saveData(), 2 * 60 * 1000);
 
 // ── Daily quote ticker (runs every minute, fires once per day per guild) ──────
@@ -3634,7 +3272,6 @@ setInterval(async () => {
   for (const [guildId, cfg] of dailyQuoteChannels) {
     const targetHour = cfg.hour ?? 9;
     if (nowHour !== targetHour || nowMin !== 0) continue;
-    // Prevent double firing in the same minute
     const fireKey = `${guildId}:${now.getUTCFullYear()}-${now.getUTCMonth()}-${now.getUTCDate()}:${nowHour}`;
     if (cfg._lastFire === fireKey) continue;
     cfg._lastFire = fireKey;
@@ -3659,9 +3296,7 @@ setInterval(async () => {
 }, 60 * 1000);
 
 // ── Scheduled activity check ticker (runs every minute) ──────────────────────
-// Parses "Monday 09:00" style schedule strings and fires checks at the right time.
 function parseSchedule(str) {
-  // Accepts "Monday 09:00", "mon 9:00", "wednesday 14:30", etc.
   const days = ["sunday","monday","tuesday","wednesday","thursday","friday","saturday"];
   const parts = str.trim().toLowerCase().split(/\s+/);
   if (parts.length < 2) return null;
@@ -3680,7 +3315,6 @@ setInterval(async () => {
   const nowDay = now.getUTCDay(), nowHour = now.getUTCHours(), nowMin = now.getUTCMinutes();
   for (const [key, sc] of scheduledChecks) {
     if (sc.dayOfWeek !== nowDay || sc.hour !== nowHour || sc.minute !== nowMin) continue;
-    // Prevent double firing in the same minute
     const fireKey = `${key}:${nowDay}:${nowHour}:${nowMin}`;
     if (sc._lastFire === fireKey) continue;
     sc._lastFire = fireKey;
@@ -3720,17 +3354,13 @@ setInterval(async () => {
 }, 60 * 1000);
 
 // ── Global error handlers: keep the bot alive through unhandled promise rejections ──
-// Without these, a single unhandled rejection can crash the entire process.
 process.on("unhandledRejection", (reason, promise) => {
   console.error("[unhandledRejection] Unhandled promise rejection:", reason);
-  // Don't exit: log and continue
 });
 process.on("uncaughtException", (err) => {
   console.error("[uncaughtException] Uncaught exception:", err);
-  // Don't exit: log and continue. Data is safe since we write on timers/SIGTERM.
 });
 
-// FIX: On graceful shutdown, await the commit before exiting so GitHub Actions captures the data
 process.on("SIGTERM", async () => {
   console.log("SIGTERM received: saving and committing data");
   await saveDataAndCommitNow();
@@ -3741,7 +3371,6 @@ process.on("SIGINT", async () => {
   await saveDataAndCommitNow();
   process.exit(0);
 });
-// Synchronous fallback for unexpected exits
 process.on("exit", () => {
   try {
     const json = JSON.stringify(buildDataObject(), null, 2);
@@ -3810,8 +3439,6 @@ const BEG_RESPONSES=[{msg:"🙏 A kind stranger tossed you **{c}** coins.",lo:5,
 const CRIME_RESPONSES=[{msg:"🚨 You tried to pickpocket someone but got caught! Paid **{c}** coins in fines.",success:false,lo:20,hi:80},{msg:"💰 You hacked a vending machine and grabbed **{c}** coins worth of snacks.",success:true,lo:50,hi:150},{msg:"🛒 You shoplifted and flipped the goods for **{c}** coins.",success:true,lo:40,hi:120},{msg:"🕵️ You pulled off a small con and walked away with **{c}** coins.",success:true,lo:60,hi:160},{msg:"🚔 The cops showed up and you lost **{c}** coins fleeing.",success:false,lo:15,hi:60},{msg:"🎲 You rigged a street bet and won **{c}** coins.",success:true,lo:70,hi:170},{msg:"🧢 You got scammed while trying to scam someone else. Down **{c}** coins.",success:false,lo:10,hi:50}];
 
 // ── Shop items (module scope so all handlers can access) ───────────────────────
-// Note: prices come from CONFIG so they update when adminconfig changes them.
-// SHOP_ITEMS is a function so it always reads current CONFIG values.
 function getShopItems(){return{
   lucky_charm:      {name:"Lucky Charm 🍀",       price:CONFIG.shop_lucky_charm_price,      desc:`+${CONFIG.lucky_charm_bonus}% coins on all earning actions for 1hr`},
   xp_boost:         {name:"XP Boost ⚡",           price:CONFIG.shop_xp_boost_price,         desc:"2× XP from messages for 1hr"},
@@ -3855,8 +3482,6 @@ const PARANOIA_MESSAGES = [
 ];
 
 // ── Jarvis owner acknowledgment lines ─────────────────────────────────────────
-// Said (as a reply to the command runner) when an OWNER triggers the Jarvis image
-// trigger using the "Jarvis" wake word specifically (not "RoyalBot").
 const JARVIS_ACK_LINES = [
   "Great choice, Sir.",
   "Amazing pick, Sir.",
@@ -3947,7 +3572,6 @@ const JARVIS_ACK_LINES = [
 const r    = (min,max) => Math.floor(Math.random()*(max-min+1))+min;
 const pick = arr => arr[Math.floor(Math.random()*arr.length)];
 
-// Weighted random pick: takes {label: weight} object, returns chosen label
 function weightedPick(weights) {
   const total = Object.values(weights).reduce((a,b)=>a+b,0);
   let roll = Math.random()*total;
@@ -3955,10 +3579,9 @@ function weightedPick(weights) {
     roll -= w;
     if(roll <= 0) return key;
   }
-  return Object.keys(weights)[0]; // fallback
+  return Object.keys(weights)[0];
 }
 
-// Open a normal Mystery Box: returns {type:'coins'|'item', coins?, itemId?}
 function openMysteryBox(){
   const weights = {
     coins_small:   CONFIG.mb_coins_small,
@@ -3975,7 +3598,6 @@ function openMysteryBox(){
   return {type:"item", itemId:result};
 }
 
-// Open an Item Mystery Box: lower quality, cheaper
 function openItemMysteryBox(){
   const weights = {
     coins_tiny:    CONFIG.imb_coins_tiny,
@@ -3993,12 +3615,12 @@ function openItemMysteryBox(){
 }
 
 // ── Patreon promo: small random chance shown after a command finishes ───────
-const PROMO_CHANCE   = 0.08; // ~8% chance per command
+const PROMO_CHANCE   = 0.08;
 const PROMO_MESSAGE  = "Enjoying the commands? How about you get to be a part of the creative process? It is unfortunately paid, but please consider https://www.patreon.com/c/RoyalV_/membership";
 async function maybeSendPromo(interaction) {
   try {
     if (Math.random() >= PROMO_CHANCE) return;
-    if (!interaction.replied && !interaction.deferred) return; // nothing to follow up on
+    if (!interaction.replied && !interaction.deferred) return;
     await interaction.followUp({ content: PROMO_MESSAGE, ephemeral: true }).catch(() => {});
   } catch {}
 }
@@ -4010,8 +3632,6 @@ async function safeReply(interaction, payload) {
     if (interaction.replied)  return await interaction.followUp({...p, ephemeral:true}).catch(()=>{});
     return await interaction.reply(p);
   } catch(e) {
-    // Swallow "Unknown interaction" / "Interaction has already been acknowledged"
-    // errors: these happen when Discord's 3 second window has expired.
     if(e?.code !== 10062 && !e?.message?.includes("already been acknowledged")){
       console.error("[safeReply error]", e?.message);
     }
@@ -4073,15 +3693,12 @@ function moveSnake(game,dir){const head={...game.snake[0]};if(dir==="up")head.y-
 
 function initMinesweeper(mines){
   const rows=5,cols=5,total=25;
-  // Mines not placed yet: deferred until first click to guarantee safe start
   return{rows,cols,mineCount:mines,mines:null,adj:null,revealed:Array(total).fill(false),firstClick:true};
 }
 
-// Called on first click: place mines avoiding the clicked cell and its neighbors, then compute adjacency
 function placeMinesAvoiding(game,safeRow,safeCol){
   const{rows,cols}=game;
   const total=rows*cols;
-  // Build set of safe indices (clicked cell + all 8 neighbors)
   const safeSet=new Set();
   for(let dr=-1;dr<=1;dr++) for(let dc=-1;dc<=1;dc++){
     const nr=safeRow+dr,nc=safeCol+dc;
@@ -4089,7 +3706,6 @@ function placeMinesAvoiding(game,safeRow,safeCol){
   }
   const mineSet=new Set();
   const candidates=[...Array(total).keys()].filter(i=>!safeSet.has(i));
-  // If not enough nonsafe cells, allow safe cells too (shouldn't happen on 5x5 with ≤10 mines)
   const pool=candidates.length>=game.mineCount?candidates:[...Array(total).keys()].filter(i=>!safeSet.has(i)||candidates.length<game.mineCount);
   while(mineSet.size<game.mineCount&&mineSet.size<pool.length){
     mineSet.add(pool[Math.floor(Math.random()*pool.length)]);
@@ -4146,7 +3762,6 @@ function makeMSButtons(game,disabled=false){
   return rows;
 }
 
-// Economy helpers
 function newDeck(){const suits=["♠","♥","♦","♣"],faces=["A","2","3","4","5","6","7","8","9","10","J","Q","K"];const deck=[];for(const s of suits)for(const f of faces)deck.push(f+s);for(let i=deck.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[deck[i],deck[j]]=[deck[j],deck[i]];}return deck;}
 function cardVal(card){const f=card.slice(0,-1);if(f==="A")return 11;if(["J","Q","K"].includes(f))return 10;return parseInt(f);}
 function handVal(hand){let t=hand.reduce((s,c)=>s+cardVal(c),0),a=hand.filter(c=>c.startsWith("A")).length;while(t>21&&a>0){t-=10;a--;}return t;}
@@ -4163,7 +3778,6 @@ function slotPayout(reels){
   return{mult:0,label:"No match"};
 }
 
-// Media fetchers
 async function fetchJson(url){return new Promise((resolve,reject)=>{https.get(url,{headers:{"Accept":"application/json"}},res=>{let body="";res.on("data",d=>body+=d);res.on("end",()=>{try{resolve(JSON.parse(body));}catch{reject();}});}).on("error",reject);});}
 async function getCatGif(){try{const d=await fetchJson("https://api.thecatapi.com/v1/images/search?mime_types=gif&limit=1");return d[0]?.url||null;}catch{return null;}}
 async function getDogImage(){try{const d=await fetchJson("https://dog.ceo/api/breeds/image/random");return d?.message||null;}catch{return null;}}
@@ -4179,11 +3793,9 @@ async function getJoke(){try{const d=await fetchJson("https://official-joke-api.
 async function getTrivia(){try{const d=await fetchJson("https://opentdb.com/api.php?amount=1&type=multiple");const q=d?.results?.[0];if(!q)return null;const answers=[...q.incorrect_answers,q.correct_answer].sort(()=>Math.random()-0.5);return{question:q.question.replace(/&quot;/g,'"').replace(/&#039;/g,"'").replace(/&amp;/g,"&"),answers,correct:q.correct_answer};}catch{return null;}}
 async function getUserAppInstalls(){return new Promise(resolve=>{const req=https.request({hostname:"discord.com",port:443,path:`/api/v10/applications/${CLIENT_ID}`,method:"GET",headers:{Authorization:`Bot ${TOKEN}`}},res=>{let body="";res.on("data",c=>body+=c);res.on("end",()=>{try{const j=JSON.parse(body);resolve(j.approximate_user_install_count??"N/A");}catch{resolve("N/A");}});});req.on("error",()=>resolve("N/A"));req.end();});}
 
-// Keep-alive
 http.createServer((req,res)=>{res.writeHead(200);res.end("OK");}).listen(3000);
 setInterval(()=>{http.get("http://localhost:3000",()=>{}).on("error",()=>{});},4*60*1000);
 
-// Reminders tick
 setInterval(async()=>{
   const now=Date.now();
   for(let i=reminders.length-1;i>=0;i--){
@@ -4198,7 +3810,6 @@ setInterval(async()=>{
 // ── /messageschedule helpers ─────────────────────────────────────────────────
 const SCHEDULE_UNIT_MS    = { minutes:60000, hours:3_600_000, days:86_400_000, weeks:604_800_000, months:2_592_000_000 };
 const SCHEDULE_UNIT_LABEL = { minutes:"minute", hours:"hour", days:"day", weeks:"week", months:"month" };
-// Parses free text durations like "5 hours", "2 days", "1 week", "1 month" into { amount, unit, ms }.
 function parseScheduleTime(str){
   const m = String(str||"").trim().toLowerCase().match(/^(\d+)\s*(min(?:ute)?s?|hrs?|hours?|days?|weeks?|wks?|months?|mos?)$/);
   if(!m) return null;
@@ -4223,7 +3834,6 @@ function fmtScheduleUnit(amount, unit){
   const label = SCHEDULE_UNIT_LABEL[unit] || unit;
   return `${amount} ${label}${amount===1?"":"s"}`;
 }
-// Sends a scheduled message out via a webhook impersonating the user who scheduled it.
 async function fireScheduledMessage(sm){
   try{
     const channel = await client.channels.fetch(sm.channelId).catch(()=>null);
@@ -4236,7 +3846,6 @@ async function fireScheduledMessage(sm){
     let webhook = webhooks?.find(w => w.owner?.id === CLIENT_ID && w.name === "RoyalBot Scheduler");
     if(!webhook) webhook = await channel.createWebhook("RoyalBot Scheduler", { avatar: avatarURL }).catch(()=>null);
     if(!webhook){
-      // No permission to create a webhook here anymore: DM the user instead of silently dropping the message.
       if(user) await user.send(`⚠️ Your scheduled message for <#${sm.channelId}> couldn't be sent: I no longer have permission to manage webhooks there.\n\n**Message:** ${sm.content||"*(no text)*"}`).catch(()=>{});
       return;
     }
@@ -4253,7 +3862,6 @@ async function fireScheduledMessage(sm){
   }catch(e){ console.error("fireScheduledMessage error:", e.message); }
 }
 
-// Scheduled messages tick
 setInterval(async()=>{
   const now=Date.now();
   for(const [id, sm] of [...scheduledMessages.entries()]){
@@ -4306,7 +3914,6 @@ function buildPremiereEmbed(p) {
   };
 }
 
-// Premiere tick: runs every 30 minutes, edits all active premiere embeds
 setInterval(async () => {
   const now = Date.now();
   for (const [id, p] of premieres) {
@@ -4317,7 +3924,6 @@ setInterval(async () => {
       if (!msg) continue;
 
       if (now >= p.endsAt) {
-        // Finished: show done embed, ping user, then remove
         await msg.edit(buildPremiereEmbed(p)).catch(() => {});
         await safeSend(ch, `🎬 <@${p.userId}> **${p.title}**: time to upload! 🚀`);
         premieres.delete(id);
@@ -4329,7 +3935,6 @@ setInterval(async () => {
   }
 }, 30 * 60 * 1000);
 
-// Olympics
 async function snapshotInvites(guild){
   try{
     const invites=await guild.invites.fetch();
@@ -4451,18 +4056,6 @@ async function runOlympicsInGuild(guild,event){
 
 async function sendCrisisToOwner(dmChannel){for(let i=0;i<CRISIS_MESSAGES.length;i++){await new Promise(res=>setTimeout(res,i===0?0:8000));try{await dmChannel.send(CRISIS_MESSAGES[i]);}catch{break;}}}
 
-// ══════════════════════════════════════════════════════════════════════════
-// TICKET SYSTEM — full rewrite
-// Every entry point below (the /ticketsetup command, the ts_/ticket_ button
-// handlers, and the /closeticket /addtoticket /removefromticket commands)
-// now reports its own errors back to the user instead of failing silently,
-// since a silent failure was indistinguishable from the wizard never running.
-// ══════════════════════════════════════════════════════════════════════════
-
-// Central "can this member administer tickets on this server" check, used by
-// the /ticketsetup command and every ts_ button. Wrapped defensively: a
-// missing/partial `member` object (which is what "doesn't even begin" looks
-// like from the outside) resolves to false instead of throwing.
 function isTicketAdmin(interaction) {
   try {
     if (!interaction.guildId) return false;
@@ -4493,9 +4086,6 @@ async function sendTicketTranscript(channel, ticket, cfg, closedBy) {
       if (batch.size < 100) break;
     }
     allMessages.sort((a, b) => a.createdTimestamp - b.createdTimestamp);
-    // Resolve the real ticket owner directly rather than guessing from the
-    // first nonbot message: if staff messaged first, that guess would be
-    // wrong even though we already know exactly who opened it.
     const openerUser = await channel.client.users.fetch(ticket.userId).catch(() => null);
     const lines = [
       `═══════════════════════════════════════`,
@@ -4528,13 +4118,7 @@ async function sendTicketTranscript(channel, ticket, cfg, closedBy) {
 }
 
 // ── Ticket setup wizard helpers ──────────────────────────────────────────────
-// Discord select menus cap out at 25 options, and a message can hold at most
-// 5 action rows. Servers with more than 25 categories/roles/channels used to
-// silently lose anything past the 25th. These helpers split long lists across
-// up to 4 select menus (leaving 1 row free for nav buttons), so nothing gets
-// dropped no matter how big the server is. Used by both the ts_ button
-// handler and the /ticketsetup command, so the wizard only lives in one place.
-const TICKET_PICKER_MAX_MENUS = 4; // 4 select rows + 1 button row = 5 (Discord's max)
+const TICKET_PICKER_MAX_MENUS = 4;
 
 function chunkArray(arr, size) {
   const out = [];
@@ -4546,11 +4130,6 @@ function getEligibleTicketRoles(guild) {
   return [...guild.roles.cache.filter(r => !r.managed && r.id !== guild.id).values()];
 }
 
-// Shared by every ticket action: the ticket_open/close/reopen/delete/claim
-// buttons and the /closeticket, /addtoticket, /removefromticket commands all
-// used to repeat this exact check inline. Same logic, same precedence as
-// before: owner, any configured support role, or Manage Channels. Wrapped so
-// a missing/partial member object can't throw and silently kill the caller.
 function isTicketStaff(cfg, member) {
   try {
     if (!member) return false;
@@ -4564,8 +4143,6 @@ function isTicketStaff(cfg, member) {
   }
 }
 
-// The two button rows a ticket channel cycles between: open/reopened
-// tickets show Close+Claim, closed tickets show Reopen+Delete.
 function buildTicketActiveRow() {
   return new MessageActionRow().addComponents(
     new MessageButton().setCustomId("ticket_close").setLabel("Close Ticket 🔒").setStyle("DANGER"),
@@ -4579,11 +4156,6 @@ function buildTicketStaffRow() {
   );
 }
 
-// items: [{label, value, emoji}]. mode "single" = pick one (spread across
-// however many menus it takes to show every item); mode "multi" = pick any
-// number: selections made in a menu you didn't touch this time are preserved
-// by mergeChunkedSelection below, since Discord only reports the values of
-// the menu actually interacted with.
 function buildTicketPickerRows({ items, idPrefix, selectedIds = [], mode = "single", placeholder }) {
   const capped = items.slice(0, TICKET_PICKER_MAX_MENUS * 25);
   const truncated = items.length > capped.length;
@@ -4606,9 +4178,6 @@ function buildTicketPickerRows({ items, idPrefix, selectedIds = [], mode = "sing
   return { rows, truncated, chunks };
 }
 
-// Merges one chunked menu's new selection back into the full id list: keep
-// everything previously picked that isn't part of *this* menu's chunk, then
-// apply this menu's new values on top.
 function mergeChunkedSelection(previousIds, chunkItems, newValues) {
   const chunkValueSet = new Set(chunkItems.map(it => it.value));
   const kept = (previousIds || []).filter(id => !chunkValueSet.has(id));
@@ -4719,23 +4288,17 @@ function buildTicketSetupStepInner(guild, guildId, stepOverride) {
     )];
   }
 
-  // NOTE: no `content` key here at all — discord.js v13 rejects content:""
-  // outright ("Message content must be a non-empty string"), which is what
-  // was silently killing every /ticketsetup reply before this fix.
   return { embeds: [embed], components, ephemeral: true };
 }
 
 // ── YouTube helpers ───────────────────────────────────────────────────────────
 
-// Resolve a YouTube channel ID from a handle (@name), URL, or raw channel ID
 async function resolveYouTubeChannelId(input, apiKey) {
   if (!apiKey) return null;
   const clean = input.trim();
 
-  // Already a raw channel ID (starts with UC and ~24 chars)
   if (/^UC[\w-]{20,}$/.test(clean)) return clean;
 
-  // Extract from URL forms: /channel/UC..., /c/handle, /@handle, /user/handle
   const urlMatch = clean.match(/youtube\.com\/(?:channel\/(UC[\w-]+)|(?:c\/|@|user\/)?([\w@.-]+))/i);
   let handle = null;
   if (urlMatch) {
@@ -4747,20 +4310,17 @@ async function resolveYouTubeChannelId(input, apiKey) {
     handle = clean;
   }
 
-  // Search by handle
   try {
     const data = await fetchJson(`https://www.googleapis.com/youtube/v3/channels?part=id,snippet&forHandle=${encodeURIComponent(handle)}&key=${apiKey}`);
     if (data?.items?.[0]?.id) return data.items[0].id;
   } catch {}
 
-  // Fallback: search
   try {
     const data = await fetchJson(`https://www.googleapis.com/youtube/v3/search?part=snippet&type=channel&q=${encodeURIComponent(handle)}&maxResults=1&key=${apiKey}`);
     return data?.items?.[0]?.snippet?.channelId || null;
   } catch { return null; }
 }
 
-// Get current subscriber count + channel title for a channel ID
 async function getYouTubeStats(ytChannelId, apiKey) {
   if (!apiKey) return null;
   try {
@@ -4775,14 +4335,12 @@ async function getYouTubeStats(ytChannelId, apiKey) {
   } catch { return null; }
 }
 
-// Build a visual progress bar: ████████░░░░ 80%
 function buildBar(current, goal, width=20) {
   const pct = Math.min(1, current / goal);
   const filled = Math.round(pct * width);
   return `${"█".repeat(filled)}${"░".repeat(width - filled)}`;
 }
 
-// Format subscriber count nicely: 1234567 → "1.23M"
 function fmtSubs(n) {
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(n >= 10_000_000 ? 1 : 2).replace(/\.?0+$/, "") + "M";
   if (n >= 1_000)     return (n / 1_000).toFixed(n >= 10_000 ? 1 : 2).replace(/\.?0+$/, "") + "K";
@@ -4790,14 +4348,7 @@ function fmtSubs(n) {
 }
 
 // ── /fakequote: "Make it a Quote" style image card ───────────────────────────
-// Replicates the classic Quote bot card: left half is a grayscale photo/avatar
-// fading to black, right half is a centered quote with an italic attribution
-// and a footer showing @username + a fake "Make it a Quote#NNNN" tag.
 const QUOTE_CARD_W = 1200, QUOTE_CARD_H = 630, QUOTE_CARD_LEFT_W = 600;
-// "Make it a Quote" renders its card text in M PLUS Rounded 1c. Bundle the TTFs in
-// ./fonts (see registerBundledFonts at the top of this file) the same way Poppins
-// used to be shipped: fontconfig will pick this family up automatically once the
-// files are present, no code change needed here besides the family name below.
 const QUOTE_FONT_FAMILY = "'M PLUS Rounded 1c', Poppins, sans serif";
 
 function escapeSvgText(s) {
@@ -4810,9 +4361,6 @@ function escapeSvgText(s) {
 }
 
 // ── Custom emoji tokenizing for quote text ───────────────────────────────────
-// Splits a single whitespace delimited "word" into an ordered list of
-// { type:'text', value } / { type:'emoji', name, id, animated } subtokens, so a
-// custom emoji glued to plain text (e.g. "nice<:wave:123>!") still renders correctly.
 const CUSTOM_EMOJI_RE = /<a?:(\w+):(\d+)>/g;
 function tokenizeWordForEmoji(word) {
   const tokens = [];
@@ -4827,16 +4375,12 @@ function tokenizeWordForEmoji(word) {
   return tokens;
 }
 
-// Width (px) of an array of subtokens, given the per char width estimate and emoji box size.
 function measureSubtokensWidth(subtokens, approxCharW, emojiSize) {
   let w = 0;
   for (const t of subtokens) w += t.type === "emoji" ? emojiSize : t.value.length * approxCharW;
   return w;
 }
 
-// Greedy word wrap that works in real pixel widths (not raw char counts), so lines
-// containing custom emoji wrap correctly instead of overflowing or wrapping too early.
-// Returns an array of { tokens: [...subtokens], width }: one entry per line.
 function wrapQuoteTokens(text, maxWidthPx, approxCharW, emojiSize) {
   const spaceWidth = approxCharW;
   const words = text.split(/\s+/).filter(Boolean);
@@ -4860,11 +4404,6 @@ function wrapQuoteTokens(text, maxWidthPx, approxCharW, emojiSize) {
   return lines;
 }
 
-// Fetches a guild emoji's image straight from Discord's CDN as a base64 data URI, so it
-// can be embedded inline in the SVG. Always requests the .png form (Discord serves a
-// static frame for animated emoji too at that extension), which is what we want anyway
-// since the output card is a still image. Returns null on failure (caller falls back to
-// rendering the literal :name: text instead of a broken image).
 async function fetchEmojiDataUri(id) {
   try {
     const res = await fetch(`https://cdn.discordapp.com/emojis/${id}.png?size=96`);
@@ -4875,20 +4414,11 @@ async function fetchEmojiDataUri(id) {
 }
 
 async function buildFakeQuoteCard({ avatarBuffer, quoteText, displayName, username }) {
-  // 1. Left half photo: cover crop to the left panel size, then plain grayscale conversion.
-  // No brightness/contrast adjustment and no extra sharpen/blur: Sharp's default resize
-  // kernel already matches the reference card's edge sharpness almost exactly when starting
-  // from the true unprocessed source avatar (verified via Laplacian variance comparison).
   const avatarPanel = await sharp(avatarBuffer)
     .resize(QUOTE_CARD_LEFT_W, QUOTE_CARD_H, { fit: "cover", position: "centre" })
     .grayscale()
     .toBuffer();
 
-  // 2. Fade mask: measured pixel for pixel from a real card. The fade isn't a pure
-  // horizontal wipe: the "fully black" boundary sits at x≈446 at the top of the panel and
-  // x≈574 at the bottom, a deliberate diagonal tilt. The gradient vector below was solved
-  // directly from those two measured points (perpendicular to the line connecting them),
-  // with a plateau stop so the photo stays fully visible before the fade begins.
   const fadeMaskSvg = `
     <svg width="${QUOTE_CARD_LEFT_W}" height="${QUOTE_CARD_H}" xmlns="http://www.w3.org/2000/svg">
       <defs>
@@ -4907,43 +4437,30 @@ async function buildFakeQuoteCard({ avatarBuffer, quoteText, displayName, userna
     .png()
     .toBuffer();
 
-  // 3. Lay out the quote text. Font sizes and gaps below are measured pixel for pixel
-  // from a real "Make it a Quote" card render (57px quote / 28px name / 17px username,
-  // with fixed baseline to baseline gaps), so short quotes match exactly. Longer quotes
-  // that would overflow the right panel scale down and wrap to stay readable.
   const rightX = QUOTE_CARD_LEFT_W;
   const rightW = QUOTE_CARD_W - QUOTE_CARD_LEFT_W;
   const pad = 60;
   const textAreaW = rightW - pad * 2;
-  // The real card's text block isn't centered on the full right panel: it sits ~43px left
-  // of panel center (measured directly from a reference card), so match that offset here.
   const textCenterX = rightX + rightW / 2 - 43;
 
   const BASE_QUOTE_FONT = 57, BASE_NAME_FONT = 26, BASE_USER_FONT = 17;
   const BASE_QUOTE_TO_NAME_GAP = 54, BASE_NAME_TO_USER_GAP = 32;
-  // Single line baseline position measured from the real card (y=311 on a 630 tall canvas).
   const BASE_QUOTE_BASELINE = 311;
 
   const fontSize = quoteText.length > 220 ? 26 : quoteText.length > 140 ? 32 : quoteText.length > 60 ? 40 : BASE_QUOTE_FONT;
   const approxCharW = fontSize * 0.46;
-  const emojiSize = fontSize * 1.15; // emoji glyphs render a bit larger than the cap height of the font
-  const lines = wrapQuoteTokens(quoteText, textAreaW, approxCharW, emojiSize).slice(0, 10); // hard cap so it can't overflow the card
+  const emojiSize = fontSize * 1.15;
+  const lines = wrapQuoteTokens(quoteText, textAreaW, approxCharW, emojiSize).slice(0, 10);
   const lineHeight = fontSize * 1.25;
 
-  // Scale the name/username sizes and gaps down in proportion to the quote font, so longer
-  // (smaller) quotes keep consistent visual proportions instead of looking oversized.
   const scale = fontSize / BASE_QUOTE_FONT;
   const nameFont = Math.round(BASE_NAME_FONT * scale);
   const userFont = Math.round(BASE_USER_FONT * scale);
   const quoteToNameGap = BASE_QUOTE_TO_NAME_GAP * scale;
   const nameToUserGap = BASE_NAME_TO_USER_GAP * scale;
 
-  // For a single line, the first (only) baseline matches the reference exactly.
-  // For multiple lines, shift the whole block up so it stays vertically balanced.
   const firstLineBaseline = BASE_QUOTE_BASELINE - (lines.length - 1) * (lineHeight / 2);
 
-  // Pre fetch every distinct custom emoji used anywhere in the quote (deduped), so the
-  // SVG below can be built synchronously once all the data URIs are in hand.
   const emojiIds = [...new Set(
     lines.flatMap(l => l.tokens.filter(t => t.type === "emoji").map(t => t.id))
   )];
@@ -4951,8 +4468,6 @@ async function buildFakeQuoteCard({ avatarBuffer, quoteText, displayName, userna
     await Promise.all(emojiIds.map(async id => [id, await fetchEmojiDataUri(id)]))
   );
 
-  // Render each line manually (rather than one <text text-anchor="middle"> per line) so
-  // plain text runs and inline emoji images can be interleaved at the right x position.
   const quoteLinesSvg = lines.map((line, lineIdx) => {
     const y = firstLineBaseline + lineIdx * lineHeight;
     let x = textCenterX - line.width / 2;
@@ -4969,11 +4484,10 @@ async function buildFakeQuoteCard({ avatarBuffer, quoteText, displayName, userna
       flushText();
       const dataUri = emojiDataUriById.get(t.id);
       if (dataUri) {
-        const imgY = y - emojiSize * 0.82; // align emoji box roughly to text cap height/baseline
+        const imgY = y - emojiSize * 0.82;
         parts.push(`<image x="${x}" y="${imgY}" width="${emojiSize}" height="${emojiSize}" href="${dataUri}" xlink:href="${dataUri}"/>`);
         x += emojiSize;
       } else {
-        // Fetch failed: fall back to the literal :name: so the card still renders something sane.
         const fallback = `:${t.name}:`;
         parts.push(`<text x="${x}" y="${y}" font-family="${QUOTE_FONT_FAMILY}" font-size="${fontSize}" fill="white" text-anchor="start">${escapeSvgText(fallback)}</text>`);
         x += fallback.length * approxCharW;
@@ -4987,7 +4501,6 @@ async function buildFakeQuoteCard({ avatarBuffer, quoteText, displayName, userna
   const nameY     = lastLineBaseline + quoteToNameGap;
   const usernameY = nameY + nameToUserGap;
 
-  // The footer tag is always "Make it a Quote#6660", pinned to the bottom right corner.
   const tagLabel = "Make it a Quote#6660";
   const tagY = QUOTE_CARD_H - 14;
   const tagX = QUOTE_CARD_W - 12;
@@ -5013,10 +4526,6 @@ async function buildFakeQuoteCard({ avatarBuffer, quoteText, displayName, userna
 }
 
 // ── Tomato GIF builder ────────────────────────────────────────────────────────
-// Generates a GIF where a Discord-accurate message card has tomato-splat.gif
-// overlaid at random positions. Card layout matches Discord dark mode desktop:
-//   • #313338 background  • 40×40 circular avatar  • bold role coloured username
-//   • muted timestamp  • #DCDDDE content text  • gg sans / Noto Sans font stack
 async function buildTomatoGif(msgContent, authorTag, tomatoCount, speedMin = 50, speedMax = 100, avatarURL = null, usernameColor = "#FFFFFF") {
   let GifReader, GifWriter;
   try {
@@ -5029,16 +4538,15 @@ async function buildTomatoGif(msgContent, authorTag, tomatoCount, speedMin = 50,
 
   // ── 1. Build Discord style message card PNG ───────────────────────────────
   const CARD_W      = 700;
-  const PAD_H       = 16;   // horizontal padding on both sides
-  const PAD_V       = 12;   // vertical padding top/bottom
+  const PAD_H       = 16;
+  const PAD_V       = 12;
   const AVATAR_SIZE = 40;
-  const TEXT_LEFT   = PAD_H + AVATAR_SIZE + 12; // text column starts here
+  const TEXT_LEFT   = PAD_H + AVATAR_SIZE + 12;
   const TEXT_W      = CARD_W - TEXT_LEFT - PAD_H;
   const FONT_SIZE   = 16;
   const LINE_H      = 22;
   const FONT_FAMILY = "'gg sans','Noto Sans',Arial,sans serif";
 
-  // Wrap content to TEXT_W (~75 chars at 16px)
   const CHARS_PER_LINE = Math.floor(TEXT_W / (FONT_SIZE * 0.55));
   const rawLines = (msgContent || "(no message content)").split("\n");
   const wrappedLines = [];
@@ -5052,17 +4560,15 @@ async function buildTomatoGif(msgContent, authorTag, tomatoCount, speedMin = 50,
   const displayLines = wrappedLines.slice(0, 8);
   if(wrappedLines.length > 8) displayLines[7] = displayLines[7].slice(0, -1) + "…";
 
-  // Discord style timestamp: "Today at 4:20 PM"
   const now   = new Date();
   const h12   = ((now.getHours() % 12) || 12);
   const mins  = now.getMinutes().toString().padStart(2, "0");
   const ampm  = now.getHours() >= 12 ? "PM" : "AM";
   const tsStr = `Today at ${h12}:${mins} ${ampm}`;
 
-  // Measure author name width (rough: ~9.6px per char at 16px bold)
   const authorW  = authorTag.length * 9.6;
-  const TS_X     = TEXT_LEFT + authorW + 8; // timestamp x, 8px gap after name
-  const CONTENT_Y_BASE = PAD_V + FONT_SIZE + 6; // first content line baseline
+  const TS_X     = TEXT_LEFT + authorW + 8;
+  const CONTENT_Y_BASE = PAD_V + FONT_SIZE + 6;
 
   const CARD_H = Math.max(
     PAD_V + AVATAR_SIZE + PAD_V,
@@ -5101,7 +4607,6 @@ async function buildTomatoGif(msgContent, authorTag, tomatoCount, speedMin = 50,
     } catch(e){ console.error("[tomato] avatar fetch:", e.message); }
   }
   if(!avatarComposite){
-    // Fallback: coloured circle with initial letter
     const initials = esc((authorTag[0] || "?").toUpperCase());
     const fallbackSvg = `<svg width="${AVATAR_SIZE}" height="${AVATAR_SIZE}" xmlns="http://www.w3.org/2000/svg"><circle cx="${AVATAR_SIZE/2}" cy="${AVATAR_SIZE/2}" r="${AVATAR_SIZE/2}" fill="#5865f2"/><text x="${AVATAR_SIZE/2}" y="${AVATAR_SIZE/2 + 6}" font-family="${FONT_FAMILY}" font-size="20" font-weight="bold" fill="white" text-anchor="middle">${initials}</text></svg>`;
     avatarComposite = await sharp(Buffer.from(fallbackSvg)).png().toBuffer();
@@ -5181,18 +4686,8 @@ async function buildTomatoGif(msgContent, authorTag, tomatoCount, speedMin = 50,
   return Buffer.from(outBuf.buffer, 0, writer.end());
 }
 
-// Build ONE shared palette across a whole set of RGBA frame buffers.
-// omggif requires the palette as a plain Array of [r,g,b] arrays, length = power of 2 (we use 256).
-// Index 0 is reserved as the background colour (Discord dark grey), matching the
-// card's own background so any transparent pixel blends in correctly.
-// Returns { palette: [[r,g,b]×256], colorMap: Map<R5G5B5 key, paletteIndex> }.
-//
-// NOTE: this MUST be built from all frames combined, not per frame: a GIF has
-// only one global color table, so indexing each frame against its own private
-// palette (the old behaviour) made every frame after the first decode using
-// the wrong colours (see buildTomatoGif for the full story).
 function buildSharedPalette(rgbaBuffers, width, height) {
-  const PALETTE_SIZE = 256; // must be power of 2
+  const PALETTE_SIZE = 256;
   const totalPx = width * height;
 
   // ── Frequency count using 5 bit RGB (R5G5B5): 32 768 possible buckets ────
@@ -5200,7 +4695,7 @@ function buildSharedPalette(rgbaBuffers, width, height) {
   for(const rgbaData of rgbaBuffers){
     for(let i = 0; i < totalPx; i++){
       const a = rgbaData[i*4+3];
-      if(a < 32) continue; // skip transparent pixels
+      if(a < 32) continue;
       const r = rgbaData[i*4]   >> 3;
       const g = rgbaData[i*4+1] >> 3;
       const b = rgbaData[i*4+2] >> 3;
@@ -5210,45 +4705,36 @@ function buildSharedPalette(rgbaBuffers, width, height) {
   }
 
   // ── Pick top (PALETTE_SIZE: 1) colours by frequency ──────────────────────
-  // Slot 0 = background (Discord dark grey #36393f)
   const sorted = [...freq.entries()].sort((a, b) => b[1] - a[1]).slice(0, PALETTE_SIZE - 1);
 
-  // Build palette as Array<[r,g,b]>: omggif's expected format
   const palette = new Array(PALETTE_SIZE);
-  palette[0] = [0x36, 0x39, 0x3f]; // Discord dark background as colour 0
+  palette[0] = [0x36, 0x39, 0x3f];
 
-  const colorMap = new Map(); // R5G5B5 key → palette index
+  const colorMap = new Map();
   for(let i = 0; i < sorted.length; i++){
     const key = sorted[i][0];
     const r5 = (key >> 10) & 31;
     const g5 = (key >>  5) & 31;
     const b5 =  key        & 31;
-    // Expand 5 bit to 8 bit
     const r8 = (r5 << 3) | (r5 >> 2);
     const g8 = (g5 << 3) | (g5 >> 2);
     const b8 = (b5 << 3) | (b5 >> 2);
     palette[i + 1] = [r8, g8, b8];
     colorMap.set(key, i + 1);
   }
-  // Fill any remaining slots with the background colour (not black) so a miss
-  // never renders as a jarring black blob: worst case it just blends into the card.
   for(let i = sorted.length + 1; i < PALETTE_SIZE; i++) palette[i] = palette[0];
 
   return { palette, colorMap };
 }
 
-// Map a single RGBA frame buffer onto a previously built shared palette.
-// Pixels whose exact 5 bit colour didn't make the top 255 cut (rare: usually
-// only antialiased edge pixels) are matched to the nearest palette entry by
-// squared distance instead of collapsing to one arbitrary fallback colour.
 function indexFrameToPalette(rgbaData, width, height, palette, colorMap) {
   const totalPx = width * height;
   const pixels = new Uint8Array(totalPx);
-  const nearestCache = new Map(); // memoize nearest match lookups for this frame
+  const nearestCache = new Map();
 
   for(let i = 0; i < totalPx; i++){
     const a = rgbaData[i*4+3];
-    if(a < 32){ pixels[i] = 0; continue; } // transparent → background index
+    if(a < 32){ pixels[i] = 0; continue; }
 
     const r = rgbaData[i*4], g = rgbaData[i*4+1], b = rgbaData[i*4+2];
     const key = ((r >> 3) << 10) | ((g >> 3) << 5) | (b >> 3);
@@ -5276,24 +4762,14 @@ function indexFrameToPalette(rgbaData, width, height, palette, colorMap) {
 }
 
 // ── /pixeltxt - RLE + palette compressed pixel <-> image codec ───────────────
-// Port of the PIXELTXT v2 web tool's format:
-//   PIXELTXT v2
-//   SIZE WxH
-//   PALETTE n
-//   #rrggbb[aa]              ← one colour per line (index 0,1,2…)
-//   DATA
-//   count:palIdx[,count:palIdx…]   ← RLE runs per row, row by row
-//   END
-// Also decodes the legacy "(x,y): #hex[aa]" sparse pixel format.
-const PIXELTXT_MAX_PIXELS = 4_000_000; // safety cap on encode input & decode SIZE header
+const PIXELTXT_MAX_PIXELS = 4_000_000;
 
 function pixeltxtHex2(n){ return n.toString(16).padStart(2,"0"); }
 
-// Encodes a raw RGBA Buffer (W*H*4 bytes) into the PIXELTXT v2 text format.
 function pixeltxtEncode(raw, W, H) {
   const total = W * H;
-  const palMap = new Map(); // packed RGBA key -> palette index
-  const palArr = [];        // palette index -> packed RGBA key
+  const palMap = new Map();
+  const palArr = [];
 
   const keyAt = (i) => {
     const idx = i * 4;
@@ -5334,10 +4810,9 @@ function pixeltxtEncode(raw, W, H) {
   return { text: lines.join("\n") + "\n", paletteSize: palArr.length, totalRuns };
 }
 
-// Decodes PIXELTXT v2 text back into { W, H, pixels: Buffer(RGBA) }.
 function pixeltxtDecodeV2(text) {
   const lines = text.split("\n");
-  let li = 1; // skip 'PIXELTXT v2'
+  let li = 1;
 
   const sizeLine = (lines[li++]||"").trim();
   if(!sizeLine.startsWith("SIZE ")) throw new Error("Missing SIZE line");
@@ -5372,11 +4847,11 @@ function pixeltxtDecodeV2(text) {
     while(ci < ll){
       let count = 0;
       while(ci < ll && line.charCodeAt(ci) >= 48 && line.charCodeAt(ci) <= 57){ count = count*10 + (line.charCodeAt(ci)-48); ci++; }
-      if(line.charCodeAt(ci) !== 58){ ci++; continue; } // ':'
+      if(line.charCodeAt(ci) !== 58){ ci++; continue; }
       ci++;
       let idx = 0;
       while(ci < ll && line.charCodeAt(ci) >= 48 && line.charCodeAt(ci) <= 57){ idx = idx*10 + (line.charCodeAt(ci)-48); ci++; }
-      if(line.charCodeAt(ci) === 44) ci++; // ','
+      if(line.charCodeAt(ci) === 44) ci++;
       const col = palette[idx];
       if(!col) throw new Error(`Palette index ${idx} out of range on row ${row}`);
       const [r,g,b,a] = col;
@@ -5388,7 +4863,6 @@ function pixeltxtDecodeV2(text) {
   return { W, H, pixels };
 }
 
-// Decodes the legacy "(x,y): #hex[aa]" sparse format back into { W, H, pixels }.
 function pixeltxtDecodeLegacy(text) {
   const lineRe = /^\s*\((\d+)\s*,\s*(\d+)\)\s*:\s*#([0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?)\s*$/;
   const lines = text.split("\n");
@@ -5427,7 +4901,6 @@ setInterval(async () => {
     const prev = cfg.lastSubs ?? stats.subs;
     cfg.lastSubs = stats.subs;
     cfg.lastSubsTimestamp = now;
-    // Keep rolling 90 day history (one entry per poll, capped at 90d × 12 per hour = 12960 entries max: cap at 1000)
     if (!cfg.history) cfg.history = [];
     cfg.history.push({ ts: now, subs: stats.subs });
     if (cfg.history.length > 1000) cfg.history = cfg.history.slice(-1000);
@@ -5481,7 +4954,6 @@ setInterval(async () => {
           }
         }
       }
-      // Fire goal reached
       if (stats.subs >= cfg.goal) {
         cfg.goalReached = true;
         saveData();
@@ -5513,9 +4985,6 @@ setInterval(async () => {
 }, 5 * 60 * 1000);
 
 // ── Server Stats autorefresh ────────────────────────────────────────────────
-// Ticks every 5 minutes; each guild only actually updates once its own
-// configured interval (min 10m, to respect Discord's channel rename rate limit)
-// has elapsed.
 setInterval(async () => {
   for (const [guildId, cfg] of serverStatsConfig.entries()) {
     if (!cfg.channels?.length) continue;
@@ -5535,24 +5004,14 @@ const client=new Client({
 
 // ── Command list ──────────────────────────────────────────────────────────────
 // ── Owner only command names: registered globally so they don't count toward the
-//    per guild limits (100 chat_input + 5 context_menu).  They still show default_member_permissions:"0"
-//    so only the bot owner can see/use them.
 const OWNER_ONLY_CMDS = new Set([
   "servers","dmconfig","leaveserver","restart",
   "botstats","setstatus","adminconfig",
   "thecount","send",
   "tempowner","blacklist","theremnant","jarvisenhance",
-  "requester","deleter",
-  // Owner context menu commands
-  "Reaction Bomb","Clank This","Expose",
+  "requester","deleter","emojisteal",
+  "Reaction Bomb","Clank This","Expose","Steal Emojis",
 ]);
-// Registered per guild instead of globally (see SERVER_OWNER_CMDS above): a
-// guild's own owner can use these inside their server, so they need to be
-// visible there rather than hidden as global-only commands. Actual use is
-// still gated in code (canUseOwnerCmd), not by Discord's command visibility.
-// NOTE: fakemessage, fakequote, refreshcmds, shadowdelete, clankerify,
-// impersonation, forcemarry, forcedivorce, echo, paranoia intentionally live
-// in buildCommands() without being added to OWNER_ONLY_CMDS above.
 
 function buildCommands(){
   const uReq=(req=true)=>[{name:"user",description:"User",type:6,required:req}];
@@ -5710,6 +5169,10 @@ function buildCommands(){
     {name:"deleter", description:"[Owner] Set the global quote deleter channel (where flagged quotes go for review)",options:[
       {name:"channel", description:"Text channel to receive flagged quotes", type:7, required:true},
     ]},
+    {name:"emojisteal", description:"[Owner] Copy custom emojis to a destination server",options:[
+      {name:"server", description:"Server ID to set as the destination for copied emojis/stickers", type:3, required:false},
+      {name:"emojis", description:"Paste the custom emojis to copy to the destination server", type:3, required:false},
+    ]},
     {name:"quotesetup", description:"[Server Owner] Choose whether this server uses global quotes or its own quotes"},
     {name:"requestedquotes", description:"[Server Owner] Set this server's quote request channel",options:[
       {name:"channel", description:"Text channel for quote requests", type:7, required:true, channel_types:[0]},
@@ -5787,6 +5250,7 @@ function buildCommands(){
     { name:"Quote This",      type:3 },
     { name:"Make it a quote", type:3 },
     { name:"Fetch Emoji",     type:3 },
+    { name:"Steal Emojis",     type:3, default_member_permissions:"0" },
     {name:"requestupload",   description:"Submit an image, audio, or video file to be reviewed for quotes2",options:[
       {name:"source",description:"File to submit (image/audio/video)",type:11,required:true},
     ]},
@@ -5846,12 +5310,8 @@ function buildCommands(){
   ];
 }
 
-// Commands sent to every guild (nonowner, within guild limits: 100 chat_input + 5 context_menu)
 function buildGuildCommands()  { return buildCommands().filter(c => !OWNER_ONLY_CMDS.has(c.name)); }
-// Commands registered globally once (owner only; hidden via default_member_permissions:'0')
 function buildGlobalCommands() { return buildCommands().filter(c =>  OWNER_ONLY_CMDS.has(c.name)); }
-
-
 
 // ── Command registration ──────────────────────────────────────────────────────
 function discordRequest(method, path, body) {
@@ -5902,7 +5362,6 @@ async function registerGuildCommands(guildId, force = false) {
       saveHashFile(GUILD_CMD_HASH_FILE, store);
       console.log(`✅ Guild [${guildId}]: ${JSON.parse(r.body).length} commands registered`);
     } else if (r.status === 429) {
-      // True HTTP rate limit: brief retry makes sense
       let retryAfter = 5;
       try { retryAfter = JSON.parse(r.body).retry_after || 5; } catch {}
       console.warn(`⚠️ Guild [${guildId}]: HTTP 429, retrying in ${Math.ceil(retryAfter)}s…`);
@@ -5916,7 +5375,6 @@ async function registerGuildCommands(guildId, force = false) {
         console.warn(`⚠️ Guild [${guildId}] retry HTTP ${r2.status}: ${r2.body.slice(0,300)}`);
       }
     } else if (r.body && r.body.includes("30034")) {
-      // Daily application command creates limit hit: no point retrying until tomorrow
       console.error(`❌ Guild [${guildId}]: daily command create limit reached (30034). Will retry on next restart after midnight UTC.`);
     } else {
       console.warn(`⚠️ registerGuildCommands [${guildId}] HTTP ${r.status}: ${r.body.slice(0,300)}`);
@@ -5955,13 +5413,8 @@ client.once("ready", async () => {
   try { const owner = await client.users.fetch(OWNER_ID); await acquireInstanceLock(owner); }
   catch(e) { console.error("Lock error:", e); instanceLocked = true; }
 
-  // Write the first heartbeat immediately rather than waiting up to 60s,
-  // so the status page shows "online" right away after a restart.
   commitStatusToGitHub().catch(()=>{});
 
-  // Turn the "restarting" notice into a live status message: Discord's own
-  // <t:...:R> rendering keeps the relative times ("in 3 hours") current without
-  // us needing to reedit this on a timer.
   (async () => {
     const startTs = Math.floor(BOT_START_TIME / 1000);
     const resetTs = Math.floor((BOT_START_TIME + RESTART_TIMEOUT_MIN * 60 * 1000) / 1000);
@@ -5974,38 +5427,23 @@ client.once("ready", async () => {
     }
   })().catch(()=>{});
 
-  // Restore persistent status (set via /setstatus) so it survives restarts/redeploys
   if (botStatus && botStatus.text) {
     try { client.user.setActivity(botStatus.text, { type: botStatus.type }); }
     catch(e) { console.error("Failed to restore persistent status:", e.message); }
   }
 
-  // Warm the quote folder cache immediately on startup. quoteFileFolderCache
-  // (which folder, quotes vs quotes2, a given filename lives in) is
-  // rebuilt from GitHub's actual listing rather than persisted, since that's
-  // always authoritative; but it starts empty after every restart, and
-  // /library builds its image URL from just a filename via quoteRawUrl(),
-  // which silently falls back to "quotes" when a name isn't cached yet. That
-  // fallback is wrong for anything uploaded via /upload or an approved
-  // /requestupload, since those always live in quotes2, so without this
-  // warm up, /library links break for quotes2 images until something else
-  // (like /quote) happens to populate the cache first.
   fetchAllQuoteFiles().catch(e => console.error("Quote folder warm up failed:", e.message));
 
-  // Build the Patreon member list fresh on every startup (see comment above
-  // isPatreonMember for why this isn't persisted), then keep it fresh every
-  // hour without needing a restart.
   refreshPatreonMembers();
   setInterval(refreshPatreonMembers, 60*60*1000);
 
-  // Fetch app level emojis (uploaded via Developer Portal) and cache them
   try {
     const emojiRes = await fetch(`https://discord.com/api/v10/applications/${CLIENT_ID}/emojis`, {
       headers: { Authorization: `Bot ${TOKEN}` }
     });
     if (emojiRes.ok) {
       const emojiData = await emojiRes.json();
-      const list = emojiData.items ?? emojiData; // API returns { items: [...] }
+      const list = emojiData.items ?? emojiData;
       for (const e of list) appEmojiCache.set(e.name, e);
       console.log(`[emojis] Loaded ${appEmojiCache.size} app emoji(s): ${[...appEmojiCache.keys()].join(", ")}`);
     } else {
@@ -6013,66 +5451,23 @@ client.once("ready", async () => {
     }
   } catch(e) { console.warn("[emojis] App emoji fetch error:", e.message); }
 
-
   if (!instanceLocked) return;
 
-  // Step 0: Register global (owner only) commands once: only sends to Discord if hashes differ.
   await registerGlobalCommands();
 
-  // Step 1: Register guild commands per guild (instant propagation, <1s vs 1hr global cache lag).
-  //         Fingerprint check skips guilds whose command list hasn't changed, preventing 30034 daily limit.
   const guilds = [...client.guilds.cache.values()];
   for (let i = 0; i < guilds.length; i++) {
-    if (i > 0) await new Promise(res => setTimeout(res, 500)); // small spacing to avoid bursting
+    if (i > 0) await new Promise(res => setTimeout(res, 500));
     await registerGuildCommands(guilds[i].id);
   }
 
-  // Snapshot invites for invite competitions
   for (const guild of guilds) {
     snapshotInvites(guild).catch(() => {});
   }
 });
 
-client.on("messageDelete", async msg => {
-  try{
-    const tag = pendingBotMessageDeletes.get(msg.id);
-    if(tag) pendingBotMessageDeletes.delete(msg.id);
-    if(tag === "silent") return; // some other RoyalBot feature deleted this on purpose
-
-    if(tag === "shadow"){ await sendDeleteFlavorLine(msg.channel); return; }
-
-    // Not a tagged RoyalBot deletion: a real Discord delete, by either the
-    // author or someone else. Partial messages with no cached author can't be
-    // told apart, so those are skipped rather than guessed at.
-    if(msg.partial || !msg.author || msg.author.bot) return;
-    if(!msg.guild) return; // DMs have no audit log to check against
-
-    const me = msg.guild.members.me;
-    if(!me || !me.permissions.has("VIEW_AUDIT_LOG")){
-      console.error("[deleteFlavor] missing View Audit Log permission in", msg.guild.id, "- skipping self-delete check");
-      return;
-    }
-
-    // Discord only logs MESSAGE_DELETE when someone deletes another user's
-    // message; a real self-delete never appears here. Give the log a moment
-    // to catch up, then look for a very recent entry matching this message's
-    // author and channel. Found = someone else deleted it, so stay quiet.
-    await new Promise(res => setTimeout(res, 1200));
-    const logs = await msg.guild.fetchAuditLogs({ type: "MESSAGE_DELETE", limit: 5 }).catch(() => null);
-    const matchingEntry = logs ? [...logs.entries.values()].find(entry =>
-      entry.target?.id === msg.author.id &&
-      entry.extra?.channel?.id === msg.channel.id &&
-      (Date.now() - entry.createdTimestamp) < 10_000
-    ) : null;
-    if(matchingEntry) return; // someone else deleted this user's message
-
-    await sendDeleteFlavorLine(msg.channel);
-  }catch(e){ console.error("[deleteFlavor] messageDelete handler error:", e.message); }
-});
-
 client.on("guildCreate", async g => {
   console.log(`Joined: ${g.name} (${g.id})`);
-  // Register guild only commands instantly when joining a new server
   await registerGuildOnlyCommands(g.id);
   snapshotInvites(g).catch(() => {});
 });
@@ -6104,14 +5499,9 @@ client.on("guildMemberUpdate",async(oldMember,newMember)=>{
 });
 
 // ── Emoji helpers ─────────────────────────────────────────────────────────────
-// Resolves an emoji name to something .react() accepts.
-// Checks app level emojis first (uploaded via Developer Portal),
-// then guild emojis, then falls back to the raw string (unicode).
 function resolveEmoji(name, msg) {
-  // App emoji: format Discord.js react() needs is "name:id"
   const appEmoji = appEmojiCache.get(name);
   if (appEmoji) return `${appEmoji.name}:${appEmoji.id}`;
-  // Guild emoji fallback
   const search = g => g.emojis.cache.find(e => e.name === name);
   const fromGuild = msg.guild ? search(msg.guild) : null;
   if (fromGuild) return fromGuild;
@@ -6119,15 +5509,10 @@ function resolveEmoji(name, msg) {
     const found = search(g);
     if (found) return found;
   }
-  return name; // unicode or last resort fallback
+  return name;
 }
 
 // ── Quote vote buttons ────────────────────────────────────────────────────────
-// Renders the 👍 N  👎 N  🗑️ N button row shown beneath every quote image.
-// Uses app emojis from appEmojiCache if available, falls back to plain unicode.
-// Vote counts come from quoteVotes (filename → {up,down}); trash count from trashcanVotes.
-// Looks up which user uploaded a given quote filename, by scanning each user's uploadedImages list.
-// Returns a userId, or null if there's no upload record (e.g. quotes added directly, pretracking).
 function findQuoteUploader(filename) {
   for (const [userId, s] of scores) {
     if (Array.isArray(s.uploadedImages) && s.uploadedImages.includes(filename)) return userId;
@@ -6135,7 +5520,6 @@ function findQuoteUploader(filename) {
   return null;
 }
 
-// Labels/emoji for the "New quote" button, keyed by quote type.
 const QUOTE_NEW_BUTTON = {
   quote: { label: "New quote",      emoji: "✨" },
   good:  { label: "New good quote", emoji: "⭐" },
@@ -6194,13 +5578,6 @@ function makeQuoteVoteButtons(msgId, votes, trashData) {
 }
 
 // ── Library embed & components ────────────────────────────────────────────────
-// Renders a user's uploaded quotes library as an embed (image + prev/next/goto
-// paging), with a 🗑️ button to flag the currently viewed image for owner review.
-// Resolves the raw.githubusercontent.com URL for a library image, verifying
-// the folder (quotes vs quotes2) via the GitHub API when it isn't already
-// cached rather than guessing: quoteRawUrl()'s bare "quotes" fallback is
-// wrong for anything from /upload or an approved /requestupload, since those
-// always land in quotes2.
 async function buildLibraryEmbed(displayName, avatarUrl, fileName, idx, total) {
   if (!quoteFileFolderCache.has(fileName)) await resolveQuoteGhPath(fileName).catch(()=>{});
   return {
@@ -6237,10 +5614,6 @@ function makeLibraryButtons(targetUserId, idx, total, flagged) {
   ];
 }
 
-// Nav buttons for browsing favorites (accessed via the Favorites button on
-// /library): same idea as makeLibraryButtons, but scoped to the clicking
-// user's own favorites, with a Remove Favorite button instead of Flag for
-// Review, and a Back button to return to whichever library was being viewed.
 function buildFavoriteLibraryButtons(idx, total, backToUserId) {
   return [
     new MessageActionRow().addComponents(
@@ -6261,16 +5634,12 @@ function emojiKey(reaction){
 client.on("messageReactionAdd", async (reaction, user) => {
   if(user.bot) return;
 
-  // Fetch partials so we have full objects
   try {
     if(reaction.partial) await reaction.fetch();
   } catch(e) { console.error("[RR] reaction fetch failed:", e.message); return; }
   try {
     if(reaction.message.partial) await reaction.message.fetch();
   } catch(e) { console.error("[RR] message fetch failed:", e.message); return; }
-
-  // Quote votes are now handled via buttons (makeQuoteVoteButtons / qvote_* handlers).
-  // Reactions no longer track goodquote/badquote/trashcan votes.
 
   const guildId = reaction.message.guildId;
   if(!guildId) return;
@@ -6291,9 +5660,6 @@ client.on("messageReactionAdd", async (reaction, user) => {
     if(!role) { console.error("[RR] role not found:", roleId); return; }
     await member.roles.add(role);
     console.log(`[RR] ✅ Added role ${role.name} to ${user.tag||user.id}`);
-    // Confirm privately via DM, since a raw reaction event has no interaction
-    // to attach a true ephemeral reply to. Failure here (DMs closed) is fine
-    // to ignore silently, the role itself was still applied.
     user.send({content:`Applied ${role.name}, if you apply a role and don't get this message, try again shortly.`}).catch(()=>{});
   } catch(e) { console.error("[RR] reactionRoleAdd error:", e.message); }
 });
@@ -6307,8 +5673,6 @@ client.on("messageReactionRemove", async (reaction, user) => {
   try {
     if(reaction.message.partial) await reaction.message.fetch();
   } catch(e) { console.error("[RR] message fetch failed:", e.message); return; }
-
-  // Quote votes are now handled via buttons: reactions no longer track votes.
 
   const guildId = reaction.message.guildId;
   if(!guildId) return;
@@ -6335,11 +5699,10 @@ client.on("messageReactionRemove", async (reaction, user) => {
 // ── DM forwarding ──────────────────────────────────────────────────────────────
 client.on("messageCreate", async msg => {
   if (msg.author.bot) return;
-  if (isFullyBlacklisted(msg.author.id)) return; // blacklisted: ignore DMs entirely
+  if (isFullyBlacklisted(msg.author.id)) return;
   if (msg.guild) {
-    // guild messages handled below
   } else {
-    if (OWNER_IDS.includes(msg.author.id)) return; // owners DMing the bot: no relay, no notification
+    if (OWNER_IDS.includes(msg.author.id)) return;
 
     // ── DM relay: forward to this user's relay channel, autocreating it on their first DM ──
     try {
@@ -6350,11 +5713,10 @@ client.on("messageCreate", async msg => {
         if (msg.stickers.size > 0) {
           await relayChannel.send(msg.stickers.map(s => `🎭 **Sticker:** ${s.name}`).join("\n")).catch(() => {});
         }
-        return; // handled: skip the generic owner DM notification below
+        return;
       }
     } catch(e) { console.error("dmRelay (DM→channel) forward error:", e.message); }
 
-    // Fallback: no relay hub configured yet, so just notify the owner directly.
     try {
       const owner = await client.users.fetch(OWNER_ID);
       const ownerDM = await owner.createDM();
@@ -6407,7 +5769,7 @@ client.on("messageCreate",async msg=>{
     if(relayUserId){
       if(isFullyBlacklisted(relayUserId)){
         if(!isSilentBlacklisted(relayUserId)) await msg.react("🚫").catch(() => {});
-        return; // blacklisted: don't relay outgoing messages to their DMs either
+        return;
       }
       try{
         const files = msg.attachments.size > 0 ? [...msg.attachments.values()].map(a => a.url) : undefined;
@@ -6420,14 +5782,13 @@ client.on("messageCreate",async msg=>{
         console.error("dmRelay (channel→DM) forward error:", e.message);
         await msg.react("❌").catch(() => {});
       }
-      return; // relay channels are just a DM pipe: don't run normal message handling on them
+      return;
     }
   }
 
   const shadowPct=shadowDelete.get(scopedKey(msg.guild.id, msg.author.id));
   if(shadowPct&&Math.random()*100<shadowPct){
-    tagBotMessageDelete(msg.id, "shadow");
-    msg.delete().catch(()=>{ pendingBotMessageDeletes.delete(msg.id); });
+    msg.delete().then(()=>sendDeleteFlavorLine(msg.channel)).catch(()=>{});
   }
 
   // ── Clankerify: delete message and resend via webhook as the user ───────────
@@ -6435,20 +5796,15 @@ client.on("messageCreate",async msg=>{
   const clankEntry = clankerify.get(clankKey);
   if(clankEntry){
     const now = Date.now();
-    // Check expiry
     if(clankEntry.expiresAt !== null && clankEntry.expiresAt <= now){
       clankerify.delete(clankKey);
       saveData();
     } else {
       try {
-        // Gather content / attachments before deleting
         const content       = msg.content || null;
         const attachEntries = [...msg.attachments.values()];
         const stickers      = [...msg.stickers.values()].map(s => s.name);
 
-        // Download each attachment as a buffer so we can reupload it via the webhook.
-        // Passing CDN URLs directly can produce blank/0 byte files because the URL is
-        // only valid for the message that no longer exists after we delete it.
         const attachFiles = [];
         for (const att of attachEntries) {
           try {
@@ -6460,8 +5816,7 @@ client.on("messageCreate",async msg=>{
           } catch(e) { console.error("[clank attach download]", e.message); }
         }
 
-        tagBotMessageDelete(msg.id, "silent");
-        await msg.delete().catch(()=>{ pendingBotMessageDeletes.delete(msg.id); });
+        await msg.delete().catch(()=>{});
 
         const member = await msg.guild.members.fetch(msg.author.id).catch(()=>null);
         const originalName = member?.displayName || msg.author.displayName || msg.author.globalName || msg.author.username;
@@ -6505,7 +5860,6 @@ client.on("messageCreate",async msg=>{
           displayName = `${displayName} innit`;
           if(sendContent){
             const britishSwaps = [
-              // American vocab → British vocab
               [/\btrash\b/gi,"rubbish"],[/\bgarbage\b/gi,"rubbish"],[/\bjunk\b/gi,"rubbish"],
               [/\belevator\b/gi,"lift"],[/\bapartment\b/gi,"flat"],[/\bcondo\b/gi,"flat"],
               [/\bcookies\b/gi,"biscuits"],[/\bcandy\b/gi,"sweets"],[/\bchocolate bar\b/gi,"chocolate bar"],
@@ -6525,7 +5879,6 @@ client.on("messageCreate",async msg=>{
               [/\brestaurant\b/gi,"restaurant"],[/\btakeout\b/gi,"takeaway"],[/\btakeaway\b/gi,"takeaway"],
               [/\bpizza\b/gi,"pizza"],[/\bmeal\b/gi,"tea"],[/\bdinner\b/gi,"tea"],[/\blunch\b/gi,"dinner"],
               [/\bbreakfast\b/gi,"brekkie"],[/\bcoffee\b/gi,"cuppa"],[/\btea\b/gi,"cuppa"],
-              // Adjectives
               [/\bdumb\b/gi,"daft"],[/\bstupid\b/gi,"daft"],[/\bidiot\b/gi,"muppet"],
               [/\bcrazy\b/gi,"mental"],[/\binsane\b/gi,"absolutely mental"],[/\bwild\b/gi,"mental"],
               [/\bcool\b/gi,"brilliant"],[/\bawesome\b/gi,"dead brilliant"],[/\bamazing\b/gi,"well good"],
@@ -6542,7 +5895,6 @@ client.on("messageCreate",async msg=>{
               [/\bsmall\b/gi,"wee"],[/\ba lot\b/gi,"loads"],[/\bmany\b/gi,"loads of"],
               [/\bvery\b/gi,"dead"],[/\breally\b/gi,"proper"],[/\bso\b/gi,"well"],
               [/\bactually\b/gi,"to be fair"],[/\bhonestly\b/gi,"hand on heart"],[/\bbasically\b/gi,"right so"],
-              // Nouns (people)
               [/\bguy\b/gi,"bloke"],[/\bdude\b/gi,"geezer"],[/\bman\b/gi,"lad"],
               [/\bfriend\b/gi,"mate"],[/\bbuddy\b/gi,"mate"],[/\bpal\b/gi,"mate"],
               [/\bgirl\b/gi,"lass"],[/\bwoman\b/gi,"bird"],[/\bwife\b/gi,"missus"],
@@ -6550,7 +5902,6 @@ client.on("messageCreate",async msg=>{
               [/\bboss\b/gi,"gaffer"],[/\bkid\b/gi,"nipper"],[/\bchild\b/gi,"nipper"],
               [/\bbaby\b/gi,"bairn"],[/\bgrandma\b/gi,"nan"],[/\bgrandpa\b/gi,"grandad"],
               [/\bmom\b/gi,"mum"],[/\bdad\b/gi,"dad"],[/\bbrother\b/gi,"bruv"],[/\bsis\b/gi,"sis"],
-              // Verbs / phrases
               [/\bokay\b/gi,"alright"],[/\bok\b/gi,"alright"],[/\byes\b/gi,"aye"],[/\byeah\b/gi,"aye"],
               [/\bno\b/gi,"nah"],[/\bnope\b/gi,"nah mate"],[/\bsure\b/gi,"go on then"],
               [/\bwhat\b/gi,"pardon"],[/\bhuh\b/gi,"eh"],[/\bwhy\b/gi,"how come"],
@@ -6589,7 +5940,6 @@ client.on("messageCreate",async msg=>{
         if(mode === "stupid"){
           displayName = `${displayName}`;
           if(sendContent){
-            // Apply heavy typo + slurring transforms
             const slurMap = [
               [/th/gi,"d"],[/ing\b/gi,"in"],[/tion\b/gi,"shun"],
               [/er\b/gi,"ah"],[/or\b/gi,"ur"],[/are\b/gi,"r"],
@@ -6601,7 +5951,6 @@ client.on("messageCreate",async msg=>{
             ];
             let t = sendContent;
             for(const [from, to] of slurMap) t = t.replace(from, to);
-            // Randomly swap letters to add typos
             t = t.split("").map(ch => {
               if(/[a-zA-Z]/.test(ch) && Math.random() < 0.12){
                 const near = {a:"qs",b:"vn",c:"xv",d:"sf",e:"wr",f:"gd",g:"fh",h:"gj",i:"uo",j:"hk",k:"jl",l:"ko",m:"n",n:"mb",o:"ip",p:"ol",q:"wa",r:"et",s:"ad",t:"ry",u:"yi",v:"bc",w:"qe",x:"zc",y:"tu",z:"xa"};
@@ -6610,7 +5959,6 @@ client.on("messageCreate",async msg=>{
               }
               return ch;
             }).join("");
-            // Double some letters randomly (stuttering)
             t = t.replace(/[bcdfgklmnprstvwyz]/gi, ch => Math.random() < 0.08 ? ch+ch : ch);
             sendContent = t;
           }
@@ -6619,7 +5967,6 @@ client.on("messageCreate",async msg=>{
         if(mode === "boomer"){
           displayName = `${displayName} (Bob's dad)`;
           if(sendContent){
-            // Boomer ify the message
             const boomerSwaps = [
               [/lol\b/gi,"LOL (laugh out loud)"],[/omg\b/gi,"OH MY GOD"],
               [/btw\b/gi,"by the way"],[/idk\b/gi,"I don't know"],
@@ -6633,7 +5980,6 @@ client.on("messageCreate",async msg=>{
             ];
             let t = sendContent;
             for(const [from, to] of boomerSwaps) t = t.replace(from, to);
-            // Random boomer outro
             const outros = [
               " Anyway, have you tried turning it off and on again? 📧",
               " I'll have to ask my grandson about this. 🖥️",
@@ -6794,7 +6140,6 @@ client.on("messageCreate",async msg=>{
         if(mode === "pirate"){
           displayName = `🏴‍☠️ ${displayName} (the Pirate)`;
           if(sendContent){
-            // Core pirate word substitutions
             const subs = [
               [/\bmy\b/gi,"me"],
               [/\byou\b/gi,"ye"],
@@ -6832,7 +6177,6 @@ client.on("messageCreate",async msg=>{
             for(const [pattern, replacement] of subs){
               sendContent = sendContent.replace(pattern, replacement);
             }
-            // Random pirate interjections appended
             const interjections = [
               " arr!",
               " shiver me timbers!",
@@ -6933,7 +6277,6 @@ client.on("messageCreate",async msg=>{
             ];
             let t = sendContent;
             for(const [from, to] of uwuSwaps) t = t.replace(from, to);
-            // random nya/purr insertions
             if(Math.random() < 0.5) t = "nyaa~ " + t;
             const signoffs = ["mrrp","  :3","  meow meow :3","  Nyah~!"];
             sendContent = t + "  " + signoffs[Math.floor(Math.random()*signoffs.length)];
@@ -6943,20 +6286,13 @@ client.on("messageCreate",async msg=>{
           }
         }
 
-
-
         // ── Random mode: pick a random real mode each message ────────────────
         if(mode === "random"){
           const RANDOM_MODES = ["evil","freaky","american","british","stupid","boomer","conspiracy","npc","sigma","medieval","ghost","pirate","rr_propaganda","french","uwu"];
           const pickedMode = RANDOM_MODES[Math.floor(Math.random()*RANDOM_MODES.length)];
           displayName = `Randomized ${member?.displayName || msg.author.displayName || msg.author.globalName || msg.author.username}`;
-          // Re run through the handler by temporarily overriding mode (we replicate the block inline)
-          // Instead, we use a flag approach: set a local variable and fall through each mode block
-          // We store the picked mode and apply it using the same switch logic below
           Object.defineProperty(clankEntry, '_resolvedMode', { value: pickedMode, writable: true, configurable: true });
-          // Apply picked mode: reuse mode var
           const _rm = pickedMode;
-          // We manually apply just the content transforms for the picked mode:
           if(_rm === "evil"){
             if(sendContent) sendContent = sendContent + " I'M SO EVIL THOOO";
           } else if(_rm === "freaky"){
@@ -7044,7 +6380,6 @@ client.on("messageCreate",async msg=>{
           if(sendContent){
             let t = sendContent;
             for(const [from, to] of (cm.words || [])){
-              // Case insensitive, and \s+ so multiword phrases like "New York" still match spacing variations.
               const pattern = from.trim().replace(/[.*+?^${}()|[\]\\]/g,"\\$&").replace(/\s+/g, "\\s+");
               t = t.replace(new RegExp(`\\b${pattern}\\b`, "gi"), to);
             }
@@ -7054,31 +6389,28 @@ client.on("messageCreate",async msg=>{
           }
         }
 
-        // Get or create a webhook for this channel
         const webhooks = await msg.channel.fetchWebhooks().catch(()=>null);
         let webhook    = webhooks?.find(w => w.owner?.id === CLIENT_ID && w.name === "RoyalBot Proxy");
         if(!webhook){
           webhook = await msg.channel.createWebhook("RoyalBot Proxy", { avatar: avatarURL }).catch(()=>null);
         }
-        if(!webhook) return; // no permission to create webhooks
+        if(!webhook) return;
 
         const sendOpts = { username: displayName, avatarURL, allowedMentions: { parse: [] } };
         if(sendContent)          sendOpts.content = sendContent;
         if(attachFiles.length)   sendOpts.files   = attachFiles;
-        // If only stickers (no content/attachments), send sticker names as text
         if(!sendContent && !attachFiles.length && stickers.length){
           sendOpts.content = stickers.map(n => `[Sticker: ${n}]`).join(" ");
         }
 
         if(sendOpts.content || sendOpts.files){
           const sentMsg = await webhook.send(sendOpts).catch(()=>null);
-          // For propaganda mode: suppress the embed Discord autogenerates from URLs
           if(sentMsg && mode === "rr_propaganda"){
             await sentMsg.suppressEmbeds(true).catch(()=>{});
           }
         }
       } catch(e){ console.error("clankerify error:", e.message); }
-      return; // skip XP etc. for clankerified messages
+      return;
     }
   }
   const newLevel=tryAwardXP(msg.author.id,msg.author.username);
@@ -7128,7 +6460,6 @@ client.on("messageCreate",async msg=>{
   // ── Paranoia watcher: reply to watched users' messages ─────────────────────
   const paranoiaEntry = paranoiaWatchers.get(scopedKey(msg.guild.id, msg.author.id));
   if(paranoiaEntry && paranoiaEntry.armed){
-    // Roll chance: if it passes, pick one random paranoia line and reply to this message
     if(Math.random() * 100 < paranoiaEntry.chance){
       const line = PARANOIA_MESSAGES[Math.floor(Math.random() * PARANOIA_MESSAGES.length)];
       try{ await msg.reply({ content: line, allowedMentions:{ repliedUser: false } }); }catch(e){ console.error("paranoia reply error:", e.message); }
@@ -7136,11 +6467,6 @@ client.on("messageCreate",async msg=>{
   }
 
   // ── Jarvis / RoyalBot image trigger ──────────────────────────────────────────
-  // Message must be a reply AND start with the wake word "RoyalBot" or "Jarvis".
-  // If it also contains a word matching a filename in the jarvis folder, the bot
-  // replies to the ORIGINAL message (the one being replied to) with that image.
-  // If the wake word is specifically "Jarvis" (not "RoyalBot") and the author is
-  // an owner, Jarvis also acknowledges the command runner with a flavor line.
   if(msg.reference){
     const wakeMatch = msg.content.trim().match(/^(royalbot|jarvis)\b/i);
     if(wakeMatch){
@@ -7167,21 +6493,7 @@ client.on("messageCreate",async msg=>{
   }
 
   // ── Jarvis Enhance: owner built automation chains, triggered by word ────────
-  // Trigger words match whole word (or, for multiword phrases like "hit a
-  // clip", a substring check) against the message: same style as the Jarvis
-  // image trigger. A reply is only required when the profile actually has an
-  // action that needs the reply target; broadcast only profiles (like the
-  // built in "hit a clip" → random quote) fire on a plain "Jarvis, hit a
-  // clip" with no reply needed. Each profile can be owner locked (only the
-  // owner, or someone granted /jarvisenhance via /tempowner, can fire it) or
-  // unlocked (anyone can say the word). Runs fully silently: no "ran X"
-  // confirmation is posted either way; only console.error on unexpected
-  // failures.
   if(jarvisEnhanceProfiles.size){
-    // The beta bot is Patreon supporters only (owners always allowed through);
-    // this mirrors the same gate on interactionCreate for chat based triggers.
-    // Uses a nested if rather than an early return, since this handler still
-    // has unrelated logic (the counting channel feature) after this block.
     const betaBlocked = IS_BETA_BOT && !OWNER_IDS.includes(msg.author.id) && !(await isPatreonMember(msg.author.id));
     if(!betaBlocked){
     const jeWakeMatch = msg.content.trim().match(/^(royalbot|jarvis)\b[,:\-\s]*/i);
@@ -7191,8 +6503,6 @@ client.on("messageCreate",async msg=>{
         const jeWords = jeContentLower.match(/[a-z0-9]+/g) || [];
         const jeWordSet = new Set(jeWords);
         let matchedTrigger = null;
-        // Profiles that need EVERY trigger word present (matchAll, like "clip"
-        // plus "ship") are checked first so they beat the single word profiles.
         const jeAllProfiles = [...jarvisEnhanceProfiles.values()];
         const jeOrdered = [...jeAllProfiles.filter(p => p.matchAll), ...jeAllProfiles.filter(p => !p.matchAll)];
         const jeHasTrigger = (t) => {
@@ -7224,10 +6534,6 @@ client.on("messageCreate",async msg=>{
               if(targetMsg && msg.guild) targetMember = await msg.guild.members.fetch(targetMsg.author.id).catch(() => null);
             }
             if(!needsTarget || targetMsg){
-              // Whatever's left after the wake word and the matched trigger
-              // word is the live custom text: e.g. "Jarvis, dm knock it off"
-              // → restText = "knock it off", available to any action's
-              // dynamicField left blank in the builder.
               const afterWake = msg.content.slice(jeWakeMatch[0].length);
               const triggerRe = new RegExp(`\\b${matchedTrigger.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")}\\b`, "i");
               const restText = afterWake.replace(triggerRe, "").trim();
@@ -7250,22 +6556,18 @@ client.on("messageCreate",async msg=>{
   if(cc){
     const trimmed=msg.content.trim();
     const num=parseInt(trimmed);
-    // Only process pure integer messages: ignore anything else silently
     if(!isNaN(num)&&/^-?\d+$/.test(trimmed)){
       if(msg.author.id===cc.lastUserId){
-        // Double count: reset and commit immediately
         cc.count=0;cc.lastUserId=null;
         saveDataAndCommitNow().catch(()=>{});
         await msg.react("❌").catch(()=>{});
         await safeSend(msg.channel,`<@${msg.author.id}> messed the counting up! Shame on them! Start from zero.`);
       }else if(num===cc.count+1){
-        // Correct: save to disk immediately, commit debounced
         cc.count++;cc.lastUserId=msg.author.id;
         if(cc.count>(cc.highScore||0)){cc.highScore=cc.count;}
         saveData();
         await msg.react("✅").catch(()=>{});
       }else{
-        // Wrong number: reset and commit immediately
         cc.count=0;cc.lastUserId=null;
         saveDataAndCommitNow().catch(()=>{});
         await msg.react("❌").catch(()=>{});
@@ -7435,12 +6737,8 @@ client.on("interactionCreate",async interaction=>{
     // ── Quote review: accept / reject ────────────────────────────────────────
     if(cid.startsWith("qr_accept_")||cid.startsWith("qr_reject_")){
       const isAccept = cid.startsWith("qr_accept_");
-      // New format: qr_accept_{token}: full submission data in pendingReviews
       const token = cid.slice(isAccept ? 10 : 10);
       const pending = pendingReviews.get(token);
-      // RoyalBot owners can action anything. A server owner or quote moderator
-      // can only action submissions made for their own server folder, and only
-      // from inside that server.
       const isGlobalReviewer = OWNER_IDS.includes(uid) || hasTempOwnerFeature(uid,"quote_review");
       const isServerReviewer = !!(pending && pending.destFolder && pending.guildId && interaction.guildId === pending.guildId && isServerQuoteStaff(uid, pending.guildId));
       if(!isGlobalReviewer && !isServerReviewer){
@@ -7448,7 +6746,6 @@ client.on("interactionCreate",async interaction=>{
         return;
       }
 
-      // Legacy fallback: if no token match, parse old style IDs (submitterId_stagingName)
       let submitterId, stagingName, mediaKind, rawName;
       if(pending){
         submitterId = pending.submitterId;
@@ -7456,7 +6753,6 @@ client.on("interactionCreate",async interaction=>{
         mediaKind   = pending.mediaKind;
         rawName     = pending.rawName;
       } else {
-        // Old format: qr_accept_{submitterId}_{stagingName}
         const payload  = token;
         const firstUnd = payload.indexOf("_");
         submitterId    = payload.slice(0, firstUnd);
@@ -7466,22 +6762,18 @@ client.on("interactionCreate",async interaction=>{
         rawName   = stagingMatch ? stagingMatch[3] : stagingName;
       }
       const prefix = mediaKind === "image" ? "quote" : mediaKind === "audio" ? "eardestroyer" : "eyebleacher";
-      // Approved submissions land in the folder they were requested for: a
-      // server folder for a server specific server, quotes2 for everyone else.
       const destFolder = (pending && pending.destFolder) || "quotes2";
 
       if(!await btnAck(interaction)) return;
       if(pending) pendingReviews.delete(token);
 
       if(!isAccept){
-        // Rejected: just update the message
         try{
           await interaction.editReply({
             content:`❌ **Submission rejected** by <@${uid}>\n\`${rawName}\` was **not** added to the quotes folder.`,
             components:[]
           });
         }catch{}
-        // Notify submitter
         try{
           const submitter = await client.users.fetch(submitterId).catch(()=>null);
           if(submitter) await submitter.send(`❌ Your quote submission \`${rawName}\` was **rejected** by a reviewer. It won't be added to the quotes folder.`).catch(()=>{});
@@ -7489,8 +6781,6 @@ client.on("interactionCreate",async interaction=>{
         return;
       }
 
-      // Accepted: need to redownload and upload to GitHub.
-      // Images: URL lives in the embed's image field. Audio/video: it's a message attachment.
       const embed = interaction.message.embeds[0];
       const mediaUrl = mediaKind === "image"
         ? (embed?.image?.url || embed?.thumbnail?.url || null)
@@ -7512,7 +6802,6 @@ client.on("interactionCreate",async interaction=>{
             await interaction.followUp({content:`❌ File too large (${(fileBuffer.length/1024/1024).toFixed(1)} MB). GitHub only accepts images under 1 MB.`,ephemeral:true}).catch(()=>{});
             return;
           }
-          // Audio/video too big for GitHub: approve it but just hand the file back instead of storing it.
           const num = nextUploadNumber(prefix);
           const fileName = `${prefix}_${num}.${ext}`;
           try{
@@ -7555,7 +6844,6 @@ client.on("interactionCreate",async interaction=>{
         }
         cacheQuoteFolder(fileName, destFolder);
 
-        // Credit the uploader
         const s = getScore(submitterId, null);
         s.imagesUploaded = (s.imagesUploaded || 0) + 1;
         if(!Array.isArray(s.uploadedImages)) s.uploadedImages = [];
@@ -7569,7 +6857,6 @@ client.on("interactionCreate",async interaction=>{
           });
         }catch{}
 
-        // Notify submitter
         try{
           const submitter = await client.users.fetch(submitterId).catch(()=>null);
           if(submitter) await submitter.send(`✅ Your quote submission \`${rawName}\` was **approved** and added as \`${fileName}\`! 🎉`).catch(()=>{});
@@ -7625,7 +6912,6 @@ client.on("interactionCreate",async interaction=>{
         return;
       }
 
-      // to_grant_
       if(!b.duration || (b.commands.size===0 && b.features.size===0)){
         try{await interaction.reply({content:"❌ Pick at least one command or feature, and a duration, first.",ephemeral:true});}catch{}
         return;
@@ -7659,7 +6945,6 @@ client.on("interactionCreate",async interaction=>{
         });
       }catch{}
 
-      // DM the target user
       try{
         const targetUser = await client.users.fetch(b.targetUserId).catch(()=>null);
         if(targetUser){
@@ -7696,7 +6981,7 @@ client.on("interactionCreate",async interaction=>{
         const cmdNames = buildGuildCommands().map(c=>c.name).sort();
         const chunk = chunkArray(cmdNames.map(n=>({value:n})),25)[Number(blSelMatch[2])] || [];
         const merged = mergeChunkedSelection([...b.features].filter(f=>f!=="all"), chunk, interaction.values);
-        b.features = new Set(merged); // picking specific commands exits "Full Blacklist" mode
+        b.features = new Set(merged);
         if(!(await btnAck(interaction))) return;
         try{ await interaction.editReply(buildBlacklistPanel(token)); }catch{}
         return;
@@ -7732,7 +7017,6 @@ client.on("interactionCreate",async interaction=>{
         return;
       }
 
-      // bl_save_
       if(b.features.size===0){
         try{await interaction.reply({content:"❌ Pick at least one command, or Full Blacklist, first.",ephemeral:true});}catch{}
         return;
@@ -7758,7 +7042,6 @@ client.on("interactionCreate",async interaction=>{
         });
       }catch{}
 
-      // Only notify + cut the DM relay on a fresh transition into full blacklist, matching the old add only notify behavior
       if(isAllNow && !wasFullyBlacklisted && !b.silent){
         try {
           const targetUser = await client.users.fetch(b.targetUserId).catch(()=>null);
@@ -7780,9 +7063,6 @@ client.on("interactionCreate",async interaction=>{
 
     // ── Deleter: keep or delete a trashcan flagged quote ─────────────────────
     if(cid.startsWith("del_keep_")||cid.startsWith("del_delete_")){
-      // RoyalBot owners can action anything. A server owner or quote moderator
-      // can only action quotes that live in their own server folder, and only
-      // from inside that server.
       let delAllowed = OWNER_IDS.includes(uid) || hasTempOwnerFeature(uid,"quote_review");
       if(!delAllowed && interaction.guildId){
         const delCfg = quoteGuildConfigs.get(interaction.guildId);
@@ -7800,7 +7080,6 @@ client.on("interactionCreate",async interaction=>{
       if(!(await btnAck(interaction))) return;
 
       if(cid.startsWith("del_keep_")){
-        // Just mark as resolved, disable the buttons
         try{
           await interaction.editReply({
             content: interaction.message.content + `\n\n✅ **Kept** by <@${uid}>`,
@@ -7810,7 +7089,6 @@ client.on("interactionCreate",async interaction=>{
         return;
       }
 
-      // del_delete_{filename}
       const fileName = cid.slice(11);
       try {
         const ghPath = await resolveQuoteGhPath(fileName);
@@ -7832,15 +7110,11 @@ client.on("interactionCreate",async interaction=>{
           await interaction.followUp({content:`❌ GitHub delete failed (HTTP ${delRes.status}).`,ephemeral:true});
           return;
         }
-        // Clean from user libraries
         for(const [,s] of scores){
           if(Array.isArray(s.uploadedImages)&&s.uploadedImages.includes(fileName))
             s.uploadedImages = s.uploadedImages.filter(n=>n!==fileName);
         }
-        // Clean from everyone's favorites: a deleted quote shouldn't leave a
-        // dangling favorite pointing at a file that no longer exists.
         for(const [,favSet] of favoritedQuotes){ favSet.delete(fileName); }
-        // Credit whoever flagged this: their flag was correct.
         const flaggers = pendingFlagDeleters.get(fileName);
         if(flaggers){ for(const flaggerId of flaggers) bumpFlagStat(flaggerId, "deleted"); }
         pendingFlagDeleters.delete(fileName);
@@ -7859,9 +7133,8 @@ client.on("interactionCreate",async interaction=>{
     }
 
     // ── "New quote" / "New good quote" / "New bad quote" buttons ────────────────
-    // qnew_quote, qnew_good, qnew_bad: sends a fresh quote message, same as rerunning the command.
     if(cid==="qnew_quote" || cid==="qnew_good" || cid==="qnew_bad"){
-      const qType = cid.slice(5); // "quote" | "good" | "bad"
+      const qType = cid.slice(5);
       const now_q = Date.now();
       const last_q = quoteCooldown.get(uid) || 0;
       if (now_q - last_q < 1500) {
@@ -7986,7 +7259,6 @@ client.on("interactionCreate",async interaction=>{
     }
 
     // ── Quote vote buttons ─────────────────────────────────────────────────────
-    // qvote_up_{msgId}, qvote_down_{msgId}, qvote_trash_{msgId}, qvote_who_{msgId}, qvote_uploader_{msgId}
     if(cid.startsWith("qvote_up_") || cid.startsWith("qvote_down_") || cid.startsWith("qvote_trash_") || cid.startsWith("qvote_who_") || cid.startsWith("qvote_uploader_")){
       const [,direction,msgId] = cid.match(/^qvote_(up|down|trash|who|uploader)_(.+)$/)||[];
       if(!msgId){ try{await interaction.reply({content:"❌ Invalid vote button.",ephemeral:true});}catch{} return; }
@@ -8047,7 +7319,6 @@ client.on("interactionCreate",async interaction=>{
         return;
       }
 
-      // For up/down/trash: acknowledge the button click without replacing the message
       await interaction.deferUpdate().catch(()=>{});
 
       // ── Trash button ──────────────────────────────────────────────────────────
@@ -8056,11 +7327,9 @@ client.on("interactionCreate",async interaction=>{
         if(!tv){ return; }
         const alreadyFlagged = tv.voters.has(uid);
         if(alreadyFlagged){
-          tv.voters.delete(uid); // toggle off
+          tv.voters.delete(uid);
         } else {
           tv.voters.add(uid);
-          // Check threshold. Where the flag goes depends on which folder the
-          // quote lives in: a server folder goes to that server's delete channel.
           const flagChannelId = getFlagChannelId(tv.filename, tv.guildId);
           if(!tv.sentToDeleter && tv.voters.size >= trashcanThreshold && flagChannelId){
             tv.sentToDeleter = true;
@@ -8084,7 +7353,6 @@ client.on("interactionCreate",async interaction=>{
           }
         }
         saveData();
-        // Rebuild buttons to reflect new trash count
         const votes = quoteVotes.get(filename) || { up:0, down:0 };
         const newButtons = makeQuoteVoteButtons(msgId, votes, tv);
         await interaction.editReply({ components: newButtons }).catch(()=>{});
@@ -8100,12 +7368,10 @@ client.on("interactionCreate",async interaction=>{
       const v = quoteVotes.get(filename) || { up:0, down:0 };
 
       if(prevVote === newVote){
-        // Same button again → remove vote
         if(newVote==="up")   { v.up   = Math.max(0, v.up-1);   bumpVoteStat(uid,"up",-1); }
         else                 { v.down = Math.max(0, v.down-1); bumpVoteStat(uid,"down",-1); }
         userVoteMap.delete(uid);
       } else {
-        // New vote or switching sides
         if(prevVote==="up")   { v.up   = Math.max(0, v.up-1);   bumpVoteStat(uid,"up",-1); }
         if(prevVote==="down") { v.down = Math.max(0, v.down-1); bumpVoteStat(uid,"down",-1); }
         if(newVote==="up")    { v.up++;   bumpVoteStat(uid,"up",1); }
@@ -8123,13 +7389,10 @@ client.on("interactionCreate",async interaction=>{
     }
 
     if(cid.startsWith("clankerify_mode_")){
-      // customId format: clankerify_mode_{guildId}_{targetId}_{duration|"perm"}
       const parts    = cid.split("_");
-      // parts: ["clankerify","mode",guildId,targetId,durKey]
       const menuGuildId = parts[2];
       const targetId = parts[3];
       const durKey   = parts[4];
-      // Only the real bot owner OR that guild's own owner can use this dropdown
       if(!(isEffectiveOwner(uid,"clankerify") || isGuildOwner(menuGuildId, uid))){
         try{await interaction.reply({content:"Not for you.",ephemeral:true});}catch{}
         return;
@@ -8142,7 +7405,6 @@ client.on("interactionCreate",async interaction=>{
       clankerify.set(cmKey, { expiresAt, mode, ownerClanked: true });
       saveData();
 
-      // Auto remove when timer fires
       if(expiresAt){
         setTimeout(() => {
           clankerify.delete(cmKey);
@@ -8163,8 +7425,6 @@ client.on("interactionCreate",async interaction=>{
 
     // ── Self clank mode selection ─────────────────────────────────────────────
     if(cid.startsWith("selfclank_mode_")){
-      // Only the user themselves can use their own mode menu
-      // customId: selfclank_mode_{userId}_{duration}
       const parts = cid.split("_");
       const targetUserId = parts[2];
       const durKey       = parts[3];
@@ -8173,17 +7433,15 @@ client.on("interactionCreate",async interaction=>{
         return;
       }
       const scKey = scopedKey(interaction.guildId, uid);
-      const duration = parseInt(durKey, 10); // minutes, always 1–5
+      const duration = parseInt(durKey, 10);
       const mode = interaction.values[0] === "none" ? null : interaction.values[0];
       const expiresAt = Date.now() + duration * 60_000;
       clankerify.set(scKey, { expiresAt, mode });
-      // Track in selfClankUsers for guild limit
       if(interaction.guildId){
         if(!selfClankUsers.has(interaction.guildId)) selfClankUsers.set(interaction.guildId, new Set());
         selfClankUsers.get(interaction.guildId).add(uid);
       }
       saveData();
-      // Auto remove and start 10 min cooldown
       const guildIdSnap = interaction.guildId;
       setTimeout(() => {
         clankerify.delete(scKey);
@@ -8205,10 +7463,8 @@ client.on("interactionCreate",async interaction=>{
     }
 
     // ── Self clank community mode selection ───────────────────────────────────
-    // Same logic as selfclank_mode_ but picks from community modes
     if(cid.startsWith("selfclank_community_")){
       const parts = cid.split("_");
-      // customId: selfclank_community_{userId}_{duration}
       const targetUserId = parts[2];
       const durKey       = parts[3];
       if(uid !== targetUserId){
@@ -8248,7 +7504,6 @@ client.on("interactionCreate",async interaction=>{
 
     // ── Clankerify community mode selection ───────────────────────────────────
     if(cid.startsWith("clankerify_community_")){
-      // customId: clankerify_community_{guildId}_{targetId}_{durKey}
       const parts    = cid.split("_");
       const menuGuildId = parts[2];
       const targetId = parts[3];
@@ -8293,7 +7548,6 @@ client.on("interactionCreate",async interaction=>{
 
       interaction.client._acPending.set(interaction.user.id, pending);
 
-      // If both have been touched, show a Send button
       const readyToSend = pending.requiredIds.length > 0;
       const reqNames  = pending.requiredIds.map(id=>interaction.guild.roles.cache.get(id)?.name||id).join(", ")||"none";
       const exclNames = pending.excludedIds.map(id=>interaction.guild.roles.cache.get(id)?.name||id).join(", ")||"none (RA/LOA always excluded)";
@@ -8366,7 +7620,6 @@ client.on("interactionCreate",async interaction=>{
         messageId:  sentMsg.id,
       });
 
-      // If a recurring schedule was requested, save it now that we have the final role sets
       if (parsedSchedule) {
         const scKey = `${interaction.guildId}:${channel.id}`;
         scheduledChecks.set(scKey, {
@@ -8431,13 +7684,11 @@ client.on("interactionCreate",async interaction=>{
 
     // ── Marriage proposal accept/decline ──────────────────────────────────────
     if(cid.startsWith("marry_accept_")||cid.startsWith("marry_decline_")){
-      // customId format: marry_accept_{proposerId}_{targetId}
       const isAccept = cid.startsWith("marry_accept_");
       const parts = (isAccept ? cid.slice(13) : cid.slice(14)).split("_");
       const proposerId = parts[0];
       const targetId   = parts[1];
 
-      // Only the intended target can respond
       if(uid !== targetId){
         try{await interaction.reply({content:"This proposal isn't for you!",ephemeral:true});}catch{}
         return;
@@ -8446,7 +7697,6 @@ client.on("interactionCreate",async interaction=>{
       const proposerScore = getScore(proposerId, null);
       const targetScore   = getScore(targetId, null);
 
-      // Verify the proposal is still pending
       if(targetScore.pendingProposal !== proposerId){
         try{await interaction.reply({content:"This proposal has already expired or been resolved.",ephemeral:true});}catch{}
         return;
@@ -8481,8 +7731,7 @@ client.on("interactionCreate",async interaction=>{
     }
     // ── Library navigation ────────────────────────────────────────────────────
     if(cid.startsWith("lib_")){
-      // customId: lib_prev_{targetUserId}_{currentIndex} or lib_next_{...} or lib_goto_{...}
-      const parts = cid.split("_"); // ["lib","prev"|"next"|"goto", userId, index]
+      const parts = cid.split("_");
       const dir = parts[1];
       const targetUserId = parts[2];
       const currentIdx = parseInt(parts[3]);
@@ -8530,7 +7779,7 @@ client.on("interactionCreate",async interaction=>{
 
     // ── Library: flag currently viewed image for review ────────────────────────
     if(cid.startsWith("libflag_")){
-      const parts = cid.split("_"); // ["libflag", userId, index]
+      const parts = cid.split("_");
       const targetUserId = parts[1];
       const idx = parseInt(parts[2]);
       const targetScore = getScore(targetUserId, null);
@@ -8560,7 +7809,6 @@ client.on("interactionCreate",async interaction=>{
         }
       }catch(e){ console.error("[libflag] send to deleter failed:", e.message); }
 
-      // Disable the flag button on the /library message itself
       try{
         const targetUser = await client.users.fetch(targetUserId).catch(()=>null);
         const displayName = targetUser?.username || "Unknown";
@@ -8579,7 +7827,6 @@ client.on("interactionCreate",async interaction=>{
     if(cid.startsWith("qm_")){
       if(!OWNER_IDS.includes(uid) && !hasTempOwnerFeature(uid,"quote_manager")){ await btnEphemeral(interaction,"Owner only."); return; }
 
-      // Delete button: qm_delete_{filename}
       if(cid.startsWith("qm_delete_")){
         const fileName = cid.slice(10);
         if(!(await btnAck(interaction))) return;
@@ -8597,7 +7844,6 @@ client.on("interactionCreate",async interaction=>{
             body: JSON.stringify({message:`chore: delete quote image ${fileName} via Discord`,sha})
           });
           if(!delRes.ok){ await interaction.followUp({content:`❌ GitHub delete failed (HTTP ${delRes.status}).`,ephemeral:true}); return; }
-          // Clean from user libraries
           for(const [,s] of scores){
             if(Array.isArray(s.uploadedImages)&&s.uploadedImages.includes(fileName))
               s.uploadedImages = s.uploadedImages.filter(n=>n!==fileName);
@@ -8611,9 +7857,8 @@ client.on("interactionCreate",async interaction=>{
         return;
       }
 
-      // Prev/Next buttons: qm_prev_{currentIdx} or qm_next_{currentIdx}_{total}
       const parts_qm = cid.split("_");
-      const dir_qm   = parts_qm[1]; // "prev" or "next"
+      const dir_qm   = parts_qm[1];
       const curIdx   = parseInt(parts_qm[2]);
       if(!(await btnAck(interaction))) return;
       try {
@@ -8653,7 +7898,6 @@ client.on("interactionCreate",async interaction=>{
       return;
     }
 
-    // Snake
     if(cid.startsWith("snake_")){
       const dir=cid.slice(6);
       if(dir==="noop"){try{await interaction.deferUpdate();}catch{}return;}
@@ -8667,7 +7911,6 @@ client.on("interactionCreate",async interaction=>{
       return;
     }
 
-    // Minesweeper
     if(cid.startsWith("ms_")){
       const parts2=cid.split("_"); const row=parseInt(parts2[1]),col=parseInt(parts2[2]);
       const gd=activeGames.get(interaction.channelId);
@@ -8678,7 +7921,6 @@ client.on("interactionCreate",async interaction=>{
       const mineCount=g.mineCount||{easy:3,medium:6,hard:10}[gd.diff||"easy"];
       const reward={easy:CONFIG.win_minesweeper_easy,medium:CONFIG.win_minesweeper_medium,hard:CONFIG.win_minesweeper_hard}[gd.diff||"easy"];
       try{
-        // First click: place mines avoiding clicked cell and its neighbors, then flood reveal
         if(g.firstClick){
           placeMinesAvoiding(g,row,col);
           revealMS(g,row,col);
@@ -8726,7 +7968,6 @@ client.on("interactionCreate",async interaction=>{
       return;
     }
 
-    // Tic Tac Toe
     if(cid.startsWith("ttt_")){
       const idx=parseInt(cid.slice(4));
       const gd=activeGames.get(interaction.channelId);
@@ -8742,15 +7983,12 @@ client.on("interactionCreate",async interaction=>{
       return;
     }
 
-    // Connect 4
     if(cid.startsWith("c4_")){
       const col=parseInt(cid.slice(3));
       const gd=activeGames.get(interaction.channelId);
-      // Always ack the interaction first: Discord requires a response within 3s
       if(!(await btnAck(interaction)))return;
       if(!gd||gd.type!=="c4"){try{await interaction.followUp({content:"No active Connect 4 game.",ephemeral:true});}catch{}return;}
       if(uid!==gd.players[gd.turn]){try{await interaction.followUp({content:"Not your turn!",ephemeral:true});}catch{}return;}
-      // Check if column is full (top row of that column: board[0*7+col] = board[col])
       if(gd.board[col]!==0){try{await interaction.followUp({content:"That column is full!",ephemeral:true});}catch{}return;}
       const row=dropC4(gd.board,col,gd.turn+1);
       const[p0,p1]=[gd.players[0],gd.players[1]];
@@ -8772,7 +8010,6 @@ client.on("interactionCreate",async interaction=>{
       return;
     }
 
-    // Blackjack
     if(cid.startsWith("bj_")){
       const action=cid.slice(3);
       const gd=activeGames.get(interaction.channelId);
@@ -8783,7 +8020,7 @@ client.on("interactionCreate",async interaction=>{
       const showBoard=(hide=true)=>`🃏 **Blackjack** (bet: ${bet} coins)\n\n**Your hand:** ${renderHand(playerHand)} - **${handVal(playerHand)}**\n**Dealer:** ${renderHand(dealerHand,hide)}${hide?"":" - **"+handVal(dealerHand)+"**"}`;
       const bjFx=activeEffects.get(uid)||{};
       const bjCharm=bjFx.lucky_charm_expiry&&bjFx.lucky_charm_expiry>Date.now();
-      const bjWin=(coins)=>bjCharm?Math.floor(coins*(1+CONFIG.lucky_charm_bonus/100)):coins; // apply charm to wins only
+      const bjWin=(coins)=>bjCharm?Math.floor(coins*(1+CONFIG.lucky_charm_bonus/100)):coins;
       if(action==="hit"){
         playerHand.push(deck.pop());const pv=handVal(playerHand);
         if(pv>21){activeGames.delete(interaction.channelId);playerScore.coins-=bet;recordLoss(uid,interaction.user.username);saveData();try{await interaction.editReply({content:`${showBoard(false)}\n\n💥 **Bust!** Lost **${bet}** coins.\n💰 Balance: **${playerScore.coins}**`,components:makeBJButtons(true)});}catch{}}
@@ -8795,7 +8032,6 @@ client.on("interactionCreate",async interaction=>{
       return;
     }
 
-    // RPS
     if(cid.startsWith("rps_")){
       const lastUnd=cid.lastIndexOf("_");
       const playerId=cid.slice(lastUnd+1);
@@ -8824,7 +8060,6 @@ client.on("interactionCreate",async interaction=>{
       return;
     }
 
-    // Help pagination
     if(cid.startsWith("help_page_")){
       const page=parseInt(cid.slice(10));
       const TOTAL=8;
@@ -8849,7 +8084,6 @@ client.on("interactionCreate",async interaction=>{
       return;
     }
 
-    // botstats users page
     if(cid==="rolespingfix_fix"){
       if(!OWNER_IDS.includes(interaction.user.id)&&!interaction.member?.permissions.has("MANAGE_GUILD"))return interaction.reply({content:"❌ You need the **Manage Server** permission to use this.",ephemeral:true});
       await interaction.deferUpdate();
@@ -9189,7 +8423,6 @@ client.on("interactionCreate",async interaction=>{
       return;
     }
 
-    // Ticket setup wizard
     if(cid.startsWith("ts_")){
       if(!interaction.guildId){await btnEphemeral(interaction,"Server only.");return;}
       if(!isTicketAdmin(interaction)){await btnEphemeral(interaction,"You need Manage Server permission.");return;}
@@ -9201,7 +8434,6 @@ client.on("interactionCreate",async interaction=>{
       const cfg=ticketConfigs.get(guildId)||{nextId:0};
       try{
 
-      // Chunked single/multi select menus: ts_sel_<kind>_<chunkIndex>
       const selMatch=cid.match(/^ts_sel_(channel|roles|log|transcript|panel_ch)_(\d+)$/);
       if(selMatch){
         const kind=selMatch[1];
@@ -9295,7 +8527,6 @@ client.on("interactionCreate",async interaction=>{
       }
     }
 
-    // Ticket open
     if(cid==="ticket_open"){
       if(!await btnAck(interaction))return;
       const guildId=interaction.guildId;
@@ -9329,7 +8560,6 @@ client.on("interactionCreate",async interaction=>{
       return;
     }
 
-    // Ticket close: removes user access, keeps channel for staff, shows Reopen + Delete buttons
     if(cid==="ticket_close"){
       if(!await btnAck(interaction))return;
       const ticket=openTickets.get(interaction.channelId);
@@ -9339,7 +8569,6 @@ client.on("interactionCreate",async interaction=>{
       const isStaff=isTicketStaff(cfg,member);
       const canClose=ticket.userId===uid||isStaff;
       if(!canClose){try{await interaction.followUp({content:"You don't have permission to close this ticket.",ephemeral:true});}catch{}return;}
-      // Remove the ticket owner's access to the channel
       try{await interaction.channel.permissionOverwrites.edit(ticket.userId,{VIEW_CHANNEL:false,SEND_MESSAGES:false});}catch{}
       ticket.status="closed";
       ticket.closedBy=uid;
@@ -9355,7 +8584,6 @@ client.on("interactionCreate",async interaction=>{
       return;
     }
 
-    // Ticket reopen: restores user access
     if(cid==="ticket_reopen"){
       if(!await btnAck(interaction))return;
       const ticket=openTickets.get(interaction.channelId);
@@ -9364,7 +8592,6 @@ client.on("interactionCreate",async interaction=>{
       const member=interaction.member;
       const isStaff=isTicketStaff(cfg,member);
       if(!isStaff){try{await interaction.followUp({content:"Only support staff can reopen tickets.",ephemeral:true});}catch{}return;}
-      // Restore the ticket owner's access
       try{await interaction.channel.permissionOverwrites.edit(ticket.userId,{VIEW_CHANNEL:true,SEND_MESSAGES:true,READ_MESSAGE_HISTORY:true});}catch{}
       ticket.status="open";
       delete ticket.closedBy;
@@ -9380,7 +8607,6 @@ client.on("interactionCreate",async interaction=>{
       return;
     }
 
-    // Ticket delete: staff only, transcripts and logs THEN deletes channel
     if(cid==="ticket_delete"){
       if(!await btnAck(interaction))return;
       const ticket=openTickets.get(interaction.channelId);
@@ -9399,7 +8625,6 @@ client.on("interactionCreate",async interaction=>{
       return;
     }
 
-    // Ticket claim
     if(cid==="ticket_claim"){
       if(!await btnAck(interaction))return;
       const ticket=openTickets.get(interaction.channelId);
@@ -9418,7 +8643,6 @@ client.on("interactionCreate",async interaction=>{
     }
 
     // ── Tomato This: select menu handlers (legacy, now handled by modal) ───────
-    // No op: kept as guard in case stale interactions arrive
     if(cid.startsWith("tomato_count_")||cid.startsWith("tomato_speed_")){
       try{await interaction.deferUpdate();}catch{}
       return;
@@ -9450,7 +8674,6 @@ client.on("interactionCreate",async interaction=>{
     if(cid.startsWith("clankerbuild_pick_edit_")){
       const modeName = interaction.values[0];
       const existing = customClankerModes.get(modeName) || {};
-      // Only the creator or an owner can edit
       if(!OWNER_IDS.includes(uid) && existing.creatorId !== uid){
         try{await interaction.reply({content:"❌ You can only edit your own modes.",ephemeral:true});}catch{}
         return;
@@ -9511,7 +8734,6 @@ client.on("interactionCreate",async interaction=>{
     }
 
     // ── /jarvisenhance builder ───────────────────────────────────────────────────
-    // Category select: choose which group of actions to browse.
     if(cid.startsWith("je_category_")){
       const token = cid.slice("je_category_".length);
       const b = jarvisEnhanceBuilders.get(token);
@@ -9529,10 +8751,6 @@ client.on("interactionCreate",async interaction=>{
       return;
     }
 
-    // Add action select (within a category): Clankerify/Impersonation skip the
-    // modal entirely and go through point and click mode+duration pickers
-    // instead: no typing a mode name. Zero field actions are appended
-    // immediately. Everything else opens a param modal as before.
     if(cid.startsWith("je_addtype_")){
       const token = cid.slice("je_addtype_".length);
       const b = jarvisEnhanceBuilders.get(token);
@@ -9561,7 +8779,6 @@ client.on("interactionCreate",async interaction=>{
       return;
     }
 
-    // Clankerify/Impersonation: mode picked, now show the duration picker.
     if(cid.startsWith("je_pickmode_")){
       const token = cid.slice("je_pickmode_".length);
       const b = jarvisEnhanceBuilders.get(token);
@@ -9570,7 +8787,6 @@ client.on("interactionCreate",async interaction=>{
       try{ await interaction.update(buildJarvisDurationPicker(token)); }catch{}
       return;
     }
-    // Clankerify/Impersonation: duration picked: action is complete, push it.
     if(cid.startsWith("je_pickduration_")){
       const token = cid.slice("je_pickduration_".length);
       const b = jarvisEnhanceBuilders.get(token);
@@ -9584,7 +8800,6 @@ client.on("interactionCreate",async interaction=>{
       try{ await interaction.update(buildJarvisEnhancePanel(token)); }catch{}
       return;
     }
-    // Echo/Send Embed/The Remnant: reply mode picked: action is complete, push it.
     if(cid.startsWith("je_pickreply_")){
       const token = cid.slice("je_pickreply_".length);
       const b = jarvisEnhanceBuilders.get(token);
@@ -9597,7 +8812,6 @@ client.on("interactionCreate",async interaction=>{
       try{ await interaction.update(buildJarvisEnhancePanel(token)); }catch{}
       return;
     }
-    // Cancel out of the mode/duration/reply mode picker subflow back to the main panel.
     if(cid.startsWith("je_addcancel_")){
       const token = cid.slice("je_addcancel_".length);
       const b = jarvisEnhanceBuilders.get(token);
@@ -9609,7 +8823,6 @@ client.on("interactionCreate",async interaction=>{
       return;
     }
 
-    // Step select: pick which step Move Up/Down/Remove act on.
     if(cid.startsWith("je_manage_")){
       const token = cid.slice("je_manage_".length);
       const b = jarvisEnhanceBuilders.get(token);
@@ -9990,10 +9203,6 @@ client.on("interactionCreate",async interaction=>{
     const cid = interaction.customId;
 
     // ── /TheRemnant: reply modal submit ────────────────────────────────────────
-    // Silently relays into the user's DM relay channel (creating one if needed).
-    // No public confirmation and no attribution in the message itself: the
-    // relay channel is already scoped to the user, and that's the only place
-    // this shows up.
     if(cid === "theremnant_modal"){
       const replyText = (interaction.fields.getTextInputValue("remnant_reply")||"").trim();
       if(!replyText) return safeReply(interaction,{content:"❌ Message can't be empty.",ephemeral:true});
@@ -10090,8 +9299,6 @@ client.on("interactionCreate",async interaction=>{
     }
 
     // ── Dropdown roles builder: detect from pasted message IDs ──────────────────
-    // Reuses the exact same "EMOJI | @Role" line parser as /reactionrole auto,
-    // one new dropdown per message ID, named after the message's own content.
     if(cid.startsWith("ddb_modal_detect_")){
       const token = cid.slice("ddb_modal_detect_".length);
       const b = ddBuilders.get(token);
@@ -10137,8 +9344,6 @@ client.on("interactionCreate",async interaction=>{
         params[f.key] = (interaction.fields.getTextInputValue(f.key)||"").trim();
       }
       if(def?.replyable){
-        // Echo/Send Embed/The Remnant get one more pick from a list step
-        // (Reply vs Send normally) before the action is actually pushed.
         b.pendingParams = params;
         return safeReply(interaction,{...buildJarvisReplyModePicker(token), ephemeral:true});
       }
@@ -10208,7 +9413,6 @@ client.on("interactionCreate",async interaction=>{
       if(BUILTIN_MODES2.has(modeName))
         return safeReply(interaction,{content:`❌ \`${modeName}\` is a built in mode and cannot be overwritten.`,ephemeral:true});
 
-      // If editing, preserve original creator info
       const existingMode = customClankerModes.get(modeName);
       if(!isNew && existingMode && !OWNER_IDS.includes(uid) && existingMode.creatorId !== uid)
         return safeReply(interaction,{content:"❌ You can only edit your own modes.",ephemeral:true});
@@ -10228,7 +9432,6 @@ client.on("interactionCreate",async interaction=>{
         : [];
       const signoffs = signoffsRaw ? signoffsRaw.split(";").map(s=>s.trim()).filter(Boolean) : [];
 
-      // Preserve creator info when editing
       const creatorId   = (existingMode?.creatorId)   || uid;
       const creatorName = (existingMode?.creatorName) || (interaction.user.globalName || interaction.user.username);
 
@@ -10256,11 +9459,6 @@ client.on("interactionCreate",async interaction=>{
         return safeReply(interaction,{content:"❌ Session expired, right click the message again.",ephemeral:true});
       }
 
-      // Parse inputs: clamp to valid ranges
-      // NOTE: parseInt() returns NaN for nonnumeric input, and `?? 50` does NOT
-      // catch NaN (only null/undefined), so a nonnumeric entry used to silently
-      // flow through as NaN all the way into the GIF builder (NaN speeds →
-      // NaN frame index → undefined composite input → broken/blank output).
       const parsedCount    = parseInt(interaction.fields.getTextInputValue("tomato_count"));
       const parsedSpeedMin = parseInt(interaction.fields.getTextInputValue("tomato_speed_min"));
       const parsedSpeedMax = parseInt(interaction.fields.getTextInputValue("tomato_speed_max"));
@@ -10348,22 +9546,20 @@ by <@${author.id}>`});
       const rawColor      = targetMsg.member?.displayHexColor;
       const usernameColor = (rawColor && rawColor !== "#000000") ? rawColor : "#FFFFFF";
 
-      // Store metadata so the modal submit can retrieve it
       tomatoPending.set(targetMsg.id, { authorTag, msgContent, avatarURL, usernameColor });
 
-      // Show a Modal with two inputs: count (1 to 50) and speed min/max (0 to 1000%)
       try {
         await interaction.showModal({
           title: "🍅 Tomato Settings",
           custom_id: `tomato_modal_${targetMsg.id}`,
           components: [
             {
-              type: 1, // Action row
+              type: 1,
               components: [{
-                type: 4, // Text input
+                type: 4,
                 custom_id: "tomato_count",
                 label: "Number of tomatoes (1–50)",
-                style: 1, // Short
+                style: 1,
                 placeholder: "1",
                 value: "1",
                 min_length: 1, max_length: 2, required: true,
@@ -10456,10 +9652,6 @@ by **${displayName}**`});
     }
 
     // ── Make it a quote (everyone, real data only, no editing) ──────────────────
-    // Uses the same card renderer as /fakequote for a pixel matching look, but
-    // with the message's actual text and the author's real global name and
-    // avatar: never a server nickname or server specific avatar override, and
-    // nothing about it can be customized, unlike /fakequote.
     if(cmd === "Make it a quote"){
       const text = targetMsg.content;
       if(!text) return safeReply(interaction,{content:"That message has no text to quote.",ephemeral:true});
@@ -10482,14 +9674,24 @@ by **${displayName}**`});
     }
 
     // ── Fetch Emoji (everyone) ─────────────────────────────────────────────────
+    if(cmd === "Steal Emojis"){
+      if(!OWNER_IDS.includes(uid)) return safeReply(interaction,{content:"Owner only.",ephemeral:true});
+      const destG = emojiStealDestGuildId ? client.guilds.cache.get(emojiStealDestGuildId) : null;
+      if(!destG) return safeReply(interaction,{content:"❌ No destination server set. Run `/emojisteal server:` first.",ephemeral:true});
+      await interaction.deferReply({ephemeral:true});
+      const parts = [await stealEmojisToGuild(destG, targetMsg.content)];
+      const stickerPart = await stealStickersToGuild(destG, targetMsg.stickers);
+      if(stickerPart) parts.push(stickerPart);
+      const out = parts.join("\n\n");
+      return safeReply(interaction,{content: out.length <= 1900 ? out : out.slice(0,1900)+"…", ephemeral:true});
+    }
+
     if(cmd === "Fetch Emoji"){
       const text = targetMsg.content;
-      // Match custom Discord emojis: <:name:id> or <a:name:id>
       const emojiRegex = /<a?:[a-zA-Z0-9_]+:(\d+)>/g;
       const matches = [...text.matchAll(emojiRegex)];
       if(!matches.length)
         return safeReply(interaction,{content:"❌ No custom emojis found in that message. (Built in emojis can\'t be fetched as links.)",ephemeral:true});
-      // Deduplicate by ID
       const seen = new Set();
       const links = [];
       for(const m of matches){
@@ -10503,12 +9705,10 @@ by **${displayName}**`});
       const header = `🔗 **${links.length} emoji link${links.length!==1?"s":""}** from that message:`;
       const body = links.join("\n");
       const full = `${header}\n${body}`;
-      // Discord message cap is 2000 chars; split if needed
       if(full.length <= 2000){
         return safeReply(interaction,{content:full,ephemeral:true});
       }
       await safeReply(interaction,{content:header,ephemeral:true});
-      // Send remaining links in chunks
       let chunk = "";
       for(const link of links){
         if((chunk + link + "\n").length > 1900){
@@ -10521,17 +9721,15 @@ by **${displayName}**`});
       return;
     }
 
-    return; // unknown message context command
+    return;
   }   // ── end if(isButton || isSelectMenu) ─────────────────────────────────────
 
   if(!interaction.isCommand())return;
   const cmd=interaction.commandName;
   const inGuild=!!interaction.guildId;
 
-  const ownerOnly=["servers","requester","deleter","dmconfig","leaveserver","restart","refreshcmds","botstats","setstatus","adminconfig","echo","shadowdelete","clankerify","impersonation","thecount","send","fakemessage","fakequote","forcemarry","forcedivorce","paranoia","tempowner","blacklist","theremnant","jarvisenhance","quotesetup","requestedquotes","deletedquotes","globaltoggle","quotemoderator"];
+  const ownerOnly=["servers","requester","deleter","emojisteal","dmconfig","leaveserver","restart","refreshcmds","botstats","setstatus","adminconfig","echo","shadowdelete","clankerify","impersonation","thecount","send","fakemessage","fakequote","forcemarry","forcedivorce","paranoia","tempowner","blacklist","theremnant","jarvisenhance","quotesetup","requestedquotes","deletedquotes","globaltoggle","quotemoderator"];
   if(ownerOnly.includes(cmd)){
-    // SERVER_OWNER_CMDS need a guild context: a Discord server owner using one
-    // of these is only ever allowed inside the server they own.
     if(SERVER_OWNER_CMDS.has(cmd) && !inGuild) return safeReply(interaction,{content:"❌ Server only.",ephemeral:true});
     if(!canUseOwnerCmd(interaction, cmd)) return safeReply(interaction,{content:"Owner only.",ephemeral:true});
   }
@@ -10550,10 +9748,6 @@ by **${displayName}**`});
   }
 
   // ── Auto defer safety net ────────────────────────────────────────────────────
-  // Declared OUTSIDE try/catch so _clearAutoDefer is in scope in both blocks.
-  // If the handler hasn't replied within 2.5 s, defer automatically so Discord
-  // never shows "Application did not respond". safeReply() already handles the
-  // deferred state by calling editReply() instead of reply().
   let _autoDeferTimer = setTimeout(async () => {
     if(!interaction.replied && !interaction.deferred){
       console.warn(`[auto-defer] /${cmd} exceeded 2.5s: autodeferring`);
@@ -10563,14 +9757,12 @@ by **${displayName}**`});
   const _clearAutoDefer = () => clearTimeout(_autoDeferTimer);
 
   try{
-    const uid     = interaction.user.id;   // shorthand: safe to use anywhere in this try block
+    const uid     = interaction.user.id;
     const au=()=>`<@${interaction.user.id}>`;
     const bu=()=>`<@${interaction.options.getUser("user").id}>`;
 
     if(cmd==="ping"){_clearAutoDefer();return safeReply(interaction,`🏓 Pong! Latency: **${client.ws.ping}ms**`);}
     if(cmd==="avatar"){await interaction.deferReply();_clearAutoDefer();const u=await client.users.fetch(interaction.options.getUser("user").id);return safeReply(interaction,u.displayAvatarURL({size:1024,dynamic:true}));}
-
-
 
     // ── /marry: persistent proposal stored in botdata.json ──────────────────
     if(cmd==="marry"){
@@ -10582,17 +9774,9 @@ by **${displayName}**`});
       const t  = getScore(target.id, target.username);
 
       // ── Case 1: target already proposed to ME: this is an acceptance ──────
-      // Check MY OWN pendingProposal (set when they proposed to me), not
-      // theirs: checking t.pendingProposal here was the bug: if I run
-      // /marry on the same person twice, the first call sets THEIR
-      // pendingProposal to MY id, and the second call would then read that
-      // back and think they'd proposed to me, automarrying us with no
-      // consent from them at all.
       if(s.pendingProposal === target.id){
-        // Both must be unmarried
         if(s.marriedTo) return safeReply(interaction,{content:`You're already married to <@${s.marriedTo}>! Use /divorce first.`,ephemeral:true});
         if(t.marriedTo) return safeReply(interaction,{content:`<@${target.id}> is already married to someone else!`,ephemeral:true});
-        // Accept: marry both sides, clear the proposal
         s.marriedTo = target.id;
         t.marriedTo = interaction.user.id;
         s.pendingProposal = null;
@@ -10603,15 +9787,12 @@ by **${displayName}**`});
       // ── Case 2: I'm proposing ─────────────────────────────────────────────
       if(s.marriedTo) return safeReply(interaction,{content:`You're already married to <@${s.marriedTo}>! Use /divorce first.`,ephemeral:true});
       if(t.marriedTo) return safeReply(interaction,{content:`<@${target.id}> is already married!`,ephemeral:true});
-      // Check if target already has a different pending proposal incoming (from someone else)
       if(t.pendingProposal && t.pendingProposal !== interaction.user.id){
         return safeReply(interaction,{content:`<@${target.id}> already has a pending proposal from someone else.`,ephemeral:true});
       }
-      // Check if I already proposed to this person
       if(t.pendingProposal === interaction.user.id){
         return safeReply(interaction,{content:`You already proposed to <@${target.id}>! They need to run \`/marry @${interaction.user.username}\` to accept.`,ephemeral:true});
       }
-      // Store the proposal on the target's record so it survives bot restarts
       t.pendingProposal = interaction.user.id;
       saveData();
       const propRow = new MessageActionRow().addComponents(
@@ -10634,11 +9815,6 @@ by **${displayName}**`});
   const u1=interaction.options.getUser("user1");
   const u2=interaction.options.getUser("user2");
   if(u1.id===u2.id)return safeReply(interaction,{content:"Can't marry someone to themselves.",ephemeral:true});
-  // Marriage state itself is global (same record /marry, /divorce, /partner use
-  // bot wide), but a server owner (as opposed to a real bot owner) can only
-  // force this on people actually in their own server: keeps the ACTION
-  // scoped to the server even though the resulting marriage is, by design,
-  // visible everywhere (same as a normal /marry).
   if(!isEffectiveOwner(interaction.user.id,"forcemarry")){
     const m1=await interaction.guild.members.fetch(u1.id).catch(()=>null);
     const m2=await interaction.guild.members.fetch(u2.id).catch(()=>null);
@@ -10695,7 +9871,6 @@ if(cmd==="clankerbuild"){
   const action   = interaction.options.getString("action");
   const isOwner  = OWNER_IDS.includes(callerId);
 
-  // User sees their own modes; owners see all
   const visibleModes = [...customClankerModes.entries()].filter(([,m]) => isOwner || m.creatorId === callerId);
 
   // ── list ──────────────────────────────────────────────────────────────────
@@ -10823,11 +9998,6 @@ if(cmd==="jarvisenhance"){
       `**${id}** ${p.ownerLocked===false ? "🔓" : "🔒"}: trigger word(s): ${p.triggers.map(t=>`\`${t}\``).join(" ")}\n${formatJarvisActionsList(p.actions)}`
     );
 
-    // Plain message content is capped at 2000 chars by Discord, which a
-    // handful of profiles blows through instantly (the old bug here — the
-    // reply would silently fail to send). Embeds cap descriptions at 4096,
-    // so build embed pages instead, chunking well under that limit, and
-    // send any extra pages as ephemeral follow ups.
     const pages = [];
     let current = [];
     let currentLen = 0;
@@ -10868,7 +10038,6 @@ if(cmd==="jarvisenhance"){
     });
   }
 
-  // create / edit: both open the same builder panel
   if(!name) return safeReply(interaction,{content:"❌ Provide a `name` for this profile.",ephemeral:true});
   const existing = jarvisEnhanceProfiles.get(name);
   if(action==="create" && existing)
@@ -10916,7 +10085,7 @@ if(cmd==="userprofile"){
   }
 
   const allQuoteFiles = (await fetchAllQuoteFiles()).filter(f => /\.(png|jpe?g|gif|webp)$/i.test(f.name));
-  const totalQuoteCount = allQuoteFiles.length || 1; // avoid divide-by-zero
+  const totalQuoteCount = allQuoteFiles.length || 1;
   const vStats = userVoteStats.get(puid) || { up:0, down:0 };
   const likedPct = (vStats.up/totalQuoteCount)*100;
   const dislikedPct = (vStats.down/totalQuoteCount)*100;
@@ -10951,7 +10120,6 @@ if(cmd==="theremnant"){
   const channel = interaction.channel;
   if(!channel) return safeReply(interaction,{content:"❌ Couldn't resolve this channel.",ephemeral:true});
 
-  // Ack the owner privately and instantly: the actual show plays out publicly below.
   await safeReply(interaction,{content:"📡 Transmission initiated…",ephemeral:true});
 
   (async () => {
@@ -10997,19 +10165,16 @@ if(cmd==="theremnant"){
 
 if(cmd==="clankerify"){
   const target   = interaction.options.getUser("user");
-  const duration = interaction.options.getInteger("duration") ?? null; // minutes, null = permanent
+  const duration = interaction.options.getInteger("duration") ?? null;
   const guildId  = interaction.guildId;
   const cKey     = scopedKey(guildId, target.id);
 
-  // duration === 0 means disable
   if(duration === 0){
     clankerify.delete(cKey);
     saveData();
     return safeReply(interaction,{content:`✅ Clankerify **disabled** for <@${target.id}> in this server.`,ephemeral:true});
   }
 
-  // Encode guild, target and duration into customId so the select handler can read them
-  // Format: clankerify_mode_{guildId}_{targetId}_{duration|"perm"}
   const durKey = duration ? String(duration) : "perm";
   const builtInOptions = [
     {label:"No mode (plain)",  value:"none",        emoji:"🤖"},
@@ -11037,7 +10202,6 @@ if(cmd==="clankerify"){
       .addOptions(builtInOptions)
   );
   const clankerifyComponents = [modeRow];
-  // Add separate community modes row if any exist
   const communityOpts = [...customClankerModes.entries()].map(([id, m]) => ({
     label: `${m.emoji||"⭐"} ${id}`,
     value: id,
@@ -11065,14 +10229,13 @@ if(cmd==="impersonation"){
   const pfp      = interaction.options.getAttachment("pfp");
   const name     = interaction.options.getString("name");
   const modeOpt  = interaction.options.getString("mode");
-  const duration = interaction.options.getInteger("duration") ?? null; // minutes, null = permanent
+  const duration = interaction.options.getInteger("duration") ?? null;
   const iKey     = scopedKey(interaction.guildId, target.id);
 
   if(target.bot) return safeReply(interaction,{content:"❌ Can't impersonate a bot's messages.",ephemeral:true});
   if(asUser && (pfp || name))
     return safeReply(interaction,{content:"❌ `as_user` can't be combined with `pfp`/`name`: pick one approach.",ephemeral:true});
 
-  // duration === 0 means disable
   if(duration === 0){
     clankerify.delete(iKey);
     saveData();
@@ -11194,14 +10357,13 @@ if(cmd==="divorce"){
     }
 
     if(cmd==="quote"){
-      // 1.5 second per user cooldown
       const now_q = Date.now();
       const last_q = quoteCooldown.get(interaction.user.id) || 0;
       if (now_q - last_q < 1500) {
         return safeReply(interaction, { content: "⏳ Slow down! You can only use `/quote` once every 1.5 seconds.", ephemeral: true });
       }
       quoteCooldown.set(interaction.user.id, now_q);
-      try { await interaction.deferReply(); } catch { /* user-install context on foreign server - reply will still work */ }
+      try { await interaction.deferReply(); } catch { }
       try {
         const chosen = await postRandomQuoteCard(nextQuoteImage, "quote", async (payload) => {
           const sent = await safeReply(interaction, payload);
@@ -11344,7 +10506,6 @@ if(cmd==="divorce"){
       const channel = interaction.options.getChannel("channel");
       const title   = interaction.options.getString("title") || "Upcoming Video";
       if(hours<=0||hours>720)return safeReply(interaction,{content:"❌ Hours must be between 0 and 720.",ephemeral:true});
-      // Check bot can send in the target channel
       const perms=channel.permissionsFor(interaction.guild.me);
       if(!perms||!perms.has("SEND_MESSAGES")||!perms.has("EMBED_LINKS"))
         return safeReply(interaction,{content:`❌ I don't have permission to send embeds in <#${channel.id}>.`,ephemeral:true});
@@ -11354,7 +10515,6 @@ if(cmd==="divorce"){
       const id       = `${interaction.user.id}_${now}`;
       const premiere = { title, endsAt, startedAt:now, channelId:channel.id, userId:interaction.user.id, messageId:null, guildId:interaction.guildId };
 
-      // Post the initial embed and store the message ID
       const embed = buildPremiereEmbed(premiere);
       const sent  = await channel.send(embed).catch(()=>null);
       if(!sent)return safeReply(interaction,{content:"❌ Failed to send the countdown message.",ephemeral:true});
@@ -11408,8 +10568,6 @@ if(cmd==="divorce"){
       return safeReply(interaction,buildHelpEmbed(0));
     }
 
-
-    // XP
     if(cmd==="xp"){
       const u=interaction.options.getUser("user")||interaction.user;
       const s=getScore(u.id,u.username);const{level,xp,needed}=xpInfo(s);
@@ -11427,7 +10585,6 @@ if(cmd==="divorce"){
       return safeReply(interaction,`**${scope==="server"?`🏠 ${interaction.guild?.name}`:"🌍 Global"}: XP Leaderboard**\n\n${sorted.map((e,i)=>`${medals[i]||`${i+1}.`} **${e[1].username}**: Level **${e[1].level||1}** (${e[1].xp||0} XP)`).join("\n")}`);
     }
 
-    // Scores
     if(cmd==="score"){
       const u=interaction.options.getUser("user")||interaction.user;
       const s=getScore(u.id,u.username);const wr=s.gamesPlayed>0?Math.round(s.wins/s.gamesPlayed*100):0;const{level,xp,needed}=xpInfo(s);
@@ -11457,7 +10614,6 @@ if(cmd==="divorce"){
       return safeReply(interaction,buildLeaderboard(entries,interaction.options.getString("type")||"wins",`🏠 ${interaction.guild.name}`));
     }
 
-    // Server management
     if(cmd==="channelpicker"){
       const ch=interaction.options.getChannel("channel");
       if(ch.type!=="GUILD_TEXT")return safeReply(interaction,{content:"Select a text channel.",ephemeral:true});
@@ -11498,7 +10654,6 @@ if(cmd==="divorce"){
       const setting=interaction.options.getString("setting");
       const guildId=interaction.guildId;
 
-      // Get or create per guild level up config, seeding from legacy disabledLevelUp
       function getLUC(){
         if(!levelUpConfig.has(guildId)){
           levelUpConfig.set(guildId,{
@@ -11591,7 +10746,6 @@ if(cmd==="divorce"){
       return safeReply(interaction,{content:enabled?"✅ Owner messages **enabled** in this server.":"🔇 Owner messages **disabled** in this server.",ephemeral:true});
     }
 
-    // Owner commands
     if(cmd==="servers"){
       await interaction.deferReply({ephemeral:true});let text="";
       for(const g of client.guilds.cache.values()){try{const ch=g.channels.cache.find(c=>c.type==="GUILD_TEXT"&&g.members.me&&c.permissionsFor(g.members.me).has("CREATE_INSTANT_INVITE"));if(ch){const inv=await ch.createInvite({maxAge:0});text+=`${g.name} - ${inv.url}\n`;}else text+=`${g.name}: no invite perms\n`;}catch{text+=`${g.name} - error\n`;}if(text.length>1800){text+="…and more";break;}}
@@ -11604,7 +10758,6 @@ if(cmd==="divorce"){
       const ui=await getUserAppInstalls();
       const appUserCount=userInstalls.size;
 
-      // Fetch quotes folder count from GitHub (quotes + quotes2 combined)
       let quotesCount = "?";
       try {
         const files = await fetchAllQuoteFiles();
@@ -11643,7 +10796,6 @@ if(cmd==="divorce"){
       if(existingChannel){
         return safeReply(interaction,{content:`📨 <@${targetUser.id}> already has a relay channel: <#${existingChannelId}>`,ephemeral:true});
       }
-      // (if existingChannelId pointed at a channel that no longer exists, fall through and recreate it)
 
       const channel = await ensureDmRelayChannel(targetUser);
       if(!channel) return safeReply(interaction,{content:"❌ Couldn't create a relay channel.",ephemeral:true});
@@ -11705,9 +10857,6 @@ if(cmd==="divorce"){
       const displayNameOverride = interaction.options.getString("displayname");
       const usernameOverride = interaction.options.getString("username");
       try{
-        // The name line uses the user's real global display name (falling back
-        // to username if they haven't set one); the handle line is always the
-        // real username. Neither ever reflects a server specific nickname.
         const displayName = displayNameOverride || target.globalName || target.username;
         const username = usernameOverride || target.username;
 
@@ -11736,14 +10885,12 @@ if(cmd==="divorce"){
       if(target.bot) return safeReply(interaction,{content:"❌ Can't haunt a bot.",ephemeral:true});
       const pKey = scopedKey(interaction.guildId, target.id);
 
-      // If already watching this user, toggle off
       if(paranoiaWatchers.has(pKey)){
         paranoiaWatchers.delete(pKey);
         saveData();
         return safeReply(interaction,{content:`🔕 Paranoia **disarmed** for <@${target.id}> in this server.`,ephemeral:true});
       }
 
-      // Arm watcher: fires on every message the target sends in THIS guild only
       paranoiaWatchers.set(pKey, { chance, armed: true });
       saveData();
       return safeReply(interaction,{content:`👻 Now watching <@${target.id}> in this server: each message they send here has a **${chance}%** chance of getting a paranoia reply.\nRun \`/paranoia\` on them again (in this server) to disarm.`,ephemeral:true});
@@ -11752,9 +10899,6 @@ if(cmd==="divorce"){
     if(cmd==="restart"){await safeReply(interaction,{content:"Restarting…",ephemeral:true});process.exit(0);}
     if(cmd==="refreshcmds"){
       if(!interaction.guildId) return safeReply(interaction,{content:"Server only.",ephemeral:true});
-      // A server owner (not a real bot owner) only ever gets THEIR guild's
-      // commands re-registered: forcing the global (owner-only) command set
-      // to reregister is a bot-wide action and stays owner-only.
       const canTouchGlobal = isEffectiveOwner(interaction.user.id, "refreshcmds");
       await safeReply(interaction,{content: canTouchGlobal ? "🔄 Re registering slash commands (guild + global)…" : "🔄 Re registering slash commands for this server…", ephemeral:true});
       try{
@@ -11812,7 +10956,6 @@ if(cmd==="divorce"){
       return safeReply(interaction,{content:`✅ **${key}**: \`${old}\` → \`${value}\``,ephemeral:true});
     }
 
-    // Server management extras
     if(cmd==="rolespingfix"){
       const isOwner=OWNER_IDS.includes(interaction.user.id);
       if(!isOwner&&!interaction.member?.permissions.has("MANAGE_GUILD"))return safeReply(interaction,{content:"❌ You need the **Manage Server** permission to use this.",ephemeral:true});
@@ -11842,7 +10985,6 @@ if(cmd==="divorce"){
         footer:{text:"This only removes the Mention Everyone permission: all other permissions stay intact."},
       }],components:[fixBtn],ephemeral:true});
     }
-    // Server management extras
     if(cmd==="setwelcomemsg"){const cfg=welcomeChannels.get(interaction.guildId);if(!cfg)return safeReply(interaction,{content:"No welcome channel set yet. Use /setwelcome first.",ephemeral:true});const message=interaction.options.getString("message")||null;cfg.message=message;const preview=(message||"Welcome to **{server}**, {user}! 🎉 You are member #{count}.").replace("{user}","@NewUser").replace("{server}",interaction.guild.name).replace("{count}","?");return safeReply(interaction,{content:`✅ Welcome message updated!\n**Preview:** ${preview}`,ephemeral:true});}
     if(cmd==="setleavemsg"){const cfg=leaveChannels.get(interaction.guildId);if(!cfg)return safeReply(interaction,{content:"No leave channel set yet. Use /setleave first.",ephemeral:true});const message=interaction.options.getString("message")||null;cfg.message=message;const preview=(message||"**{user}** has left **{server}**. 👋").replace("{user}","Username").replace("{server}",interaction.guild.name);return safeReply(interaction,{content:`✅ Leave message updated!\n**Preview:** ${preview}`,ephemeral:true});}
     if(cmd==="serverconfig"){
@@ -11865,7 +11007,6 @@ if(cmd==="divorce"){
         if(!entries.length)return safeReply(interaction,{content:"No reaction roles set up yet.",ephemeral:true});
         const lines=entries.map(([key,roleId])=>{
           const parts=key.split(":");
-          // key format: guildId:msgId:emojiName  OR  guildId:msgId:emojiName:emojiId
           const msgId=parts[1];
           const emojiPart=parts.slice(2).join(":");
           const display=emojiPart.includes(":")?`<:${emojiPart}>`:emojiPart;
@@ -11915,24 +11056,20 @@ if(cmd==="divorce"){
         const roleId=reactionRoles.get(key);reactionRoles.delete(key);saveData();
         return safeReply(interaction,{content:`✅ Removed: ${emojiRaw} → <@&${roleId}>`,ephemeral:true});
       }
-      // add
       const messageId=interaction.options.getString("messageid")?.trim();
       const emojiRaw=interaction.options.getString("emoji")?.trim();
       const role=interaction.options.getRole("role");
       if(!messageId||!emojiRaw||!role)return safeReply(interaction,{content:"❌ Provide `messageid`, `emoji`, and `role`.",ephemeral:true});
       await interaction.deferReply({ephemeral:true});
 
-      // Find the message across all text channels
       const targetMsg=await findMessageInGuild(interaction.guild, messageId);
       if(!targetMsg)return safeReply(interaction,{content:"❌ Message not found. Make sure the message ID is correct and the bot can see the channel.",ephemeral:true});
 
-      // Normalize emoji key to match what emojiKey() produces in the reaction event
       const norm=normalizeEmojiKey(emojiRaw);
       const key=`${interaction.guildId}:${messageId}:${norm}`;
       reactionRoles.set(key,role.id);
       saveData();
 
-      // React on the message so users can see what to click
       try{ await targetMsg.react(emojiRaw); }catch(e){ console.warn("reactionrole react failed:",e.message); }
 
       return safeReply(interaction,{content:`✅ **Reaction role added!**\n📨 [Jump to message](${targetMsg.url})\n${emojiRaw} → <@&${role.id}>\n\n> Tip: users must be able to see and react to that message. Bot needs \`Manage Roles\` and its role must be above <@&${role.id}> in the role list.`,ephemeral:true});
@@ -11959,7 +11096,6 @@ if(cmd==="divorce"){
         dropdownRoleSets.delete(key);saveData();
         return safeReply(interaction,{content:`✅ Deleted dropdown set \`${setId}\`. Any already-posted message will stop responding to selections.`,ephemeral:true});
       }
-      // action === "build"
       const token=`${interaction.user.id.slice(-6)}${Date.now().toString(36)}`;
       ddBuilders.set(token, { ownerId:interaction.user.id, guildId:interaction.guildId, setId:newDdSetId(), dropdowns:[], pendingEmoji:null, pendingIndex:null });
       ddTouch(token);
@@ -11991,19 +11127,16 @@ if(cmd==="divorce"){
         const fresh=toDelete.filter(m=>m.createdTimestamp>cutoff);
         const old=toDelete.filter(m=>m.createdTimestamp<=cutoff);
         let deletedCount=0;
-        // Bulk delete fresh messages (under 14 days)
         if(fresh.length){
           const bulk=await interaction.channel.bulkDelete(fresh,true);
           deletedCount+=bulk.size;
         }
-        // One by one delete old messages (over 14 days)
         if(old.length){
           await safeReply(interaction,{content:`⏳ Deleting **${old.length}** old message(s) one by one, this may take a moment…`,ephemeral:true});
           for(const m of old){
-            tagBotMessageDelete(m.id, "silent");
-            await m.delete().catch(()=>{ pendingBotMessageDeletes.delete(m.id); });
+            await m.delete().catch(()=>{});
             deletedCount++;
-            await new Promise(res=>setTimeout(res,1000)); // 1 second delay to avoid rate limits
+            await new Promise(res=>setTimeout(res,1000));
           }
         }
         const filterDesc=filter?` (${filter} only)`:"";
@@ -12012,7 +11145,6 @@ if(cmd==="divorce"){
       }
       catch(e){return safeReply(interaction,{content:`Failed: ${e.message}`,ephemeral:true});}
     }
-
 
     // ── YouTube commands ───────────────────────────────────────────────────────
     if(cmd==="ytsetup"){
@@ -12119,7 +11251,6 @@ if(cmd==="divorce"){
         return safeReply(interaction,{content:`✅ Milestone at **${fmtSubs(subs)}** removed.`});
       }
     }
-    // Ticket setup command
     if(cmd==="ticketsetup"){
       try{
         if(!inGuild)return safeReply(interaction,{content:"Server only.",ephemeral:true});
@@ -12130,7 +11261,6 @@ if(cmd==="divorce"){
         return safeReply(interaction,{content:`❌ Ticket setup failed to start: \`${e?.message||e}\``,ephemeral:true});
       }
     }
-    // Server stats command
     if(cmd==="serverstats"){
       if(!inGuild)return safeReply(interaction,{content:"Server only.",ephemeral:true});
       return safeReply(interaction,{...ssBuildMainPanel(interaction.guild),ephemeral:true});
@@ -12253,7 +11383,6 @@ if(cmd==="divorce"){
       return safeReply(interaction,{content:"❌ Unknown action.",ephemeral:true});
     }
 
-
     // ── /dailyquote ────────────────────────────────────────────────────────────
     if(cmd==="dailyquote"){
       if(!inGuild) return safeReply(interaction,{content:"Server only.",ephemeral:true});
@@ -12273,7 +11402,6 @@ if(cmd==="divorce"){
         return safeReply(interaction,{content:`📅 **Daily Quote Status**\n📢 Channel: <#${cfg.channelId}>\n🕐 Posts at: **${cfg.hour}:00 UTC** every day`,ephemeral:true});
       }
 
-      // action === "set"
       if(!channel) return safeReply(interaction,{content:"❌ Please provide a `channel` when using Set channel.",ephemeral:true});
       if(channel.type!=="GUILD_TEXT") return safeReply(interaction,{content:"❌ Please select a text channel.",ephemeral:true});
       if(hour<0||hour>23) return safeReply(interaction,{content:"❌ Hour must be between 0 and 23 (UTC).",ephemeral:true});
@@ -12322,7 +11450,6 @@ if(cmd==="divorce"){
       const action = interaction.options.getString("action");
       if(action==="list"){ cmd="quotelist"; }
       else if(action==="delete"){ cmd="quotedelete"; }
-      // "browse" falls through to existing browse handler below
       else {
         await interaction.deferReply({ephemeral:true});
         try {
@@ -12354,7 +11481,6 @@ if(cmd==="divorce"){
       try {
         const images = (await fetchAllQuoteFiles()).filter(f => /\.(png|jpe?g|gif|webp)$/i.test(f.name));
         if(!images.length) return safeReply(interaction,{content:"📭 No images in the quotes folders.",ephemeral:true});
-        // Split into chunks of 50 filenames per message to stay under Discord's 2000 char limit
         const names = images.map((f,i) => `${i+1}. \`${f.name}\` _(${f.folder})_`);
         const chunks = [];
         let chunk = [];
@@ -12381,7 +11507,6 @@ if(cmd==="divorce"){
       await interaction.deferReply({ephemeral:true});
       try {
         const ghPath = await resolveQuoteGhPath(fileName);
-        // Fetch the file's SHA (required for deletion)
         const checkRes = await fetch(`https://api.github.com/repos/Royal-V-RR/discord-bot/contents/${ghPath}`,{
           headers:{"User-Agent":"RoyalBot","Authorization":`token ${GH_TOKEN}`,"Accept":"application/vnd.github+json"}
         });
@@ -12390,7 +11515,6 @@ if(cmd==="divorce"){
         const fileData = await checkRes.json();
         const sha = fileData.sha;
         if(!sha) return safeReply(interaction,{content:"❌ Couldn't retrieve file SHA for deletion.",ephemeral:true});
-        // Delete the file
         const delRes = await fetch(`https://api.github.com/repos/Royal-V-RR/discord-bot/contents/${ghPath}`,{
           method:"DELETE",
           headers:{"User-Agent":"RoyalBot","Authorization":`token ${GH_TOKEN}`,"Accept":"application/vnd.github+json","Content-Type":"application/json"},
@@ -12401,7 +11525,6 @@ if(cmd==="divorce"){
           console.error("quotedelete GitHub error:",err);
           return safeReply(interaction,{content:`❌ GitHub delete failed (HTTP ${delRes.status}).`,ephemeral:true});
         }
-        // Remove from any user's uploadedImages list so their library stays accurate
         for(const [,s] of scores){
           if(Array.isArray(s.uploadedImages) && s.uploadedImages.includes(fileName)){
             s.uploadedImages = s.uploadedImages.filter(n=>n!==fileName);
@@ -12482,7 +11605,6 @@ if(cmd==="divorce"){
     }
 
     if(cmd==="upload"){
-      // Both source and link are restricted to MEMERS
       if(!MEMERS.has(interaction.user.id))
         return safeReply(interaction,{content:"❌ You don't have permission to use /upload.",ephemeral:true});
 
@@ -12521,9 +11643,6 @@ if(cmd==="divorce"){
           sourceUrl  = link;
         }
 
-        // Images always go to GitHub (existing behavior, 1MB cap stays).
-        // Audio/video ≤1MB also go to GitHub. Audio/video >1MB skip GitHub entirely
-        // and are just posted back as a Discord embed/attachment instead.
         const overLimit = fileBuffer.length > 1_000_000;
 
         if(mediaInfo.kind === "image" && overLimit){
@@ -12531,7 +11650,6 @@ if(cmd==="divorce"){
         }
 
         if(overLimit){
-          // Audio/video too big for GitHub: just hand it back as a Discord attachment/embed.
           const num = nextUploadNumber(mediaInfo.prefix);
           const fileName = `${mediaInfo.prefix}_${num}.${mediaInfo.ext}`;
           return safeReply(interaction,{
@@ -12543,7 +11661,7 @@ if(cmd==="divorce"){
 
         const num = nextUploadNumber(mediaInfo.prefix);
         const fileName = `${mediaInfo.prefix}_${num}.${mediaInfo.ext}`;
-        const ghPath  = `quotes2/${fileName}`; // /upload always writes to quotes2, never quotes
+        const ghPath  = `quotes2/${fileName}`;
         const encoded = fileBuffer.toString("base64");
 
         const checkRes = await fetch(`https://api.github.com/repos/Royal-V-RR/discord-bot/contents/${ghPath}`,{
@@ -12568,7 +11686,6 @@ if(cmd==="divorce"){
         if(!putRes.ok){
           const err = await putRes.text();
           console.error("GitHub upload failed:",err);
-          // Roll back the counter since this number wasn't actually used
           uploadCounters[mediaInfo.prefix] = Math.max(0,(uploadCounters[mediaInfo.prefix]||1)-1);
           return safeReply(interaction,{content:`❌ GitHub upload failed (HTTP ${putRes.status}).`,ephemeral:true});
         }
@@ -12597,13 +11714,11 @@ if(cmd==="divorce"){
       const doPing     = interaction.options.getBoolean("ping")??true;
       const scheduleStr= interaction.options.getString("schedule")||null;
 
-      // If a schedule string is provided, parse and save it: then go through role selection
       const parsedSchedule = scheduleStr ? parseSchedule(scheduleStr) : null;
       if (scheduleStr && !parsedSchedule) {
         return safeReply(interaction,{content:"❌ Couldn't parse that schedule. Use a format like `Monday 09:00` or `Wed 14:30` (UTC).",ephemeral:true});
       }
 
-      // Build role list for dropdowns: cap at 25, exclude @everyone and managed roles
       const cfg = raConfig.get(interaction.guildId)||{};
       const excludedByDefault = new Set([cfg.raRoleId, cfg.loaRoleId].filter(Boolean));
       const allRoles = [...interaction.guild.roles.cache.values()]
@@ -12640,7 +11755,6 @@ if(cmd==="divorce"){
         components:[requiredMenu, excludedMenu],
         ephemeral:true
       });
-      // Store pending config keyed by user so the select handler can retrieve it
       if(!interaction.client._acPending) interaction.client._acPending = new Map();
       interaction.client._acPending.set(interaction.user.id, { channel, deadlineHr, customMsg, doPing, requiredIds:[], excludedIds:[...excludedByDefault], parsedSchedule, scheduleStr });
       return;
@@ -12716,7 +11830,7 @@ if(cmd==="divorce"){
 
       const target   = interaction.options.getUser("user");
       const action   = interaction.options.getString("action");
-      const duration = interaction.options.getInteger("duration")||null; // hours
+      const duration = interaction.options.getInteger("duration")||null;
 
       const member = await interaction.guild.members.fetch(target.id).catch(()=>null);
       if(!member) return safeReply(interaction,{content:"❌ Couldn't find that member.",ephemeral:true});
@@ -12725,7 +11839,6 @@ if(cmd==="divorce"){
 
       if(action==="give"){
         try { await member.roles.add(role); } catch(e) { return safeReply(interaction,{content:`❌ Failed to add role: ${e.message}`,ephemeral:true}); }
-        // Cancel any existing timer for this user+type
         if(raTimers.has(timerKey)){ clearTimeout(raTimers.get(timerKey)); raTimers.delete(timerKey); }
         let reply = `✅ Gave <@&${roleId}> to <@${target.id}>.`;
         if(duration){
@@ -12742,7 +11855,6 @@ if(cmd==="divorce"){
       }
 
       if(action==="remove"){
-        // Cancel timer if any
         if(raTimers.has(timerKey)){ clearTimeout(raTimers.get(timerKey)); raTimers.delete(timerKey); }
         try { await member.roles.remove(role); } catch(e) { return safeReply(interaction,{content:`❌ Failed to remove role: ${e.message}`,ephemeral:true}); }
         return safeReply(interaction,{content:`✅ Removed <@&${roleId}> from <@${target.id}>.`,ephemeral:true});
@@ -12750,7 +11862,6 @@ if(cmd==="divorce"){
 
       return safeReply(interaction,{content:"❌ Unknown action.",ephemeral:true});
     }
-
 
     // ── /deleter: owner sets the flagged quote review channel ───────────────
     if(cmd==="deleter"||((cmd==="quotemanage")&&interaction.options.getSubcommand(false)==="set-delete-channel")){
@@ -12792,7 +11903,7 @@ if(cmd==="divorce"){
       const qsCfg = quoteGuildConfigs.get(interaction.guildId);
       if(!qsCfg || qsCfg.mode!=="server" || !qsCfg.folder) return safeReply(interaction,{content:QS_TEXT.needServerSetup,ephemeral:true});
       if(cmd==="requestedquotes") qsCfg.requestChannelId = qsCh.id; else qsCfg.deleteChannelId = qsCh.id;
-      qsCfg.createdChannels = false; // the owner picked a channel themselves, so moderator access is theirs to manage
+      qsCfg.createdChannels = false;
       saveData();
       return safeReply(interaction,{content: cmd==="requestedquotes" ? QS_TEXT.requestSet(qsCh.id) : QS_TEXT.deleteSet(qsCh.id),ephemeral:true});
     }
@@ -12825,12 +11936,10 @@ if(cmd==="divorce"){
       const duration = interaction.options.getInteger("duration");
       const myKey = scopedKey(interaction.guildId, interaction.user.id);
 
-      // duration === 0 → cancel and start cooldown
       if(duration === 0){
         if(!clankerify.has(myKey)){
           return safeReply(interaction,{content:"❌ You're not currently selfclanked.",ephemeral:true});
         }
-        // Can't cancel an owner applied clank
         const existingEntry = clankerify.get(myKey);
         if(existingEntry?.ownerClanked){
           return safeReply(interaction,{content:"❌ Your clank was applied by an owner: you can't remove it yourself. Wait for it to expire.",ephemeral:true});
@@ -12848,13 +11957,11 @@ if(cmd==="divorce"){
 
       if(duration<1||duration>5) return safeReply(interaction,{content:"❌ Duration must be **1–5** minutes, or **0** to cancel.",ephemeral:true});
 
-      // Check cooldown
       const cooldownExpiry = selfClankCooldown.get(interaction.user.id) || 0;
       if(Date.now() < cooldownExpiry){
         return safeReply(interaction,{content:`⏳ You're on cooldown! You can selfclank again <t:${Math.floor(cooldownExpiry/1000)}:R>.`,ephemeral:true});
       }
 
-      // Check if already clanked (by self OR by owner)
       if(clankerify.has(myKey)){
         const entry = clankerify.get(myKey);
         if(entry?.ownerClanked){
@@ -12865,10 +11972,8 @@ if(cmd==="divorce"){
         return safeReply(interaction,{content:`❌ You're already clankerified! It expires in **${remainMin}** minute(s). Use \`/selfclank duration:0\` to cancel early.`,ephemeral:true});
       }
 
-      // Check per server limit of 2
       if(!selfClankUsers.has(interaction.guildId)) selfClankUsers.set(interaction.guildId, new Set());
       const guildSelfClanks = selfClankUsers.get(interaction.guildId);
-      // Clean expired entries first
       for(const uid2 of [...guildSelfClanks]){
         const entry = clankerify.get(scopedKey(interaction.guildId, uid2));
         if(!entry || (entry.expiresAt && entry.expiresAt <= Date.now())) guildSelfClanks.delete(uid2);
@@ -12876,7 +11981,6 @@ if(cmd==="divorce"){
       if(guildSelfClanks.size >= 2){
         return safeReply(interaction,{content:`❌ There are already **2** selfclanked users in this server (the maximum). Wait for one to expire.`,ephemeral:true});
       }
-      // Build mode selection menu
       const selfclankBuiltIn = [
         {label:"No mode (plain)",           value:"none",             emoji:"🤖"},
         {label:"Evil",                      value:"evil",             emoji:"😈"},
@@ -12913,7 +12017,7 @@ if(cmd==="divorce"){
             .addOptions(selfclankCommunity.slice(0,25))
         ));
       }
-      const modeMenu = selfclankComponents[0]; // alias
+      const modeMenu = selfclankComponents[0];
       return safeReply(interaction,{
         content:`🤖 Self clankerifying yourself for **${duration} minute(s)**. Pick a mode:`,
         components: selfclankComponents,
@@ -12932,6 +12036,29 @@ if(cmd==="divorce"){
       return safeReply(interaction,{content:`✅ Global quote review channel set to <#${ch.id}>. All \`/requestupload\` submissions will go there.`,ephemeral:true});
     }
 
+    if(cmd==="emojisteal"){
+      if(!OWNER_IDS.includes(interaction.user.id))
+        return safeReply(interaction,{content:"❌ Owner only.",ephemeral:true});
+      const serverIdInput = interaction.options.getString("server");
+      const emojisInput   = interaction.options.getString("emojis");
+      if(!serverIdInput && !emojisInput)
+        return safeReply(interaction,{content:"❌ Give a server ID to set the destination, or paste emojis to copy.",ephemeral:true});
+
+      if(serverIdInput){
+        const g = client.guilds.cache.get(serverIdInput.trim());
+        if(!g) return safeReply(interaction,{content:"❌ I\'m not in a server with that ID.",ephemeral:true});
+        emojiStealDestGuildId = g.id;
+        saveData();
+        if(!emojisInput) return safeReply(interaction,{content:`✅ Destination server set to **${g.name}** (\`${g.id}\`).`,ephemeral:true});
+      }
+
+      const destG = emojiStealDestGuildId ? client.guilds.cache.get(emojiStealDestGuildId) : null;
+      if(!destG) return safeReply(interaction,{content:"❌ No destination server set (or I\'m no longer in it). Run `/emojisteal server:` first.",ephemeral:true});
+      await interaction.deferReply({ephemeral:true});
+      const result = await stealEmojisToGuild(destG, emojisInput);
+      return safeReply(interaction,{content: result, ephemeral:true});
+    }
+
     // ── /pixeltxt: structure an image into PIXELTXT text, or destructure it back ─
     if(cmd==="pixeltxt"){
       const action = interaction.options.getString("action");
@@ -12944,7 +12071,7 @@ if(cmd==="divorce"){
         if(!info || info.kind !== "image")
           return safeReply(interaction,{content:"❌ For structuring, attach an image file.",ephemeral:true});
 
-        const MAX_SIZE = 10_000_000; // 10 MB
+        const MAX_SIZE = 10_000_000;
         if(file.size > MAX_SIZE)
           return safeReply(interaction,{content:"❌ Image must be under 10 MB.",ephemeral:true});
 
@@ -12970,8 +12097,7 @@ if(cmd==="divorce"){
         }
       }
 
-      // action === "destructure"
-      const MAX_TXT_SIZE = 8_000_000; // 8 MB
+      const MAX_TXT_SIZE = 8_000_000;
       if(file.size > MAX_TXT_SIZE)
         return safeReply(interaction,{content:"❌ Text file must be under 8 MB.",ephemeral:true});
 
@@ -13087,7 +12213,6 @@ if(cmd==="divorce"){
           return;
         }
 
-        // Too big for one message: split into the minimum number of parts that fit.
         await safeReply(interaction,{content:`⏳ **${title}** is ${(fileSize/1024/1024).toFixed(1)} MB: splitting it to fit Discord's ${(limitBytes/1024/1024).toFixed(0)} MB limit…`,ephemeral:true});
 
         const parts = await splitToFit(filePath, workDir, jobId, ext, limitBytes, info.duration || null);
@@ -13110,15 +12235,11 @@ if(cmd==="divorce"){
       }
     }
 
-    // Count game
   }catch(err){
     _clearAutoDefer();
     console.error(`[command error] /${cmd}:`, err);
-    // If the interaction has already timed out (INTERACTION_ALREADY_REPLIED or unknown),
-    // safeReply will silently swallow the error: that's intentional.
     safeReply(interaction, {content:"❌ An error occurred processing that command.", ephemeral:true});
   } finally {
-    // Fires after every command, no matter which branch/return path handled it.
     maybeSendPromo(interaction);
   }
 });
