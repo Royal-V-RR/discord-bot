@@ -732,12 +732,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18500,
-        "lastSubsTimestamp": 1791596258703,
+        "lastSubsTimestamp": 1791596558699,
         "history": [
-          {
-            "ts": 1791292700141,
-            "subs": 18500
-          },
           {
             "ts": 1791293000130,
             "subs": 18500
@@ -4732,6 +4728,10 @@
           },
           {
             "ts": 1791596258703,
+            "subs": 18500
+          },
+          {
+            "ts": 1791596558699,
             "subs": 18500
           }
         ],
@@ -60339,6 +60339,30 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 7,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1266215614452731937",
+      {
+        "username": "aayden835",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 8,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
