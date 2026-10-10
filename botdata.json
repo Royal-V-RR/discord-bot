@@ -308,6 +308,13 @@
         "channelId": "1550986475557093537",
         "message": "{user} left the server"
       }
+    ],
+    [
+      "1418644052114673666",
+      {
+        "channelId": "1558473307869675570",
+        "message": "**{user}** just left the server"
+      }
     ]
   ],
   "boostChannels": [],
@@ -55063,7 +55070,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 111,
+        "xp": 122,
         "level": 2,
         "lastWorkTime": 0,
         "lastBegTime": 0,
