@@ -910,6 +910,243 @@ const ytConfig = new Map();
 
 function getYtKey(guildId) { return ytConfig.get(guildId)?.apiKey || null; }
 
+// ── Song of the Day (/sotd, /sotd-playlist) ──────────────────────────────────
+// sotdConfig: guildId -> {
+//   postChannelId, hour (0-23 UTC), pingRoleId,
+//   playlists: [{ id, url, label, entries:[{videoId,title,index}], trackCount }],
+//   usedVideoIds: [videoId,...],   // this shuffle cycle; cleared once every entry's been posted
+//   _lastFire: "YYYY-M-D:H",
+// }
+const sotdConfig = new Map();
+// sotdMetaCache: videoId -> { title, artist, artwork, genres:[...], matched, cachedAt }
+const sotdMetaCache = new Map();
+
+const SOTD_GENRE_KEYWORDS = ["pop","rock","hip hop","hip-hop","rap","r&b","rnb","jazz","country","metal","edm","electronic","indie","alternative","classical","reggae","folk","punk","soul","funk","blues","k-pop","kpop","latin","house","techno","dubstep","trap","lo-fi","lofi","ambient","gospel","disco","grunge","ska"];
+function detectGenreRoles(guild){
+  return [...guild.roles.cache.values()].filter(r => !r.managed && r.id !== guild.id && SOTD_GENRE_KEYWORDS.some(k => r.name.toLowerCase().includes(k)));
+}
+function findMatchingGenreRole(guild, genres){
+  if(!genres?.length) return null;
+  const roles = detectGenreRoles(guild);
+  for(const g of genres){
+    const gl = g.toLowerCase();
+    const hit = roles.find(r => r.name.toLowerCase() === gl || r.name.toLowerCase().includes(gl) || gl.includes(r.name.toLowerCase()));
+    if(hit) return hit.name;
+  }
+  return null;
+}
+
+// Title cleanup + artist/title guessing. Returns an ordered list of {artist,title}
+// candidates to try against iTunes/MusicBrainz; the first one that finds a
+// match wins.
+const SOTD_JUNK_PATTERNS = [
+  /\(official\s*(music\s*)?video\)/gi, /\[official\s*(music\s*)?video\]/gi,
+  /\(official\s*audio\)/gi, /\[official\s*audio\]/gi,
+  /\(official\s*lyric(s)?\s*video\)/gi, /\(lyrics?\)/gi, /\[lyrics?\]/gi, /\(lyric\s*video\)/gi,
+  /\(official\)/gi, /\[official\]/gi,
+  /\(visualizer\)/gi, /\[visualizer\]/gi, /\(audio\)/gi,
+  /\(hd\)/gi, /\(4k\)/gi, /\(hq\)/gi, /\bhd\b/gi, /\b4k\b/gi,
+  /\(prod\.?[^)]*\)/gi, /\[prod\.?[^\]]*\]/gi,
+  /\(explicit\)/gi, /\(clean\)/gi,
+];
+function cleanYoutubeTitle(raw){
+  let t = raw || "";
+  for(const p of SOTD_JUNK_PATTERNS) t = t.replace(p, "");
+  return t.replace(/\s{2,}/g, " ").trim();
+}
+function parseArtistTitleCandidates(raw, channelName){
+  const cleaned = cleanYoutubeTitle(raw);
+  const candidates = [];
+  for(const sep of [" - ", " – ", " — ", " | "]){
+    if(cleaned.includes(sep)){
+      const [a, b] = cleaned.split(sep).map(s => s.trim()).filter(Boolean);
+      if(a && b){ candidates.push({artist:a, title:b}); candidates.push({artist:b, title:a}); }
+      break;
+    }
+  }
+  const byMatch = cleaned.match(/^(.*)\sby\s(.+)$/i);
+  if(byMatch) candidates.push({artist:byMatch[2].trim(), title:byMatch[1].trim()});
+  candidates.push({artist: channelName || "", title: cleaned});
+  if(!candidates.length) candidates.push({artist:"", title: cleaned});
+  return candidates;
+}
+// Cheap 0-1 similarity score (shared word overlap) for picking the best of a
+// few search results; doesn't need to be exact, just good enough to prefer a
+// close match over an unrelated one.
+function sotdSimilarity(a, b){
+  if(!a || !b) return 0;
+  const wa = new Set(a.toLowerCase().replace(/[^a-z0-9 ]/g," ").split(/\s+/).filter(Boolean));
+  const wb = new Set(b.toLowerCase().replace(/[^a-z0-9 ]/g," ").split(/\s+/).filter(Boolean));
+  if(!wa.size || !wb.size) return 0;
+  let shared = 0;
+  for(const w of wa) if(wb.has(w)) shared++;
+  return shared / Math.max(wa.size, wb.size);
+}
+
+async function searchItunes(artist, title){
+  const term = `${artist} ${title}`.trim();
+  if(!term) return null;
+  try{
+    const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(term)}&entity=song&limit=5`);
+    if(!res.ok) return null;
+    const data = await res.json();
+    if(!data.results?.length) return null;
+    const scored = data.results.map(r => ({ r, score: sotdSimilarity(title, r.trackName) + (artist ? sotdSimilarity(artist, r.artistName) : 0) }));
+    scored.sort((a,b) => b.score - a.score);
+    if(scored[0].score < 0.15) return null; // nothing close enough
+    const best = scored[0].r;
+    return {
+      title: best.trackName, artist: best.artistName,
+      artwork: best.artworkUrl100 ? best.artworkUrl100.replace("100x100bb","600x600bb") : null,
+      genre: best.primaryGenreName || null,
+    };
+  }catch(e){ console.error("[sotd] iTunes search failed:", e.message); return null; }
+}
+
+// MusicBrainz asks for max 1 request/second; this chains every call through
+// one shared delay so SOTD never bursts past that regardless of how many
+// guilds are refilling their queue at once.
+let mbQueue = Promise.resolve();
+function mbRateLimited(fn){
+  const run = mbQueue.then(() => fn().finally(() => new Promise(res => setTimeout(res, 1100))));
+  mbQueue = run.catch(() => {});
+  return run;
+}
+const MB_USER_AGENT = "RoyalBot-SOTD/1.0 (https://github.com/Royal-V-RR/discord-bot)";
+async function searchMusicBrainzRaw(artist, title){
+  const q = `recording:"${title.replace(/"/g,'')}"${artist ? ` AND artist:"${artist.replace(/"/g,'')}"` : ""}`;
+  try{
+    const res = await fetch(`https://musicbrainz.org/ws/2/recording/?query=${encodeURIComponent(q)}&fmt=json&limit=3`, { headers:{ "User-Agent": MB_USER_AGENT } });
+    if(!res.ok) return null;
+    const data = await res.json();
+    const rec = data.recordings?.[0];
+    if(!rec || (rec.score ?? 0) < 60) return null;
+    let genres = [];
+    const detailRes = await fetch(`https://musicbrainz.org/ws/2/recording/${rec.id}?inc=genres+tags&fmt=json`, { headers:{ "User-Agent": MB_USER_AGENT } }).catch(()=>null);
+    if(detailRes?.ok){
+      const detail = await detailRes.json();
+      genres = (detail.genres || []).map(g => g.name);
+      if(!genres.length) genres = (detail.tags || []).sort((a,b) => b.count - a.count).slice(0,2).map(t => t.name);
+    }
+    return { title: rec.title, artist: rec["artist-credit"]?.[0]?.name || artist || null, genres };
+  }catch(e){ console.error("[sotd] MusicBrainz search failed:", e.message); return null; }
+}
+function searchMusicBrainz(artist, title){ return mbRateLimited(() => searchMusicBrainzRaw(artist, title)); }
+
+// Resolves a YouTube video into song metadata, trying iTunes then MusicBrainz
+// across a few parsed artist/title guesses, and finally falling back to the
+// cleaned video title plus its YouTube thumbnail so a post almost never comes
+// up fully empty. Cached per video ID in botdata.json.
+async function resolveSongMetadata(videoTitle, channelName, videoId){
+  const cached = sotdMetaCache.get(videoId);
+  if(cached) return cached;
+
+  const candidates = parseArtistTitleCandidates(videoTitle, channelName);
+  let itunesResult = null;
+  for(const c of candidates){
+    itunesResult = await searchItunes(c.artist, c.title);
+    if(itunesResult) break;
+  }
+  if(!itunesResult) itunesResult = await searchItunes("", cleanYoutubeTitle(videoTitle));
+
+  const mbSeedArtist = itunesResult?.artist || candidates[0]?.artist || "";
+  const mbSeedTitle  = itunesResult?.title  || candidates[0]?.title  || cleanYoutubeTitle(videoTitle);
+  let mbResult = await searchMusicBrainz(mbSeedArtist, mbSeedTitle);
+  if(!mbResult && !itunesResult){
+    for(const c of candidates.slice(1)){
+      mbResult = await searchMusicBrainz(c.artist, c.title);
+      if(mbResult) break;
+    }
+  }
+
+  const genres = [];
+  if(itunesResult?.genre) genres.push(itunesResult.genre);
+  for(const g of (mbResult?.genres || [])) if(!genres.some(x => x.toLowerCase() === g.toLowerCase())) genres.push(g);
+
+  let title, artist, artwork, matched;
+  if(itunesResult){ title = itunesResult.title; artist = itunesResult.artist; artwork = itunesResult.artwork; matched = true; }
+  else if(mbResult){ title = mbResult.title; artist = mbResult.artist || channelName || "Unknown Artist"; artwork = null; matched = true; }
+  else {
+    const fallback = candidates[0];
+    title = fallback.title || cleanYoutubeTitle(videoTitle);
+    artist = fallback.artist || channelName || "Unknown Artist";
+    matched = false;
+  }
+  if(!artwork) artwork = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+
+  const meta = { title, artist, artwork, genres, matched, cachedAt: Date.now() };
+  sotdMetaCache.set(videoId, meta);
+  saveData();
+  return meta;
+}
+
+// Flat (fast) playlist listing: just enough per video to build a YouTube link
+// and parse a title, without resolving every video's full info.
+async function ytFetchPlaylistFlat(url){
+  let lastErr;
+  for(const client of YT_CLIENT_FALLBACKS){
+    try{
+      const info = await youtubedl(url, { dumpSingleJson:true, flatPlaylist:true, noWarnings:true, ...ytExtractorArgs(client) });
+      const entries = (info.entries || []).map((e, i) => ({
+        videoId: e.id, title: e.title || e.id, index: i + 1,
+      })).filter(e => e.videoId);
+      return { title: info.title || "Playlist", channel: info.channel || info.uploader || null, entries };
+    }catch(e){ lastErr = e; }
+  }
+  throw lastErr;
+}
+
+function sotdPickNextEntry(cfg){
+  const pool = [];
+  for(const pl of cfg.playlists || []){
+    for(const e of pl.entries || []) pool.push({ ...e, playlistLabel: pl.label, playlistTrackCount: pl.entries.length });
+  }
+  if(!pool.length) return null;
+  let remaining = pool.filter(e => !cfg.usedVideoIds.includes(e.videoId));
+  if(!remaining.length){ cfg.usedVideoIds = []; remaining = pool; }
+  const picked = remaining[Math.floor(Math.random() * remaining.length)];
+  cfg.usedVideoIds.push(picked.videoId);
+  return picked;
+}
+
+function buildSotdEmbed(guild, entry, meta){
+  const matchedRole = findMatchingGenreRole(guild, meta.genres);
+  const fields = [];
+  if(meta.genres.length) fields.push({ name:"🎧 Genres", value: meta.genres.slice(0,3).join(", ") + (matchedRole ? `  •  matches **${matchedRole}**` : ""), inline:false });
+  fields.push({ name:"📻 Source", value: `**${entry.playlistLabel}** • Track ${entry.index} of ${entry.playlistTrackCount}`, inline:false });
+  return {
+    color: 0x5865F2,
+    author: { name: "🎵 Song of the Day" },
+    title: meta.title,
+    description: `by **${meta.artist}**`,
+    image: { url: meta.artwork },
+    fields,
+    timestamp: new Date().toISOString(),
+    footer: { text: meta.matched ? "Metadata via iTunes / MusicBrainz" : "Metadata unavailable, showing the YouTube title" },
+  };
+}
+async function postSotdForGuild(guildId, { manual=false } = {}){
+  const cfg = sotdConfig.get(guildId);
+  if(!cfg || !cfg.postChannelId) return { ok:false, reason:"SOTD isn't set up in this server yet." };
+  const guild = client.guilds.cache.get(guildId);
+  if(!guild) return { ok:false, reason:"Guild not found." };
+  const ch = guild.channels.cache.get(cfg.postChannelId);
+  if(!ch) return { ok:false, reason:"The configured post channel no longer exists." };
+  const entry = sotdPickNextEntry(cfg);
+  if(!entry) return { ok:false, reason:"No playlists set. Use `/sotd-playlist` to add one." };
+
+  const meta = await resolveSongMetadata(entry.title, null, entry.videoId);
+  const embed = buildSotdEmbed(guild, entry, meta);
+  const row = new MessageActionRow().addComponents(
+    new MessageButton().setStyle("LINK").setLabel("Listen on YouTube").setURL(`https://www.youtube.com/watch?v=${entry.videoId}`)
+  );
+  const content = cfg.pingRoleId ? `<@&${cfg.pingRoleId}>` : (manual ? null : undefined);
+  const sent = await safeSend(ch, { content: content || undefined, embeds:[embed], components:[row], allowedMentions: cfg.pingRoleId ? { roles:[cfg.pingRoleId] } : undefined });
+  saveData();
+  return sent ? { ok:true, sent } : { ok:false, reason:"Failed to send the message (check my permissions in that channel)." };
+}
+
+
 // ── Marriage proposals ────────────────────────────────────────────────────────
 const marriageProposals = new Map();
 
@@ -1198,6 +1435,7 @@ const SERVER_OWNER_CMDS = new Set([
   "fakemessage","fakequote","refreshcmds","shadowdelete","clankerify","impersonation",
   "forcemarry","forcedivorce","echo","paranoia",
   "quotesetup","requestedquotes","deletedquotes","globaltoggle","quotemoderator",
+  "sotd","sotd-playlist",
 ]);
 function isGuildOwner(guildId, userId){
   const g = guildId ? client.guilds.cache.get(guildId) : null;
@@ -2975,6 +3213,8 @@ function buildDataObject() {
     activityChecks:   [...activityChecks.entries()],
     scheduledChecks:      [...scheduledChecks.entries()],
     dailyQuoteChannels:   [...dailyQuoteChannels.entries()],
+    sotdConfig:           [...sotdConfig.entries()],
+    sotdMetaCache:        [...sotdMetaCache.entries()],
     memers:               [...MEMERS],
     quoteVotes:           [...quoteVotes.entries()],
     quoteVoteMessages:    [...quoteVoteMessages.entries()],
@@ -3202,6 +3442,8 @@ function loadData() {
     }
 
     if (data.dailyQuoteChannels) data.dailyQuoteChannels.forEach(([k,v]) => dailyQuoteChannels.set(k, v));
+    if (data.sotdConfig) data.sotdConfig.forEach(([k,v]) => sotdConfig.set(k, { playlists:[], usedVideoIds:[], ...v }));
+    if (data.sotdMetaCache) data.sotdMetaCache.forEach(([k,v]) => sotdMetaCache.set(k, v));
     if (data.reviewChannelId)    reviewChannelId = data.reviewChannelId;
     if (data.deleterChannelId)   deleterChannelId = data.deleterChannelId;
     if (data.emojiStealDestGuildId) emojiStealDestGuildId = data.emojiStealDestGuildId;
@@ -3292,6 +3534,22 @@ setInterval(async () => {
         saveData();
       }
     } catch(e) { console.error(`Daily quote tick error [${guildId}]:`, e.message); }
+  }
+}, 60 * 1000);
+
+// ── SOTD ticker (runs every minute, fires once per day per guild) ───────────
+setInterval(async () => {
+  if (!sotdConfig.size) return;
+  const now = new Date();
+  const nowHour = now.getUTCHours(), nowMin = now.getUTCMinutes();
+  for (const [guildId, cfg] of sotdConfig) {
+    if (!cfg.postChannelId || cfg.hour === undefined || cfg.hour === null) continue;
+    if (nowHour !== cfg.hour || nowMin !== 0) continue;
+    const fireKey = `${guildId}:${now.getUTCFullYear()}-${now.getUTCMonth()}-${now.getUTCDate()}:${nowHour}`;
+    if (cfg._lastFire === fireKey) continue;
+    cfg._lastFire = fireKey;
+    try { await postSotdForGuild(guildId); }
+    catch(e) { console.error(`SOTD tick error [${guildId}]:`, e.message); }
   }
 }, 60 * 1000);
 
@@ -4183,6 +4441,94 @@ function mergeChunkedSelection(previousIds, chunkItems, newValues) {
   const kept = (previousIds || []).filter(id => !chunkValueSet.has(id));
   return [...kept, ...newValues.filter(v => v !== "none" && v !== "__none__")];
 }
+
+function getSotdSetupStep(cfg){
+  if(!cfg.postChannelId) return 1;
+  if(cfg.hour === undefined || cfg.hour === null) return 2;
+  if(cfg.pingRoleId === undefined) return 3;
+  return 4;
+}
+function buildSotdSetupStep(guild, guildId, stepOverride){
+  try{ return buildSotdSetupStepInner(guild, guildId, stepOverride); }
+  catch(e){ console.error("[buildSotdSetupStep]", e?.stack || e?.message); return { content:`❌ SOTD setup hit an internal error: \`${e?.message || e}\``, embeds:[], components:[] }; }
+}
+function buildSotdSetupStepInner(guild, guildId, stepOverride){
+  const cfg = sotdConfig.get(guildId) || {};
+  const step = stepOverride ?? getSotdSetupStep(cfg);
+  const postCh = cfg.postChannelId ? guild.channels.cache.get(cfg.postChannelId) : null;
+  const pingRole = cfg.pingRoleId ? guild.roles.cache.get(cfg.pingRoleId) : null;
+
+  const STEP_NAMES = ["Post Channel","Time","Ping Role","Review"];
+  const progress = STEP_NAMES.map((name,i) => { const n=i+1; return n<step?`✅ ${name}`:n===step?`▶️ **${name}**`:`⬜ ${name}`; }).join("   ");
+
+  const fields = [];
+  if(step > 1) fields.push({ name:"📢 Post Channel", value: postCh ? `<#${postCh.id}>` : "None", inline:true });
+  if(step > 2) fields.push({ name:"🕒 Time", value: cfg.hour !== undefined && cfg.hour !== null ? `${String(cfg.hour).padStart(2,"0")}:00 UTC` : "None", inline:true });
+  if(step > 3) fields.push({ name:"📣 Ping Role", value: pingRole ? `<@&${pingRole.id}>` : "None", inline:true });
+
+  const embed = { color: step === 4 ? 0x57F287 : 0x5865F2, title: `🎵 SOTD Setup: Step ${step} of 4: ${STEP_NAMES[step-1]}`, fields };
+  let components = [];
+
+  if(step === 1){
+    const txts = [...guild.channels.cache.filter(ch => ch.type === "GUILD_TEXT").values()];
+    embed.description = `${progress}\n\nWhich channel should the daily song post go in?`;
+    const { rows, truncated } = buildTicketPickerRows({
+      items: txts.length ? txts.map(ch => ({ label:`#${ch.name}`, value:ch.id, emoji:{name:"📢"} })) : [{ label:"No text channels found", value:"none" }],
+      idPrefix:"sotd_sel_channel", mode:"single", placeholder:"Select a channel…",
+    });
+    if(truncated) embed.footer = { text:"Showing the first channels." };
+    components = rows;
+  } else if(step === 2){
+    const hours = Array.from({length:24}, (_,h) => ({ label:`${String(h).padStart(2,"0")}:00 UTC`, value:String(h), emoji:{name:"🕒"} }));
+    embed.description = `${progress}\n\nWhat UTC hour should it post at?`;
+    const { rows } = buildTicketPickerRows({ items: hours, idPrefix:"sotd_sel_hour", selectedIds: cfg.hour!==undefined?[String(cfg.hour)]:[], mode:"single", placeholder:"Select an hour…" });
+    components = [...rows, new MessageActionRow().addComponents(new MessageButton().setCustomId("sotd_back").setLabel("← Back").setStyle("SECONDARY"))];
+  } else if(step === 3){
+    const roles = getEligibleTicketRoles(guild);
+    embed.description = `${progress}\n\nShould a role be pinged every time SOTD posts? *(optional)*`;
+    const { rows, truncated } = buildTicketPickerRows({
+      items: roles.length ? roles.map(r => ({ label:r.name, value:r.id, emoji:{name:"📣"} })) : [{ label:"No roles found", value:"none" }],
+      idPrefix:"sotd_sel_role", selectedIds: cfg.pingRoleId?[cfg.pingRoleId]:[], mode:"single", placeholder:"Select a role to ping…",
+    });
+    if(truncated) embed.footer = { text:"Showing the first roles." };
+    const current = cfg.pingRoleId;
+    const skipClearBtn = current
+      ? new MessageButton().setCustomId("sotd_clear_role").setLabel("Clear ❌").setStyle("SECONDARY")
+      : new MessageButton().setCustomId("sotd_skip_role").setLabel("Skip ⏭️").setStyle("SECONDARY");
+    components = [...rows, new MessageActionRow().addComponents(new MessageButton().setCustomId("sotd_back").setLabel("← Back").setStyle("SECONDARY"), skipClearBtn)];
+  } else {
+    const genreRoles = detectGenreRoles(guild);
+    fields.push({ name:"🎧 Detected Genre Roles", value: genreRoles.length ? genreRoles.map(r=>r.name).join(", ") : "None found. Genre name matches in the embed will just show no match.", inline:false });
+    const playlistCount = (cfg.playlists || []).length;
+    const trackCount = (cfg.playlists || []).reduce((n,p) => n + (p.entries?.length || 0), 0);
+    fields.push({ name:"📻 Playlists", value: playlistCount ? `${playlistCount} playlist(s), ${trackCount} track(s) total. Manage with \`/sotd-playlist\`.` : "None yet. Add one with `/sotd-playlist`.", inline:false });
+    embed.description = `${progress}\n\nAll set. You can post a test now, or come back any time with \`/sotd\`.`;
+    components = [new MessageActionRow().addComponents(
+      new MessageButton().setCustomId("sotd_postnow").setLabel("Post Now ▶️").setStyle("PRIMARY").setDisabled(!playlistCount),
+      new MessageButton().setCustomId("sotd_back").setLabel("← Edit Settings").setStyle("SECONDARY"),
+    )];
+  }
+  return { embeds:[embed], components, ephemeral:true };
+}
+
+function buildSotdPlaylistPanel(guild, guildId){
+  const cfg = sotdConfig.get(guildId) || {};
+  const playlists = cfg.playlists || [];
+  const embed = {
+    color: 0x5865F2,
+    title: "📻 SOTD Playlists",
+    description: playlists.length
+      ? playlists.map((p,i) => `**${i+1}. ${p.label}** — ${p.entries?.length || 0} track(s)\n${p.url}`).join("\n\n")
+      : "No playlists added yet. Every track across every playlist here feeds the daily pick.",
+  };
+  const row1 = new MessageActionRow().addComponents(
+    new MessageButton().setCustomId("sp_add").setLabel("➕ Add Playlist").setStyle("SUCCESS"),
+    new MessageButton().setCustomId("sp_remove").setLabel("🗑️ Remove Playlist").setStyle("DANGER").setDisabled(!playlists.length),
+    new MessageButton().setCustomId("sp_refresh").setLabel("🔄 Refresh All").setStyle("SECONDARY").setDisabled(!playlists.length),
+  );
+  return { embeds:[embed], components:[row1], ephemeral:true };
+}
+
 
 function getTicketSetupStep(cfg) {
   if (!cfg.categoryId)                    return 1;
@@ -5173,6 +5519,8 @@ function buildCommands(){
       {name:"server", description:"Server ID to set as the destination for copied emojis/stickers", type:3, required:false},
       {name:"emojis", description:"Paste the custom emojis to copy to the destination server", type:3, required:false},
     ]},
+    {name:"sotd", description:"[Server Owner] Set up the daily Song of the Day post"},
+    {name:"sotd-playlist", description:"[Server Owner] Manage the YouTube playlists SOTD pulls songs from"},
     {name:"quotesetup", description:"[Server Owner] Choose whether this server uses global quotes or its own quotes"},
     {name:"requestedquotes", description:"[Server Owner] Set this server's quote request channel",options:[
       {name:"channel", description:"Text channel for quote requests", type:7, required:true, channel_types:[0]},
@@ -6729,6 +7077,98 @@ client.on("interactionCreate",async interaction=>{
           console.error("[qs_finish] error:", e.message);
           await interaction.followUp({content:QS_TEXT.folderCreateFailed,ephemeral:true}).catch(()=>{});
         }
+        return;
+      }
+      return;
+    }
+
+    // ── /sotd panel: channel/hour/role pickers, finish, post now ────────────────
+    if(cid.startsWith("sotd_")){
+      if(!interaction.guildId || !isGuildOwner(interaction.guildId, uid)){ await btnEphemeral(interaction, "Server owner only."); return; }
+      const guild = interaction.guild;
+      const cfg = (() => { let c = sotdConfig.get(interaction.guildId); if(!c){ c = { playlists:[], usedVideoIds:[] }; sotdConfig.set(interaction.guildId, c); } return c; })();
+
+      if(cid.startsWith("sotd_sel_channel")){
+        const picked = guild.channels.cache.get(interaction.values[0]);
+        if(!picked || picked.type !== "GUILD_TEXT"){ await btnEphemeral(interaction, "Please select a text channel."); return; }
+        cfg.postChannelId = picked.id;
+        saveData();
+        try{ await interaction.update(buildSotdSetupStep(guild, interaction.guildId)); }catch{}
+        return;
+      }
+      if(cid.startsWith("sotd_sel_hour")){
+        cfg.hour = parseInt(interaction.values[0], 10);
+        saveData();
+        try{ await interaction.update(buildSotdSetupStep(guild, interaction.guildId)); }catch{}
+        return;
+      }
+      if(cid.startsWith("sotd_sel_role")){
+        const picked = interaction.values[0];
+        if(picked && picked !== "none") cfg.pingRoleId = picked;
+        saveData();
+        try{ await interaction.update(buildSotdSetupStep(guild, interaction.guildId)); }catch{}
+        return;
+      }
+      if(cid === "sotd_skip_role" || cid === "sotd_clear_role"){
+        cfg.pingRoleId = null;
+        saveData();
+        try{ await interaction.update(buildSotdSetupStep(guild, interaction.guildId)); }catch{}
+        return;
+      }
+      if(cid === "sotd_back"){
+        const step = getSotdSetupStep(cfg);
+        const backStep = step > 4 ? 4 : Math.max(1, step - 1);
+        try{ await interaction.update(buildSotdSetupStep(guild, interaction.guildId, backStep)); }catch{}
+        return;
+      }
+      if(cid === "sotd_postnow"){
+        if(!(await btnAck(interaction))) return;
+        const result = await postSotdForGuild(interaction.guildId, { manual:true });
+        await interaction.followUp({ content: result.ok ? "✅ Posted." : `❌ ${result.reason}`, ephemeral:true }).catch(()=>{});
+        return;
+      }
+      return;
+    }
+
+    // ── /sotd-playlist panel: add, remove, refresh ───────────────────────────────
+    if(cid.startsWith("sp_")){
+      if(!interaction.guildId || !isGuildOwner(interaction.guildId, uid)){ await btnEphemeral(interaction, "Server owner only."); return; }
+      const guild = interaction.guild;
+      const cfg = (() => { let c = sotdConfig.get(interaction.guildId); if(!c){ c = { playlists:[], usedVideoIds:[] }; sotdConfig.set(interaction.guildId, c); } return c; })();
+
+      if(cid === "sp_add"){
+        await interaction.showModal({
+          title:"Add a playlist",
+          custom_id:"sp_modal_add",
+          components:[
+            { type:1, components:[{ type:4, custom_id:"sp_url", label:"YouTube playlist URL", style:1, required:true }] },
+            { type:1, components:[{ type:4, custom_id:"sp_label", label:"Label (optional, defaults to the playlist's title)", style:1, required:false, max_length:60 }] },
+          ],
+        }).catch(e => console.error("[sp_add modal]", e.message));
+        return;
+      }
+      if(cid === "sp_remove"){
+        if(!cfg.playlists.length){ await btnEphemeral(interaction, "No playlists to remove."); return; }
+        const menu = new MessageSelectMenu().setCustomId("sp_remove_sel").setPlaceholder("Select a playlist to remove…")
+          .setOptions(cfg.playlists.map(p => ({ label:p.label.slice(0,100), value:p.id })));
+        try{ await interaction.update({ embeds: buildSotdPlaylistPanel(guild, interaction.guildId).embeds, components:[new MessageActionRow().addComponents(menu)] }); }catch{}
+        return;
+      }
+      if(cid === "sp_remove_sel"){
+        const id = interaction.values[0];
+        cfg.playlists = cfg.playlists.filter(p => p.id !== id);
+        saveData();
+        try{ await interaction.update(buildSotdPlaylistPanel(guild, interaction.guildId)); }catch{}
+        return;
+      }
+      if(cid === "sp_refresh"){
+        if(!(await btnAck(interaction))) return;
+        for(const pl of cfg.playlists){
+          try{ const info = await ytFetchPlaylistFlat(pl.url); pl.entries = info.entries; }
+          catch(e){ console.error("[sp_refresh]", pl.url, e.message); }
+        }
+        saveData();
+        await interaction.editReply(buildSotdPlaylistPanel(guild, interaction.guildId)).catch(()=>{});
         return;
       }
       return;
@@ -9243,6 +9683,26 @@ client.on("interactionCreate",async interaction=>{
       return safeReply(interaction,{...buildQuoteSetupPanel(qsToken), ephemeral:true});
     }
 
+    // ── /sotd-playlist: add playlist modal submit ────────────────────────────────
+    if(cid === "sp_modal_add"){
+      if(!interaction.guildId || !isGuildOwner(interaction.guildId, uid)) return safeReply(interaction,{content:"Server owner only.",ephemeral:true});
+      const url = (interaction.fields.getTextInputValue("sp_url") || "").trim();
+      const labelInput = (interaction.fields.getTextInputValue("sp_label") || "").trim();
+      if(!/^https?:\/\/(www\.)?(youtube\.com|youtu\.be)\/.+list=/.test(url) && !/^https?:\/\/(www\.)?youtube\.com\/playlist\?list=/.test(url)){
+        return safeReply(interaction,{content:"❌ That doesn't look like a YouTube playlist URL (needs a `list=` in it).",ephemeral:true});
+      }
+      await interaction.deferReply({ephemeral:true});
+      let info;
+      try{ info = await ytFetchPlaylistFlat(url); }
+      catch(e){ return safeReply(interaction,{content:`❌ Couldn't read that playlist: ${e.message}`,ephemeral:true}); }
+      if(!info.entries.length) return safeReply(interaction,{content:"❌ That playlist has no videos in it.",ephemeral:true});
+
+      const cfg = (() => { let c = sotdConfig.get(interaction.guildId); if(!c){ c = { playlists:[], usedVideoIds:[] }; sotdConfig.set(interaction.guildId, c); } return c; })();
+      cfg.playlists.push({ id: `${Date.now().toString(36)}${Math.floor(Math.random()*1000)}`, url, label: labelInput || info.title, entries: info.entries });
+      saveData();
+      return safeReply(interaction,{ ...buildSotdPlaylistPanel(interaction.guild, interaction.guildId), content:`✅ Added **${labelInput || info.title}** (${info.entries.length} track(s)).` });
+    }
+
     // ── Reaction role manual builder: emoji modal submit ────────────────────────
     if(cid.startsWith("rr_modal_emoji_")){
       const token = cid.slice("rr_modal_emoji_".length);
@@ -9728,7 +10188,7 @@ by **${displayName}**`});
   const cmd=interaction.commandName;
   const inGuild=!!interaction.guildId;
 
-  const ownerOnly=["servers","requester","deleter","emojisteal","dmconfig","leaveserver","restart","refreshcmds","botstats","setstatus","adminconfig","echo","shadowdelete","clankerify","impersonation","thecount","send","fakemessage","fakequote","forcemarry","forcedivorce","paranoia","tempowner","blacklist","theremnant","jarvisenhance","quotesetup","requestedquotes","deletedquotes","globaltoggle","quotemoderator"];
+  const ownerOnly=["servers","requester","deleter","emojisteal","dmconfig","leaveserver","restart","refreshcmds","botstats","setstatus","adminconfig","echo","shadowdelete","clankerify","impersonation","thecount","send","fakemessage","fakequote","forcemarry","forcedivorce","paranoia","tempowner","blacklist","theremnant","jarvisenhance","quotesetup","requestedquotes","deletedquotes","globaltoggle","quotemoderator","sotd","sotd-playlist"];
   if(ownerOnly.includes(cmd)){
     if(SERVER_OWNER_CMDS.has(cmd) && !inGuild) return safeReply(interaction,{content:"❌ Server only.",ephemeral:true});
     if(!canUseOwnerCmd(interaction, cmd)) return safeReply(interaction,{content:"Owner only.",ephemeral:true});
@@ -11928,6 +12388,18 @@ if(cmd==="divorce"){
       const qsSent = await safeReply(interaction,{content: qsGrant ? QS_TEXT.modAdded(qsTarget.id) : QS_TEXT.modRemoved(qsTarget.id),ephemeral:true});
       await syncQuoteModeratorAccess(interaction.guild, qsCfg, qsTarget.id, qsGrant);
       return qsSent;
+    }
+
+    if(cmd==="sotd"){
+      if(!inGuild) return safeReply(interaction,{content:"❌ Server only.",ephemeral:true});
+      if(!isGuildOwner(interaction.guildId, interaction.user.id)) return safeReply(interaction,{content:"❌ Server owner only.",ephemeral:true});
+      return safeReply(interaction, buildSotdSetupStep(interaction.guild, interaction.guildId));
+    }
+
+    if(cmd==="sotd-playlist"){
+      if(!inGuild) return safeReply(interaction,{content:"❌ Server only.",ephemeral:true});
+      if(!isGuildOwner(interaction.guildId, interaction.user.id)) return safeReply(interaction,{content:"❌ Server owner only.",ephemeral:true});
+      return safeReply(interaction, buildSotdPlaylistPanel(interaction.guild, interaction.guildId));
     }
 
     // ── /selfclank: selfclankerify yourself (0 to cancel, 1–5 min, max 2 per server) ────
