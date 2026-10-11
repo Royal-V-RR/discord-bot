@@ -782,12 +782,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18600,
-        "lastSubsTimestamp": 1791735380913,
+        "lastSubsTimestamp": 1791735680936,
         "history": [
-          {
-            "ts": 1791431122926,
-            "subs": 18500
-          },
           {
             "ts": 1791431422902,
             "subs": 18500
@@ -4782,6 +4778,10 @@
           },
           {
             "ts": 1791735380913,
+            "subs": 18600
+          },
+          {
+            "ts": 1791735680936,
             "subs": 18600
           }
         ],
@@ -61061,6 +61061,78 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 13,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1477368399523741897",
+      {
+        "username": "7p03",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 13,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1444549739881168946",
+      {
+        "username": "thebestemily_388",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 13,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1388497967735898203",
+      {
+        "username": "evelyn.nyx",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 7,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -143234,7 +143306,7 @@
         ],
         "intervalMinutes": 15,
         "locked": true,
-        "lastUpdate": 1791734780813
+        "lastUpdate": 1791735680823
       }
     ]
   ],
