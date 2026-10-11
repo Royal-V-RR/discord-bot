@@ -7155,7 +7155,7 @@ client.on("interactionCreate",async interaction=>{
           custom_id:"sp_modal_add",
           components:[
             { type:1, components:[{ type:4, custom_id:"sp_url", label:"YouTube playlist URL", style:1, required:true }] },
-            { type:1, components:[{ type:4, custom_id:"sp_label", label:"Label (optional, defaults to the playlist's title)", style:1, required:false, max_length:60 }] },
+            { type:1, components:[{ type:4, custom_id:"sp_label", label:"Label (optional, uses playlist title)", style:1, required:false, max_length:60, placeholder:"Defaults to the playlist's own title on YouTube" }] },
           ],
         }).catch(e => console.error("[sp_add modal]", e.message));
         return;
