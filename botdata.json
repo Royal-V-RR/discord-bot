@@ -782,12 +782,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18600,
-        "lastSubsTimestamp": 1791824455162,
+        "lastSubsTimestamp": 1791824755159,
         "history": [
-          {
-            "ts": 1791519785808,
-            "subs": 18500
-          },
           {
             "ts": 1791520085841,
             "subs": 18500
@@ -4782,6 +4778,10 @@
           },
           {
             "ts": 1791824455162,
+            "subs": 18600
+          },
+          {
+            "ts": 1791824755159,
             "subs": 18600
           }
         ],
@@ -61615,6 +61615,30 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 13,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1544864265532477471",
+      {
+        "username": "thelordnrg",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 12,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -143848,7 +143872,7 @@
         ],
         "intervalMinutes": 15,
         "locked": true,
-        "lastUpdate": 1791823855063
+        "lastUpdate": 1791824755089
       }
     ]
   ],
