@@ -782,12 +782,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18600,
-        "lastSubsTimestamp": 1791868904228,
+        "lastSubsTimestamp": 1791869204208,
         "history": [
-          {
-            "ts": 1791563833105,
-            "subs": 18500
-          },
           {
             "ts": 1791564133098,
             "subs": 18500
@@ -4782,6 +4778,10 @@
           },
           {
             "ts": 1791868904228,
+            "subs": 18600
+          },
+          {
+            "ts": 1791869204208,
             "subs": 18600
           }
         ],
@@ -62359,6 +62359,30 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 9,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1458178388068925593",
+      {
+        "username": "kirikou0ntop",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 7,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -144644,7 +144668,7 @@
         ],
         "intervalMinutes": 15,
         "locked": true,
-        "lastUpdate": 1791868035976
+        "lastUpdate": 1791869204099
       }
     ]
   ],
