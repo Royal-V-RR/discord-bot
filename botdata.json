@@ -62986,7 +62986,7 @@
       {
         "channelId": "1502443898524536883",
         "hour": 12,
-        "_lastFire": "1418644052114673666:2026-9-13:12"
+        "_lastFire": "1418644052114673666:2026-9-14:12"
       }
     ]
   ],
@@ -96854,6 +96854,10 @@
     [
       "1559868450808135780",
       "quote_134.png"
+    ],
+    [
+      "1559898800045293621",
+      "thomas is a minor.png"
     ]
   ],
   "favoritedQuotes": [
@@ -144263,6 +144267,17 @@
         "voters": [],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
+        "sentToDeleter": false,
+        "type": "quote"
+      }
+    ],
+    [
+      "1559898800045293621",
+      {
+        "filename": "thomas is a minor.png",
+        "voters": [],
+        "guildId": "1418644052114673666",
+        "channelId": "1502443898524536883",
         "sentToDeleter": false,
         "type": "quote"
       }
