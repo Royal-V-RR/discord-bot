@@ -70628,6 +70628,13 @@
         "up": 1,
         "down": 0
       }
+    ],
+    [
+      "quote_59.png",
+      {
+        "up": 1,
+        "down": 0
+      }
     ]
   ],
   "quoteVoteMessages": [
@@ -97030,6 +97037,10 @@
     [
       "1559935291459108884",
       "quote_409.png"
+    ],
+    [
+      "1559935312711651359",
+      "raccoons fursona.png"
     ]
   ],
   "favoritedQuotes": [
@@ -97117,7 +97128,7 @@
     [
       "1082452773787942922",
       {
-        "up": 46,
+        "up": 47,
         "down": 11
       }
     ],
@@ -144530,6 +144541,17 @@
         "sentToDeleter": false,
         "type": "quote"
       }
+    ],
+    [
+      "1559935312711651359",
+      {
+        "filename": "raccoons fursona.png",
+        "voters": [],
+        "guildId": "1408975996715139084",
+        "channelId": "1408975997272854611",
+        "sentToDeleter": false,
+        "type": "quote"
+      }
     ]
   ],
   "selfClankUsers": [
@@ -153410,6 +153432,15 @@
       [
         [
           "1391972162285604966",
+          "up"
+        ]
+      ]
+    ],
+    [
+      "quote_59.png",
+      [
+        [
+          "1082452773787942922",
           "up"
         ]
       ]
