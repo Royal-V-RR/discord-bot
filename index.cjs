@@ -920,6 +920,10 @@ function getYtKey(guildId) { return ytConfig.get(guildId)?.apiKey || null; }
 const sotdConfig = new Map();
 // sotdMetaCache: videoId -> { title, artist, artwork, genres:[...], matched, cachedAt }
 const sotdMetaCache = new Map();
+// sotdVotes: videoId -> { count, voters:[userId,...] } — persisted so the score
+// and who voted survives a restart, same as it does for every other video.
+const sotdVotes = new Map();
+const SOTD_GENRE_CHOICES = ["Pop","Rock","Hip Hop","R&B","Jazz","Country","Metal","EDM","Indie","Alternative","Classical","Reggae","Folk","Punk","Soul","Funk","Blues","K-Pop","Latin","House","Techno","Dubstep","Trap","Lo-fi"];
 
 const SOTD_GENRE_KEYWORDS = ["pop","rock","hip hop","hip-hop","rap","r&b","rnb","jazz","country","metal","edm","electronic","indie","alternative","classical","reggae","folk","punk","soul","funk","blues","k-pop","kpop","latin","house","techno","dubstep","trap","lo-fi","lofi","ambient","gospel","disco","grunge","ska"];
 function detectGenreRoles(guild){
@@ -1096,7 +1100,7 @@ async function ytFetchPlaylistFlat(url){
   throw lastErr;
 }
 
-function sotdPickNextEntry(cfg){
+async function sotdPickNextEntry(cfg){
   const pool = [];
   for(const pl of cfg.playlists || []){
     for(const e of pl.entries || []) pool.push({ ...e, playlistLabel: pl.label, playlistTrackCount: pl.entries.length });
@@ -1104,9 +1108,36 @@ function sotdPickNextEntry(cfg){
   if(!pool.length) return null;
   let remaining = pool.filter(e => !cfg.usedVideoIds.includes(e.videoId));
   if(!remaining.length){ cfg.usedVideoIds = []; remaining = pool; }
+
+  if(cfg.genreMode && Date.now() > cfg.genreMode.expiresAt) cfg.genreMode = null;
+
+  if(cfg.genreMode){
+    const target = cfg.genreMode.genre.toLowerCase();
+    const shuffled = [...remaining].sort(() => Math.random() - 0.5);
+    const SOTD_GENRE_PROBE_BUDGET = 15; // resolving metadata costs an API call, so only probe so many candidates a day
+    for(let i = 0; i < shuffled.length && i < SOTD_GENRE_PROBE_BUDGET; i++){
+      const candidate = shuffled[i];
+      const meta = await resolveSongMetadata(candidate.title, null, candidate.videoId);
+      if(meta.genres.some(g => g.toLowerCase().includes(target) || target.includes(g.toLowerCase()))){
+        cfg.usedVideoIds.push(candidate.videoId);
+        return candidate;
+      }
+    }
+    // Nobody in the probe budget matched the genre; still post something
+    // rather than skip the day.
+  }
+
   const picked = remaining[Math.floor(Math.random() * remaining.length)];
   cfg.usedVideoIds.push(picked.videoId);
   return picked;
+}
+function buildSotdActionRow(videoId){
+  const v = sotdVotes.get(videoId) || { count:0, voters:[] };
+  return new MessageActionRow().addComponents(
+    new MessageButton().setStyle("LINK").setLabel("Listen on YouTube").setURL(`https://www.youtube.com/watch?v=${videoId}`),
+    new MessageButton().setCustomId(`sotdvote_fire_${videoId}`).setLabel(String(v.count)).setStyle("DANGER").setEmoji({name:"🔥"}),
+    new MessageButton().setCustomId(`sotdvote_who_${videoId}`).setLabel("Who?").setStyle("SECONDARY").setEmoji({name:"👥"}),
+  );
 }
 
 function buildSotdEmbed(guild, entry, meta, { preview=false } = {}){
@@ -1122,7 +1153,7 @@ function buildSotdEmbed(guild, entry, meta, { preview=false } = {}){
     image: { url: meta.artwork },
     fields,
     timestamp: new Date().toISOString(),
-    footer: { text: meta.matched ? "Metadata via iTunes / MusicBrainz" : "Metadata unavailable, showing the YouTube title" },
+    footer: { text: (meta.matched ? "Metadata via iTunes / MusicBrainz" : "Metadata unavailable, showing the YouTube title") + (!preview && entry.genreWeek ? ` • 🎯 Genre Week: ${entry.genreWeek}` : "") },
   };
 }
 // Picks a random not-yet-used-aware preview track from every playlist combined
@@ -1145,14 +1176,14 @@ async function postSotdForGuild(guildId, { manual=false } = {}){
   if(!guild) return { ok:false, reason:"Guild not found." };
   const ch = guild.channels.cache.get(cfg.postChannelId);
   if(!ch) return { ok:false, reason:"The configured post channel no longer exists." };
-  const entry = sotdPickNextEntry(cfg);
+  const activeGenre = cfg.genreMode && Date.now() <= cfg.genreMode.expiresAt ? cfg.genreMode.genre : null;
+  const entry = await sotdPickNextEntry(cfg);
   if(!entry) return { ok:false, reason:"No playlists set. Use `/sotd-playlist` to add one." };
+  if(activeGenre) entry.genreWeek = activeGenre;
 
   const meta = await resolveSongMetadata(entry.title, null, entry.videoId);
   const embed = buildSotdEmbed(guild, entry, meta);
-  const row = new MessageActionRow().addComponents(
-    new MessageButton().setStyle("LINK").setLabel("Listen on YouTube").setURL(`https://www.youtube.com/watch?v=${entry.videoId}`)
-  );
+  const row = buildSotdActionRow(entry.videoId);
   const content = cfg.pingRoleId ? `<@&${cfg.pingRoleId}>` : (manual ? null : undefined);
   const sent = await safeSend(ch, { content: content || undefined, embeds:[embed], components:[row], allowedMentions: cfg.pingRoleId ? { roles:[cfg.pingRoleId] } : undefined });
   saveData();
@@ -3228,6 +3259,7 @@ function buildDataObject() {
     dailyQuoteChannels:   [...dailyQuoteChannels.entries()],
     sotdConfig:           [...sotdConfig.entries()],
     sotdMetaCache:        [...sotdMetaCache.entries()],
+    sotdVotes:            [...sotdVotes.entries()],
     memers:               [...MEMERS],
     quoteVotes:           [...quoteVotes.entries()],
     quoteVoteMessages:    [...quoteVoteMessages.entries()],
@@ -3457,6 +3489,7 @@ function loadData() {
     if (data.dailyQuoteChannels) data.dailyQuoteChannels.forEach(([k,v]) => dailyQuoteChannels.set(k, v));
     if (data.sotdConfig) data.sotdConfig.forEach(([k,v]) => sotdConfig.set(k, { playlists:[], usedVideoIds:[], ...v }));
     if (data.sotdMetaCache) data.sotdMetaCache.forEach(([k,v]) => sotdMetaCache.set(k, v));
+    if (data.sotdVotes) data.sotdVotes.forEach(([k,v]) => sotdVotes.set(k, v));
     if (data.reviewChannelId)    reviewChannelId = data.reviewChannelId;
     if (data.deleterChannelId)   deleterChannelId = data.deleterChannelId;
     if (data.emojiStealDestGuildId) emojiStealDestGuildId = data.emojiStealDestGuildId;
@@ -4515,13 +4548,35 @@ function buildSotdSetupStepInner(guild, guildId, stepOverride){
     const playlistCount = (cfg.playlists || []).length;
     const trackCount = (cfg.playlists || []).reduce((n,p) => n + (p.entries?.length || 0), 0);
     fields.push({ name:"📻 Playlists", value: playlistCount ? `${playlistCount} playlist(s), ${trackCount} track(s) total. Manage with \`/sotd-playlist\`.` : "None yet. Add one with `/sotd-playlist`.", inline:false });
+    const activeGenre = cfg.genreMode && Date.now() <= cfg.genreMode.expiresAt ? cfg.genreMode : null;
+    if(activeGenre) fields.push({ name:"🎯 Genre Week", value: `**${activeGenre.genre}** — ends <t:${Math.floor(activeGenre.expiresAt/1000)}:R>`, inline:false });
     embed.description = `${progress}\n\nAll set. You can post a test now, or come back any time with \`/sotd\`.`;
-    components = [new MessageActionRow().addComponents(
-      new MessageButton().setCustomId("sotd_postnow").setLabel("Post Now ▶️").setStyle("PRIMARY").setDisabled(!playlistCount),
-      new MessageButton().setCustomId("sotd_back").setLabel("← Edit Settings").setStyle("SECONDARY"),
-    )];
+    components = [
+      new MessageActionRow().addComponents(
+        new MessageButton().setCustomId("sotd_postnow").setLabel("Post Now ▶️").setStyle("PRIMARY").setDisabled(!playlistCount),
+        new MessageButton().setCustomId("sotd_back").setLabel("← Edit Settings").setStyle("SECONDARY"),
+      ),
+      new MessageActionRow().addComponents(
+        ...(activeGenre
+          ? [new MessageButton().setCustomId("sotd_genre_open").setLabel("🎯 Change Genre Week").setStyle("SECONDARY"),
+             new MessageButton().setCustomId("sotd_genre_clear").setLabel("End Genre Week").setStyle("SECONDARY")]
+          : [new MessageButton().setCustomId("sotd_genre_open").setLabel("🎯 Start Genre Week").setStyle("SECONDARY")]),
+      ),
+    ];
   }
   return { embeds:[embed], components, ephemeral:true };
+}
+
+function buildSotdGenrePicker(guildId){
+  const cfg = sotdConfig.get(guildId) || {};
+  const menu = new MessageSelectMenu().setCustomId("sotd_genre_sel").setPlaceholder("Pick a genre for the next 7 days…")
+    .setOptions(SOTD_GENRE_CHOICES.map(g => ({ label:g, value:g, default: cfg.genreMode?.genre === g })));
+  const embed = {
+    color: 0x5865F2,
+    title: "🎯 Genre Week",
+    description: "Pick a genre and, for the next 7 days, SOTD will only pull songs that match it. After that it goes back to picking from everything, automatically.",
+  };
+  return { embeds:[embed], components:[new MessageActionRow().addComponents(menu), new MessageActionRow().addComponents(new MessageButton().setCustomId("sotd_genre_back").setLabel("← Back").setStyle("SECONDARY"))], ephemeral:true };
 }
 
 function buildSotdPlaylistPanel(guild, guildId){
@@ -7140,6 +7195,54 @@ client.on("interactionCreate",async interaction=>{
         await interaction.followUp({ content: result.ok ? "✅ Posted." : `❌ ${result.reason}`, ephemeral:true }).catch(()=>{});
         return;
       }
+      if(cid === "sotd_genre_open"){
+        try{ await interaction.update(buildSotdGenrePicker(interaction.guildId)); }catch{}
+        return;
+      }
+      if(cid === "sotd_genre_sel"){
+        const genre = interaction.values[0];
+        cfg.genreMode = { genre, expiresAt: Date.now() + 7*24*60*60*1000 };
+        saveData();
+        try{ await interaction.update(buildSotdSetupStep(guild, interaction.guildId, 4)); }catch{}
+        return;
+      }
+      if(cid === "sotd_genre_clear"){
+        cfg.genreMode = null;
+        saveData();
+        try{ await interaction.update(buildSotdSetupStep(guild, interaction.guildId, 4)); }catch{}
+        return;
+      }
+      if(cid === "sotd_genre_back"){
+        try{ await interaction.update(buildSotdSetupStep(guild, interaction.guildId, 4)); }catch{}
+        return;
+      }
+      return;
+    }
+
+    // ── SOTD fire votes: anyone can vote, not just the server owner ─────────────
+    if(cid.startsWith("sotdvote_fire_") || cid.startsWith("sotdvote_who_")){
+      const isWho = cid.startsWith("sotdvote_who_");
+      const videoId = cid.slice(isWho ? "sotdvote_who_".length : "sotdvote_fire_".length);
+
+      if(isWho){
+        await interaction.deferReply({ephemeral:true}).catch(()=>{});
+        const v = sotdVotes.get(videoId) || { count:0, voters:[] };
+        const names = await Promise.all(v.voters.map(async id => {
+          try{ const u = await client.users.fetch(id); return u.globalName || u.username; }
+          catch{ return `<@${id}>`; }
+        }));
+        await interaction.editReply({ content: `🔥 ${v.count} fire vote(s): ${names.length ? names.join(", ") : "_Nobody yet_"}` }).catch(()=>{});
+        return;
+      }
+
+      let v = sotdVotes.get(videoId);
+      if(!v){ v = { count:0, voters:[] }; sotdVotes.set(videoId, v); }
+      const idx = v.voters.indexOf(uid);
+      if(idx >= 0){ v.voters.splice(idx,1); v.count = Math.max(0, v.count-1); }
+      else { v.voters.push(uid); v.count++; }
+      saveData();
+      try{ await interaction.update({ components:[buildSotdActionRow(videoId)] }); }
+      catch{ await btnEphemeral(interaction, idx >= 0 ? "Vote removed." : "🔥'd!"); }
       return;
     }
 
