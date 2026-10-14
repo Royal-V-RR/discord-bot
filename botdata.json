@@ -782,12 +782,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18600,
-        "lastSubsTimestamp": 1791989933722,
+        "lastSubsTimestamp": 1791990233668,
         "history": [
-          {
-            "ts": 1791685762595,
-            "subs": 18600
-          },
           {
             "ts": 1791686062638,
             "subs": 18600
@@ -4782,6 +4778,10 @@
           },
           {
             "ts": 1791989933722,
+            "subs": 18600
+          },
+          {
+            "ts": 1791990233668,
             "subs": 18600
           }
         ],
@@ -63103,6 +63103,30 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 10,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1521632841426014248",
+      {
+        "username": "sayem.sgk.",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 5,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
