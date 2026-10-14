@@ -782,12 +782,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18600,
-        "lastSubsTimestamp": 1791992933835,
+        "lastSubsTimestamp": 1791993233848,
         "history": [
-          {
-            "ts": 1791688762671,
-            "subs": 18600
-          },
           {
             "ts": 1791689062680,
             "subs": 18600
@@ -4782,6 +4778,10 @@
           },
           {
             "ts": 1791992933835,
+            "subs": 18600
+          },
+          {
+            "ts": 1791993233848,
             "subs": 18600
           }
         ],
@@ -63175,6 +63175,30 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 9,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1360905659415003207",
+      {
+        "username": "selambenimterliklerimnike_",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 7,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
