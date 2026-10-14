@@ -5255,7 +5255,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-27",
-        "xp": 1001,
+        "xp": 1010,
         "level": 34,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -148195,6 +148195,35 @@
         "intervalMinutes": 15,
         "locked": true,
         "lastUpdate": 1792016117650
+      }
+    ],
+    [
+      "1418644052114673666",
+      {
+        "categoryId": "1560056430600392825",
+        "channels": [
+          {
+            "id": "1560056431653294180",
+            "type": "all",
+            "label": "All Members",
+            "emoji": ""
+          },
+          {
+            "id": "1560056432601202818",
+            "type": "humans",
+            "label": "Members",
+            "emoji": ""
+          },
+          {
+            "id": "1560056433322627087",
+            "type": "bots",
+            "label": "Bots",
+            "emoji": ""
+          }
+        ],
+        "intervalMinutes": 15,
+        "locked": true,
+        "lastUpdate": 1792016838225
       }
     ]
   ],
