@@ -782,12 +782,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18600,
-        "lastSubsTimestamp": 1791980933389,
+        "lastSubsTimestamp": 1791981233376,
         "history": [
-          {
-            "ts": 1791676762365,
-            "subs": 18600
-          },
           {
             "ts": 1791677062354,
             "subs": 18600
@@ -4782,6 +4778,10 @@
           },
           {
             "ts": 1791980933389,
+            "subs": 18600
+          },
+          {
+            "ts": 1791981233376,
             "subs": 18600
           }
         ],
@@ -62935,6 +62935,30 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 29,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1023622783487443005",
+      {
+        "username": "xpet_tech",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 8,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -145325,7 +145349,7 @@
         ],
         "intervalMinutes": 15,
         "locked": true,
-        "lastUpdate": 1791980333254
+        "lastUpdate": 1791981233275
       }
     ]
   ],
