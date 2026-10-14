@@ -782,12 +782,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18600,
-        "lastSubsTimestamp": 1791978533291,
+        "lastSubsTimestamp": 1791978833287,
         "history": [
-          {
-            "ts": 1791674362338,
-            "subs": 18600
-          },
           {
             "ts": 1791674662328,
             "subs": 18600
@@ -4782,6 +4778,10 @@
           },
           {
             "ts": 1791978533291,
+            "subs": 18600
+          },
+          {
+            "ts": 1791978833287,
             "subs": 18600
           }
         ],
@@ -62887,6 +62887,30 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 13,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1486069860411637790",
+      {
+        "username": "asta__2009",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 11,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
