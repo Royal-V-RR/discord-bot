@@ -100287,7 +100287,7 @@
     [
       "1254388539890860083",
       {
-        "flagged": 27,
+        "flagged": 28,
         "deleted": 6
       }
     ],
@@ -100532,6 +100532,12 @@
       "quote_42.png",
       [
         "1082452773787942922"
+      ]
+    ],
+    [
+      "How to break a tree.png",
+      [
+        "1254388539890860083"
       ]
     ]
   ],
@@ -147575,10 +147581,12 @@
       "1560251709886824549",
       {
         "filename": "How to break a tree.png",
-        "voters": [],
+        "voters": [
+          "1254388539890860083"
+        ],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
-        "sentToDeleter": false,
+        "sentToDeleter": true,
         "type": "quote"
       }
     ],
