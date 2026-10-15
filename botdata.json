@@ -5769,7 +5769,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 3923,
+        "xp": 3934,
         "level": 26,
         "lastWorkTime": 1778752522595,
         "lastBegTime": 0,
@@ -99909,6 +99909,10 @@
     [
       "1560230825981644885",
       "quote_1499022958889537607.png"
+    ],
+    [
+      "1560251709886824549",
+      "How to break a tree.png"
     ]
   ],
   "favoritedQuotes": [
@@ -147436,6 +147440,17 @@
       "1560230825981644885",
       {
         "filename": "quote_1499022958889537607.png",
+        "voters": [],
+        "guildId": "1048053656035020911",
+        "channelId": "1477294439180537980",
+        "sentToDeleter": false,
+        "type": "quote"
+      }
+    ],
+    [
+      "1560251709886824549",
+      {
+        "filename": "How to break a tree.png",
         "voters": [],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
