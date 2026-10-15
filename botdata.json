@@ -782,12 +782,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18600,
-        "lastSubsTimestamp": 1792034410483,
+        "lastSubsTimestamp": 1792034710472,
         "history": [
-          {
-            "ts": 1791730280798,
-            "subs": 18600
-          },
           {
             "ts": 1791730580789,
             "subs": 18600
@@ -4782,6 +4778,10 @@
           },
           {
             "ts": 1792034410483,
+            "subs": 18600
+          },
+          {
+            "ts": 1792034710472,
             "subs": 18600
           }
         ],
@@ -63531,6 +63531,30 @@
       "875916644919160833",
       {
         "username": "_.ian7",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 5,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "970904850625863680",
+      {
+        "username": "glitched_vampire",
         "wins": 0,
         "gamesPlayed": 0,
         "coins": 0,
@@ -148429,7 +148453,7 @@
         ],
         "intervalMinutes": 15,
         "locked": true,
-        "lastUpdate": 1792033810345
+        "lastUpdate": 1792034710365
       }
     ]
   ],
