@@ -65690,7 +65690,7 @@
         "postChannelId": "1499035867426197565",
         "hour": 14,
         "pingRoleId": "1500478427164311713",
-        "_lastFire": "1418644052114673666:2026-9-14:14",
+        "_lastFire": "1418644052114673666:2026-9-15:14",
         "genreMode": {
           "genre": "Rock",
           "expiresAt": 1792618321240
@@ -66095,6 +66095,17 @@
         "genres": [],
         "matched": true,
         "cachedAt": 1792013577979
+      }
+    ],
+    [
+      "ctf1e0gQDSA",
+      {
+        "title": "KATSEYE",
+        "artist": "\"Animal\" (Live from THE WILDWORLD TOUR)",
+        "artwork": "https://img.youtube.com/vi/ctf1e0gQDSA/maxresdefault.jpg",
+        "genres": [],
+        "matched": false,
+        "cachedAt": 1792072846302
       }
     ]
   ],
