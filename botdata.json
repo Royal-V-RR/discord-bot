@@ -782,12 +782,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18600,
-        "lastSubsTimestamp": 1792105790943,
+        "lastSubsTimestamp": 1792106090925,
         "history": [
-          {
-            "ts": 1791802105506,
-            "subs": 18600
-          },
           {
             "ts": 1791802405551,
             "subs": 18600
@@ -4783,6 +4779,10 @@
           {
             "ts": 1792105790943,
             "subs": 18600
+          },
+          {
+            "ts": 1792106090925,
+            "subs": 18600
           }
         ],
         "subcountDiscordId": "1483595393999700080",
@@ -5255,7 +5255,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-27",
-        "xp": 1524,
+        "xp": 1535,
         "level": 34,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -7373,7 +7373,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 3811,
+        "xp": 3818,
         "level": 31,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -18372,7 +18372,7 @@
         "dailyStreak": 1,
         "bestStreak": 4,
         "lastDailyDate": "2026-06-13",
-        "xp": 2313,
+        "xp": 2320,
         "level": 19,
         "lastWorkTime": 1778166713164,
         "lastBegTime": 1778166374950,
@@ -18804,7 +18804,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 1577,
+        "xp": 1582,
         "level": 11,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -29895,7 +29895,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 1455,
+        "xp": 1465,
         "level": 10,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -35876,7 +35876,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 1155,
+        "xp": 1164,
         "level": 9,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -36096,7 +36096,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 121,
+        "xp": 133,
         "level": 3,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -36120,7 +36120,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 602,
+        "xp": 610,
         "level": 6,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -38116,7 +38116,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 63,
+        "xp": 81,
         "level": 2,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -38548,7 +38548,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 86,
+        "xp": 92,
         "level": 4,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -148837,7 +148837,7 @@
         ],
         "intervalMinutes": 15,
         "locked": true,
-        "lastUpdate": 1792105190801
+        "lastUpdate": 1792106090806
       }
     ],
     [
