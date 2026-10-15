@@ -9358,7 +9358,7 @@
         "marriedTo": null,
         "pendingProposal": null,
         "forceMarried": false,
-        "imagesUploaded": 9,
+        "imagesUploaded": 10,
         "uploadedImages": [
           "quote_132.png",
           "quote_178.png",
@@ -9368,7 +9368,8 @@
           "quote_313.png",
           "quote_389.png",
           "quote_509.png",
-          "quote_528.png"
+          "quote_528.png",
+          "quote_531.png"
         ],
         "lastFishTime": 0,
         "lastMineTime": 0,
@@ -147776,17 +147777,6 @@
         "guildId": "1408975996715139084",
         "destFolder": null
       }
-    ],
-    [
-      "604966mva1worr",
-      {
-        "submitterId": "1391972162285604966",
-        "fileName": "1391972162285604966__image__IMG_2632.png",
-        "rawName": "IMG_2632.png",
-        "mediaKind": "image",
-        "guildId": "1048053656035020911",
-        "destFolder": null
-      }
     ]
   ],
   "quoteGuildConfigs": [
@@ -147816,7 +147806,7 @@
     ]
   ],
   "uploadCounters": {
-    "quote": 530,
+    "quote": 531,
     "eardestroyer": 1,
     "eyebleacher": 3
   },
