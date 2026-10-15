@@ -35832,10 +35832,11 @@
         "inventory": [],
         "marriedTo": null,
         "pendingProposal": null,
-        "imagesUploaded": 1,
+        "imagesUploaded": 2,
         "forceMarried": false,
         "uploadedImages": [
-          "quote_533.png"
+          "quote_533.png",
+          "quote_534.png"
         ]
       }
     ],
@@ -147931,7 +147932,7 @@
     ]
   ],
   "uploadCounters": {
-    "quote": 533,
+    "quote": 534,
     "eardestroyer": 1,
     "eyebleacher": 3
   },
