@@ -67422,7 +67422,7 @@
         "postChannelId": "1499035867426197565",
         "hour": 14,
         "pingRoleId": "1500478427164311713",
-        "_lastFire": "1418644052114673666:2026-9-17:14",
+        "_lastFire": "1418644052114673666:2026-9-18:14",
         "genreMode": {
           "genre": "Rock",
           "expiresAt": 1792618321240
@@ -68156,6 +68156,19 @@
         ],
         "matched": true,
         "cachedAt": 1792245652176
+      }
+    ],
+    [
+      "92WsynSPCls",
+      {
+        "title": "Lo siento",
+        "artist": "Beret",
+        "artwork": "https://is1-ssl.mzstatic.com/image/thumb/Music124/v4/6d/f7/f7/6df7f766-cc4b-0331-0ffb-88b14c2d083e/190295563394.jpg/600x600bb.jpg",
+        "genres": [
+          "Pop"
+        ],
+        "matched": true,
+        "cachedAt": 1792332008263
       }
     ]
   ],
@@ -151011,7 +151024,7 @@
         ],
         "intervalMinutes": 15,
         "locked": true,
-        "lastUpdate": 1792330985455
+        "lastUpdate": 1792331885496
       }
     ],
     [
