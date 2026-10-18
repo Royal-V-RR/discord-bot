@@ -6547,7 +6547,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 909,
+        "xp": 919,
         "level": 15,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -71840,7 +71840,7 @@
       "Characters walk dog.png",
       {
         "up": 7,
-        "down": 0
+        "down": 1
       }
     ],
     [
@@ -101871,7 +101871,7 @@
       "1082452773787942922",
       {
         "up": 50,
-        "down": 11
+        "down": 12
       }
     ],
     [
@@ -151257,6 +151257,10 @@
         [
           "690219723472109616",
           "up"
+        ],
+        [
+          "1082452773787942922",
+          "down"
         ]
       ]
     ],
