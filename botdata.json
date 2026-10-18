@@ -7390,7 +7390,7 @@
         "marriedTo": null,
         "pendingProposal": null,
         "forceMarried": false,
-        "imagesUploaded": 270,
+        "imagesUploaded": 271,
         "uploadedImages": [
           "quote_1497935819296477225.png",
           "IMG_7931.png",
@@ -7644,7 +7644,8 @@
           "quote_538.png",
           "quote_539.png",
           "quote_542.png",
-          "quote_547.png"
+          "quote_547.png",
+          "quote_548.jpg"
         ],
         "lastFishTime": 0,
         "lastMineTime": 0,
@@ -150608,17 +150609,6 @@
       }
     ],
     [
-      "860083mve3apl0",
-      {
-        "submitterId": "1254388539890860083",
-        "fileName": "1254388539890860083__image__D90B1132_683D_4BD4_A9BD_FCBFA992EEEC.jpg",
-        "rawName": "D90B1132_683D_4BD4_A9BD_FCBFA992EEEC.jpg",
-        "mediaKind": "image",
-        "guildId": "1048053656035020911",
-        "destFolder": null
-      }
-    ],
-    [
       "860083mve3dy6z",
       {
         "submitterId": "1254388539890860083",
@@ -150657,7 +150647,7 @@
     ]
   ],
   "uploadCounters": {
-    "quote": 547,
+    "quote": 548,
     "eardestroyer": 1,
     "eyebleacher": 3
   },
