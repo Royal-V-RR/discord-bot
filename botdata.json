@@ -786,12 +786,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18700,
-        "lastSubsTimestamp": 1792415833372,
+        "lastSubsTimestamp": 1792416133391,
         "history": [
-          {
-            "ts": 1792111665719,
-            "subs": 18600
-          },
           {
             "ts": 1792111965743,
             "subs": 18600
@@ -4786,6 +4782,10 @@
           },
           {
             "ts": 1792415833372,
+            "subs": 18700
+          },
+          {
+            "ts": 1792416133391,
             "subs": 18700
           }
         ],
@@ -66089,6 +66089,30 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 11,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1385738251704467598",
+      {
+        "username": "kairo_27rt",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 8,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -152002,7 +152026,7 @@
         ],
         "intervalMinutes": 15,
         "locked": true,
-        "lastUpdate": 1792415233274
+        "lastUpdate": 1792416133295
       }
     ]
   ],
