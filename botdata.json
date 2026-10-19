@@ -66245,6 +66245,30 @@
         "forceMarried": false,
         "uploadedImages": []
       }
+    ],
+    [
+      "1531252347324469253",
+      {
+        "username": "mike73919",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 10,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
     ]
   ],
   "activeEffects": [],
@@ -103345,6 +103369,10 @@
     [
       "1561710565276123199",
       "quote_1500531718178734161.png"
+    ],
+    [
+      "1561754320683139092",
+      "IMG_5438.png"
     ]
   ],
   "favoritedQuotes": [
@@ -151213,6 +151241,17 @@
         "voters": [],
         "guildId": "1418644052114673666",
         "channelId": "1502443898524536883",
+        "sentToDeleter": false,
+        "type": "quote"
+      }
+    ],
+    [
+      "1561754320683139092",
+      {
+        "filename": "IMG_5438.png",
+        "voters": [],
+        "guildId": "1048053656035020911",
+        "channelId": "1477294439180537980",
         "sentToDeleter": false,
         "type": "quote"
       }
