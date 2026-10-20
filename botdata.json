@@ -786,12 +786,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18700,
-        "lastSubsTimestamp": 1792504507513,
+        "lastSubsTimestamp": 1792504807509,
         "history": [
-          {
-            "ts": 1792200583383,
-            "subs": 18700
-          },
           {
             "ts": 1792200883378,
             "subs": 18700
@@ -4786,6 +4782,10 @@
           },
           {
             "ts": 1792504507513,
+            "subs": 18700
+          },
+          {
+            "ts": 1792504807509,
             "subs": 18700
           }
         ],
@@ -69039,7 +69039,7 @@
         "postChannelId": "1499035867426197565",
         "hour": 14,
         "pingRoleId": "1500478427164311713",
-        "_lastFire": "1418644052114673666:2026-9-19:14",
+        "_lastFire": "1418644052114673666:2026-9-20:14",
         "genreMode": {
           "genre": "Rock",
           "expiresAt": 1792618321240
@@ -70063,6 +70063,95 @@
         ],
         "matched": true,
         "cachedAt": 1792418435092
+      }
+    ],
+    [
+      "5eUswq5owJk",
+      {
+        "title": "Reach for the Stars (Re-colors)",
+        "artist": "SEGA SOUND TEAM / Tomoya Ohtani",
+        "artwork": "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/f9/3f/5f/f93f5f11-cf3a-f5d3-27bd-f06efc2f4c46/PA00090952_1_141134_jacket.jpg/600x600bb.jpg",
+        "genres": [
+          "Anime"
+        ],
+        "matched": true,
+        "cachedAt": 1792504809473
+      }
+    ],
+    [
+      "e5b7WBEKCx0",
+      {
+        "title": "Rope",
+        "artist": "Helluva Boss & Bryce Pinkham",
+        "artwork": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/c0/ac/d3/c0acd3d3-2eea-3d02-e06d-2497bf7b8fc3/075679556769.jpg/600x600bb.jpg",
+        "genres": [
+          "Soundtrack"
+        ],
+        "matched": true,
+        "cachedAt": 1792504810924
+      }
+    ],
+    [
+      "454lU4zO0KY",
+      {
+        "title": "Unfinished Business",
+        "artist": "Yuu07",
+        "artwork": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/bc/8d/17/bc8d17ce-6d4f-91ea-7939-5e7b8d6d27b0/4550795681923_cover.png/600x600bb.jpg",
+        "genres": [
+          "Reggae"
+        ],
+        "matched": true,
+        "cachedAt": 1792504812618
+      }
+    ],
+    [
+      "7IcmO4eEWW0",
+      {
+        "title": "Beyond The Sea (Bobby Darin / Bioshock Cover) feat. Sunny Holiday",
+        "artist": "Unknown Artist",
+        "artwork": "https://img.youtube.com/vi/7IcmO4eEWW0/maxresdefault.jpg",
+        "genres": [],
+        "matched": false,
+        "cachedAt": 1792504814865
+      }
+    ],
+    [
+      "bsUtsoV9v20",
+      {
+        "title": "I've Got You Under My Skin",
+        "artist": "Matt Dusk",
+        "artwork": "https://is1-ssl.mzstatic.com/image/thumb/Music124/v4/12/08/42/120842ac-82e2-1b93-1c36-06f7cc911d36/5054526061774_1.jpg/600x600bb.jpg",
+        "genres": [
+          "Jazz"
+        ],
+        "matched": true,
+        "cachedAt": 1792504816233
+      }
+    ],
+    [
+      "p2WPVx3Ml8Y",
+      {
+        "title": "The Nearness of You",
+        "artist": "Matt Dusk",
+        "artwork": "https://is1-ssl.mzstatic.com/image/thumb/Music122/v4/98/0c/e6/980ce629-70f4-15f8-b29e-111f6e31d77a/artwork.jpg/600x600bb.jpg",
+        "genres": [
+          "Jazz"
+        ],
+        "matched": true,
+        "cachedAt": 1792504818900
+      }
+    ],
+    [
+      "L3wKzyIN1yk",
+      {
+        "title": "Human",
+        "artist": "Rag'n'Bone Man",
+        "artwork": "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/cc/81/83/cc818302-ff27-bbbf-195e-f72bb39d32c2/886446364636.jpg/600x600bb.jpg",
+        "genres": [
+          "Alternative"
+        ],
+        "matched": true,
+        "cachedAt": 1792504820302
       }
     ]
   ],
@@ -153361,7 +153450,7 @@
         ],
         "intervalMinutes": 15,
         "locked": true,
-        "lastUpdate": 1792503907386
+        "lastUpdate": 1792504807403
       }
     ],
     [
