@@ -69423,12 +69423,13 @@
           "lSbG6PBRpLw",
           "649wWWkW_1o",
           "fWgVJ5DIPpM",
-          "FohvrWQsV4Q"
+          "FohvrWQsV4Q",
+          "XuNGKHpkFi4"
         ],
         "postChannelId": "1499035867426197565",
         "hour": 14,
         "pingRoleId": "1500478427164311713",
-        "_lastFire": "1418644052114673666:2026-9-20:14",
+        "_lastFire": "1418644052114673666:2026-9-21:14",
         "genreMode": {
           "genre": "Rock",
           "expiresAt": 1792618321240
@@ -70615,6 +70616,19 @@
         ],
         "matched": true,
         "cachedAt": 1792504835312
+      }
+    ],
+    [
+      "XuNGKHpkFi4",
+      {
+        "title": "Lost in the Golden",
+        "artist": "Greta Van Fleet",
+        "artwork": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/8f/08/0b/8f080b50-287e-1ba1-0172-aed2f41e73b3/26UMGIM96740.rgb.jpg/600x600bb.jpg",
+        "genres": [
+          "Rock"
+        ],
+        "matched": true,
+        "cachedAt": 1792591256036
       }
     ]
   ],
