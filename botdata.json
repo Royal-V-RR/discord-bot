@@ -154088,6 +154088,24 @@
         "creatorName": "hawkshadow74",
         "createdAt": 1791380478171
       }
+    ],
+    [
+      "trim",
+      {
+        "triggers": [
+          "trim"
+        ],
+        "actions": [
+          {
+            "type": "delete_message",
+            "params": {}
+          }
+        ],
+        "ownerLocked": true,
+        "creatorId": "1082452773787942922",
+        "creatorName": "hawkshadow74",
+        "createdAt": 1792588822663
+      }
     ]
   ],
   "serverStatsConfig": [
