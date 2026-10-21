@@ -333,6 +333,13 @@
         "mode": "uwu",
         "ownerClanked": true
       }
+    ],
+    [
+      "1048053656035020911:1529301472309678288",
+      {
+        "expiresAt": 1792545577152,
+        "mode": "uwu"
+      }
     ]
   ],
   "theCountChannels": [
@@ -5259,7 +5266,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-27",
-        "xp": 3417,
+        "xp": 3427,
         "level": 34,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -18822,7 +18829,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 34,
+        "xp": 40,
         "level": 12,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -35581,7 +35588,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 1299,
+        "xp": 1304,
         "level": 14,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -152899,7 +152906,9 @@
   "selfClankUsers": [
     [
       "1048053656035020911",
-      []
+      [
+        "1529301472309678288"
+      ]
     ],
     [
       "1408975996715139084",
