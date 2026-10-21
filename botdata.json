@@ -5273,7 +5273,7 @@
         "marriedTo": "760031383598530630",
         "pendingProposal": null,
         "forceMarried": false,
-        "imagesUploaded": 433,
+        "imagesUploaded": 434,
         "uploadedImages": [
           "IMG_4186.png",
           "IMG_4211.png",
@@ -5658,7 +5658,8 @@
           "quote_537.png",
           "quote_541.png",
           "quote_544.png",
-          "quote_553.png"
+          "quote_553.png",
+          "quote_554.png"
         ],
         "lastFishTime": 0,
         "lastMineTime": 0,
@@ -152975,17 +152976,6 @@
         "guildId": "1408975996715139084",
         "destFolder": null
       }
-    ],
-    [
-      "889764mvhfmuep",
-      {
-        "submitterId": "969280648667889764",
-        "fileName": "969280648667889764__image__image.png",
-        "rawName": "image.png",
-        "mediaKind": "image",
-        "guildId": "1048053656035020911",
-        "destFolder": null
-      }
     ]
   ],
   "quoteGuildConfigs": [
@@ -153015,7 +153005,7 @@
     ]
   ],
   "uploadCounters": {
-    "quote": 553,
+    "quote": 554,
     "eardestroyer": 1,
     "eyebleacher": 3
   },
