@@ -69857,16 +69857,14 @@
           "649wWWkW_1o",
           "fWgVJ5DIPpM",
           "FohvrWQsV4Q",
-          "XuNGKHpkFi4"
+          "XuNGKHpkFi4",
+          "igCGK6BkL1Y"
         ],
         "postChannelId": "1499035867426197565",
         "hour": 14,
         "pingRoleId": "1500478427164311713",
-        "_lastFire": "1418644052114673666:2026-9-21:14",
-        "genreMode": {
-          "genre": "Rock",
-          "expiresAt": 1792618321240
-        }
+        "_lastFire": "1418644052114673666:2026-9-22:14",
+        "genreMode": null
       }
     ],
     [
@@ -71062,6 +71060,19 @@
         ],
         "matched": true,
         "cachedAt": 1792591256036
+      }
+    ],
+    [
+      "igCGK6BkL1Y",
+      {
+        "title": "It Was a Very Good Year",
+        "artist": "Frank Sinatra",
+        "artwork": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/3a/37/1a/3a371a7e-33fe-85db-0616-0c57ef26fb42/13UAEIM06265.rgb.jpg/600x600bb.jpg",
+        "genres": [
+          "Jazz"
+        ],
+        "matched": true,
+        "cachedAt": 1792677628615
       }
     ]
   ],
