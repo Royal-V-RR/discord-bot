@@ -786,12 +786,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18700,
-        "lastSubsTimestamp": 1792783630368,
+        "lastSubsTimestamp": 1792783930402,
         "history": [
-          {
-            "ts": 1792481017435,
-            "subs": 18700
-          },
           {
             "ts": 1792481317476,
             "subs": 18700
@@ -4786,6 +4782,10 @@
           },
           {
             "ts": 1792783630368,
+            "subs": 18700
+          },
+          {
+            "ts": 1792783930402,
             "subs": 18700
           }
         ],
@@ -68736,6 +68736,30 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 9,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1201935900213514264",
+      {
+        "username": "jayskiilolo",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 5,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
