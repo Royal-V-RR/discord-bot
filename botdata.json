@@ -786,12 +786,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18700,
-        "lastSubsTimestamp": 1792768977625,
+        "lastSubsTimestamp": 1792769277656,
         "history": [
-          {
-            "ts": 1792466427007,
-            "subs": 18700
-          },
           {
             "ts": 1792466727010,
             "subs": 18700
@@ -4787,6 +4783,10 @@
           {
             "ts": 1792768977625,
             "subs": 18700
+          },
+          {
+            "ts": 1792769277656,
+            "subs": 18700
           }
         ],
         "subcountDiscordId": "1483595393999700080",
@@ -6407,7 +6407,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 3755,
+        "xp": 3760,
         "level": 19,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -68400,6 +68400,30 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 12,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "924331815945240626",
+      {
+        "username": "koriagrophy",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 15,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -155347,7 +155371,7 @@
         ],
         "intervalMinutes": 15,
         "locked": true,
-        "lastUpdate": 1792768377539
+        "lastUpdate": 1792769277552
       }
     ],
     [
