@@ -786,12 +786,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18700,
-        "lastSubsTimestamp": 1792782130408,
+        "lastSubsTimestamp": 1792782430363,
         "history": [
-          {
-            "ts": 1792479327352,
-            "subs": 18700
-          },
           {
             "ts": 1792479627339,
             "subs": 18700
@@ -4786,6 +4782,10 @@
           },
           {
             "ts": 1792782130408,
+            "subs": 18700
+          },
+          {
+            "ts": 1792782430363,
             "subs": 18700
           }
         ],
@@ -68688,6 +68688,30 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 10,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1356770686466658467",
+      {
+        "username": "skizo_22",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 5,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -155646,7 +155670,7 @@
         ],
         "intervalMinutes": 15,
         "locked": true,
-        "lastUpdate": 1792781277891
+        "lastUpdate": 1792782430276
       }
     ],
     [
