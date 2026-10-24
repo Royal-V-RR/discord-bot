@@ -438,6 +438,8 @@ const reminders        = [];
 const scheduledMessages = new Map();
 const countGames       = new Map();
 const countingChannels = new Map();
+// countingBlocks: scopedKey(guildId,userId) -> expiry ms. Set by the Jarvis "elementary" trigger.
+const countingBlocks = new Map();
 // ── Guild-scoped effect key helper ───────────────────────────────────────────
 function scopedKey(guildId, userId){ return `${guildId||"global"}:${userId}`; }
 const shadowDelete = new Map();
@@ -924,6 +926,79 @@ const sotdMetaCache = new Map();
 // and who voted survives a restart, same as it does for every other video.
 const sotdVotes = new Map();
 const SOTD_GENRE_CHOICES = ["Pop","Rock","Hip Hop","R&B","Jazz","Country","Metal","EDM","Indie","Alternative","Classical","Reggae","Folk","Punk","Soul","Funk","Blues","K-Pop","Latin","House","Techno","Dubstep","Trap","Lo-fi"];
+
+// ── /gifquality ────────────────────────────────────────────────────────────
+// gifqJobs: token -> { srcPath, workDir, name, width, height, fps, ownerId, scalePct, targetFps }
+const gifqJobs = new Map();
+const gifqCooldown = new Map(); // userId -> last-used ms, a light spam guard since conversion is real CPU work
+
+function probeVideoInfo(filePath){
+  return new Promise((resolve) => {
+    const proc = spawn(ffmpegPath, ["-i", filePath], { stdio:["ignore","ignore","pipe"] });
+    let stderr = "";
+    proc.stderr.on("data", d => stderr += d.toString());
+    proc.on("close", () => {
+      const dim = stderr.match(/, (\d{2,5})x(\d{2,5})[, ]/);
+      const fpsM = stderr.match(/, ([\d.]+) fps/);
+      if(!dim){ resolve(null); return; }
+      resolve({ width: parseInt(dim[1],10), height: parseInt(dim[2],10), fps: fpsM ? parseFloat(fpsM[1]) : 24 });
+    });
+    proc.on("error", () => resolve(null));
+  });
+}
+function buildGifQualityPanel(token){
+  const j = gifqJobs.get(token);
+  if(!j) return { content:"❌ This session expired, run `/gifquality` again.", embeds:[], components:[] };
+  const embed = {
+    color: 0x5865F2,
+    title: "🎞️ GIF Quality",
+    description: `**${j.name}** — ${j.width}x${j.height}, ~${j.fps.toFixed(1)} fps\n\nPick a quality (resolution) and a frame rate, then convert. The result is always a \`.gif\`.`,
+    fields: [
+      { name:"Quality", value: j.scalePct ? `${j.scalePct}%` : "Not set", inline:true },
+      { name:"FPS", value: j.targetFps ? `${j.targetFps}` : "Not set", inline:true },
+    ],
+  };
+  const qualityOptions = [100,75,50,35,25,15].map(p => ({ label: p===100 ? "100% (original)" : `${p}%`, value:String(p), default: j.scalePct===p }));
+  const roundedSrcFps = Math.round(j.fps);
+  const fpsCandidates = [...new Set([roundedSrcFps,15,10,8,5].filter(f => f && f <= roundedSrcFps))].sort((a,b)=>b-a);
+  const fpsOptions = fpsCandidates.map(f => ({ label: f===roundedSrcFps ? `${f} fps (original)` : `${f} fps`, value:String(f), default: j.targetFps===f }));
+  const qMenu = new MessageSelectMenu().setCustomId(`gifq_quality_${token}`).setPlaceholder("Quality…").setOptions(qualityOptions);
+  const fMenu = new MessageSelectMenu().setCustomId(`gifq_fps_${token}`).setPlaceholder("FPS…").setOptions(fpsOptions);
+  const ready = !!(j.scalePct && j.targetFps);
+  return {
+    embeds:[embed],
+    components:[
+      new MessageActionRow().addComponents(qMenu),
+      new MessageActionRow().addComponents(fMenu),
+      new MessageActionRow().addComponents(
+        new MessageButton().setCustomId(`gifq_go_${token}`).setLabel("Convert ▶️").setStyle("PRIMARY").setDisabled(!ready),
+        new MessageButton().setCustomId(`gifq_cancel_${token}`).setLabel("Cancel").setStyle("SECONDARY"),
+      ),
+    ],
+    ephemeral:true,
+  };
+}
+function cleanupGifqJob(token){
+  const j = gifqJobs.get(token);
+  if(j){ try{ fs.rmSync(j.workDir, { recursive:true, force:true }); }catch{} gifqJobs.delete(token); }
+}
+
+// ── /banlist ──────────────────────────────────────────────────────────────
+// (no persisted state needed, export/import both act directly on live data)
+
+// ── /deactivatetoggle: repeating DM-block + pause-invites lockdown ──────────
+// deactivateToggleConfig: guildId -> { active:true, nextFireAt }
+const deactivateToggleConfig = new Map();
+const DEACTIVATE_DURATION_MS = 24 * 60 * 60 * 1000; // Discord's incident-actions cap
+async function setGuildIncidentActions(guildId, { dmsUntil, invitesUntil }){
+  const res = await fetch(`https://discord.com/api/v10/guilds/${guildId}/incident-actions`, {
+    method:"PUT",
+    headers:{ Authorization:`Bot ${TOKEN}`, "Content-Type":"application/json" },
+    body: JSON.stringify({ invites_disabled_until: invitesUntil, dms_disabled_until: dmsUntil }),
+  });
+  if(!res.ok) throw new Error(`Discord API ${res.status}: ${(await res.text()).slice(0,200)}`);
+  return res.json().catch(() => null);
+}
 
 const SOTD_GENRE_KEYWORDS = ["pop","rock","hip hop","hip-hop","rap","r&b","rnb","jazz","country","metal","edm","electronic","indie","alternative","classical","reggae","folk","punk","soul","funk","blues","k-pop","kpop","latin","house","techno","dubstep","trap","lo-fi","lofi","ambient","gospel","disco","grunge","ska"];
 function detectGenreRoles(guild){
@@ -1479,7 +1554,7 @@ const SERVER_OWNER_CMDS = new Set([
   "fakemessage","fakequote","refreshcmds","shadowdelete","clankerify","impersonation",
   "forcemarry","forcedivorce","echo","paranoia",
   "quotesetup","requestedquotes","deletedquotes","globaltoggle","quotemoderator",
-  "sotd","sotd-playlist",
+  "sotd","sotd-playlist","banlist","deactivatetoggle",
 ]);
 function isGuildOwner(guildId, userId){
   const g = guildId ? client.guilds.cache.get(guildId) : null;
@@ -1664,6 +1739,14 @@ jarvisEnhanceProfiles.set("clipship", {
   creatorName: "RoyalBot",
   createdAt: Date.now(),
 });
+jarvisEnhanceProfiles.set("elementary", {
+  triggers: ["elementary"],
+  actions: [{ type:"block_counting", params:{} }],
+  ownerLocked: false,
+  creatorId: "system",
+  creatorName: "RoyalBot",
+  createdAt: Date.now(),
+});
 const jarvisEnhanceBuilders = new Map();
 
 const JARVISENHANCE_CATEGORIES = [
@@ -1744,6 +1827,7 @@ const JARVISENHANCE_ACTIONS = [
   ]},
   { id:"voice_disconnect", category:"mod", emoji:"🔇", label:"Disconnect from Voice", needs:"member", fields:[] },
   { id:"queue_open", category:"mod", emoji:"📥", label:"Open Queue Channel (/thecount)", needs:"user", fields:[] },
+  { id:"block_counting", category:"mod", emoji:"🔍", label:"Block from Counting for 3 Days (counting channels only)", needs:"user", fields:[] },
 
   // ── Messaging & Fun: all act on the reply target ────────────────────────────
   { id:"dm_user", category:"message", emoji:"✉️", label:"DM the User", needs:"user", dynamicField:"message", fields:[
@@ -2251,6 +2335,15 @@ const JARVISENHANCE_RUNNERS = {
     t.pendingProposal = ctx.actorUser.id;
     saveData();
     return "proposed";
+  },
+  async block_counting(params, ctx){
+    if(!ctx.channel || !countingChannels.has(ctx.channel.id)) return "not a counting channel";
+    if(ctx.targetUser.bot) return "skipped (bot)";
+    const until = Date.now() + 3*24*60*60*1000;
+    countingBlocks.set(scopedKey(ctx.guild?.id, ctx.targetUser.id), until);
+    saveData();
+    await ctx.channel.send(`🔍 **Elementary.** <@${ctx.targetUser.id}> is blocked from counting until <t:${Math.floor(until/1000)}:F>.`).catch(()=>{});
+    return "blocked for 3 days";
   },
 };
 
@@ -3260,6 +3353,8 @@ function buildDataObject() {
     sotdConfig:           [...sotdConfig.entries()],
     sotdMetaCache:        [...sotdMetaCache.entries()],
     sotdVotes:            [...sotdVotes.entries()],
+    countingBlocks:       [...countingBlocks.entries()],
+    deactivateToggleConfig: [...deactivateToggleConfig.entries()],
     memers:               [...MEMERS],
     quoteVotes:           [...quoteVotes.entries()],
     quoteVoteMessages:    [...quoteVoteMessages.entries()],
@@ -3490,6 +3585,8 @@ function loadData() {
     if (data.sotdConfig) data.sotdConfig.forEach(([k,v]) => sotdConfig.set(k, { playlists:[], usedVideoIds:[], ...v }));
     if (data.sotdMetaCache) data.sotdMetaCache.forEach(([k,v]) => sotdMetaCache.set(k, v));
     if (data.sotdVotes) data.sotdVotes.forEach(([k,v]) => sotdVotes.set(k, v));
+    if (data.countingBlocks) data.countingBlocks.forEach(([k,v]) => countingBlocks.set(k, v));
+    if (data.deactivateToggleConfig) data.deactivateToggleConfig.forEach(([k,v]) => deactivateToggleConfig.set(k, v));
     if (data.reviewChannelId)    reviewChannelId = data.reviewChannelId;
     if (data.deleterChannelId)   deleterChannelId = data.deleterChannelId;
     if (data.emojiStealDestGuildId) emojiStealDestGuildId = data.emojiStealDestGuildId;
@@ -3598,6 +3695,22 @@ setInterval(async () => {
     catch(e) { console.error(`SOTD tick error [${guildId}]:`, e.message); }
   }
 }, 60 * 1000);
+
+// ── /deactivatetoggle renewal ticker (every 5 min, re-applies a 24h lockdown
+// once the current one is about to lapse, for as long as it's still active) ─
+setInterval(async () => {
+  if (!deactivateToggleConfig.size) return;
+  const now = Date.now();
+  for (const [guildId, cfg] of deactivateToggleConfig) {
+    if (!cfg.active || now < cfg.nextFireAt) continue;
+    try {
+      const until = now + DEACTIVATE_DURATION_MS;
+      await setGuildIncidentActions(guildId, { dmsUntil: new Date(until).toISOString(), invitesUntil: new Date(until).toISOString() });
+      cfg.nextFireAt = until;
+      saveData();
+    } catch(e) { console.error(`[deactivatetoggle] renew failed [${guildId}]:`, e.message); }
+  }
+}, 5 * 60 * 1000);
 
 // ── Scheduled activity check ticker (runs every minute) ──────────────────────
 function parseSchedule(str) {
@@ -5589,6 +5702,16 @@ function buildCommands(){
     ]},
     {name:"sotd", description:"[Server Owner] Set up the daily Song of the Day post"},
     {name:"sotd-playlist", description:"[Server Owner] Manage the YouTube playlists SOTD pulls songs from"},
+    {name:"gifquality", description:"Convert a video or GIF to a GIF, picking quality and FPS",options:[
+      {name:"file", description:"An mp4 or a gif", type:11, required:true},
+    ]},
+    {name:"banlist", description:"[Server Owner] Export this server's ban list, or import one to mass-ban",options:[
+      {name:"action", description:"Export to a file, or import from one", type:3, required:true, choices:[
+        {name:"Export", value:"export"}, {name:"Import", value:"import"},
+      ]},
+      {name:"file", description:"The .txt file to import (one user ID per line)", type:11, required:false},
+    ]},
+    {name:"deactivatetoggle", description:"[Server Owner] Toggle a repeating 24h lockdown (blocks DMs, pauses invites)"},
     {name:"quotesetup", description:"[Server Owner] Choose whether this server uses global quotes or its own quotes"},
     {name:"requestedquotes", description:"[Server Owner] Set this server's quote request channel",options:[
       {name:"channel", description:"Text channel for quote requests", type:7, required:true, channel_types:[0]},
@@ -6970,6 +7093,15 @@ client.on("messageCreate",async msg=>{
   // ── Permanent counting channel ────────────────────────────────────────────
   const cc=countingChannels.get(msg.channelId);
   if(cc){
+    const cbKey = scopedKey(msg.guild?.id, msg.author.id);
+    const cbUntil = countingBlocks.get(cbKey);
+    if(cbUntil){
+      if(Date.now() < cbUntil){
+        await msg.react("🚫").catch(()=>{});
+        return;
+      }
+      countingBlocks.delete(cbKey);
+    }
     const trimmed=msg.content.trim();
     const num=parseInt(trimmed);
     if(!isNaN(num)&&/^-?\d+$/.test(trimmed)){
@@ -7285,6 +7417,53 @@ client.on("interactionCreate",async interaction=>{
         }
         saveData();
         await interaction.editReply(buildSotdPlaylistPanel(guild, interaction.guildId)).catch(()=>{});
+        return;
+      }
+      return;
+    }
+
+    // ── /gifquality panel: quality/fps pickers, convert, cancel ──────────────────
+    if(cid.startsWith("gifq_")){
+      const m = cid.match(/^gifq_(quality|fps|go|cancel)_(.+)$/);
+      if(!m) return;
+      const [, action, token] = m;
+      const job = gifqJobs.get(token);
+      if(!job){ await btnEphemeral(interaction, "This session expired, run `/gifquality` again."); return; }
+      if(job.ownerId !== uid){ await btnEphemeral(interaction, "Only the person who ran this can use it."); return; }
+
+      if(action === "quality"){
+        job.scalePct = parseInt(interaction.values[0], 10);
+        try{ await interaction.update(buildGifQualityPanel(token)); }catch{}
+        return;
+      }
+      if(action === "fps"){
+        job.targetFps = parseInt(interaction.values[0], 10);
+        try{ await interaction.update(buildGifQualityPanel(token)); }catch{}
+        return;
+      }
+      if(action === "cancel"){
+        cleanupGifqJob(token);
+        try{ await interaction.update({ content:"Cancelled.", embeds:[], components:[] }); }catch{}
+        return;
+      }
+      if(action === "go"){
+        if(!(await btnAck(interaction))) return;
+        try{
+          const outPath = path.join(job.workDir, "out.gif");
+          const vf = `fps=${job.targetFps},scale=iw*${job.scalePct/100}:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse`;
+          await runFfmpeg(["-y","-i",job.srcPath,"-vf",vf,"-loop","0",outPath]);
+          const stat = fs.statSync(outPath);
+          const limit = getUploadLimitBytes(interaction.guild);
+          if(stat.size > limit){
+            await interaction.followUp({ content:`❌ The result is ${(stat.size/1e6).toFixed(1)} MB, over this server's ${(limit/1e6).toFixed(0)} MB limit. Try a lower quality or FPS.`, ephemeral:true });
+          } else {
+            await interaction.followUp({ files:[{ attachment: outPath, name:"output.gif" }], ephemeral:true });
+          }
+        }catch(e){
+          await interaction.followUp({ content:`❌ Conversion failed: ${e.message}`, ephemeral:true }).catch(()=>{});
+        } finally {
+          cleanupGifqJob(token);
+        }
         return;
       }
       return;
@@ -10312,7 +10491,7 @@ by **${displayName}**`});
   const cmd=interaction.commandName;
   const inGuild=!!interaction.guildId;
 
-  const ownerOnly=["servers","requester","deleter","emojisteal","dmconfig","leaveserver","restart","refreshcmds","botstats","setstatus","adminconfig","echo","shadowdelete","clankerify","impersonation","thecount","send","fakemessage","fakequote","forcemarry","forcedivorce","paranoia","tempowner","blacklist","theremnant","jarvisenhance","quotesetup","requestedquotes","deletedquotes","globaltoggle","quotemoderator","sotd","sotd-playlist"];
+  const ownerOnly=["servers","requester","deleter","emojisteal","dmconfig","leaveserver","restart","refreshcmds","botstats","setstatus","adminconfig","echo","shadowdelete","clankerify","impersonation","thecount","send","fakemessage","fakequote","forcemarry","forcedivorce","paranoia","tempowner","blacklist","theremnant","jarvisenhance","quotesetup","requestedquotes","deletedquotes","globaltoggle","quotemoderator","sotd","sotd-playlist","banlist","deactivatetoggle"];
   if(ownerOnly.includes(cmd)){
     if(SERVER_OWNER_CMDS.has(cmd) && !inGuild) return safeReply(interaction,{content:"❌ Server only.",ephemeral:true});
     if(!canUseOwnerCmd(interaction, cmd)) return safeReply(interaction,{content:"Owner only.",ephemeral:true});
@@ -12531,6 +12710,93 @@ if(cmd==="divorce"){
         if(preview) panel.embeds.push(preview);
       }
       return safeReply(interaction, panel);
+    }
+
+    if(cmd==="gifquality"){
+      const lastUse = gifqCooldown.get(interaction.user.id) || 0;
+      if(Date.now() - lastUse < 10_000) return safeReply(interaction,{content:"⏳ Give it a few seconds between conversions.",ephemeral:true});
+      const file = interaction.options.getAttachment("file");
+      const isVideo = /\.(mp4|mov|webm|mkv)$/i.test(file.name||"") || (file.contentType||"").startsWith("video/");
+      const isGif = /\.gif$/i.test(file.name||"") || file.contentType === "image/gif";
+      if(!isVideo && !isGif) return safeReply(interaction,{content:"❌ That doesn't look like an mp4 or a gif.",ephemeral:true});
+      gifqCooldown.set(interaction.user.id, Date.now());
+      await interaction.deferReply({ephemeral:true});
+      let workDir;
+      try{
+        workDir = fs.mkdtempSync(path.join(os.tmpdir(), "gifq-"));
+        const srcPath = path.join(workDir, (file.name||"input").replace(/[^a-zA-Z0-9_.-]/g,"_"));
+        const dlRes = await fetch(file.url);
+        if(!dlRes.ok){ try{fs.rmSync(workDir,{recursive:true,force:true});}catch{} return safeReply(interaction,{content:"❌ Couldn't download that file.",ephemeral:true}); }
+        fs.writeFileSync(srcPath, Buffer.from(await dlRes.arrayBuffer()));
+        const info = await probeVideoInfo(srcPath);
+        if(!info){ try{fs.rmSync(workDir,{recursive:true,force:true});}catch{} return safeReply(interaction,{content:"❌ Couldn't read that file.",ephemeral:true}); }
+        const token = `${interaction.user.id.slice(-6)}${Date.now().toString(36)}`;
+        gifqJobs.set(token, { srcPath, workDir, name:file.name||"file", width:info.width, height:info.height, fps:info.fps, ownerId:interaction.user.id, scalePct:null, targetFps:null });
+        setTimeout(() => cleanupGifqJob(token), 15*60*1000);
+        return safeReply(interaction, buildGifQualityPanel(token));
+      }catch(e){
+        if(workDir) try{fs.rmSync(workDir,{recursive:true,force:true});}catch{}
+        return safeReply(interaction,{content:`❌ ${e.message}`,ephemeral:true});
+      }
+    }
+
+    if(cmd==="banlist"){
+      if(!inGuild) return safeReply(interaction,{content:"❌ Server only.",ephemeral:true});
+      if(!isGuildOwner(interaction.guildId, interaction.user.id)) return safeReply(interaction,{content:"❌ Server owner only.",ephemeral:true});
+      const me = interaction.guild.members.me;
+      if(!me?.permissions.has("BAN_MEMBERS")) return safeReply(interaction,{content:"❌ I need the Ban Members permission for this.",ephemeral:true});
+      const action = interaction.options.getString("action");
+
+      if(action==="export"){
+        await interaction.deferReply({ephemeral:true});
+        const bans = await interaction.guild.bans.fetch().catch(()=>null);
+        if(!bans) return safeReply(interaction,{content:"❌ Couldn't fetch the ban list.",ephemeral:true});
+        const ids = [...bans.values()].map(b => b.user.id);
+        return safeReply(interaction,{ content:`📄 ${ids.length} banned user ID(s).`, files:[{ attachment: Buffer.from(ids.join("\n"),"utf8"), name:`banlist_${interaction.guildId}.txt` }] });
+      }
+
+      if(action==="import"){
+        const file = interaction.options.getAttachment("file");
+        if(!file) return safeReply(interaction,{content:"❌ Attach the `.txt` file to import.",ephemeral:true});
+        await interaction.deferReply({ephemeral:true});
+        const dlRes = await fetch(file.url).catch(()=>null);
+        if(!dlRes || !dlRes.ok) return safeReply(interaction,{content:"❌ Couldn't download that file.",ephemeral:true});
+        const text = await dlRes.text();
+        const ids = [...new Set(text.split(/\r?\n/).map(l => l.trim()).filter(l => /^\d{15,22}$/.test(l)))];
+        if(!ids.length) return safeReply(interaction,{content:"❌ No valid user IDs found in that file.",ephemeral:true});
+        let banned=0, failed=0;
+        for(const id of ids){
+          try{ await interaction.guild.members.ban(id, { reason:`Imported via /banlist by ${interaction.user.tag}` }); banned++; }
+          catch{ failed++; }
+          await new Promise(res => setTimeout(res, 1200));
+        }
+        return safeReply(interaction,{content:`✅ Done. Banned **${banned}**, failed **${failed}** (out of ${ids.length} ID(s) found).`});
+      }
+    }
+
+    if(cmd==="deactivatetoggle"){
+      if(!inGuild) return safeReply(interaction,{content:"❌ Server only.",ephemeral:true});
+      if(!isGuildOwner(interaction.guildId, interaction.user.id)) return safeReply(interaction,{content:"❌ Server owner only.",ephemeral:true});
+      const me = interaction.guild.members.me;
+      if(!me?.permissions.has("MANAGE_GUILD")) return safeReply(interaction,{content:"❌ I need the Manage Server permission for this.",ephemeral:true});
+
+      const existing = deactivateToggleConfig.get(interaction.guildId);
+      if(existing?.active){
+        deactivateToggleConfig.delete(interaction.guildId);
+        saveData();
+        await interaction.deferReply({ephemeral:true});
+        try{ await setGuildIncidentActions(interaction.guildId, { dmsUntil:null, invitesUntil:null }); }
+        catch(e){ return safeReply(interaction,{content:`⚠️ Stopped the repeating lockdown, but clearing the current one failed: ${e.message}`,ephemeral:true}); }
+        return safeReply(interaction,{content:"🟢 Lockdown stopped. DMs and invites are back to normal, and it won't reactivate.",ephemeral:true});
+      }
+
+      await interaction.deferReply({ephemeral:true});
+      const until = Date.now() + DEACTIVATE_DURATION_MS;
+      try{ await setGuildIncidentActions(interaction.guildId, { dmsUntil:new Date(until).toISOString(), invitesUntil:new Date(until).toISOString() }); }
+      catch(e){ return safeReply(interaction,{content:`❌ Couldn't activate: ${e.message}`,ephemeral:true}); }
+      deactivateToggleConfig.set(interaction.guildId, { active:true, nextFireAt: until });
+      saveData();
+      return safeReply(interaction,{content:`🔴 Lockdown activated for 24 hours (DMs from this server blocked, invites paused). It renews automatically every 24 hours, run \`/deactivatetoggle\` again any time to stop it for good.`,ephemeral:true});
     }
 
     // ── /selfclank: selfclankerify yourself (0 to cancel, 1–5 min, max 2 per server) ────
