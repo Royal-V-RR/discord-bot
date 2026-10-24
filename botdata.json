@@ -4823,8 +4823,8 @@
       "1515972755424673902",
       {
         "guildId": "1048053656035020911",
-        "count": 4,
-        "lastUserId": "922582069979275325",
+        "count": 5,
+        "lastUserId": "969280648667889764",
         "highScore": 323
       }
     ]
@@ -5259,7 +5259,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-27",
-        "xp": 4006,
+        "xp": 4018,
         "level": 34,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -72649,6 +72649,8 @@
       }
     ]
   ],
+  "countingBlocks": [],
+  "deactivateToggleConfig": [],
   "memers": [
     "1419803002771865722",
     "1259223683826712729",
@@ -155711,6 +155713,24 @@
         "creatorId": "system",
         "creatorName": "RoyalBot",
         "createdAt": 1789844601689
+      }
+    ],
+    [
+      "elementary",
+      {
+        "triggers": [
+          "elementary"
+        ],
+        "actions": [
+          {
+            "type": "block_counting",
+            "params": {}
+          }
+        ],
+        "ownerLocked": false,
+        "creatorId": "system",
+        "creatorName": "RoyalBot",
+        "createdAt": 1792860101851
       }
     ],
     [
