@@ -69603,6 +69603,32 @@
         "forceMarried": false,
         "uploadedImages": []
       }
+    ],
+    [
+      "860083mvmmywg",
+      {
+        "username": null,
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 0,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 1,
+        "forceMarried": false,
+        "uploadedImages": [
+          "quote_563.jpg"
+        ]
+      }
     ]
   ],
   "activeEffects": [],
@@ -155625,17 +155651,6 @@
         "guildId": "1408975996715139084",
         "destFolder": null
       }
-    ],
-    [
-      "860083mvmv3ke2",
-      {
-        "submitterId": "1254388539890860083",
-        "fileName": "1254388539890860083__image__IMG_0457.png",
-        "rawName": "IMG_0457.png",
-        "mediaKind": "image",
-        "guildId": "1048053656035020911",
-        "destFolder": null
-      }
     ]
   ],
   "quoteGuildConfigs": [
@@ -155665,7 +155680,7 @@
     ]
   ],
   "uploadCounters": {
-    "quote": 562,
+    "quote": 563,
     "eardestroyer": 1,
     "eyebleacher": 3
   },
