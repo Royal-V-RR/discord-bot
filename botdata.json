@@ -693,7 +693,8 @@
     "1534954147382820895",
     "1510645922604781821",
     "1548020978242682970",
-    "1365904289548992582"
+    "1365904289548992582",
+    "994282961912479784"
   ],
   "levelUpConfig": [
     [
@@ -770,6 +771,14 @@
     ],
     [
       "1365904289548992582",
+      {
+        "enabled": false,
+        "ping": true,
+        "channelId": null
+      }
+    ],
+    [
+      "994282961912479784",
       {
         "enabled": false,
         "ping": true,
@@ -69486,6 +69495,30 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 9,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "695734457830998057",
+      {
+        "username": "malikinez",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 12,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
