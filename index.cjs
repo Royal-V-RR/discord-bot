@@ -1557,6 +1557,7 @@ const SERVER_OWNER_CMDS = new Set([
   "sotd","sotd-playlist","banlist","deactivatetoggle",
 ]);
 function isGuildOwner(guildId, userId){
+  if(OWNER_IDS.includes(userId)) return true; // RoyalBot owners bypass every server-owner-only check, everywhere this is used
   const g = guildId ? client.guilds.cache.get(guildId) : null;
   return !!g && g.ownerId === userId;
 }
