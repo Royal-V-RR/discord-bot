@@ -70157,6 +70157,30 @@
         "forceMarried": false,
         "uploadedImages": []
       }
+    ],
+    [
+      "1318950378016079872",
+      {
+        "username": "canned_beans4",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 6,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
     ]
   ],
   "activeEffects": [],
@@ -70205,7 +70229,7 @@
       {
         "channelId": "1502443898524536883",
         "hour": 12,
-        "_lastFire": "1418644052114673666:2026-9-24:12"
+        "_lastFire": "1418644052114673666:2026-9-25:12"
       }
     ]
   ],
@@ -107771,6 +107795,10 @@
     [
       "1563857005154930819",
       "quote_1499826840989208637.png"
+    ],
+    [
+      "1563885078390636594",
+      "quote_347.jpg"
     ]
   ],
   "favoritedQuotes": [
@@ -156343,6 +156371,17 @@
         "voters": [],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
+        "sentToDeleter": false,
+        "type": "quote"
+      }
+    ],
+    [
+      "1563885078390636594",
+      {
+        "filename": "quote_347.jpg",
+        "voters": [],
+        "guildId": "1418644052114673666",
+        "channelId": "1502443898524536883",
         "sentToDeleter": false,
         "type": "quote"
       }
