@@ -795,12 +795,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18800,
-        "lastSubsTimestamp": 1792925516984,
+        "lastSubsTimestamp": 1792925817029,
         "history": [
-          {
-            "ts": 1792613855592,
-            "subs": 18700
-          },
           {
             "ts": 1792614155640,
             "subs": 18700
@@ -4795,6 +4791,10 @@
           },
           {
             "ts": 1792925516984,
+            "subs": 18800
+          },
+          {
+            "ts": 1792925817029,
             "subs": 18800
           }
         ],
@@ -70049,6 +70049,30 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 15,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1363573918954160471",
+      {
+        "username": "mr.khaduus",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 13,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -157280,7 +157304,7 @@
         ],
         "intervalMinutes": 15,
         "locked": true,
-        "lastUpdate": 1792924916825
+        "lastUpdate": 1792925816863
       }
     ],
     [
