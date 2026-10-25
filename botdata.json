@@ -795,12 +795,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18800,
-        "lastSubsTimestamp": 1792956542061,
+        "lastSubsTimestamp": 1792956842074,
         "history": [
-          {
-            "ts": 1792644822469,
-            "subs": 18700
-          },
           {
             "ts": 1792645122463,
             "subs": 18700
@@ -4796,6 +4792,10 @@
           {
             "ts": 1792956542061,
             "subs": 18800
+          },
+          {
+            "ts": 1792956842074,
+            "subs": 18800
           }
         ],
         "subcountDiscordId": "1483595393999700080",
@@ -5268,7 +5268,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-27",
-        "xp": 5252,
+        "xp": 5269,
         "level": 34,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -6176,7 +6176,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 1489,
+        "xp": 1513,
         "level": 20,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -7391,7 +7391,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 6987,
+        "xp": 6994,
         "level": 31,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -32908,7 +32908,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 1006,
+        "xp": 1031,
         "level": 16,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -35913,7 +35913,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 933,
+        "xp": 947,
         "level": 10,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -35939,7 +35939,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 218,
+        "xp": 227,
         "level": 12,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -49279,7 +49279,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 775,
+        "xp": 799,
         "level": 9,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -157863,7 +157863,7 @@
         ],
         "intervalMinutes": 15,
         "locked": true,
-        "lastUpdate": 1792955941993
+        "lastUpdate": 1792956841998
       }
     ],
     [
