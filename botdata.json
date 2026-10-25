@@ -73478,7 +73478,15 @@
     ]
   ],
   "countingBlocks": [],
-  "deactivateToggleConfig": [],
+  "deactivateToggleConfig": [
+    [
+      "1521099828078182460",
+      {
+        "active": true,
+        "nextFireAt": 1793014527270
+      }
+    ]
+  ],
   "memers": [
     "1419803002771865722",
     "1259223683826712729",
