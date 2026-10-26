@@ -795,12 +795,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18800,
-        "lastSubsTimestamp": 1792973100691,
+        "lastSubsTimestamp": 1792973400748,
         "history": [
-          {
-            "ts": 1792661287715,
-            "subs": 18700
-          },
           {
             "ts": 1792661587086,
             "subs": 18700
@@ -4795,6 +4791,10 @@
           },
           {
             "ts": 1792973100691,
+            "subs": 18800
+          },
+          {
+            "ts": 1792973400748,
             "subs": 18800
           }
         ],
@@ -70675,6 +70675,30 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 22,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "941457731209031711",
+      {
+        "username": ".jeremiel",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 5,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
