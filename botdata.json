@@ -392,6 +392,13 @@
         "impersonateName": null,
         "impersonateAvatarURL": null
       }
+    ],
+    [
+      "1048053656035020911:1529301472309678288",
+      {
+        "expiresAt": 1793053108983,
+        "mode": "uwu"
+      }
     ]
   ],
   "theCountChannels": [
@@ -5121,7 +5128,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-15",
-        "xp": 5288,
+        "xp": 5299,
         "level": 28,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -6622,7 +6629,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 1978,
+        "xp": 1985,
         "level": 15,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -49349,7 +49356,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 51,
+        "xp": 64,
         "level": 10,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -71536,6 +71543,30 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 5,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1508757966420181002",
+      {
+        "username": "tom.ggs",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 12,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -157898,7 +157929,9 @@
   "selfClankUsers": [
     [
       "1048053656035020911",
-      []
+      [
+        "1529301472309678288"
+      ]
     ],
     [
       "1408975996715139084",
