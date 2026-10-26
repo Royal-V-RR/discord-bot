@@ -324,6 +324,13 @@
         "channelId": "1500899929474732234",
         "message": "https://cdn.discordapp.com/attachments/1500899929474732234/1564070776745762917/output.gif?ex=6adfedec&is=6ade9c6c&hm=5594a9a57b9c0facfd16b4f7fdd009f7fc4ff92fb42299acd1ca1c729cfb5c6d&"
       }
+    ],
+    [
+      "1418644052114673666",
+      {
+        "channelId": "1558300310915649566",
+        "message": "Holy guacamole the cannoli oatie <@969280648667889764>"
+      }
     ]
   ],
   "autoRoles": [
@@ -803,12 +810,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18800,
-        "lastSubsTimestamp": 1792975500752,
+        "lastSubsTimestamp": 1792975800731,
         "history": [
-          {
-            "ts": 1792663687146,
-            "subs": 18700
-          },
           {
             "ts": 1792663987164,
             "subs": 18700
@@ -4803,6 +4806,10 @@
           },
           {
             "ts": 1792975500752,
+            "subs": 18800
+          },
+          {
+            "ts": 1792975800731,
             "subs": 18800
           }
         ],
@@ -18848,7 +18855,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 663,
+        "xp": 675,
         "level": 12,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -158069,7 +158076,7 @@
         ],
         "intervalMinutes": 15,
         "locked": true,
-        "lastUpdate": 1792974900631
+        "lastUpdate": 1792975800654
       }
     ]
   ],
