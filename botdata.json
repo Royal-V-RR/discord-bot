@@ -317,7 +317,15 @@
       }
     ]
   ],
-  "boostChannels": [],
+  "boostChannels": [
+    [
+      "1048053656035020911",
+      {
+        "channelId": "1500899929474732234",
+        "message": "https://cdn.discordapp.com/attachments/1500899929474732234/1564070776745762917/output.gif?ex=6adfedec&is=6ade9c6c&hm=5594a9a57b9c0facfd16b4f7fdd009f7fc4ff92fb42299acd1ca1c729cfb5c6d&"
+      }
+    ]
+  ],
   "autoRoles": [
     [
       "867435618748989481",
@@ -5268,7 +5276,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-27",
-        "xp": 5503,
+        "xp": 5508,
         "level": 34,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -18840,7 +18848,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 517,
+        "xp": 532,
         "level": 12,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -29931,7 +29939,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 1456,
+        "xp": 1466,
         "level": 11,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -70674,7 +70682,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 22,
+        "xp": 32,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -158008,7 +158016,7 @@
         ],
         "intervalMinutes": 15,
         "locked": true,
-        "lastUpdate": 1792973400620
+        "lastUpdate": 1792974300628
       }
     ],
     [
