@@ -396,11 +396,11 @@
     [
       "1048053656035020911:1529301472309678288",
       {
-        "expiresAt": 1793054363738,
+        "expiresAt": null,
         "mode": null,
         "ownerClanked": true,
-        "impersonateAsUserId": "230741545521905664",
-        "impersonateName": null,
+        "impersonateAsUserId": null,
+        "impersonateName": "someone else",
         "impersonateAvatarURL": null
       }
     ],
@@ -5371,7 +5371,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-27",
-        "xp": 6814,
+        "xp": 6827,
         "level": 34,
         "lastWorkTime": 0,
         "lastBegTime": 0,
