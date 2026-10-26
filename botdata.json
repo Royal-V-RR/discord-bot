@@ -810,12 +810,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18800,
-        "lastSubsTimestamp": 1793050610255,
+        "lastSubsTimestamp": 1793050910275,
         "history": [
-          {
-            "ts": 1792738599402,
-            "subs": 18700
-          },
           {
             "ts": 1792738899502,
             "subs": 18700
@@ -4811,6 +4807,10 @@
           {
             "ts": 1793050610255,
             "subs": 18800
+          },
+          {
+            "ts": 1793050910275,
+            "subs": 18800
           }
         ],
         "subcountDiscordId": "1483595393999700080",
@@ -6577,7 +6577,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 1773,
+        "xp": 1793,
         "level": 15,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -7410,7 +7410,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 7761,
+        "xp": 7770,
         "level": 31,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -18861,7 +18861,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 972,
+        "xp": 984,
         "level": 12,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -32930,7 +32930,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 1233,
+        "xp": 1240,
         "level": 16,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -35935,7 +35935,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 1225,
+        "xp": 1230,
         "level": 10,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -35961,7 +35961,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 626,
+        "xp": 641,
         "level": 12,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -49301,7 +49301,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 1167,
+        "xp": 1183,
         "level": 9,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -157839,6 +157839,17 @@
         "guildId": "1408975996715139084",
         "destFolder": null
       }
+    ],
+    [
+      "678288mvps776g",
+      {
+        "submitterId": "1529301472309678288",
+        "fileName": "1529301472309678288__image__9f032e6e_3cd2_4fa1_a075_192b24cae235.png",
+        "rawName": "9f032e6e_3cd2_4fa1_a075_192b24cae235.png",
+        "mediaKind": "image",
+        "guildId": "1048053656035020911",
+        "destFolder": null
+      }
     ]
   ],
   "quoteGuildConfigs": [
@@ -158811,7 +158822,7 @@
         ],
         "intervalMinutes": 15,
         "locked": true,
-        "lastUpdate": 1793050010178
+        "lastUpdate": 1793050910193
       }
     ],
     [
