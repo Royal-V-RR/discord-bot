@@ -5077,7 +5077,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-15",
-        "xp": 4848,
+        "xp": 4862,
         "level": 28,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -74470,7 +74470,12 @@
       }
     ]
   ],
-  "countingBlocks": [],
+  "countingBlocks": [
+    [
+      "1048053656035020911:1408290510610890852",
+      1793274904243
+    ]
+  ],
   "deactivateToggleConfig": [
     [
       "1521099828078182460",
