@@ -810,12 +810,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18800,
-        "lastSubsTimestamp": 1793135182167,
+        "lastSubsTimestamp": 1793135482141,
         "history": [
-          {
-            "ts": 1792822190798,
-            "subs": 18700
-          },
           {
             "ts": 1792822490795,
             "subs": 18700
@@ -4810,6 +4806,10 @@
           },
           {
             "ts": 1793135182167,
+            "subs": 18800
+          },
+          {
+            "ts": 1793135482141,
             "subs": 18800
           }
         ],
@@ -71930,6 +71930,30 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 13,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1554252778002587651",
+      {
+        "username": "daddysugar022",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 11,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -159452,7 +159476,7 @@
         ],
         "intervalMinutes": 15,
         "locked": true,
-        "lastUpdate": 1793134581984
+        "lastUpdate": 1793135482024
       }
     ]
   ],
