@@ -810,12 +810,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18800,
-        "lastSubsTimestamp": 1793111800639,
+        "lastSubsTimestamp": 1793112100655,
         "history": [
-          {
-            "ts": 1792798737907,
-            "subs": 18700
-          },
           {
             "ts": 1792799037913,
             "subs": 18700
@@ -4810,6 +4806,10 @@
           },
           {
             "ts": 1793111800639,
+            "subs": 18800
+          },
+          {
+            "ts": 1793112100655,
             "subs": 18800
           }
         ],
@@ -49310,7 +49310,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 549,
+        "xp": 558,
         "level": 10,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -71738,6 +71738,30 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 6,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1358894688949502022",
+      {
+        "username": "certified_nibbler67phonksigma",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 12,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -159231,7 +159255,7 @@
         ],
         "intervalMinutes": 15,
         "locked": true,
-        "lastUpdate": 1793111200532
+        "lastUpdate": 1793112100547
       }
     ],
     [
