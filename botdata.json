@@ -810,12 +810,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18800,
-        "lastSubsTimestamp": 1793108800564,
+        "lastSubsTimestamp": 1793109100561,
         "history": [
-          {
-            "ts": 1792795738069,
-            "subs": 18700
-          },
           {
             "ts": 1792796037864,
             "subs": 18700
@@ -4810,6 +4806,10 @@
           },
           {
             "ts": 1793108800564,
+            "subs": 18800
+          },
+          {
+            "ts": 1793109100561,
             "subs": 18800
           }
         ],
@@ -71666,6 +71666,30 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 5,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1396368309208875140",
+      {
+        "username": "abdou2x2_81361",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 11,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -159174,7 +159198,7 @@
         ],
         "intervalMinutes": 15,
         "locked": true,
-        "lastUpdate": 1793108200430
+        "lastUpdate": 1793109100451
       }
     ]
   ],
