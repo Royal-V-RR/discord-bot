@@ -819,12 +819,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18800,
-        "lastSubsTimestamp": 1793188519302,
+        "lastSubsTimestamp": 1793188819246,
         "history": [
-          {
-            "ts": 1792876077746,
-            "subs": 18800
-          },
           {
             "ts": 1792876377747,
             "subs": 18800
@@ -4819,6 +4815,10 @@
           },
           {
             "ts": 1793188519302,
+            "subs": 18800
+          },
+          {
+            "ts": 1793188819246,
             "subs": 18800
           }
         ],
@@ -72190,7 +72190,7 @@
       {
         "channelId": "1502443898524536883",
         "hour": 12,
-        "_lastFire": "1418644052114673666:2026-9-27:12"
+        "_lastFire": "1418644052114673666:2026-9-28:12"
       }
     ]
   ],
@@ -109880,6 +109880,10 @@
     [
       "1564941883195785276",
       "quote_259.png"
+    ],
+    [
+      "1564972085548163103",
+      "american wifi.png"
     ]
   ],
   "favoritedQuotes": [
@@ -158631,6 +158635,17 @@
         "voters": [],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
+        "sentToDeleter": false,
+        "type": "quote"
+      }
+    ],
+    [
+      "1564972085548163103",
+      {
+        "filename": "american wifi.png",
+        "voters": [],
+        "guildId": "1418644052114673666",
+        "channelId": "1502443898524536883",
         "sentToDeleter": false,
         "type": "quote"
       }
