@@ -214,14 +214,58 @@ function normalizeEmojiKey(emojiRaw) {
   return emojiRaw.trim().replace(/^<a?:([^:]+:\d+)>$/, "$1");
 }
 
-function parseReactionRoleLines(content) {
+function normalizeRoleNameKey(s) {
+  return (s || "").toLowerCase().replace(/\s+/g, "");
+}
+// Finds a role by its plain name anywhere in a line, ignoring case and
+// spacing differences ("Book After Work" matches "bookafterwork" or
+// "BOOK AFTER WORK"). Longer role names are tried first so a short name
+// doesn't win over a more specific one that also appears in the line.
+function findRoleByFuzzyName(line, guild) {
+  if (!guild) return null;
+  const normChars = [], origIndex = [];
+  for (let i = 0; i < line.length; i++) {
+    if (/\s/.test(line[i])) continue;
+    normChars.push(line[i].toLowerCase());
+    origIndex.push(i);
+  }
+  const normLine = normChars.join("");
+  if (!normLine) return null;
+
+  const roles = [...guild.roles.cache.values()]
+    .filter(r => r.id !== guild.id && normalizeRoleNameKey(r.name))
+    .sort((a, b) => normalizeRoleNameKey(b.name).length - normalizeRoleNameKey(a.name).length);
+  for (const r of roles) {
+    const key = normalizeRoleNameKey(r.name);
+    const pos = normLine.indexOf(key);
+    if (pos === -1) continue;
+    return { role: r, start: origIndex[pos], end: origIndex[pos + key.length - 1] + 1 };
+  }
+  return null;
+}
+// Reads each line for either an actual role mention or, failing that, the
+// role's plain name (case and spacing don't matter), and returns the role
+// paired with whatever's left on the line as the emoji. guild is required
+// for name matching; without it, only real mentions are recognized.
+function parseReactionRoleLines(content, guild) {
   const results = [];
   for (const line of (content || "").split("\n")) {
     const roleMatch = line.match(/<@&(\d+)>/);
-    if (!roleMatch) continue;
-    const rest = line.slice(0, roleMatch.index) + line.slice(roleMatch.index + roleMatch[0].length);
+    let roleId, matchStart, matchEnd;
+    if (roleMatch) {
+      roleId = roleMatch[1];
+      matchStart = roleMatch.index;
+      matchEnd = roleMatch.index + roleMatch[0].length;
+    } else {
+      const found = findRoleByFuzzyName(line, guild);
+      if (!found) continue;
+      roleId = found.role.id;
+      matchStart = found.start;
+      matchEnd = found.end;
+    }
+    const rest = line.slice(0, matchStart) + line.slice(matchEnd);
     const emojiRaw = rest.replace(/[|:\-\u2013\u2014]+/g, " ").trim();
-    if (emojiRaw) results.push({ emojiRaw, roleId: roleMatch[1] });
+    if (emojiRaw) results.push({ emojiRaw, roleId });
   }
   return results;
 }
@@ -10078,15 +10122,15 @@ client.on("interactionCreate",async interaction=>{
         if(b.dropdowns.length>=DD_MAX_DROPDOWNS){ results.push(`⚠️ \`${messageId}\`: skipped, already at ${DD_MAX_DROPDOWNS} dropdowns`); continue; }
         const targetMsg = await findMessageInGuild(guild, messageId);
         if(!targetMsg){ results.push(`❌ \`${messageId}\`: message not found`); continue; }
-        const parsed = parseReactionRoleLines(targetMsg.content);
-        if(!parsed.length){ results.push(`❌ \`${messageId}\`: no \`EMOJI | @Role\` lines found`); continue; }
+        const parsed = parseReactionRoleLines(targetMsg.content, guild);
+        if(!parsed.length){ results.push(`❌ \`${messageId}\`: no emoji + role lines found`); continue; }
         const options = [];
         for(const {emojiRaw, roleId} of parsed){
           if(!guild.roles.cache.get(roleId)) continue;
           options.push({ emojiRaw, roleId });
         }
         if(!options.length){ results.push(`❌ \`${messageId}\`: no valid roles found`); continue; }
-        const firstLine = targetMsg.content.split("\n").map(l=>l.trim()).find(l=>l && !/<@&\d+>/.test(l));
+        const firstLine = targetMsg.content.split("\n").map(l=>l.trim()).find(l=>l && !parseReactionRoleLines(l, guild).length);
         const name = (firstLine || `Dropdown (msg ${messageId})`).slice(0,100);
         b.dropdowns.push({ name, options });
         results.push(`✅ \`${messageId}\`: created "${name}" with ${options.length} option${options.length!==1?"s":""}`);
@@ -11784,8 +11828,8 @@ if(cmd==="divorce"){
         await interaction.deferReply({ephemeral:true});
         const targetMsg=await findMessageInGuild(interaction.guild, messageId);
         if(!targetMsg)return safeReply(interaction,{content:"Message not found. Make sure the message ID is correct and the bot can see the channel.",ephemeral:true});
-        const parsed=parseReactionRoleLines(targetMsg.content);
-        if(!parsed.length)return safeReply(interaction,{content:"No lines matched the `EMOJI | @Role` pattern in that message. Each line needs an emoji, then a `|`, then an actual role mention.",ephemeral:true});
+        const parsed=parseReactionRoleLines(targetMsg.content, interaction.guild);
+        if(!parsed.length)return safeReply(interaction,{content:"No lines matched. Each line needs an emoji, then a role, either an actual role mention or just the role's name (caps and spaces don't matter).",ephemeral:true});
         const results=[];
         for(const {emojiRaw, roleId} of parsed){
           const role=interaction.guild.roles.cache.get(roleId);
