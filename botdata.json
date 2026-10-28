@@ -827,12 +827,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18800,
-        "lastSubsTimestamp": 1793206882875,
+        "lastSubsTimestamp": 1793207182905,
         "history": [
-          {
-            "ts": 1792894581116,
-            "subs": 18800
-          },
           {
             "ts": 1792894881098,
             "subs": 18800
@@ -4827,6 +4823,10 @@
           },
           {
             "ts": 1793206882875,
+            "subs": 18800
+          },
+          {
+            "ts": 1793207182905,
             "subs": 18800
           }
         ],
@@ -72380,6 +72380,30 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 11,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1552133618359341131",
+      {
+        "username": "celestial_beagle_18283",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 5,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -159991,7 +160015,7 @@
         ],
         "intervalMinutes": 15,
         "locked": true,
-        "lastUpdate": 1793206282755
+        "lastUpdate": 1793207182776
       }
     ]
   ],
