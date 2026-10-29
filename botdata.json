@@ -819,12 +819,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18800,
-        "lastSubsTimestamp": 1793286038335,
+        "lastSubsTimestamp": 1793286338270,
         "history": [
-          {
-            "ts": 1792981200991,
-            "subs": 18800
-          },
           {
             "ts": 1792981500930,
             "subs": 18800
@@ -4819,6 +4815,10 @@
           },
           {
             "ts": 1793286038335,
+            "subs": 18800
+          },
+          {
+            "ts": 1793286338270,
             "subs": 18800
           }
         ],
@@ -18449,7 +18449,7 @@
         "dailyStreak": 1,
         "bestStreak": 4,
         "lastDailyDate": "2026-06-13",
-        "xp": 612,
+        "xp": 618,
         "level": 20,
         "lastWorkTime": 1778166713164,
         "lastBegTime": 1778166374950,
@@ -72997,6 +72997,30 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 11,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1287088010294198318",
+      {
+        "username": "kutti31",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 13,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -160643,7 +160667,7 @@
         ],
         "intervalMinutes": 15,
         "locked": true,
-        "lastUpdate": 1793285438138
+        "lastUpdate": 1793286338172
       }
     ],
     [
