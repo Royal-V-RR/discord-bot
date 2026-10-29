@@ -819,12 +819,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18800,
-        "lastSubsTimestamp": 1793287538302,
+        "lastSubsTimestamp": 1793287838301,
         "history": [
-          {
-            "ts": 1792982700985,
-            "subs": 18800
-          },
           {
             "ts": 1792983000956,
             "subs": 18800
@@ -4819,6 +4815,10 @@
           },
           {
             "ts": 1793287538302,
+            "subs": 18800
+          },
+          {
+            "ts": 1793287838301,
             "subs": 18800
           }
         ],
@@ -73093,6 +73093,30 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 11,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "949055932992729130",
+      {
+        "username": ".noxaris.",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 6,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
