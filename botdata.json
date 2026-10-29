@@ -819,12 +819,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18800,
-        "lastSubsTimestamp": 1793267664881,
+        "lastSubsTimestamp": 1793267964881,
         "history": [
-          {
-            "ts": 1792962842240,
-            "subs": 18800
-          },
           {
             "ts": 1792963142207,
             "subs": 18800
@@ -4819,6 +4815,10 @@
           },
           {
             "ts": 1793267664881,
+            "subs": 18800
+          },
+          {
+            "ts": 1793267964881,
             "subs": 18800
           }
         ],
@@ -72661,6 +72661,30 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 11,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "916023162460844052",
+      {
+        "username": "d1scordreal",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 12,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -160287,7 +160311,7 @@
         ],
         "intervalMinutes": 15,
         "locked": true,
-        "lastUpdate": 1793267064761
+        "lastUpdate": 1793267964770
       }
     ]
   ],
