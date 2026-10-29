@@ -819,12 +819,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18800,
-        "lastSubsTimestamp": 1793294485417,
+        "lastSubsTimestamp": 1793294785449,
         "history": [
-          {
-            "ts": 1792989856408,
-            "subs": 18800
-          },
           {
             "ts": 1792990156386,
             "subs": 18800
@@ -4819,6 +4815,10 @@
           },
           {
             "ts": 1793294485417,
+            "subs": 18800
+          },
+          {
+            "ts": 1793294785449,
             "subs": 18800
           }
         ],
@@ -35955,7 +35955,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 156,
+        "xp": 163,
         "level": 11,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -73213,6 +73213,30 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 10,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "886285123237081189",
+      {
+        "username": "arachnids.grip",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 7,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -160888,7 +160912,7 @@
         ],
         "intervalMinutes": 15,
         "locked": true,
-        "lastUpdate": 1793293838360
+        "lastUpdate": 1793294785341
       }
     ]
   ],
