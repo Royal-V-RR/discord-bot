@@ -819,12 +819,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18800,
-        "lastSubsTimestamp": 1793394253531,
+        "lastSubsTimestamp": 1793394553542,
         "history": [
-          {
-            "ts": 1793090772952,
-            "subs": 18800
-          },
           {
             "ts": 1793091072966,
             "subs": 18800
@@ -4819,6 +4815,10 @@
           },
           {
             "ts": 1793394253531,
+            "subs": 18800
+          },
+          {
+            "ts": 1793394553542,
             "subs": 18800
           }
         ],
@@ -74298,6 +74298,30 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 14,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1427707837940764762",
+      {
+        "username": "mightyquinn2019_64934",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 8,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -162103,7 +162127,7 @@
         ],
         "intervalMinutes": 15,
         "locked": true,
-        "lastUpdate": 1793393653429
+        "lastUpdate": 1793394553462
       }
     ]
   ],
