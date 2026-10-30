@@ -819,12 +819,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18800,
-        "lastSubsTimestamp": 1793369802932,
+        "lastSubsTimestamp": 1793370102936,
         "history": [
-          {
-            "ts": 1793066280793,
-            "subs": 18800
-          },
           {
             "ts": 1793066580809,
             "subs": 18800
@@ -4819,6 +4815,10 @@
           },
           {
             "ts": 1793369802932,
+            "subs": 18800
+          },
+          {
+            "ts": 1793370102936,
             "subs": 18800
           }
         ],
@@ -9424,7 +9424,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 376,
+        "xp": 391,
         "level": 13,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -73863,6 +73863,30 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 13,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1274288859521224769",
+      {
+        "username": "ranjeetshakya129_33427",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 7,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -161586,7 +161610,7 @@
         ],
         "intervalMinutes": 15,
         "locked": true,
-        "lastUpdate": 1793369202814
+        "lastUpdate": 1793370102834
       }
     ]
   ],
