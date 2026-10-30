@@ -819,12 +819,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18800,
-        "lastSubsTimestamp": 1793322146501,
+        "lastSubsTimestamp": 1793322446511,
         "history": [
-          {
-            "ts": 1793017349239,
-            "subs": 18800
-          },
           {
             "ts": 1793017649229,
             "subs": 18800
@@ -4819,6 +4815,10 @@
           },
           {
             "ts": 1793322146501,
+            "subs": 18800
+          },
+          {
+            "ts": 1793322446511,
             "subs": 18800
           }
         ],
@@ -73695,6 +73695,30 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 8,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1565531511808331897",
+      {
+        "username": "mikevr90821",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 10,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
