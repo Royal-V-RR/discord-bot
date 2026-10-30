@@ -7423,7 +7423,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 148,
+        "xp": 163,
         "level": 32,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -64165,7 +64165,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 37,
+        "xp": 49,
         "level": 3,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -84931,6 +84931,13 @@
     ],
     [
       "quote_128.jpg",
+      {
+        "up": 1,
+        "down": 0
+      }
+    ],
+    [
+      "IMG_5407.png",
       {
         "up": 1,
         "down": 0
@@ -111874,7 +111881,8 @@
         "quote_9.png",
         "quote_168.png",
         "IMG_3785.jpeg",
-        "Screenshot_20260602-1609292.png"
+        "Screenshot_20260602-1609292.png",
+        "IMG_5407.png"
       ]
     ],
     [
@@ -111949,7 +111957,7 @@
     [
       "969280648667889764",
       {
-        "up": 8,
+        "up": 9,
         "down": 0
       }
     ],
@@ -169904,6 +169912,15 @@
       [
         [
           "1082452773787942922",
+          "up"
+        ]
+      ]
+    ],
+    [
+      "IMG_5407.png",
+      [
+        [
+          "969280648667889764",
           "up"
         ]
       ]
