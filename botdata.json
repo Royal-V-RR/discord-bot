@@ -819,12 +819,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18800,
-        "lastSubsTimestamp": 1793393353502,
+        "lastSubsTimestamp": 1793393653508,
         "history": [
-          {
-            "ts": 1793089872910,
-            "subs": 18800
-          },
           {
             "ts": 1793090172947,
             "subs": 18800
@@ -4819,6 +4815,10 @@
           },
           {
             "ts": 1793393353502,
+            "subs": 18800
+          },
+          {
+            "ts": 1793393653508,
             "subs": 18800
           }
         ],
@@ -18454,7 +18454,7 @@
         "dailyStreak": 1,
         "bestStreak": 4,
         "lastDailyDate": "2026-06-13",
-        "xp": 1186,
+        "xp": 1192,
         "level": 20,
         "lastWorkTime": 1778166713164,
         "lastBegTime": 1778166374950,
@@ -74274,6 +74274,30 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 9,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1563467569183203413",
+      {
+        "username": "alamri0991",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 14,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -162079,7 +162103,7 @@
         ],
         "intervalMinutes": 15,
         "locked": true,
-        "lastUpdate": 1793392753421
+        "lastUpdate": 1793393653429
       }
     ]
   ],
