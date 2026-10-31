@@ -819,12 +819,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18800,
-        "lastSubsTimestamp": 1793479064702,
+        "lastSubsTimestamp": 1793479364743,
         "history": [
-          {
-            "ts": 1793176218875,
-            "subs": 18800
-          },
           {
             "ts": 1793176518895,
             "subs": 18800
@@ -4819,6 +4815,10 @@
           },
           {
             "ts": 1793479064702,
+            "subs": 18800
+          },
+          {
+            "ts": 1793479364743,
             "subs": 18800
           }
         ],
@@ -35649,7 +35649,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 1818,
+        "xp": 1832,
         "level": 15,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -75015,6 +75015,30 @@
       "1493162584768249980",
       {
         "username": "ucanbulgaristanli",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 6,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "264373426225938432",
+      {
+        "username": "sleepysadden",
         "wins": 0,
         "gamesPlayed": 0,
         "coins": 0,
