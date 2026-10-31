@@ -5292,7 +5292,7 @@
         "dailyStreak": 1,
         "bestStreak": 1,
         "lastDailyDate": "2026-04-27",
-        "xp": 437,
+        "xp": 451,
         "level": 35,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -7437,7 +7437,7 @@
         "marriedTo": null,
         "pendingProposal": null,
         "forceMarried": false,
-        "imagesUploaded": 292,
+        "imagesUploaded": 293,
         "uploadedImages": [
           "quote_1497935819296477225.png",
           "IMG_7931.png",
@@ -7713,7 +7713,8 @@
           "quote_584.png",
           "quote_585.png",
           "quote_587.jpg",
-          "quote_591.png"
+          "quote_591.png",
+          "quote_592.png"
         ],
         "lastFishTime": 0,
         "lastMineTime": 0,
@@ -35964,7 +35965,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 384,
+        "xp": 398,
         "level": 11,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -161903,17 +161904,6 @@
         "guildId": "1048053656035020911",
         "destFolder": null
       }
-    ],
-    [
-      "860083mvwyag69",
-      {
-        "submitterId": "1254388539890860083",
-        "fileName": "1254388539890860083__image__IMG_0548.png",
-        "rawName": "IMG_0548.png",
-        "mediaKind": "image",
-        "guildId": "1048053656035020911",
-        "destFolder": null
-      }
     ]
   ],
   "quoteGuildConfigs": [
@@ -161943,7 +161933,7 @@
     ]
   ],
   "uploadCounters": {
-    "quote": 591,
+    "quote": 592,
     "eardestroyer": 1,
     "eyebleacher": 3
   },
