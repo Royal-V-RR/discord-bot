@@ -819,12 +819,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18800,
-        "lastSubsTimestamp": 1793410718764,
+        "lastSubsTimestamp": 1793411018739,
         "history": [
-          {
-            "ts": 1793107300533,
-            "subs": 18800
-          },
           {
             "ts": 1793107600551,
             "subs": 18800
@@ -4819,6 +4815,10 @@
           },
           {
             "ts": 1793410718764,
+            "subs": 18800
+          },
+          {
+            "ts": 1793411018739,
             "subs": 18800
           }
         ],
@@ -74541,6 +74541,30 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 11,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1044726360981131274",
+      {
+        "username": "greencat13_",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 5,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -162346,7 +162370,7 @@
         ],
         "intervalMinutes": 15,
         "locked": true,
-        "lastUpdate": 1793410118617
+        "lastUpdate": 1793411018628
       }
     ]
   ],
