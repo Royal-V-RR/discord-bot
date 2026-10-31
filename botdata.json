@@ -4856,8 +4856,8 @@
       "1515972755424673902",
       {
         "guildId": "1048053656035020911",
-        "count": 1,
-        "lastUserId": "922582069979275325",
+        "count": 0,
+        "lastUserId": null,
         "highScore": 323
       }
     ]
@@ -6589,7 +6589,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 149,
+        "xp": 163,
         "level": 16,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -29981,7 +29981,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 502,
+        "xp": 517,
         "level": 12,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -31879,7 +31879,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 751,
+        "xp": 756,
         "level": 8,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -36234,7 +36234,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 2,
+        "xp": 24,
         "level": 3,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -78371,10 +78371,6 @@
     [
       "1048053656035020911:1408290510610890852",
       1793274904243
-    ],
-    [
-      "1048053656035020911:1295388790793310219",
-      1793332589514
     ],
     [
       "1048053656035020911:1529301472309678288",
