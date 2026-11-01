@@ -819,12 +819,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18800,
-        "lastSubsTimestamp": 1793569323602,
+        "lastSubsTimestamp": 1793569623621,
         "history": [
-          {
-            "ts": 1793266764863,
-            "subs": 18800
-          },
           {
             "ts": 1793267064901,
             "subs": 18800
@@ -4819,6 +4815,10 @@
           },
           {
             "ts": 1793569323602,
+            "subs": 18800
+          },
+          {
+            "ts": 1793569623621,
             "subs": 18800
           }
         ],
@@ -69589,7 +69589,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 129,
+        "xp": 139,
         "level": 2,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -75225,6 +75225,54 @@
       "649376997809717268",
       {
         "username": ".rzxq",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 12,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "967742457792061441",
+      {
+        "username": "lvx_lvx_lvx_lvx",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 12,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1307339629342621791",
+      {
+        "username": "gangersss",
         "wins": 0,
         "gamesPlayed": 0,
         "coins": 0,
@@ -163092,7 +163140,7 @@
         ],
         "intervalMinutes": 15,
         "locked": true,
-        "lastUpdate": 1793568723500
+        "lastUpdate": 1793569623545
       }
     ],
     [
