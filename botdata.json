@@ -4856,8 +4856,8 @@
       "1515972755424673902",
       {
         "guildId": "1048053656035020911",
-        "count": 35,
-        "lastUserId": "1295388790793310219",
+        "count": 36,
+        "lastUserId": "1342208463807447104",
         "highScore": 323
       }
     ]
@@ -75477,6 +75477,30 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 14,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1342208463807447104",
+      {
+        "username": "no_name.k",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 15,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
