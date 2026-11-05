@@ -114550,7 +114550,7 @@
     [
       "969280648667889764",
       {
-        "flagged": 24,
+        "flagged": 25,
         "deleted": 21
       }
     ],
@@ -114834,6 +114834,12 @@
       "quote_1498033819045855273.png",
       [
         "1082452773787942922"
+      ]
+    ],
+    [
+      "fucking important.png",
+      [
+        "969280648667889764"
       ]
     ]
   ],
@@ -163378,10 +163384,12 @@
       "1567871184270266499",
       {
         "filename": "fucking important.png",
-        "voters": [],
+        "voters": [
+          "969280648667889764"
+        ],
         "guildId": "1418644052114673666",
         "channelId": "1502443898524536883",
-        "sentToDeleter": false,
+        "sentToDeleter": true,
         "type": "quote"
       }
     ]
