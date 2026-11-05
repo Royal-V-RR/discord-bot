@@ -76381,7 +76381,7 @@
       {
         "channelId": "1502443898524536883",
         "hour": 12,
-        "_lastFire": "1418644052114673666:2026-10-4:12"
+        "_lastFire": "1418644052114673666:2026-10-5:12"
       }
     ]
   ],
@@ -114285,6 +114285,10 @@
     [
       "1567841029758001303",
       "quote_77.png"
+    ],
+    [
+      "1567871184270266499",
+      "fucking important.png"
     ]
   ],
   "favoritedQuotes": [
@@ -163366,6 +163370,17 @@
         "voters": [],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
+        "sentToDeleter": false,
+        "type": "quote"
+      }
+    ],
+    [
+      "1567871184270266499",
+      {
+        "filename": "fucking important.png",
+        "voters": [],
+        "guildId": "1418644052114673666",
+        "channelId": "1502443898524536883",
         "sentToDeleter": false,
         "type": "quote"
       }
