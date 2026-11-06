@@ -806,12 +806,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18900,
-        "lastSubsTimestamp": 1793982122162,
+        "lastSubsTimestamp": 1793982422098,
         "history": [
-          {
-            "ts": 1793678977099,
-            "subs": 18900
-          },
           {
             "ts": 1793679277096,
             "subs": 18900
@@ -4807,6 +4803,10 @@
           {
             "ts": 1793982122162,
             "subs": 18900
+          },
+          {
+            "ts": 1793982422098,
+            "subs": 18900
           }
         ],
         "subcountDiscordId": "1483595393999700080",
@@ -6212,7 +6212,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 2008,
+        "xp": 2021,
         "level": 20,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -49349,7 +49349,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 824,
+        "xp": 831,
         "level": 11,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -77201,6 +77201,30 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 10,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1360523123451101357",
+      {
+        "username": "dominator_rawa",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 13,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
