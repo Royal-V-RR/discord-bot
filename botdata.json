@@ -806,12 +806,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18900,
-        "lastSubsTimestamp": 1793995022375,
+        "lastSubsTimestamp": 1793995322334,
         "history": [
-          {
-            "ts": 1793692218047,
-            "subs": 18900
-          },
           {
             "ts": 1793692518011,
             "subs": 18900
@@ -4806,6 +4802,10 @@
           },
           {
             "ts": 1793995022375,
+            "subs": 18900
+          },
+          {
+            "ts": 1793995322334,
             "subs": 18900
           }
         ],
@@ -77324,7 +77324,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 144,
+        "xp": 158,
         "level": 3,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -77469,6 +77469,30 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 7,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1484243121570185277",
+      {
+        "username": "jsm.7k8",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 5,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
