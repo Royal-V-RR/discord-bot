@@ -806,12 +806,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18900,
-        "lastSubsTimestamp": 1793988722209,
+        "lastSubsTimestamp": 1793989022246,
         "history": [
-          {
-            "ts": 1793685577238,
-            "subs": 18900
-          },
           {
             "ts": 1793685877279,
             "subs": 18900
@@ -4807,6 +4803,10 @@
           {
             "ts": 1793988722209,
             "subs": 18900
+          },
+          {
+            "ts": 1793989022246,
+            "subs": 18900
           }
         ],
         "subcountDiscordId": "1483595393999700080",
@@ -5826,7 +5826,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 4431,
+        "xp": 4444,
         "level": 26,
         "lastWorkTime": 1778752522595,
         "lastBegTime": 0,
@@ -7434,7 +7434,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 1717,
+        "xp": 1732,
         "level": 32,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -18479,7 +18479,7 @@
         "dailyStreak": 1,
         "bestStreak": 4,
         "lastDailyDate": "2026-06-13",
-        "xp": 4143,
+        "xp": 4169,
         "level": 20,
         "lastWorkTime": 1778166713164,
         "lastBegTime": 1778166374950,
@@ -35838,7 +35838,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 279,
+        "xp": 288,
         "level": 12,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -69787,7 +69787,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 603,
+        "xp": 614,
         "level": 8,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -77323,7 +77323,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 47,
+        "xp": 53,
         "level": 3,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -165549,7 +165549,7 @@
         ],
         "intervalMinutes": 15,
         "locked": true,
-        "lastUpdate": 1793988122142
+        "lastUpdate": 1793989022144
       }
     ]
   ],
