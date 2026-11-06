@@ -806,12 +806,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18900,
-        "lastSubsTimestamp": 1793993522339,
+        "lastSubsTimestamp": 1793993822323,
         "history": [
-          {
-            "ts": 1793690410645,
-            "subs": 18900
-          },
           {
             "ts": 1793690710654,
             "subs": 18900
@@ -4806,6 +4802,10 @@
           },
           {
             "ts": 1793993522339,
+            "subs": 18900
+          },
+          {
+            "ts": 1793993822323,
             "subs": 18900
           }
         ],
@@ -35260,7 +35260,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 682,
+        "xp": 695,
         "level": 14,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -77420,6 +77420,30 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 7,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1489332332400869486",
+      {
+        "username": "skoba_sade",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 12,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
