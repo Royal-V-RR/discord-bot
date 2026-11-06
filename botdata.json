@@ -806,12 +806,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18900,
-        "lastSubsTimestamp": 1793979722025,
+        "lastSubsTimestamp": 1793980022074,
         "history": [
-          {
-            "ts": 1793676577037,
-            "subs": 18900
-          },
           {
             "ts": 1793676877054,
             "subs": 18900
@@ -4806,6 +4802,10 @@
           },
           {
             "ts": 1793979722025,
+            "subs": 18900
+          },
+          {
+            "ts": 1793980022074,
             "subs": 18900
           }
         ],
@@ -77129,6 +77129,30 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 8,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "693928035933749278",
+      {
+        "username": "giovani_0603",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 9,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -165376,7 +165400,7 @@
         ],
         "intervalMinutes": 15,
         "locked": true,
-        "lastUpdate": 1793978867248
+        "lastUpdate": 1793980021981
       }
     ]
   ],
