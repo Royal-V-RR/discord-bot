@@ -167114,6 +167114,26 @@
         "creatorName": "hawkshadow74",
         "createdAt": 1792588822663
       }
+    ],
+    [
+      "kara",
+      {
+        "triggers": [
+          "kara"
+        ],
+        "actions": [
+          {
+            "type": "setstatus",
+            "params": {
+              "text": "Meowing at Meowers"
+            }
+          }
+        ],
+        "ownerLocked": false,
+        "creatorId": "1082452773787942922",
+        "creatorName": "hawkshadow74",
+        "createdAt": 1794055375773
+      }
     ]
   ],
   "serverStatsConfig": [
