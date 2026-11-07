@@ -88867,6 +88867,13 @@
         "up": 1,
         "down": 0
       }
+    ],
+    [
+      "0bef1df1-c7e8-41bb-af7a-88a2fe5a0027.png",
+      {
+        "up": 1,
+        "down": 0
+      }
     ]
   ],
   "quoteVoteMessages": [
@@ -116061,6 +116068,14 @@
     [
       "1568600038731419699",
       "quote_282.png"
+    ],
+    [
+      "1568600064320864338",
+      "0bef1df1-c7e8-41bb-af7a-88a2fe5a0027.png"
+    ],
+    [
+      "1568600084369903627",
+      "quote_1493918222674563225.png"
     ]
   ],
   "favoritedQuotes": [
@@ -116315,7 +116330,7 @@
     [
       "1529301472309678288",
       {
-        "up": 2,
+        "up": 3,
         "down": 0
       }
     ],
@@ -165827,6 +165842,28 @@
         "sentToDeleter": false,
         "type": "quote"
       }
+    ],
+    [
+      "1568600064320864338",
+      {
+        "filename": "0bef1df1-c7e8-41bb-af7a-88a2fe5a0027.png",
+        "voters": [],
+        "guildId": "1048053656035020911",
+        "channelId": "1477294439180537980",
+        "sentToDeleter": false,
+        "type": "quote"
+      }
+    ],
+    [
+      "1568600084369903627",
+      {
+        "filename": "quote_1493918222674563225.png",
+        "voters": [],
+        "guildId": "1048053656035020911",
+        "channelId": "1477294439180537980",
+        "sentToDeleter": false,
+        "type": "quote"
+      }
     ]
   ],
   "selfClankUsers": [
@@ -175178,6 +175215,15 @@
     ],
     [
       "quote_514.png",
+      [
+        [
+          "1529301472309678288",
+          "up"
+        ]
+      ]
+    ],
+    [
+      "0bef1df1-c7e8-41bb-af7a-88a2fe5a0027.png",
       [
         [
           "1529301472309678288",
