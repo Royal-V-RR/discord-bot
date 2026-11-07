@@ -49357,7 +49357,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 1388,
+        "xp": 1400,
         "level": 11,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -88874,6 +88874,13 @@
         "up": 1,
         "down": 0
       }
+    ],
+    [
+      "quote_36.png",
+      {
+        "up": 1,
+        "down": 0
+      }
     ]
   ],
   "quoteVoteMessages": [
@@ -116128,6 +116135,10 @@
     [
       "1568600573245390951",
       "quote_36.png"
+    ],
+    [
+      "1568600606443184170",
+      "quote_169.png"
     ]
   ],
   "favoritedQuotes": [
@@ -116272,7 +116283,7 @@
     [
       "969280648667889764",
       {
-        "up": 9,
+        "up": 10,
         "down": 0
       }
     ],
@@ -166061,6 +166072,17 @@
         "sentToDeleter": false,
         "type": "quote"
       }
+    ],
+    [
+      "1568600606443184170",
+      {
+        "filename": "quote_169.png",
+        "voters": [],
+        "guildId": "1048053656035020911",
+        "channelId": "1477294439180537980",
+        "sentToDeleter": false,
+        "type": "quote"
+      }
     ]
   ],
   "selfClankUsers": [
@@ -175428,6 +175450,15 @@
       [
         [
           "1529301472309678288",
+          "up"
+        ]
+      ]
+    ],
+    [
+      "quote_36.png",
+      [
+        [
+          "969280648667889764",
           "up"
         ]
       ]
