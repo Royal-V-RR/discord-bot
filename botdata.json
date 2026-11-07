@@ -115826,6 +115826,18 @@
     [
       "1568550969195626557",
       "IMG_4234.png"
+    ],
+    [
+      "1568551013994995775",
+      "c9beefec-bf5a-4b4a-b62b-01adac1b5fdb.png"
+    ],
+    [
+      "1568551017384124468",
+      "quote_587.jpg"
+    ],
+    [
+      "1568551030214365184",
+      "quote_287.png"
     ]
   ],
   "favoritedQuotes": [
@@ -164997,6 +165009,39 @@
         "guildId": "1408975996715139084",
         "channelId": "1408975997272854611",
         "sentToDeleter": true,
+        "type": "quote"
+      }
+    ],
+    [
+      "1568551013994995775",
+      {
+        "filename": "c9beefec-bf5a-4b4a-b62b-01adac1b5fdb.png",
+        "voters": [],
+        "guildId": "1408975996715139084",
+        "channelId": "1408975997272854611",
+        "sentToDeleter": false,
+        "type": "quote"
+      }
+    ],
+    [
+      "1568551017384124468",
+      {
+        "filename": "quote_587.jpg",
+        "voters": [],
+        "guildId": "1408975996715139084",
+        "channelId": "1408975997272854611",
+        "sentToDeleter": false,
+        "type": "quote"
+      }
+    ],
+    [
+      "1568551030214365184",
+      {
+        "filename": "quote_287.png",
+        "voters": [],
+        "guildId": "1408975996715139084",
+        "channelId": "1408975997272854611",
+        "sentToDeleter": false,
         "type": "quote"
       }
     ]
