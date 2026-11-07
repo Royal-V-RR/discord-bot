@@ -18548,7 +18548,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 3324,
+        "xp": 3338,
         "level": 20,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -35675,7 +35675,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 1527,
+        "xp": 1541,
         "level": 16,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -77966,6 +77966,30 @@
         "forceMarried": false,
         "uploadedImages": []
       }
+    ],
+    [
+      "964851189571268659",
+      {
+        "username": "e9.vy",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 12,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
     ]
   ],
   "activeEffects": [],
@@ -88126,7 +88150,7 @@
     [
       "quote_52.png",
       {
-        "up": 1,
+        "up": 2,
         "down": 0
       }
     ],
@@ -116567,7 +116591,7 @@
     [
       "1342208463807447104",
       {
-        "up": 6,
+        "up": 7,
         "down": 0
       }
     ],
@@ -173715,6 +173739,10 @@
       [
         [
           "1254388539890860083",
+          "up"
+        ],
+        [
+          "1342208463807447104",
           "up"
         ]
       ]
