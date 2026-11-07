@@ -79884,12 +79884,13 @@
           "EhgDibw7vB4",
           "cqwcH_WIP-8",
           "BVoe45rewMU",
-          "jbZT-bwZD3c"
+          "jbZT-bwZD3c",
+          "zABLecsR5UE"
         ],
         "postChannelId": "1499035867426197565",
         "hour": 14,
         "pingRoleId": "1500478427164311713",
-        "_lastFire": "1418644052114673666:2026-10-6:14",
+        "_lastFire": "1418644052114673666:2026-10-7:14",
         "genreMode": null
       }
     ],
@@ -81215,6 +81216,19 @@
         "genres": [],
         "matched": false,
         "cachedAt": 1793973649101
+      }
+    ],
+    [
+      "zABLecsR5UE",
+      {
+        "title": "Someone You Loved",
+        "artist": "Lewis Capaldi",
+        "artwork": "https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/92/d7/8f/92d78fb1-df3d-049e-c81d-7022808b151f/19UMGIM02973.rgb.jpg/600x600bb.jpg",
+        "genres": [
+          "Alternative"
+        ],
+        "matched": true,
+        "cachedAt": 1794060002090
       }
     ]
   ],
