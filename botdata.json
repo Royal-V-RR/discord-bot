@@ -167740,7 +167740,7 @@
       "hawk",
       {
         "triggers": [
-          "cancel :3"
+          "cancel colon3"
         ],
         "actions": [
           {
@@ -167761,7 +167761,7 @@
         "ownerLocked": true,
         "creatorId": "1082452773787942922",
         "creatorName": "hawkshadow74",
-        "createdAt": 1794108969715
+        "createdAt": 1794109102417
       }
     ]
   ],
