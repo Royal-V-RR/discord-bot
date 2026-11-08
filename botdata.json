@@ -806,12 +806,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18900,
-        "lastSubsTimestamp": 1794144782004,
+        "lastSubsTimestamp": 1794145081994,
         "history": [
-          {
-            "ts": 1793839101507,
-            "subs": 18900
-          },
           {
             "ts": 1793839401503,
             "subs": 18900
@@ -4806,6 +4802,10 @@
           },
           {
             "ts": 1794144782004,
+            "subs": 18900
+          },
+          {
+            "ts": 1794145081994,
             "subs": 18900
           }
         ],
@@ -78568,6 +78568,30 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 12,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1373720572739190955",
+      {
+        "username": "berko0304",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 6,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
