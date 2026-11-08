@@ -167707,6 +167707,27 @@
         "creatorName": "hawkshadow74",
         "createdAt": 1794055375773
       }
+    ],
+    [
+      "figgy",
+      {
+        "triggers": [
+          ":3"
+        ],
+        "actions": [
+          {
+            "type": "clankerify",
+            "params": {
+              "mode": "figgy",
+              "duration": ""
+            }
+          }
+        ],
+        "ownerLocked": true,
+        "creatorId": "1082452773787942922",
+        "creatorName": "hawkshadow74",
+        "createdAt": 1794108768419
+      }
     ]
   ],
   "serverStatsConfig": [
