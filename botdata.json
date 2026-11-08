@@ -4982,7 +4982,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 805,
+        "xp": 813,
         "level": 18,
         "lastWorkTime": 1778930588496,
         "lastBegTime": 1778930582404,
@@ -6583,7 +6583,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 1378,
+        "xp": 1388,
         "level": 16,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -167749,12 +167749,19 @@
               "mode": "none",
               "duration": "0"
             }
+          },
+          {
+            "type": "echo",
+            "params": {
+              "message": "Very well, sir.",
+              "replyMode": "replyactor"
+            }
           }
         ],
         "ownerLocked": true,
         "creatorId": "1082452773787942922",
         "creatorName": "hawkshadow74",
-        "createdAt": 1794108811632
+        "createdAt": 1794108969715
       }
     ]
   ],
