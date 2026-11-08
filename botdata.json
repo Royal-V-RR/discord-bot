@@ -167721,12 +167721,19 @@
               "mode": "figgy",
               "duration": ""
             }
+          },
+          {
+            "type": "echo",
+            "params": {
+              "message": "As you wish, ma'am.",
+              "replyMode": "replyactor"
+            }
           }
         ],
         "ownerLocked": true,
         "creatorId": "1082452773787942922",
         "creatorName": "hawkshadow74",
-        "createdAt": 1794108768419
+        "createdAt": 1794108902066
       }
     ],
     [
