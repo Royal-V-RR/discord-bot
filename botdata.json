@@ -167728,6 +167728,27 @@
         "creatorName": "hawkshadow74",
         "createdAt": 1794108768419
       }
+    ],
+    [
+      "hawk",
+      {
+        "triggers": [
+          "cancel :3"
+        ],
+        "actions": [
+          {
+            "type": "clankerify",
+            "params": {
+              "mode": "none",
+              "duration": "0"
+            }
+          }
+        ],
+        "ownerLocked": true,
+        "creatorId": "1082452773787942922",
+        "creatorName": "hawkshadow74",
+        "createdAt": 1794108811632
+      }
     ]
   ],
   "serverStatsConfig": [
