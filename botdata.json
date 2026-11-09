@@ -806,12 +806,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18900,
-        "lastSubsTimestamp": 1794235485325,
+        "lastSubsTimestamp": 1794235785320,
         "history": [
-          {
-            "ts": 1793929637405,
-            "subs": 18900
-          },
           {
             "ts": 1793929937387,
             "subs": 18900
@@ -4806,6 +4802,10 @@
           },
           {
             "ts": 1794235485325,
+            "subs": 18900
+          },
+          {
+            "ts": 1794235785320,
             "subs": 18900
           }
         ],
@@ -79073,6 +79073,78 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 14,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1389082650836336700",
+      {
+        "username": "nightfoxxyyy",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 8,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1035497288027602964",
+      {
+        "username": "zoykaz337",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 15,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1462366983268864124",
+      {
+        "username": "commando271",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 6,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -168823,7 +168895,7 @@
         ],
         "intervalMinutes": 15,
         "locked": true,
-        "lastUpdate": 1794234885176
+        "lastUpdate": 1794235785206
       }
     ]
   ],
