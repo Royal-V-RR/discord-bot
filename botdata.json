@@ -79133,7 +79133,7 @@
       {
         "channelId": "1502443898524536883",
         "hour": 12,
-        "_lastFire": "1418644052114673666:2026-10-8:12"
+        "_lastFire": "1418644052114673666:2026-10-9:12"
       }
     ]
   ],
@@ -117480,6 +117480,10 @@
     [
       "1569290643967316109",
       "quote_542.png"
+    ],
+    [
+      "1569320844751273987",
+      "stalker content.png"
     ]
   ],
   "favoritedQuotes": [
@@ -167614,6 +167618,17 @@
         "voters": [],
         "guildId": "1048053656035020911",
         "channelId": "1477294439180537980",
+        "sentToDeleter": false,
+        "type": "quote"
+      }
+    ],
+    [
+      "1569320844751273987",
+      {
+        "filename": "stalker content.png",
+        "voters": [],
+        "guildId": "1418644052114673666",
+        "channelId": "1502443898524536883",
         "sentToDeleter": false,
         "type": "quote"
       }
