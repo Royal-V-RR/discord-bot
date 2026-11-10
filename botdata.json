@@ -9444,7 +9444,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 1401,
+        "xp": 1413,
         "level": 13,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -79734,6 +79734,30 @@
         "forceMarried": false,
         "uploadedImages": []
       }
+    ],
+    [
+      "1498716842871488615",
+      {
+        "username": "mrcsh.",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 10,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
     ]
   ],
   "activeEffects": [],
@@ -90861,6 +90885,13 @@
     ],
     [
       "quote_115.png",
+      {
+        "up": 1,
+        "down": 0
+      }
+    ],
+    [
+      "quote_337.png",
       {
         "up": 1,
         "down": 0
@@ -118427,7 +118458,7 @@
     [
       "1391972162285604966",
       {
-        "up": 40,
+        "up": 41,
         "down": 3
       }
     ],
@@ -178293,6 +178324,15 @@
     ],
     [
       "quote_115.png",
+      [
+        [
+          "1391972162285604966",
+          "up"
+        ]
+      ]
+    ],
+    [
+      "quote_337.png",
       [
         [
           "1391972162285604966",
