@@ -9444,7 +9444,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 1473,
+        "xp": 1485,
         "level": 13,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -18477,7 +18477,7 @@
         "dailyStreak": 1,
         "bestStreak": 4,
         "lastDailyDate": "2026-06-13",
-        "xp": 1594,
+        "xp": 1609,
         "level": 21,
         "lastWorkTime": 1778166713164,
         "lastBegTime": 1778166374950,
@@ -79812,6 +79812,30 @@
       "1497281958881923082",
       {
         "username": ".ayss",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 6,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1569881746001109052",
+      {
+        "username": "dunkie24",
         "wins": 0,
         "gamesPlayed": 0,
         "coins": 0,
@@ -169936,7 +169960,7 @@
         ],
         "intervalMinutes": 15,
         "locked": true,
-        "lastUpdate": 1794359263004
+        "lastUpdate": 1794360163018
       }
     ],
     [
