@@ -91031,6 +91031,13 @@
         "up": 1,
         "down": 0
       }
+    ],
+    [
+      "quote_541.png",
+      {
+        "up": 0,
+        "down": 1
+      }
     ]
   ],
   "quoteVoteMessages": [
@@ -118461,6 +118468,10 @@
     [
       "1569929822392688704",
       "quote_541.png"
+    ],
+    [
+      "1569929876973035602",
+      "brikit tung sahur.png"
     ]
   ],
   "favoritedQuotes": [
@@ -118614,7 +118625,7 @@
       "1391972162285604966",
       {
         "up": 48,
-        "down": 3
+        "down": 4
       }
     ],
     [
@@ -168907,6 +168918,17 @@
         "sentToDeleter": false,
         "type": "quote"
       }
+    ],
+    [
+      "1569929876973035602",
+      {
+        "filename": "brikit tung sahur.png",
+        "voters": [],
+        "guildId": "1048053656035020911",
+        "channelId": "1477294439180537980",
+        "sentToDeleter": false,
+        "type": "quote"
+      }
     ]
   ],
   "selfClankUsers": [
@@ -178579,6 +178601,15 @@
         [
           "1391972162285604966",
           "up"
+        ]
+      ]
+    ],
+    [
+      "quote_541.png",
+      [
+        [
+          "1391972162285604966",
+          "down"
         ]
       ]
     ]
