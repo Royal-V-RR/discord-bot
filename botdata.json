@@ -806,12 +806,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18900,
-        "lastSubsTimestamp": 1794375516850,
+        "lastSubsTimestamp": 1794375816883,
         "history": [
-          {
-            "ts": 1794069759974,
-            "subs": 18900
-          },
           {
             "ts": 1794070060016,
             "subs": 18900
@@ -4806,6 +4802,10 @@
           },
           {
             "ts": 1794375516850,
+            "subs": 18900
+          },
+          {
+            "ts": 1794375816883,
             "subs": 18900
           }
         ],
@@ -79891,6 +79891,30 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 5,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1546661892196667493",
+      {
+        "username": "kara_mambaa58",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 12,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -170156,7 +170180,7 @@
         ],
         "intervalMinutes": 15,
         "locked": true,
-        "lastUpdate": 1794374916763
+        "lastUpdate": 1794375816788
       }
     ]
   ],
