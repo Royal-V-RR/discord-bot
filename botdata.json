@@ -806,12 +806,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18900,
-        "lastSubsTimestamp": 1794491704806,
+        "lastSubsTimestamp": 1794492004816,
         "history": [
-          {
-            "ts": 1794177738627,
-            "subs": 18900
-          },
           {
             "ts": 1794178038627,
             "subs": 18900
@@ -4806,6 +4802,10 @@
           },
           {
             "ts": 1794491704806,
+            "subs": 18900
+          },
+          {
+            "ts": 1794492004816,
             "subs": 18900
           }
         ],
@@ -82906,12 +82906,13 @@
           "Z9G1Mf6TZRs",
           "NucG0kD3pkg",
           "7cnHVN0nIUI",
-          "uCVcCIsoma8"
+          "uCVcCIsoma8",
+          "6O9tGcW_-QU"
         ],
         "postChannelId": "1499035867426197565",
         "hour": 14,
         "pingRoleId": "1500478427164311713",
-        "_lastFire": "1418644052114673666:2026-10-11:14",
+        "_lastFire": "1418644052114673666:2026-10-12:14",
         "genreMode": null
       }
     ],
@@ -84274,6 +84275,17 @@
         "genres": [],
         "matched": false,
         "cachedAt": 1794405606292
+      }
+    ],
+    [
+      "6O9tGcW_-QU",
+      {
+        "title": "Pink Martini performs Dolly Parton's 9 to 5",
+        "artist": "Unknown Artist",
+        "artwork": "https://img.youtube.com/vi/6O9tGcW_-QU/maxresdefault.jpg",
+        "genres": [],
+        "matched": false,
+        "cachedAt": 1794492007590
       }
     ]
   ],
@@ -171220,7 +171232,7 @@
         ],
         "intervalMinutes": 15,
         "locked": true,
-        "lastUpdate": 1794491104676
+        "lastUpdate": 1794492004707
       }
     ],
     [
