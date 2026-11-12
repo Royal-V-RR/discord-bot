@@ -806,12 +806,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18900,
-        "lastSubsTimestamp": 1794497134542,
+        "lastSubsTimestamp": 1794497434577,
         "history": [
-          {
-            "ts": 1794182838743,
-            "subs": 18900
-          },
           {
             "ts": 1794183138737,
             "subs": 18900
@@ -4806,6 +4802,10 @@
           },
           {
             "ts": 1794497134542,
+            "subs": 18900
+          },
+          {
+            "ts": 1794497434577,
             "subs": 18900
           }
         ],
@@ -36541,7 +36541,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 1073,
+        "xp": 1084,
         "level": 9,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -80923,6 +80923,30 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 14,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1457188331426152606",
+      {
+        "username": "alyssonveeck.",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 10,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -171343,7 +171367,7 @@
         ],
         "intervalMinutes": 15,
         "locked": true,
-        "lastUpdate": 1794496534407
+        "lastUpdate": 1794497434437
       }
     ],
     [
