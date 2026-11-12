@@ -806,12 +806,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18900,
-        "lastSubsTimestamp": 1794466235807,
+        "lastSubsTimestamp": 1794466535837,
         "history": [
-          {
-            "ts": 1794152282142,
-            "subs": 18900
-          },
           {
             "ts": 1794152582133,
             "subs": 18900
@@ -4806,6 +4802,10 @@
           },
           {
             "ts": 1794466235807,
+            "subs": 18900
+          },
+          {
+            "ts": 1794466535837,
             "subs": 18900
           }
         ],
@@ -80635,6 +80635,30 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 5,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1454178409067319346",
+      {
+        "username": "salmane0080_86956",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 9,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -170983,7 +171007,7 @@
         ],
         "intervalMinutes": 15,
         "locked": true,
-        "lastUpdate": 1794465635655
+        "lastUpdate": 1794466535675
       }
     ],
     [
