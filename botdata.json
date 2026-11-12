@@ -80863,7 +80863,7 @@
       {
         "channelId": "1502443898524536883",
         "hour": 12,
-        "_lastFire": "1418644052114673666:2026-10-11:12"
+        "_lastFire": "1418644052114673666:2026-10-12:12"
       }
     ]
   ],
@@ -119463,6 +119463,10 @@
     [
       "1570377639942692934",
       "fav bears.png"
+    ],
+    [
+      "1570407839896305725",
+      "quote_1493737947353317468.png"
     ]
   ],
   "favoritedQuotes": [
@@ -170022,6 +170026,17 @@
         "sentToDeleter": false,
         "type": "quote"
       }
+    ],
+    [
+      "1570407839896305725",
+      {
+        "filename": "quote_1493737947353317468.png",
+        "voters": [],
+        "guildId": "1418644052114673666",
+        "channelId": "1502443898524536883",
+        "sentToDeleter": false,
+        "type": "quote"
+      }
     ]
   ],
   "selfClankUsers": [
@@ -171181,7 +171196,7 @@
         ],
         "intervalMinutes": 15,
         "locked": true,
-        "lastUpdate": 1794483904446
+        "lastUpdate": 1794484804486
       }
     ],
     [
