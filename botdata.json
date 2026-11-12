@@ -806,12 +806,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18900,
-        "lastSubsTimestamp": 1794477604419,
+        "lastSubsTimestamp": 1794477904368,
         "history": [
-          {
-            "ts": 1794163308219,
-            "subs": 18900
-          },
           {
             "ts": 1794163608239,
             "subs": 18900
@@ -4806,6 +4802,10 @@
           },
           {
             "ts": 1794477604419,
+            "subs": 18900
+          },
+          {
+            "ts": 1794477904368,
             "subs": 18900
           }
         ],
@@ -80779,6 +80779,30 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 11,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1180478683299983400",
+      {
+        "username": "urs_ruhi.",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 6,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -171186,7 +171210,7 @@
         ],
         "intervalMinutes": 15,
         "locked": true,
-        "lastUpdate": 1794477004269
+        "lastUpdate": 1794477904272
       }
     ]
   ],
