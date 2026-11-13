@@ -966,7 +966,7 @@ function getYtKey(guildId) { return ytConfig.get(guildId)?.apiKey || null; }
 const sotdConfig = new Map();
 // sotdMetaCache: videoId -> { title, artist, artwork, genres:[...], matched, cachedAt }
 const sotdMetaCache = new Map();
-// sotdVotes: videoId -> { count, voters:[userId,...] } — persisted so the score
+// sotdVotes: videoId -> { count, voters:[userId,...] }, persisted so the score
 // and who voted survives a restart, same as it does for every other video.
 const sotdVotes = new Map();
 const SOTD_GENRE_CHOICES = ["Pop","Rock","Hip Hop","R&B","Jazz","Country","Metal","EDM","Indie","Alternative","Classical","Reggae","Folk","Punk","Soul","Funk","Blues","K-Pop","Latin","House","Techno","Dubstep","Trap","Lo-fi"];
@@ -996,7 +996,7 @@ function buildGifQualityPanel(token){
   const embed = {
     color: 0x5865F2,
     title: "🎞️ GIF Quality",
-    description: `**${j.name}** — ${j.width}x${j.height}, ~${j.fps.toFixed(1)} fps\n\nPick a quality (resolution) and a frame rate, then convert. The result is always a \`.gif\`.`,
+    description: `**${j.name}** (${j.width}x${j.height}, ~${j.fps.toFixed(1)} fps)\n\nPick a quality (resolution) and a frame rate, then convert. The result is always a \`.gif\`.`,
     fields: [
       { name:"Quality", value: j.scalePct ? `${j.scalePct}%` : "Not set", inline:true },
       { name:"FPS", value: j.targetFps ? `${j.targetFps}` : "Not set", inline:true },
@@ -1027,8 +1027,61 @@ function cleanupGifqJob(token){
   if(j){ try{ fs.rmSync(j.workDir, { recursive:true, force:true }); }catch{} gifqJobs.delete(token); }
 }
 
-// ── /banlist ──────────────────────────────────────────────────────────────
-// (no persisted state needed, export/import both act directly on live data)
+// ── /bansync ──────────────────────────────────────────────────────────────
+// banSyncLinks: guildId -> [otherGuildId,...] this server has agreed to sync with.
+// A link only goes live once both servers list each other.
+const banSyncLinks = new Map();
+const banSyncSuppress = new Set(); // "guildId:userId:ban|unban" for actions the bot just made itself, so their echo events are ignored
+const banSyncRunning = new Set();
+function isBanSyncActive(a, b){
+  return (banSyncLinks.get(a) || []).includes(b) && (banSyncLinks.get(b) || []).includes(a);
+}
+function getBanSyncPartners(guildId){
+  return (banSyncLinks.get(guildId) || []).filter(o => isBanSyncActive(guildId, o));
+}
+function banSyncSuppressKey(guildId, userId, kind){
+  const k = `${guildId}:${userId}:${kind}`;
+  banSyncSuppress.add(k);
+  setTimeout(() => banSyncSuppress.delete(k), 20_000);
+}
+// The ban list endpoint pages at 1000, so walk it with `after` to get everyone.
+async function fetchAllBanIds(guildId){
+  const ids = new Set();
+  let after = "0";
+  for(;;){
+    const res = await fetch(`https://discord.com/api/v10/guilds/${guildId}/bans?limit=1000&after=${after}`, { headers:{ Authorization:`Bot ${TOKEN}` } });
+    if(res.status === 429){
+      const body = await res.json().catch(() => ({}));
+      await new Promise(r => setTimeout(r, ((body.retry_after || 1) * 1000) + 200));
+      continue;
+    }
+    if(!res.ok) throw new Error(`Discord API ${res.status}`);
+    const page = await res.json();
+    for(const b of page) ids.add(b.user.id);
+    if(page.length < 1000) break;
+    after = page[page.length - 1].user.id;
+  }
+  return ids;
+}
+// One time full reconcile: every ban either server has gets applied to the other.
+async function runBanSync(guildA, guildB){
+  const [idsA, idsB] = await Promise.all([fetchAllBanIds(guildA.id), fetchAllBanIds(guildB.id)]);
+  const jobs = [];
+  for(const id of idsA) if(!idsB.has(id)) jobs.push({ target: guildB, source: guildA, id });
+  for(const id of idsB) if(!idsA.has(id)) jobs.push({ target: guildA, source: guildB, id });
+  let done = 0, failed = 0;
+  for(const j of jobs){
+    banSyncSuppressKey(j.target.id, j.id, "ban");
+    try{ await j.target.members.ban(j.id, { reason:`Ban sync with ${j.source.name}` }); done++; }
+    catch{ failed++; }
+    await new Promise(res => setTimeout(res, 1200));
+  }
+  return { done, failed, total: jobs.length };
+}
+
+// ── /extrachannels ──────────────────────────────────────────────────────────
+// extraChannelsConfig: guildId -> { memberRoleId, extraRoleId }
+const extraChannelsConfig = new Map();
 
 // ── /deactivatetoggle: repeating DM-block + pause-invites lockdown ──────────
 // deactivateToggleConfig: guildId -> { active:true, nextFireAt }
@@ -1598,7 +1651,7 @@ const SERVER_OWNER_CMDS = new Set([
   "fakemessage","fakequote","refreshcmds","shadowdelete","clankerify","impersonation",
   "forcemarry","forcedivorce","echo","paranoia",
   "quotesetup","requestedquotes","deletedquotes","globaltoggle","quotemoderator",
-  "sotd","sotd-playlist","banlist","deactivatetoggle",
+  "sotd","sotd-playlist","bansync","deactivatetoggle",
 ]);
 function isGuildOwner(guildId, userId){
   if(OWNER_IDS.includes(userId)) return true; // RoyalBot owners bypass every server-owner-only check, everywhere this is used
@@ -3400,6 +3453,8 @@ function buildDataObject() {
     sotdVotes:            [...sotdVotes.entries()],
     countingBlocks:       [...countingBlocks.entries()],
     deactivateToggleConfig: [...deactivateToggleConfig.entries()],
+    banSyncLinks:         [...banSyncLinks.entries()],
+    extraChannelsConfig:  [...extraChannelsConfig.entries()],
     memers:               [...MEMERS],
     quoteVotes:           [...quoteVotes.entries()],
     quoteVoteMessages:    [...quoteVoteMessages.entries()],
@@ -3632,6 +3687,8 @@ function loadData() {
     if (data.sotdVotes) data.sotdVotes.forEach(([k,v]) => sotdVotes.set(k, v));
     if (data.countingBlocks) data.countingBlocks.forEach(([k,v]) => countingBlocks.set(k, v));
     if (data.deactivateToggleConfig) data.deactivateToggleConfig.forEach(([k,v]) => deactivateToggleConfig.set(k, v));
+    if (data.banSyncLinks) data.banSyncLinks.forEach(([k,v]) => banSyncLinks.set(k, v));
+    if (data.extraChannelsConfig) data.extraChannelsConfig.forEach(([k,v]) => extraChannelsConfig.set(k, v));
     if (data.reviewChannelId)    reviewChannelId = data.reviewChannelId;
     if (data.deleterChannelId)   deleterChannelId = data.deleterChannelId;
     if (data.emojiStealDestGuildId) emojiStealDestGuildId = data.emojiStealDestGuildId;
@@ -4707,7 +4764,7 @@ function buildSotdSetupStepInner(guild, guildId, stepOverride){
     const trackCount = (cfg.playlists || []).reduce((n,p) => n + (p.entries?.length || 0), 0);
     fields.push({ name:"📻 Playlists", value: playlistCount ? `${playlistCount} playlist(s), ${trackCount} track(s) total. Manage with \`/sotd-playlist\`.` : "None yet. Add one with `/sotd-playlist`.", inline:false });
     const activeGenre = cfg.genreMode && Date.now() <= cfg.genreMode.expiresAt ? cfg.genreMode : null;
-    if(activeGenre) fields.push({ name:"🎯 Genre Week", value: `**${activeGenre.genre}** — ends <t:${Math.floor(activeGenre.expiresAt/1000)}:R>`, inline:false });
+    if(activeGenre) fields.push({ name:"🎯 Genre Week", value: `**${activeGenre.genre}**, ends <t:${Math.floor(activeGenre.expiresAt/1000)}:R>`, inline:false });
     embed.description = `${progress}\n\nAll set. You can post a test now, or come back any time with \`/sotd\`.`;
     components = [
       new MessageActionRow().addComponents(
@@ -4744,7 +4801,7 @@ function buildSotdPlaylistPanel(guild, guildId){
     color: 0x5865F2,
     title: "📻 SOTD Playlists",
     description: playlists.length
-      ? playlists.map((p,i) => `**${i+1}. ${p.label}** — ${p.entries?.length || 0} track(s)\n${p.url}`).join("\n\n")
+      ? playlists.map((p,i) => `**${i+1}. ${p.label}**: ${p.entries?.length || 0} track(s)\n${p.url}`).join("\n\n")
       : "No playlists added yet. Every track across every playlist here feeds the daily pick.",
   };
   const row1 = new MessageActionRow().addComponents(
@@ -5570,7 +5627,7 @@ setInterval(async () => {
 const client=new Client({
   intents:[Intents.FLAGS.GUILDS,Intents.FLAGS.GUILD_MEMBERS,Intents.FLAGS.GUILD_INVITES,
            Intents.FLAGS.DIRECT_MESSAGES,Intents.FLAGS.GUILD_MESSAGES,
-           Intents.FLAGS.GUILD_MESSAGE_REACTIONS],
+           Intents.FLAGS.GUILD_MESSAGE_REACTIONS,Intents.FLAGS.GUILD_BANS],
   partials:["CHANNEL","MESSAGE","USER","REACTION"]
 });
 
@@ -5750,11 +5807,15 @@ function buildCommands(){
     {name:"gifquality", description:"Convert a video or GIF to a GIF, picking quality and FPS",options:[
       {name:"file", description:"An mp4 or a gif", type:11, required:true},
     ]},
-    {name:"banlist", description:"[Server Owner] Export this server's ban list, or import one to mass-ban",options:[
-      {name:"action", description:"Export to a file, or import from one", type:3, required:true, choices:[
-        {name:"Export", value:"export"}, {name:"Import", value:"import"},
+    {name:"bansync", description:"[Server Owner] Keep bans in sync with another server (both owners link)",options:[
+      {name:"action", description:"What to do", type:3, required:true, choices:[
+        {name:"Link", value:"link"}, {name:"Unlink", value:"unlink"}, {name:"Sync Now", value:"sync"}, {name:"Status", value:"status"},
       ]},
-      {name:"file", description:"The .txt file to import (one user ID per line)", type:11, required:false},
+      {name:"server_id", description:"The other server's ID (not needed for Status)", type:3, required:false},
+    ]},
+    {name:"extrachannels", description:"lazied out and decided to do it like ts",options:[
+      {name:"member_role", description:"The member role that normally sees channels", type:8, required:false},
+      {name:"extra_role", description:"The Extra channels role that gets access", type:8, required:false},
     ]},
     {name:"deactivatetoggle", description:"[Server Owner] Toggle a repeating 24h lockdown (blocks DMs, pauses invites)"},
     {name:"quotesetup", description:"[Server Owner] Choose whether this server uses global quotes or its own quotes"},
@@ -6047,6 +6108,29 @@ client.once("ready", async () => {
 
   for (const guild of guilds) {
     snapshotInvites(guild).catch(() => {});
+  }
+});
+
+client.on("guildBanAdd", async ban => {
+  const key = `${ban.guild.id}:${ban.user.id}:ban`;
+  if(banSyncSuppress.delete(key)) return;
+  for(const otherId of getBanSyncPartners(ban.guild.id)){
+    const other = client.guilds.cache.get(otherId);
+    if(!other) continue;
+    banSyncSuppressKey(otherId, ban.user.id, "ban");
+    try{ await other.members.ban(ban.user.id, { reason:`Ban sync from ${ban.guild.name}` }); }
+    catch(e){ console.error(`[bansync] ban ${ban.user.id} in ${otherId} failed:`, e.message); }
+  }
+});
+client.on("guildBanRemove", async ban => {
+  const key = `${ban.guild.id}:${ban.user.id}:unban`;
+  if(banSyncSuppress.delete(key)) return;
+  for(const otherId of getBanSyncPartners(ban.guild.id)){
+    const other = client.guilds.cache.get(otherId);
+    if(!other) continue;
+    banSyncSuppressKey(otherId, ban.user.id, "unban");
+    try{ await other.members.unban(ban.user.id, `Ban sync from ${ban.guild.name}`); }
+    catch(e){ if(e.code !== 10026) console.error(`[bansync] unban ${ban.user.id} in ${otherId} failed:`, e.message); }
   }
 });
 
@@ -10536,13 +10620,13 @@ by **${displayName}**`});
   const cmd=interaction.commandName;
   const inGuild=!!interaction.guildId;
 
-  const ownerOnly=["servers","requester","deleter","emojisteal","dmconfig","leaveserver","restart","refreshcmds","botstats","setstatus","adminconfig","echo","shadowdelete","clankerify","impersonation","thecount","send","fakemessage","fakequote","forcemarry","forcedivorce","paranoia","tempowner","blacklist","theremnant","jarvisenhance","quotesetup","requestedquotes","deletedquotes","globaltoggle","quotemoderator","sotd","sotd-playlist","banlist","deactivatetoggle"];
+  const ownerOnly=["servers","requester","deleter","emojisteal","dmconfig","leaveserver","restart","refreshcmds","botstats","setstatus","adminconfig","echo","shadowdelete","clankerify","impersonation","thecount","send","fakemessage","fakequote","forcemarry","forcedivorce","paranoia","tempowner","blacklist","theremnant","jarvisenhance","quotesetup","requestedquotes","deletedquotes","globaltoggle","quotemoderator","sotd","sotd-playlist","bansync","deactivatetoggle"];
   if(ownerOnly.includes(cmd)){
     if(SERVER_OWNER_CMDS.has(cmd) && !inGuild) return safeReply(interaction,{content:"❌ Server only.",ephemeral:true});
     if(!canUseOwnerCmd(interaction, cmd)) return safeReply(interaction,{content:"Owner only.",ephemeral:true});
   }
 
-  const manageServerCmds=["channelpicker","counting","xpconfig","setwelcome","setleave","setwelcomemsg","setleavemsg","disableownermsg","serverconfig","autorole","setboostmsg","invitecomp","purge","reactionrole","dropdownroles","ticketsetup","ytsetup","subgoal","subcount","milestones","dailyquote","serverstats"];
+  const manageServerCmds=["channelpicker","counting","xpconfig","setwelcome","setleave","setwelcomemsg","setleavemsg","disableownermsg","serverconfig","autorole","setboostmsg","invitecomp","purge","reactionrole","dropdownroles","ticketsetup","ytsetup","subgoal","subcount","milestones","dailyquote","serverstats","extrachannels"];
   if(manageServerCmds.includes(cmd)){
     if(!inGuild)return safeReply(interaction,{content:"Server only.",ephemeral:true});
     if(!OWNER_IDS.includes(interaction.user.id)&&!interaction.member?.permissions?.has?.("MANAGE_GUILD"))
@@ -12785,38 +12869,95 @@ if(cmd==="divorce"){
       }
     }
 
-    if(cmd==="banlist"){
+    if(cmd==="bansync"){
       if(!inGuild) return safeReply(interaction,{content:"❌ Server only.",ephemeral:true});
       if(!isGuildOwner(interaction.guildId, interaction.user.id)) return safeReply(interaction,{content:"❌ Server owner only.",ephemeral:true});
-      const me = interaction.guild.members.me;
-      if(!me?.permissions.has("BAN_MEMBERS")) return safeReply(interaction,{content:"❌ I need the Ban Members permission for this.",ephemeral:true});
+      const myId = interaction.guildId;
       const action = interaction.options.getString("action");
+      const otherId = (interaction.options.getString("server_id") || "").trim();
+      const mine = banSyncLinks.get(myId) || [];
+      const nameOf = id => client.guilds.cache.get(id)?.name || "unknown server";
 
-      if(action==="export"){
-        await interaction.deferReply({ephemeral:true});
-        const bans = await interaction.guild.bans.fetch().catch(()=>null);
-        if(!bans) return safeReply(interaction,{content:"❌ Couldn't fetch the ban list.",ephemeral:true});
-        const ids = [...bans.values()].map(b => b.user.id);
-        return safeReply(interaction,{ content:`📄 ${ids.length} banned user ID(s).`, files:[{ attachment: Buffer.from(ids.join("\n"),"utf8"), name:`banlist_${interaction.guildId}.txt` }] });
-      }
-
-      if(action==="import"){
-        const file = interaction.options.getAttachment("file");
-        if(!file) return safeReply(interaction,{content:"❌ Attach the `.txt` file to import.",ephemeral:true});
-        await interaction.deferReply({ephemeral:true});
-        const dlRes = await fetch(file.url).catch(()=>null);
-        if(!dlRes || !dlRes.ok) return safeReply(interaction,{content:"❌ Couldn't download that file.",ephemeral:true});
-        const text = await dlRes.text();
-        const ids = [...new Set(text.split(/\r?\n/).map(l => l.trim()).filter(l => /^\d{15,22}$/.test(l)))];
-        if(!ids.length) return safeReply(interaction,{content:"❌ No valid user IDs found in that file.",ephemeral:true});
-        let banned=0, failed=0;
-        for(const id of ids){
-          try{ await interaction.guild.members.ban(id, { reason:`Imported via /banlist by ${interaction.user.tag}` }); banned++; }
-          catch{ failed++; }
-          await new Promise(res => setTimeout(res, 1200));
+      if(action==="status"){
+        const lines = mine.map(id => `${isBanSyncActive(myId,id) ? "🟢 Syncing with" : "🟡 Waiting on"} **${nameOf(id)}** (\`${id}\`)`);
+        for(const [gid, list] of banSyncLinks){
+          if(gid !== myId && list.includes(myId) && !mine.includes(gid))
+            lines.push(`📨 **${nameOf(gid)}** (\`${gid}\`) wants to sync with you. Accept with \`/bansync action:Link server_id:${gid}\``);
         }
-        return safeReply(interaction,{content:`✅ Done. Banned **${banned}**, failed **${failed}** (out of ${ids.length} ID(s) found).`});
+        return safeReply(interaction,{content: lines.length ? `🔗 **Ban sync**\n${lines.join("\n")}` : "No ban sync links yet. Start one with `/bansync action:Link server_id:<other server ID>`.", ephemeral:true});
       }
+
+      if(!/^\d{15,22}$/.test(otherId)) return safeReply(interaction,{content:"❌ Give the other server's ID in `server_id`.",ephemeral:true});
+      if(otherId === myId) return safeReply(interaction,{content:"❌ A server can't sync with itself.",ephemeral:true});
+
+      if(action==="unlink"){
+        if(!mine.includes(otherId)) return safeReply(interaction,{content:"❌ You aren't linked to that server.",ephemeral:true});
+        banSyncLinks.set(myId, mine.filter(id => id !== otherId));
+        saveData();
+        return safeReply(interaction,{content:`🔓 Stopped syncing bans with **${nameOf(otherId)}**. Bans already carried over stay as they are.`,ephemeral:true});
+      }
+
+      const other = client.guilds.cache.get(otherId);
+      if(!other) return safeReply(interaction,{content:"❌ I'm not in that server, so I can't sync with it.",ephemeral:true});
+
+      if(action==="link"){
+        if(!mine.includes(otherId)){ mine.push(otherId); banSyncLinks.set(myId, mine); saveData(); }
+        if(!isBanSyncActive(myId, otherId))
+          return safeReply(interaction,{content:`🟡 Request saved. The owner of **${other.name}** needs to run \`/bansync action:Link server_id:${myId}\` there to switch it on.`,ephemeral:true});
+      } else if(!isBanSyncActive(myId, otherId)){
+        return safeReply(interaction,{content:"❌ That link isn't active yet. Both servers need to run Link first.",ephemeral:true});
+      }
+
+      const lacking = [interaction.guild, other].filter(g => !g.members.me?.permissions.has("BAN_MEMBERS")).map(g => g.name);
+      if(lacking.length) return safeReply(interaction,{content:`❌ I need the Ban Members permission in: ${lacking.join(", ")}`,ephemeral:true});
+      const pairKey = [myId, otherId].sort().join(":");
+      if(banSyncRunning.has(pairKey)) return safeReply(interaction,{content:"⏳ A sync between those two servers is already running.",ephemeral:true});
+
+      banSyncRunning.add(pairKey);
+      await interaction.deferReply({ephemeral:true});
+      try{
+        const r = await runBanSync(interaction.guild, other);
+        return safeReply(interaction,{content:`✅ ${action==="link" ? `Linked with **${other.name}**. ` : ""}Banned **${r.done}** of ${r.total} missing, **${r.failed}** failed.${action==="link" ? " New bans and unbans now carry over automatically." : ""}`,ephemeral:true});
+      }catch(e){
+        return safeReply(interaction,{content:`❌ Sync failed: ${e.message}`,ephemeral:true});
+      }finally{
+        banSyncRunning.delete(pairKey);
+      }
+    }
+
+    if(cmd==="extrachannels"){
+      if(!inGuild) return safeReply(interaction,{content:"❌ Server only.",ephemeral:true});
+      const memberRole = interaction.options.getRole("member_role");
+      const extraRole = interaction.options.getRole("extra_role");
+      const cfg = extraChannelsConfig.get(interaction.guildId) || { memberRoleId:null, extraRoleId:null };
+
+      if(memberRole || extraRole){
+        if(memberRole) cfg.memberRoleId = memberRole.id;
+        if(extraRole) cfg.extraRoleId = extraRole.id;
+        extraChannelsConfig.set(interaction.guildId, cfg);
+        saveData();
+        return safeReply(interaction,{content:`✅ Saved.\nMember role: ${cfg.memberRoleId ? `<@&${cfg.memberRoleId}>` : "not set"}\nExtra channels role: ${cfg.extraRoleId ? `<@&${cfg.extraRoleId}>` : "not set"}`,ephemeral:true,allowedMentions:{parse:[]}});
+      }
+
+      if(!cfg.memberRoleId || !cfg.extraRoleId) return safeReply(interaction,{content:"❌ Set both roles first with `/extrachannels member_role:… extra_role:…`.",ephemeral:true});
+      if(cfg.memberRoleId === cfg.extraRoleId) return safeReply(interaction,{content:"❌ The member role and the Extra channels role have to be different roles.",ephemeral:true});
+      const memberR = interaction.guild.roles.cache.get(cfg.memberRoleId);
+      const extraR = interaction.guild.roles.cache.get(cfg.extraRoleId);
+      if(!memberR || !extraR) return safeReply(interaction,{content:"❌ One of the saved roles no longer exists. Set them again.",ephemeral:true});
+      const ch = interaction.channel;
+      if(!ch?.permissionOverwrites) return safeReply(interaction,{content:"❌ Run this in a regular server channel, not a thread.",ephemeral:true});
+      if(!ch.permissionsFor(interaction.guild.members.me)?.has("MANAGE_ROLES")) return safeReply(interaction,{content:"❌ I need the Manage Permissions permission in this channel.",ephemeral:true});
+
+      try{
+        const reason = `/extrachannels by ${interaction.user.tag}`;
+        await Promise.all([
+          ch.permissionOverwrites.edit(extraR, { VIEW_CHANNEL:true }, { reason }),
+          ch.permissionOverwrites.edit(memberR, { VIEW_CHANNEL:false }, { reason }),
+        ]);
+      }catch(e){
+        return safeReply(interaction,{content:`❌ Couldn't change the permissions: ${e.message}`,ephemeral:true});
+      }
+      return safeReply(interaction,{content:`✅ <#${ch.id}> is now an extra channel. <@&${extraR.id}> can see it and <@&${memberR.id}> can't.`,ephemeral:true,allowedMentions:{parse:[]}});
     }
 
     if(cmd==="deactivatetoggle"){
