@@ -806,12 +806,8 @@
         "channelTitle": "RespawnRaccoon",
         "discordChannelId": "1483595393999700080",
         "lastSubs": 18900,
-        "lastSubsTimestamp": 1794558154087,
+        "lastSubsTimestamp": 1794558454108,
         "history": [
-          {
-            "ts": 1794243614728,
-            "subs": 18900
-          },
           {
             "ts": 1794243914768,
             "subs": 18900
@@ -4807,6 +4803,10 @@
           {
             "ts": 1794558154087,
             "subs": 18900
+          },
+          {
+            "ts": 1794558454108,
+            "subs": 18900
           }
         ],
         "subcountDiscordId": "1483595393999700080",
@@ -7427,7 +7427,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 3546,
+        "xp": 3560,
         "level": 32,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -81573,6 +81573,30 @@
         "bestStreak": 0,
         "lastDailyDate": "",
         "xp": 9,
+        "level": 1,
+        "lastWorkTime": 0,
+        "lastBegTime": 0,
+        "lastCrimeTime": 0,
+        "lastRobTime": 0,
+        "inventory": [],
+        "marriedTo": null,
+        "pendingProposal": null,
+        "imagesUploaded": 0,
+        "forceMarried": false,
+        "uploadedImages": []
+      }
+    ],
+    [
+      "1518655665839804498",
+      {
+        "username": "akash_v_bala",
+        "wins": 0,
+        "gamesPlayed": 0,
+        "coins": 0,
+        "dailyStreak": 0,
+        "bestStreak": 0,
+        "lastDailyDate": "",
+        "xp": 8,
         "level": 1,
         "lastWorkTime": 0,
         "lastBegTime": 0,
