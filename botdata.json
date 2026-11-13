@@ -9447,7 +9447,7 @@
         "dailyStreak": 0,
         "bestStreak": 0,
         "lastDailyDate": "",
-        "xp": 1798,
+        "xp": 1811,
         "level": 13,
         "lastWorkTime": 0,
         "lastBegTime": 0,
@@ -90010,7 +90010,7 @@
     [
       "IMG_5011.png",
       {
-        "up": 3,
+        "up": 4,
         "down": 0
       }
     ],
@@ -120845,7 +120845,7 @@
     [
       "1391972162285604966",
       {
-        "up": 51,
+        "up": 52,
         "down": 6
       }
     ],
@@ -171802,6 +171802,17 @@
         "guildId": "1048053656035020911",
         "destFolder": null
       }
+    ],
+    [
+      "889764mwf21cdr",
+      {
+        "submitterId": "969280648667889764",
+        "fileName": "969280648667889764__image__IMG_1532.png",
+        "rawName": "IMG_1532.png",
+        "mediaKind": "image",
+        "guildId": "1048053656035020911",
+        "destFolder": null
+      }
     ]
   ],
   "quoteGuildConfigs": [
@@ -181497,6 +181508,15 @@
         [
           "1254388539890860083",
           "down"
+        ]
+      ]
+    ],
+    [
+      "IMG_5011.png",
+      [
+        [
+          "1391972162285604966",
+          "up"
         ]
       ]
     ]
