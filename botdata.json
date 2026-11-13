@@ -83775,12 +83775,13 @@
           "NucG0kD3pkg",
           "7cnHVN0nIUI",
           "uCVcCIsoma8",
-          "6O9tGcW_-QU"
+          "6O9tGcW_-QU",
+          "ipVrglfEXLA"
         ],
         "postChannelId": "1499035867426197565",
         "hour": 14,
         "pingRoleId": "1500478427164311713",
-        "_lastFire": "1418644052114673666:2026-10-12:14",
+        "_lastFire": "1418644052114673666:2026-10-13:14",
         "genreMode": null
       }
     ],
@@ -85154,6 +85155,19 @@
         "genres": [],
         "matched": false,
         "cachedAt": 1794492007590
+      }
+    ],
+    [
+      "ipVrglfEXLA",
+      {
+        "title": "In the Final (From \"Mario & Luigi: Bowser's Inside Story\")",
+        "artist": "GaMetal",
+        "artwork": "https://is1-ssl.mzstatic.com/image/thumb/Music113/v4/d1/3e/8a/d13e8aa1-9ee1-1c61-481c-450c37810249/f51ca468-f18a-43d7-9dcf-5d496663791b.jpg/600x600bb.jpg",
+        "genres": [
+          "Metal"
+        ],
+        "matched": true,
+        "cachedAt": 1794578446369
       }
     ]
   ],
