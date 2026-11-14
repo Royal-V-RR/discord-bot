@@ -121141,6 +121141,10 @@
     [
       "1571132841352237097",
       "quote_1498243760805642330.png"
+    ],
+    [
+      "1571163200018448465",
+      "quote_228.png"
     ]
   ],
   "favoritedQuotes": [
@@ -172185,6 +172189,17 @@
         "guildId": "1418644052114673666",
         "channelId": "1502443898524536883",
         "sentToDeleter": true,
+        "type": "quote"
+      }
+    ],
+    [
+      "1571163200018448465",
+      {
+        "filename": "quote_228.png",
+        "voters": [],
+        "guildId": "1418644052114673666",
+        "channelId": "1502443898524536883",
+        "sentToDeleter": false,
         "type": "quote"
       }
     ]
