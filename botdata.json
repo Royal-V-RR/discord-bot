@@ -9461,7 +9461,7 @@
         "marriedTo": null,
         "pendingProposal": null,
         "forceMarried": false,
-        "imagesUploaded": 21,
+        "imagesUploaded": 22,
         "uploadedImages": [
           "quote_132.png",
           "quote_178.png",
@@ -9483,7 +9483,8 @@
           "quote_610.png",
           "quote_626.png",
           "quote_628.png",
-          "quote_629.png"
+          "quote_629.png",
+          "quote_639.png"
         ],
         "lastFishTime": 0,
         "lastMineTime": 0,
@@ -173159,17 +173160,6 @@
         "guildId": "1048053656035020911",
         "destFolder": null
       }
-    ],
-    [
-      "604966mwgy89so",
-      {
-        "submitterId": "1391972162285604966",
-        "fileName": "1391972162285604966__image__IMG_2681.png",
-        "rawName": "IMG_2681.png",
-        "mediaKind": "image",
-        "guildId": "1048053656035020911",
-        "destFolder": null
-      }
     ]
   ],
   "quoteGuildConfigs": [
@@ -173199,7 +173189,7 @@
     ]
   ],
   "uploadCounters": {
-    "quote": 638,
+    "quote": 639,
     "eardestroyer": 1,
     "eyebleacher": 3
   },
